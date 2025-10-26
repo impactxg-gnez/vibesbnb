@@ -104,6 +104,9 @@ export class BookingsService {
     });
 
     const booking = await this.findById(bookingId);
+    if (!booking) {
+      throw new Error('Failed to create booking');
+    }
 
     return { booking, paymentIntent };
   }
@@ -115,6 +118,10 @@ export class BookingsService {
     }
 
     // Verify payment was successful
+    if (!booking.paymentIntentId) {
+      throw new BadRequestException('Payment intent not found');
+    }
+    
     const paymentConfirmed = await this.paymentsService.confirmPayment(
       booking.paymentIntentId,
     );
@@ -130,7 +137,9 @@ export class BookingsService {
     );
     if (!isAvailable) {
       // Refund payment
-      await this.paymentsService.refundPayment(booking.paymentIntentId);
+      if (booking.paymentIntentId) {
+        await this.paymentsService.refundPayment(booking.paymentIntentId);
+      }
       throw new BadRequestException('Listing no longer available');
     }
 
@@ -156,6 +165,10 @@ export class BookingsService {
 
     // Send notifications
     const listing = await this.listingsService.findById(booking.listingId);
+    if (!listing) {
+      throw new Error('Listing not found');
+    }
+    
     const guest = await this.firebase.get('users', booking.guestId);
     const host = await this.firebase.get('users', booking.hostId);
 
@@ -184,7 +197,11 @@ export class BookingsService {
       { bookingId },
     );
 
-    return this.findById(bookingId);
+    const confirmedBooking = await this.findById(bookingId);
+    if (!confirmedBooking) {
+      throw new Error('Failed to confirm booking');
+    }
+    return confirmedBooking;
   }
 
   async acceptBooking(bookingId: string, hostId: string): Promise<Booking> {
