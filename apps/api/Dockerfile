@@ -39,10 +39,8 @@ COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-# Copy node_modules from builder to ensure everything is linked correctly
+# Copy node_modules from builder (workspaces use root node_modules)
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 
 # Cloud Run expects the app to listen on PORT env variable
 ENV PORT=8080
