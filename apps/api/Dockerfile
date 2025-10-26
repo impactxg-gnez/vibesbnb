@@ -21,6 +21,9 @@ RUN cd packages/shared && npm run build
 # Build API
 RUN cd apps/api && npm run build
 
+# Debug: Show what was built
+RUN echo "=== Contents of apps/api/dist ===" && ls -la apps/api/dist/ || echo "dist folder not found!"
+
 # Production stage
 FROM node:22-alpine
 
@@ -41,6 +44,12 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Copy node_modules from builder (workspaces use root node_modules)
 COPY --from=builder /app/node_modules ./node_modules
+
+# Debug: Show what we have
+RUN echo "=== Root directory ===" && ls -la && \
+    echo "=== apps directory ===" && ls -la apps/ && \
+    echo "=== apps/api directory ===" && ls -la apps/api/ && \
+    echo "=== apps/api/dist directory ===" && ls -la apps/api/dist/ || echo "No dist!"
 
 # Cloud Run expects the app to listen on PORT env variable
 ENV PORT=8080
