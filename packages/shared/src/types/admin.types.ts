@@ -1,3 +1,5 @@
+import { PayoutStatus } from './booking.types';
+
 export enum ReportReason {
   INAPPROPRIATE_CONTENT = 'inappropriate_content',
   SPAM = 'spam',
@@ -66,14 +68,6 @@ export interface Payout {
   initiatedAt: Date;
   completedAt?: Date;
   failureReason?: string;
-}
-
-export enum PayoutStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  REFUNDED = 'refunded',
 }
 
 
