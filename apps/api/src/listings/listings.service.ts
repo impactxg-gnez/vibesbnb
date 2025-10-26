@@ -37,7 +37,11 @@ export class ListingsService {
       currency: 'USD',
     });
 
-    return this.findById(listingId);
+    const listing = await this.findById(listingId);
+    if (!listing) {
+      throw new Error('Failed to create listing');
+    }
+    return listing;
   }
 
   async findById(id: string): Promise<Listing | null> {
@@ -61,7 +65,11 @@ export class ListingsService {
     }
 
     await this.firebase.update('listings', id, data);
-    return this.findById(id);
+    const updatedListing = await this.findById(id);
+    if (!updatedListing) {
+      throw new Error('Failed to update listing');
+    }
+    return updatedListing;
   }
 
   async delete(id: string, hostId: string): Promise<void> {
@@ -88,7 +96,11 @@ export class ListingsService {
       status: ListingStatus.PENDING_REVIEW,
     });
 
-    return this.findById(id);
+    const publishedListing = await this.findById(id);
+    if (!publishedListing) {
+      throw new Error('Failed to publish listing');
+    }
+    return publishedListing;
   }
 
   async search(filters: SearchFilters): Promise<Listing[]> {
@@ -116,13 +128,14 @@ export class ListingsService {
 
     // Filter by location (client-side for now)
     if (filters.bbox) {
+      const bbox = filters.bbox;
       listings = listings.filter((listing) => {
         const { lat, lng } = listing.address;
         return (
-          lat >= filters.bbox.swLat &&
-          lat <= filters.bbox.neLat &&
-          lng >= filters.bbox.swLng &&
-          lng <= filters.bbox.neLng
+          lat >= bbox.swLat &&
+          lat <= bbox.neLat &&
+          lng >= bbox.swLng &&
+          lng <= bbox.neLng
         );
       });
     }

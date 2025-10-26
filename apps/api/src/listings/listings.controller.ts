@@ -93,7 +93,7 @@ export class ListingsController {
   async uploadMedia(
     @Param('id') id: string,
     @CurrentUser() user: any,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
   ) {
     return this.listingsService.uploadMedia(id, user.userId, file.buffer);
   }

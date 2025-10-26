@@ -11,8 +11,8 @@ export class KycService {
 
   constructor(private usersService: UsersService) {
     this.kycProvider = process.env.KYC_PROVIDER || 'veriff';
-    this.veriffApiKey = process.env.VERIFF_API_KEY;
-    this.jumioApiKey = process.env.JUMIO_API_KEY;
+    this.veriffApiKey = process.env.VERIFF_API_KEY || '';
+    this.jumioApiKey = process.env.JUMIO_API_KEY || '';
   }
 
   async initiateKYC(userId: string): Promise<{ verificationUrl: string; sessionId: string }> {
