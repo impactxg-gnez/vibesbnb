@@ -18,6 +18,8 @@ export interface User {
   email: string;
   name: string;
   phone?: string;
+  passwordHash?: string; // Internal field - not exposed via API
+  refreshTokenHash?: string | null; // Internal field - not exposed via API
   mfaEnabled: boolean;
   kycStatus: KYCStatus;
   stripeConnectId?: string;
