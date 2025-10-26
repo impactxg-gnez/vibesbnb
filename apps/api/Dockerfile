@@ -31,23 +31,26 @@ COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY packages/shared/package*.json ./packages/shared/
 
-# Install production dependencies only
-RUN npm install --production
+# Install ALL dependencies (needed for monorepo to work properly)
+RUN npm install
 
 # Copy built files from builder
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-# Set working directory to API
-WORKDIR /app/apps/api
+# Copy node_modules from builder to ensure everything is linked correctly
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 
 # Cloud Run expects the app to listen on PORT env variable
 ENV PORT=8080
+ENV NODE_ENV=production
 
 # Expose port
 EXPOSE 8080
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Start the application from root
+CMD ["node", "apps/api/dist/main.js"]
 
