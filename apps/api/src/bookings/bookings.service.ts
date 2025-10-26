@@ -203,6 +203,10 @@ export class BookingsService {
 
     const guest = await this.firebase.get('users', booking.guestId);
     const listing = await this.listingsService.findById(booking.listingId);
+    
+    if (!listing) {
+      throw new Error('Listing not found');
+    }
 
     await this.notificationsService.sendBookingConfirmation(
       guest.email,
@@ -220,7 +224,11 @@ export class BookingsService {
       { bookingId },
     );
 
-    return this.findById(bookingId);
+    const confirmedBooking = await this.findById(bookingId);
+    if (!confirmedBooking) {
+      throw new Error('Failed to confirm booking');
+    }
+    return confirmedBooking;
   }
 
   async declineBooking(bookingId: string, hostId: string, reason?: string): Promise<void> {
@@ -234,7 +242,9 @@ export class BookingsService {
     }
 
     // Refund guest
-    await this.paymentsService.refundPayment(booking.paymentIntentId, undefined, 'requested_by_customer');
+    if (booking.paymentIntentId) {
+      await this.paymentsService.refundPayment(booking.paymentIntentId, undefined, 'requested_by_customer');
+    }
 
     await this.firebase.update('bookings', bookingId, {
       status: BookingStatus.DECLINED,
@@ -250,6 +260,10 @@ export class BookingsService {
 
     const guest = await this.firebase.get('users', booking.guestId);
     const listing = await this.listingsService.findById(booking.listingId);
+    
+    if (!listing) {
+      throw new Error('Listing not found');
+    }
 
     await this.notificationsService.createNotification(
       booking.guestId,
@@ -282,7 +296,7 @@ export class BookingsService {
       booking.cancellationPolicy,
     );
 
-    if (refundAmount > 0) {
+    if (refundAmount > 0 && booking.paymentIntentId) {
       await this.paymentsService.refundPayment(
         booking.paymentIntentId,
         refundAmount,

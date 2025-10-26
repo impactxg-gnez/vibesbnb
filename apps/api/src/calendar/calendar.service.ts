@@ -9,7 +9,7 @@ import {
   DateAvailability,
 } from '@vibesbnb/shared';
 import { addDays, dateRange, formatDate } from '@vibesbnb/shared';
-import * as ical from 'ical-generator';
+import ical from 'ical-generator';
 import * as nodeIcal from 'node-ical';
 import axios from 'axios';
 import { randomBytes } from 'crypto';
@@ -103,6 +103,11 @@ export class CalendarService {
     }
 
     const listing = await this.listingsService.findById(listingId);
+    
+    if (!listing) {
+      throw new Error('Listing not found');
+    }
+    
     const blocks = await this.firebase.query('availability_blocks', [
       { field: 'listingId', op: '==', value: listingId },
       { field: 'isAvailable', op: '==', value: false },
