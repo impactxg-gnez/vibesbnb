@@ -22,7 +22,7 @@ export class NotificationsService {
       );
     }
 
-    this.fromPhone = process.env.TWILIO_FROM_PHONE;
+    this.fromPhone = process.env.TWILIO_FROM_PHONE || '';
     this.fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@vibesbnb.com';
   }
 

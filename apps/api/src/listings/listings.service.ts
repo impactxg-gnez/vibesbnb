@@ -128,14 +128,15 @@ export class ListingsService {
     }
 
     if (filters.location) {
+      const location = filters.location;
       listings = listings.filter((listing) => {
         const distance = this.calculateDistance(
-          filters.location.lat,
-          filters.location.lng,
+          location.lat,
+          location.lng,
           listing.address.lat,
           listing.address.lng,
         );
-        return distance <= filters.location.radius;
+        return distance <= location.radius;
       });
     }
 
@@ -150,7 +151,8 @@ export class ListingsService {
 
     // Filter by guests
     if (filters.guests) {
-      listings = listings.filter((listing) => listing.maxGuests >= filters.guests);
+      const guestCount = filters.guests;
+      listings = listings.filter((listing) => listing.maxGuests >= guestCount);
     }
 
     return listings;

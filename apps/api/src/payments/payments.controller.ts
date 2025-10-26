@@ -25,6 +25,9 @@ export class PaymentsController {
     @Headers('stripe-signature') signature: string,
     @Req() req: RawBodyRequest<Request>,
   ) {
+    if (!req.rawBody) {
+      throw new Error('Missing raw body');
+    }
     await this.paymentsService.handleWebhook(signature, req.rawBody);
     return { received: true };
   }
@@ -35,6 +38,9 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Create Stripe Connect account' })
   async createConnectAccount(@CurrentUser() user: any) {
     const userRecord = await this.paymentsService['usersService'].findById(user.userId);
+    if (!userRecord) {
+      throw new Error('User not found');
+    }
     const accountId = await this.paymentsService.createConnectAccount(
       user.userId,
       userRecord.email,
@@ -51,7 +57,7 @@ export class PaymentsController {
     @Body() data: { returnUrl: string; refreshUrl: string },
   ) {
     const userRecord = await this.paymentsService['usersService'].findById(user.userId);
-    if (!userRecord.stripeConnectId) {
+    if (!userRecord || !userRecord.stripeConnectId) {
       throw new Error('No Stripe Connect account found');
     }
 
@@ -70,7 +76,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Get Stripe Connect account status' })
   async getConnectStatus(@CurrentUser() user: any) {
     const userRecord = await this.paymentsService['usersService'].findById(user.userId);
-    if (!userRecord.stripeConnectId) {
+    if (!userRecord || !userRecord.stripeConnectId) {
       return { connected: false };
     }
 
