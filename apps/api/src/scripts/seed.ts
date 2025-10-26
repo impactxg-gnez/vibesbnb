@@ -30,7 +30,7 @@ async function seed() {
   console.log('✅ Created admin user');
 
   // Create 3 host users
-  const hosts = [];
+  const hosts: Array<{ id: string; name: string }> = [];
   for (let i = 1; i <= 3; i++) {
     const passwordHash = await bcrypt.hash('password123', 10);
     const hostId = await firebase.create('users', {
@@ -59,7 +59,7 @@ async function seed() {
   console.log('✅ Created 3 host users');
 
   // Create 5 guest users
-  const guests = [];
+  const guests: Array<{ id: string; name: string }> = [];
   for (let i = 1; i <= 5; i++) {
     const passwordHash = await bcrypt.hash('password123', 10);
     const guestId = await firebase.create('users', {
@@ -86,7 +86,7 @@ async function seed() {
   console.log('✅ Created 5 guest users');
 
   // Create 12 listings (4 per host)
-  const listings = [];
+  const listings: Array<{ id: string; hostId: string; title: string }> = [];
   const listingData = [
     {
       title: '420-Friendly Mountain Retreat',

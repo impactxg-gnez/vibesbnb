@@ -11,7 +11,7 @@ export class PaymentsService {
     private usersService: UsersService,
     private firebase: FirebaseService,
   ) {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
       apiVersion: '2023-10-16',
     });
   }
@@ -31,7 +31,7 @@ export class PaymentsService {
     });
 
     return {
-      clientSecret: paymentIntent.client_secret,
+      clientSecret: paymentIntent.client_secret || '',
       paymentIntentId: paymentIntent.id,
     };
   }
@@ -140,7 +140,7 @@ export class PaymentsService {
   }
 
   async handleWebhook(signature: string, payload: Buffer): Promise<void> {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
     
     let event: Stripe.Event;
     try {

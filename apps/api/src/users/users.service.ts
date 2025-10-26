@@ -24,7 +24,11 @@ export class UsersService {
       verifiedPhone: false,
     });
 
-    return this.findById(userId);
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('Failed to create user');
+    }
+    return user;
   }
 
   async findById(id: string): Promise<User | null> {
