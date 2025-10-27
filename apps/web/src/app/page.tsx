@@ -3,6 +3,7 @@ import { SearchBar } from '@/components/search/SearchBar';
 import { FeaturedListings } from '@/components/home/FeaturedListings';
 import { WellnessCategories } from '@/components/home/WellnessCategories';
 import { HowItWorks } from '@/components/home/HowItWorks';
+import { DebugInfo } from '@/components/DebugInfo';
 
 export default function HomePage() {
   return (
@@ -14,6 +15,7 @@ export default function HomePage() {
       <WellnessCategories />
       <FeaturedListings />
       <HowItWorks />
+      <DebugInfo />
     </div>
   );
 }
