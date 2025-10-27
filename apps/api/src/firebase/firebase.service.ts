@@ -7,6 +7,12 @@ export class FirebaseService implements OnModuleInit {
   private firestore: Firestore;
 
   onModuleInit() {
+    // Skip Firebase initialization if credentials are not provided (for testing)
+    if (!process.env.FIREBASE_PROJECT_ID) {
+      console.warn('⚠️  Firebase credentials not provided. Firebase features will be unavailable.');
+      return;
+    }
+
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
