@@ -1,4 +1,4 @@
-// Hero component - trigger deployment
+// Hero component - force deployment v2
 export function Hero() {
   return (
     <div className="relative h-[500px] bg-gradient-to-r from-primary-600 to-primary-800">
