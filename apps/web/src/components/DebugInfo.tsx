@@ -3,8 +3,17 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 
+interface DebugState {
+  apiUrl: string | undefined;
+  loading: boolean;
+  error: string | null;
+  data: any;
+  testUrl: string | null;
+  status?: number;
+}
+
 export function DebugInfo() {
-  const [debug, setDebug] = useState<any>({
+  const [debug, setDebug] = useState<DebugState>({
     apiUrl: process.env.NEXT_PUBLIC_API_URL,
     loading: true,
     error: null,
@@ -17,12 +26,12 @@ export function DebugInfo() {
       try {
         // Test direct fetch
         const testUrl = `${process.env.NEXT_PUBLIC_API_URL}/listings`;
-        setDebug(prev => ({ ...prev, testUrl }));
+        setDebug((prev: DebugState) => ({ ...prev, testUrl }));
         
         const response = await fetch(testUrl);
         const data = await response.json();
         
-        setDebug(prev => ({
+        setDebug((prev: DebugState) => ({
           ...prev,
           loading: false,
           data: data,
@@ -30,7 +39,7 @@ export function DebugInfo() {
           error: null,
         }));
       } catch (error: any) {
-        setDebug(prev => ({
+        setDebug((prev: DebugState) => ({
           ...prev,
           loading: false,
           error: error.message,
