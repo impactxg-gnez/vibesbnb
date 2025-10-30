@@ -1,4 +1,7 @@
+'use client';
+
 import { Search, Calendar, Home } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const steps = [
   {
@@ -20,6 +23,19 @@ const steps = [
 ];
 
 export function HowItWorks() {
+  const router = useRouter();
+
+  const handleStartExploring = () => {
+    // Scroll to the featured listings section on the homepage
+    const featuredSection = document.querySelector('#featured-listings');
+    if (featuredSection) {
+      featuredSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      // If no featured section, go to search page
+      router.push('/search');
+    }
+  };
+
   return (
     <section className="py-16 bg-white">
       <div className="container mx-auto px-4">
@@ -38,7 +54,12 @@ export function HowItWorks() {
         </div>
 
         <div className="text-center mt-12">
-          <button className="btn-primary">Start Exploring</button>
+          <button 
+            onClick={handleStartExploring}
+            className="btn-primary"
+          >
+            Start Exploring
+          </button>
         </div>
       </div>
     </section>
