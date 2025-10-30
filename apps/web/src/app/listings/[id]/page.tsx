@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { MapPin, Users, Bed, Bath, Star, Wifi, Coffee, Car, Dumbbell, Wind, Heart } from 'lucide-react';
 import Image from 'next/image';
+import { GoogleMap, MapFallback } from '@/components/map/GoogleMap';
 
 interface Listing {
   id: string;
@@ -288,6 +289,29 @@ export default function ListingDetailPage() {
                 </div>
               </div>
             )}
+
+            {/* Location */}
+            <div className="py-6 border-b">
+              <h3 className="text-xl font-semibold mb-4">Location</h3>
+              <p className="text-gray-700 mb-4">
+                {listing.address.city}, {listing.address.state}, {listing.address.country}
+              </p>
+              {typeof window !== 'undefined' && window.google && listing.address.lat && listing.address.lng ? (
+                <GoogleMap
+                  center={{ lat: listing.address.lat, lng: listing.address.lng }}
+                  zoom={14}
+                  markers={[
+                    { lat: listing.address.lat, lng: listing.address.lng, title: listing.title }
+                  ]}
+                  className="w-full h-96 rounded-lg"
+                />
+              ) : (
+                <MapFallback
+                  address={`${listing.address.street}, ${listing.address.city}, ${listing.address.state} ${listing.address.zipCode}`}
+                  className="w-full h-96"
+                />
+              )}
+            </div>
 
             {/* House Rules */}
             {listing.houseRules && listing.houseRules.length > 0 && (

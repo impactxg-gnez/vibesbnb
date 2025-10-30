@@ -95,9 +95,7 @@ export default function BookingDetailPage() {
     try {
       const itinerary = await api.post('/itinerary', {
         bookingId: booking.id,
-        listingId: booking.listingId,
-        title: `Trip to ${listing.address.city}`,
-        description: `Wellness getaway at ${listing.title}`,
+        name: `Trip to ${listing.address.city}`,
         startDate: booking.checkIn,
         endDate: booking.checkOut,
         destination: {
@@ -105,7 +103,6 @@ export default function BookingDetailPage() {
           state: listing.address.state,
           country: listing.address.country,
         },
-        estimatedBudget: booking.total,
       });
 
       router.push(`/itinerary/${itinerary.id}`);

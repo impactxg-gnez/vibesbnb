@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { Menu, User, Heart, MessageCircle, Calendar, LogOut } from 'lucide-react';
+import { Menu, User, Heart, MessageCircle, Calendar, LogOut, Map } from 'lucide-react';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -42,11 +42,18 @@ export function Header() {
                   </Link>
                 )}
                 <Link
-                  href="/trips"
+                  href="/bookings"
                   className="text-gray-700 hover:text-primary-600 flex items-center space-x-1"
                 >
                   <Calendar className="w-4 h-4" />
-                  <span>Trips</span>
+                  <span>Bookings</span>
+                </Link>
+                <Link
+                  href="/itinerary"
+                  className="text-gray-700 hover:text-primary-600 flex items-center space-x-1"
+                >
+                  <Map className="w-4 h-4" />
+                  <span>Trip Planner</span>
                 </Link>
                 <Link
                   href="/favorites"
@@ -128,8 +135,11 @@ export function Header() {
             <nav className="flex flex-col space-y-4">
               {user ? (
                 <>
-                  <Link href="/trips" className="text-gray-700">
-                    Trips
+                  <Link href="/bookings" className="text-gray-700">
+                    Bookings
+                  </Link>
+                  <Link href="/itinerary" className="text-gray-700">
+                    Trip Planner
                   </Link>
                   <Link href="/favorites" className="text-gray-700">
                     Favorites
