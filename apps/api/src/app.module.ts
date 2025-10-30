@@ -15,6 +15,7 @@ import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { KycModule } from './kyc/kyc.module';
 import { QueueModule } from './queue/queue.module';
+import { ItineraryModule } from './itinerary/itinerary.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { QueueModule } from './queue/queue.module';
     NotificationsModule,
     KycModule,
     QueueModule,
+    ItineraryModule,
   ],
 })
 export class AppModule {}

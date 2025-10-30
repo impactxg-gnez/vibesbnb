@@ -6,6 +6,7 @@ export * from './types/calendar.types';
 export * from './types/messaging.types';
 export * from './types/review.types';
 export * from './types/admin.types';
+export * from './types/itinerary.types';
 
 // Constants
 export * from './constants';
