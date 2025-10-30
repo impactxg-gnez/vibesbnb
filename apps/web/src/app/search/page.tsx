@@ -6,20 +6,7 @@ import { api } from '@/lib/api';
 import { ListingCard } from '@/components/listings/ListingCard';
 import { SearchBar } from '@/components/search/SearchBar';
 import { Loader2 } from 'lucide-react';
-
-interface Listing {
-  id: string;
-  title: string;
-  description: string;
-  address: {
-    city: string;
-    state: string;
-    country: string;
-  };
-  basePrice: number;
-  wellnessTags: string[];
-  status: string;
-}
+import { Listing } from '@vibesbnb/shared';
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
