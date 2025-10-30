@@ -156,6 +156,15 @@ export class AdminService {
     );
   }
 
+  async getAllUsers() {
+    const users = await this.firebase.query('users', []);
+    // Remove sensitive data
+    return users.map((user) => {
+      const { passwordHash, refreshTokenHash, ...publicUser } = user as any;
+      return publicUser;
+    });
+  }
+
   async suspendUser(userId: string, reason: string) {
     await this.firebase.update('users', userId, {
       suspended: true,

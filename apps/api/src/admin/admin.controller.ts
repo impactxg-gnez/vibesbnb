@@ -101,6 +101,12 @@ export class AdminController {
     return this.adminService.getAuditLogs(limit ? parseInt(limit as any) : 100);
   }
 
+  @Get('users')
+  @ApiOperation({ summary: 'Get all users' })
+  async getAllUsers() {
+    return this.adminService.getAllUsers();
+  }
+
   @Post('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend user' })
   async suspendUser(@Param('id') id: string, @Body() data: { reason: string }) {
