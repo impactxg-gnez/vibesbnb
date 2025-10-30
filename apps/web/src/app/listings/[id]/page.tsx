@@ -18,6 +18,8 @@ interface Listing {
     state: string;
     country: string;
     zipCode: string;
+    lat: number;
+    lng: number;
   };
   basePrice: number;
   cleaningFee: number;
