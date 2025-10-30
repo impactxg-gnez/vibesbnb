@@ -146,12 +146,12 @@ export default function MessagesPage() {
                         <div
                           key={message.id}
                           className={`flex ${
-                            message.senderId === user.userId ? 'justify-end' : 'justify-start'
+                            message.senderId === user.id ? 'justify-end' : 'justify-start'
                           }`}
                         >
                           <div
                             className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                              message.senderId === user.userId
+                              message.senderId === user.id
                                 ? 'bg-primary-600 text-white'
                                 : 'bg-gray-200 text-gray-900'
                             }`}
