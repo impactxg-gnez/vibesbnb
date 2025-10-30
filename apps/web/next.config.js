@@ -4,6 +4,8 @@ const nextConfig = {
   images: {
     domains: [
       'source.unsplash.com',
+      'images.unsplash.com',
+      'picsum.photos',
       'i.pravatar.cc',
       'cdn.vibesbnb.com',
       'vibesbnb-media.s3.amazonaws.com',
