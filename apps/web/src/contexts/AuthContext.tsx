@@ -42,6 +42,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const getDashboardRoute = (userRole: string) => {
+    switch (userRole) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'host':
+        return '/host/dashboard';
+      case 'guest':
+      default:
+        return '/dashboard';
+    }
+  };
+
   const login = async (email: string, password: string) => {
     const data: AuthTokens & { user?: User } = await api.post('/auth/login', {
       email,
@@ -53,7 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api.setToken(data.accessToken);
     
     await loadUser();
-    router.push('/dashboard');
+    
+    // Redirect based on user role
+    const userData = await api.get<User>('/users/me');
+    const dashboardRoute = getDashboardRoute(userData.role);
+    router.push(dashboardRoute);
   };
 
   const register = async (email: string, password: string, name: string) => {
@@ -68,7 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api.setToken(data.accessToken);
     
     await loadUser();
-    router.push('/dashboard');
+    
+    // Redirect based on user role (default to guest dashboard)
+    const userData = await api.get<User>('/users/me');
+    const dashboardRoute = getDashboardRoute(userData.role);
+    router.push(dashboardRoute);
   };
 
   const logout = async () => {
