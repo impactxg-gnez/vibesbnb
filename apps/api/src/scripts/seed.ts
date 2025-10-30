@@ -196,77 +196,8 @@ async function seed() {
 
   console.log('✅ Created 12 listings with images');
 
-  // Create 20 bookings
-  for (let i = 0; i < 20; i++) {
-    const listing = listings[i % listings.length];
-    const guest = guests[i % guests.length];
-    
-    const daysFromNow = (i % 3 === 0) ? -30 : (i % 3 === 1) ? 7 : 30; // Past, near future, far future
-    const checkIn = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
-    const checkOut = new Date(checkIn.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 night stay
-
-    const subtotal = 45000; // $450 for 3 nights
-    const cleaningFee = 5000;
-    const serviceFee = 4500;
-    const taxes = 4360;
-    const total = 58860;
-
-    const status = daysFromNow < -7 ? BookingStatus.CHECKED_OUT :
-                   daysFromNow < 0 ? BookingStatus.CHECKED_IN :
-                   BookingStatus.CONFIRMED;
-
-    const bookingId = await firebase.create('bookings', {
-      listingId: listing.id,
-      guestId: guest.id,
-      hostId: listing.hostId,
-      checkIn,
-      checkOut,
-      guests: 2,
-      status,
-      subtotal,
-      cleaningFee,
-      serviceFee,
-      taxes,
-      total,
-      currency: 'USD',
-      paymentIntentId: `pi_mock_${i}`,
-      payoutStatus: status === BookingStatus.CHECKED_OUT ? PayoutStatus.COMPLETED : PayoutStatus.PENDING,
-      cancellationPolicy: CancellationPolicy.MODERATE,
-    });
-
-    // Block dates in calendar
-    await firebase.create('availability_blocks', {
-      listingId: listing.id,
-      startDate: checkIn,
-      endDate: checkOut,
-      isAvailable: false,
-      reason: 'booking',
-      source: 'internal',
-      sourceId: bookingId,
-    });
-
-    // Add reviews for completed bookings
-    if (status === BookingStatus.CHECKED_OUT) {
-      await firebase.create('reviews', {
-        bookingId,
-        authorId: guest.id,
-        targetUserId: listing.hostId,
-        targetType: 'host',
-        rating: 4 + Math.round(Math.random()),
-        comment: 'Great stay! Very peaceful and welcoming. Perfect for a wellness retreat.',
-        categories: {
-          cleanliness: 5,
-          communication: 5,
-          checkIn: 4,
-          accuracy: 5,
-          location: 4,
-          value: 4,
-        },
-      });
-    }
-  }
-
-  console.log('✅ Created 20 bookings with reviews');
+  // Note: Bookings removed - users will create real bookings through the app
+  console.log('✅ Skipped dummy bookings - users will create their own');
 
   // Create message threads and messages
   for (let i = 0; i < 10; i++) {

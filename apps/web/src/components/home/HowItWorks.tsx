@@ -26,14 +26,8 @@ export function HowItWorks() {
   const router = useRouter();
 
   const handleStartExploring = () => {
-    // Scroll to the featured listings section on the homepage
-    const featuredSection = document.querySelector('#featured-listings');
-    if (featuredSection) {
-      featuredSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      // If no featured section, go to search page
-      router.push('/search');
-    }
+    // Navigate to search page to show all available properties
+    router.push('/search');
   };
 
   return (

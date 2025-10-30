@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, MapPin, Calendar as CalendarIcon, Users, Home } from 'lucide-react';
+import { Search, MapPin, Calendar as CalendarIcon, Users, Home, Plus, Minus } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface Listing {
@@ -237,18 +237,29 @@ export function SearchBar() {
 
         {/* Guests */}
         <div className="flex items-center justify-between space-x-2 border border-gray-300 rounded-lg px-4 py-3">
-          <Users className="w-5 h-5 text-gray-400" />
-          <select
-            value={guests}
-            onChange={(e) => setGuests(parseInt(e.target.value))}
-            className="flex-1 outline-none"
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
-              <option key={num} value={num}>
-                {num} {num === 1 ? 'Guest' : 'Guests'}
-              </option>
-            ))}
-          </select>
+          <Users className="w-5 h-5 text-gray-400 flex-shrink-0" />
+          <div className="flex items-center gap-3 flex-1 justify-between">
+            <span className="text-gray-700 font-medium">
+              {guests} {guests === 1 ? 'Guest' : 'Guests'}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setGuests(Math.max(1, guests - 1))}
+                disabled={guests <= 1}
+                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-primary-600 hover:text-primary-600 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:text-current transition-colors"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuests(guests + 1)}
+                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-primary-600 hover:text-primary-600 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
