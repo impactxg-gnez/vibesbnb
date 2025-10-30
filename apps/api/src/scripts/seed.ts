@@ -166,19 +166,24 @@ async function seed() {
         syncEnabled: true,
       });
 
-      // Add mock images
+      // Add mock images using Picsum Photos (reliable placeholder service)
+      // Different seed values for variety
+      const baseSeeds = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200];
+      const listingSeed = baseSeeds[listings.length % baseSeeds.length];
+      
       for (let j = 0; j < 5; j++) {
+        const seed = listingSeed + j;
         await firebase.create('listing_media', {
           listingId,
-          url: `https://source.unsplash.com/800x600/?wellness,${data.city.toLowerCase()}`,
+          url: `https://picsum.photos/seed/${seed}/800/600`,
           type: 'image',
           width: 800,
           height: 600,
           variants: {
-            thumbnail: `https://source.unsplash.com/200x200/?wellness`,
-            small: `https://source.unsplash.com/400x300/?wellness`,
-            medium: `https://source.unsplash.com/800x600/?wellness`,
-            large: `https://source.unsplash.com/1600x1200/?wellness`,
+            thumbnail: `https://picsum.photos/seed/${seed}/200/200`,
+            small: `https://picsum.photos/seed/${seed}/400/300`,
+            medium: `https://picsum.photos/seed/${seed}/800/600`,
+            large: `https://picsum.photos/seed/${seed}/1600/1200`,
           },
           order: j,
           altText: `${data.title} - Image ${j + 1}`,
