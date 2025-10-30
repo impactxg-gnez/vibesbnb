@@ -57,7 +57,7 @@ export default function SearchPage() {
     if (tags) {
       const tagList = tags.split(',');
       filtered = filtered.filter((listing) =>
-        tagList.some((tag) => listing.wellnessTags.includes(tag))
+        tagList.some((tag) => (listing.wellnessTags as string[]).includes(tag))
       );
     }
 
