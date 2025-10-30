@@ -19,7 +19,7 @@ interface MapProps {
 
 export function GoogleMap({ center, zoom = 14, markers = [], className = 'w-full h-96' }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [map, setMap] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,7 +32,8 @@ export function GoogleMap({ center, zoom = 14, markers = [], className = 'w-full
 
     try {
       // Initialize map
-      const googleMap = new google.maps.Map(mapRef.current, {
+      const g = (window as any).google;
+      const googleMap = new g.maps.Map(mapRef.current, {
         center,
         zoom,
         styles: [
@@ -61,10 +62,13 @@ export function GoogleMap({ center, zoom = 14, markers = [], className = 'w-full
   useEffect(() => {
     if (!map) return;
 
+    const g = (window as any).google;
+    if (!g) return;
+
     // Clear existing markers
     // Add new markers
     markers.forEach((marker) => {
-      new google.maps.Marker({
+      new g.maps.Marker({
         position: { lat: marker.lat, lng: marker.lng },
         map,
         title: marker.title,
