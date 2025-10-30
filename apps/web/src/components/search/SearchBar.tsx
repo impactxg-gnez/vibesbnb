@@ -264,7 +264,7 @@ export function SearchBar() {
       </div>
 
       <button
-        onClick={handleSearch}
+        onClick={() => handleSearch()}
         className="btn-primary w-full mt-4 flex items-center justify-center space-x-2"
       >
         <Search className="w-5 h-5" />
