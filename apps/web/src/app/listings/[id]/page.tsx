@@ -104,6 +104,8 @@ export default function ListingDetailPage() {
   };
 
   const handleBooking = async () => {
+    if (!listing) return;
+
     if (!checkIn || !checkOut) {
       alert('Please select check-in and check-out dates');
       return;
