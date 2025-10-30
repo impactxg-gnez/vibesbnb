@@ -291,7 +291,7 @@ export default function ItineraryDetailPage() {
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-6">
             {markers.length > 0 ? (
-              typeof window !== 'undefined' && window.google ? (
+              typeof window !== 'undefined' && (window as any).google ? (
                 <GoogleMap
                   center={{ lat: centerLat, lng: centerLng }}
                   zoom={12}

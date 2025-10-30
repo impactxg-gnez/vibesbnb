@@ -296,7 +296,7 @@ export default function ListingDetailPage() {
               <p className="text-gray-700 mb-4">
                 {listing.address.city}, {listing.address.state}, {listing.address.country}
               </p>
-              {typeof window !== 'undefined' && window.google && listing.address.lat && listing.address.lng ? (
+              {typeof window !== 'undefined' && (window as any).google && listing.address.lat && listing.address.lng ? (
                 <GoogleMap
                   center={{ lat: listing.address.lat, lng: listing.address.lng }}
                   zoom={14}

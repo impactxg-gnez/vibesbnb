@@ -24,7 +24,7 @@ export function GoogleMap({ center, zoom = 14, markers = [], className = 'w-full
 
   useEffect(() => {
     // Check if Google Maps is available
-    if (typeof window === 'undefined' || !window.google) {
+    if (typeof window === 'undefined' || !(window as any).google) {
       return;
     }
 
