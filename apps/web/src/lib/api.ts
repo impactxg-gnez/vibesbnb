@@ -7,15 +7,16 @@ class API {
   constructor() {
     this.client = axios.create({
       baseURL: process.env.NEXT_PUBLIC_API_URL,
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     // Request interceptor
     this.client.interceptors.request.use((config) => {
       if (this.token) {
         config.headers.Authorization = `Bearer ${this.token}`;
+      }
+      // Set Content-Type to application/json by default, unless it's FormData
+      if (!config.headers['Content-Type'] && !(config.data instanceof FormData)) {
+        config.headers['Content-Type'] = 'application/json';
       }
       return config;
     });

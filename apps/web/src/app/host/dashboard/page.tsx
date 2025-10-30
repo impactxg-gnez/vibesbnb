@@ -99,7 +99,10 @@ export default function HostDashboard() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors">
+              <button 
+                onClick={() => router.push('/host/listings/new')}
+                className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors"
+              >
                 <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
