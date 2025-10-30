@@ -30,7 +30,7 @@ export class BookingsController {
       specialRequests?: string;
     },
   ) {
-    return this.bookingsService.create(
+    const result = await this.bookingsService.create(
       user.userId,
       data.listingId,
       new Date(data.checkIn),
@@ -38,6 +38,8 @@ export class BookingsController {
       data.guests,
       data.specialRequests,
     );
+    // Return just the booking for frontend compatibility
+    return result.booking;
   }
 
   @Post(':id/confirm')
