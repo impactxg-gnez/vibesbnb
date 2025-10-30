@@ -2,17 +2,34 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 
 export default function AdminDashboard() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [pendingListingsCount, setPendingListingsCount] = useState(0);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/login');
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user && user.role === 'admin') {
+      fetchPendingCounts();
+    }
+  }, [user]);
+
+  const fetchPendingCounts = async () => {
+    try {
+      const listings = await api.get('/admin/listings/pending');
+      setPendingListingsCount(listings.length);
+    } catch (error) {
+      console.error('Error fetching pending counts:', error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -113,9 +130,12 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div>
                     <p className="font-medium text-gray-900">New Listings</p>
-                    <p className="text-sm text-gray-600">0 pending</p>
+                    <p className="text-sm text-gray-600">{pendingListingsCount} pending</p>
                   </div>
-                  <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                  <button 
+                    onClick={() => router.push('/admin/listings')}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
                     View
                   </button>
                 </div>

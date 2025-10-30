@@ -183,31 +183,34 @@ export default function NewListingPage() {
   };
 
   const handleUploadPhotos = async () => {
-    if (!listingId || uploadedFiles.length === 0) {
-      router.push('/host/dashboard');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      for (const file of uploadedFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
+      // Upload photos if any
+      if (listingId && uploadedFiles.length > 0) {
+        for (const file of uploadedFiles) {
+          const formData = new FormData();
+          formData.append('file', file);
 
-        await api.post(`/listings/${listingId}/media`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+          await api.post(`/listings/${listingId}/media`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+        }
       }
 
-      alert('Listing created successfully!');
+      // Submit for review
+      if (listingId) {
+        await api.post(`/listings/${listingId}/publish`);
+        alert('Listing submitted for admin review! You will be notified once it is approved.');
+      }
+
       router.push('/host/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to upload photos');
-      console.error('Error uploading photos:', err);
+      setError(err.message || 'Failed to complete listing submission');
+      console.error('Error submitting listing:', err);
     } finally {
       setLoading(false);
     }
