@@ -60,6 +60,8 @@ export default function ListingDetailPage() {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState('');
 
   useEffect(() => {
     fetchListing();
@@ -98,6 +100,45 @@ export default function ListingDetailPage() {
     const serviceFee = subtotal * 0.1;
     
     return subtotal + cleaning + serviceFee;
+  };
+
+  const handleBooking = async () => {
+    if (!checkIn || !checkOut) {
+      alert('Please select check-in and check-out dates');
+      return;
+    }
+
+    if (nights < listing.minNights) {
+      alert(`Minimum stay is ${listing.minNights} nights`);
+      return;
+    }
+
+    if (nights > listing.maxNights) {
+      alert(`Maximum stay is ${listing.maxNights} nights`);
+      return;
+    }
+
+    setBookingLoading(true);
+
+    try {
+      const bookingData = {
+        listingId: listing.id,
+        checkIn,
+        checkOut,
+        guests,
+        specialRequests: specialRequests || undefined,
+      };
+
+      const booking = await api.post('/bookings', bookingData);
+      
+      // Redirect to booking confirmation
+      router.push(`/bookings/${booking.id}`);
+    } catch (error: any) {
+      console.error('Error creating booking:', error);
+      alert(error.message || 'Failed to create booking. Please try again.');
+    } finally {
+      setBookingLoading(false);
+    }
   };
 
   if (loading) {
@@ -338,16 +379,29 @@ export default function ListingDetailPage() {
                   </div>
                 )}
 
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Special Requests (optional)
+                  </label>
+                  <textarea
+                    value={specialRequests}
+                    onChange={(e) => setSpecialRequests(e.target.value)}
+                    placeholder="Any special requirements or questions?"
+                    rows={3}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 <button
-                  onClick={() => alert('Booking feature coming soon!')}
-                  disabled={!checkIn || !checkOut}
+                  onClick={handleBooking}
+                  disabled={!checkIn || !checkOut || bookingLoading}
                   className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {listing.instantBook ? 'Book Instantly' : 'Request to Book'}
+                  {bookingLoading ? 'Processing...' : (listing.instantBook ? 'Book Instantly' : 'Request to Book')}
                 </button>
 
                 <p className="text-sm text-gray-500 text-center">
-                  You won't be charged yet
+                  {listing.instantBook ? 'Your booking will be confirmed immediately' : 'The host will review your request'}
                 </p>
               </div>
             </div>
