@@ -61,7 +61,7 @@ export default function BookingsPage() {
       const listingIds = [...new Set(data.map((b: Booking) => b.listingId))];
       const listingData: { [key: string]: ListingInfo } = {};
       
-      for (const id of listingIds) {
+      for (const id of listingIds as string[]) {
         try {
           const listing = await api.get(`/listings/${id}`);
           listingData[id] = listing;
