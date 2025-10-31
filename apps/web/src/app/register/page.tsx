@@ -73,12 +73,35 @@ export default function RegisterPage() {
       // TODO: Implement registration API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Save role and navigate to role selection
+      // Create mock user and log them in
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      const mockUser = {
+        id: 'user-' + Date.now(),
+        email: formData.email,
+        name: role === 'dispensary' 
+          ? formData.businessName 
+          : `${formData.firstName} ${formData.lastName}`,
+        role: role === 'service_host' ? 'service_host' : role,
+      };
+      
+      // Save authentication data
+      localStorage.setItem('accessToken', mockToken);
+      localStorage.setItem('refreshToken', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
       localStorage.setItem('userRoles', JSON.stringify([role]));
       localStorage.setItem('activeRole', role);
       
       toast.success('Account created successfully!');
-      router.push('/select-role');
+      
+      // Navigate to role-specific dashboard
+      const roleRoutes = {
+        host: '/host/dashboard',
+        traveller: '/dashboard',
+        service_host: '/service/dashboard',
+        dispensary: '/dispensary/dashboard',
+      };
+      
+      router.push(roleRoutes[role] || '/dashboard');
     } catch (error: any) {
       toast.error('Registration failed');
     } finally {
