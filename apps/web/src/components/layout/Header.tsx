@@ -4,13 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Menu, User, Heart, MessageCircle, Calendar, LogOut, Map } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
+    <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-50 transition-colors">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -18,11 +19,14 @@ export function Header() {
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xl">V</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">VibesBNB</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">VibesBNB</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden md:flex items-center space-x-4">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+            
             {user ? (
               <>
                 {user.role === 'host' && (
