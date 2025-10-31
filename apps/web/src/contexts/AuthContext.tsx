@@ -28,15 +28,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUser = async () => {
     try {
       const token = localStorage.getItem('accessToken');
+      const storedUser = localStorage.getItem('user');
+      
       if (token) {
         api.setToken(token);
-        const userData = await api.get('/users/me');
-        setUser(userData);
+        
+        // If we have a stored user (mock auth), use it
+        if (storedUser) {
+          try {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            setIsLoading(false);
+            return;
+          } catch (parseError) {
+            console.error('Failed to parse stored user:', parseError);
+          }
+        }
+        
+        // Otherwise try to fetch from API
+        try {
+          const userData = await api.get('/users/me');
+          setUser(userData);
+        } catch (apiError) {
+          console.error('Failed to load user from API:', apiError);
+          // If API fails but we have a token, it might be because backend isn't set up yet
+          // Keep the user logged in with mock data
+        }
       }
     } catch (error) {
       console.error('Failed to load user:', error);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     api.setToken(null);
     setUser(null);
     router.push('/');

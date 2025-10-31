@@ -142,10 +142,26 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // TODO: Implement verification API call
+      // TODO: Implement actual verification API call
+      // For now, create mock user data
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock authentication - set tokens
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      const mockUser = {
+        id: 'user-' + Date.now(),
+        email: phoneNumber,
+        name: 'Demo User',
+        role: 'traveller',
+      };
+      
+      localStorage.setItem('accessToken', mockToken);
+      localStorage.setItem('refreshToken', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      
       toast.success('Login successful!');
       router.push('/dashboard');
+      window.location.href = '/dashboard'; // Force page reload to load user
     } catch (error: any) {
       toast.error('Invalid verification code');
     } finally {
@@ -171,10 +187,26 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // TODO: Implement password login API call
+      // TODO: Implement actual password login API call
+      // For now, create mock user data
       await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock authentication - set tokens
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      const mockUser = {
+        id: 'user-' + Date.now(),
+        email: email,
+        name: email.split('@')[0],
+        role: 'traveller',
+      };
+      
+      localStorage.setItem('accessToken', mockToken);
+      localStorage.setItem('refreshToken', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      
       toast.success('Login successful!');
       router.push('/dashboard');
+      window.location.href = '/dashboard'; // Force page reload to load user
     } catch (error: any) {
       toast.error('Invalid email or password');
     } finally {
@@ -182,10 +214,35 @@ export default function LoginPage() {
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    toast(`${provider} login coming soon!`, {
-      icon: 'ℹ️',
-    });
+  const handleSocialLogin = async (provider: string) => {
+    setIsLoading(true);
+    
+    try {
+      // TODO: Implement actual SSO
+      // For now, create mock user data
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock authentication - set tokens
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      const mockUser = {
+        id: 'user-' + Date.now(),
+        email: `demo@${provider.toLowerCase()}.com`,
+        name: `${provider} User`,
+        role: 'traveller',
+      };
+      
+      localStorage.setItem('accessToken', mockToken);
+      localStorage.setItem('refreshToken', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      
+      toast.success(`Logged in with ${provider}!`);
+      router.push('/dashboard');
+      window.location.href = '/dashboard'; // Force page reload to load user
+    } catch (error) {
+      toast.error(`${provider} login failed`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
