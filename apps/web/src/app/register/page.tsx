@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
-type UserRole = 'host' | 'traveller' | 'dispensary';
+type UserRole = 'host' | 'traveller' | 'dispensary' | 'service_host';
 
 interface FormData {
   // Common fields
@@ -81,7 +81,7 @@ export default function RegisterPage() {
         name: role === 'dispensary' 
           ? formData.businessName 
           : `${formData.firstName} ${formData.lastName}`,
-        role: role === 'service_host' ? 'service_host' : role,
+        role: role,
       };
       
       // Save authentication data
