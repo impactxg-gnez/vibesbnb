@@ -52,6 +52,7 @@ export default function RegisterPage() {
     host: 'Host',
     traveller: 'Traveller',
     dispensary: 'Dispensary',
+    service_host: 'Service Host',
   };
 
   const updateField = (field: keyof FormData, value: string) => {
