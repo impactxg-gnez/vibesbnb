@@ -26,7 +26,9 @@ export default function LoginPage() {
   };
 
   const handleSocialLogin = (provider: string) => {
-    toast.info(`${provider} login coming soon!`);
+    toast(`${provider} login coming soon!`, {
+      icon: 'ℹ️',
+    });
   };
 
   return (
