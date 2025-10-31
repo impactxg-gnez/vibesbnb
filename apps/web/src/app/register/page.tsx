@@ -10,6 +10,7 @@ type UserRole = 'host' | 'traveller' | 'dispensary' | 'service_host';
 interface FormData {
   // Common fields
   email: string;
+  password: string;
   
   // Personal fields (Host & Traveller)
   firstName?: string;
@@ -36,6 +37,7 @@ export default function RegisterPage() {
   
   const [formData, setFormData] = useState<FormData>({
     email: '',
+    password: '',
     firstName: '',
     lastName: '',
     dateOfBirth: { month: '', day: '', year: '' },
@@ -84,6 +86,15 @@ export default function RegisterPage() {
           : `${formData.firstName} ${formData.lastName}`,
         role: role,
       };
+      
+      // Store user credentials for login (mock auth system)
+      const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      existingUsers.push({
+        email: formData.email,
+        password: formData.password,
+        user: mockUser,
+      });
+      localStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
       
       // Save authentication data
       localStorage.setItem('accessToken', mockToken);
@@ -137,6 +148,16 @@ export default function RegisterPage() {
         onChange={(e) => updateField('email', e.target.value)}
         className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
         placeholder="Email Address"
+      />
+      
+      <input
+        type="password"
+        required
+        minLength={8}
+        value={formData.password}
+        onChange={(e) => updateField('password', e.target.value)}
+        className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
+        placeholder="Password (min 8 characters)"
       />
       
       <div>
@@ -237,6 +258,16 @@ export default function RegisterPage() {
         onChange={(e) => updateField('email', e.target.value)}
         className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
         placeholder="Email Address"
+      />
+      
+      <input
+        type="password"
+        required
+        minLength={8}
+        value={formData.password}
+        onChange={(e) => updateField('password', e.target.value)}
+        className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
+        placeholder="Password (min 8 characters)"
       />
     </>
   );

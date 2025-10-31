@@ -187,28 +187,34 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // TODO: Implement actual password login API call
-      // For now, create mock user data
+      // Check against registered users (mock auth system)
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Mock authentication - set tokens
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const foundUser = registeredUsers.find(
+        (u: any) => u.email === email && u.password === password
+      );
+      
+      if (!foundUser) {
+        toast.error('Invalid email or password');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Login successful - set tokens
       const mockToken = 'mock-jwt-token-' + Date.now();
-      const mockUser = {
-        id: 'user-' + Date.now(),
-        email: email,
-        name: email.split('@')[0],
-        role: 'traveller',
-      };
       
       localStorage.setItem('accessToken', mockToken);
       localStorage.setItem('refreshToken', mockToken);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      localStorage.setItem('user', JSON.stringify(foundUser.user));
+      localStorage.setItem('userRoles', JSON.stringify([foundUser.user.role]));
+      localStorage.setItem('activeRole', foundUser.user.role);
       
       toast.success('Login successful!');
       router.push('/dashboard');
       window.location.href = '/dashboard'; // Force page reload to load user
     } catch (error: any) {
-      toast.error('Invalid email or password');
+      toast.error('Login failed');
     } finally {
       setIsLoading(false);
     }
