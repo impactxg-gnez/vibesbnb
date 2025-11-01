@@ -119,7 +119,35 @@ Currently stored in browser localStorage under the key `earlyAccessSignups`.
 
 ### Viewing Sign-Up Data
 
-Open browser console and run:
+#### Production (Firebase)
+All signups are stored in Firebase Firestore with **custom document IDs** based on `name_phone` format.
+
+**Access Firebase Console:**
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select project: **vibesbnb-api-476309**
+3. Navigate to **Firestore Database**
+4. Open **early_access_signups** collection
+
+**Document ID Format:** `{sanitized_name}_{sanitized_phone}`
+- Example: "John Doe" with phone "+1 555-123-4567" → Document ID: `john_doe_5551234567`
+
+**Using API Endpoints:**
+```bash
+# Get all signups
+curl https://api.vibesbnb.com/api/v1/early-access/signups
+
+# Get signups by category
+curl https://api.vibesbnb.com/api/v1/early-access/signups?category=host
+
+# Get signup statistics
+curl https://api.vibesbnb.com/api/v1/early-access/stats
+
+# Export to CSV
+curl https://api.vibesbnb.com/api/v1/early-access/export
+```
+
+#### Local Fallback (localStorage)
+If API is unavailable, signups are stored in localStorage. Open browser console and run:
 ```javascript
 // Get all signups
 const signups = JSON.parse(localStorage.getItem('earlyAccessSignups') || '[]');
