@@ -248,48 +248,24 @@ export default function EarlyAccessPage() {
         ...(isHost && hasAirbnb && airbnbData.listingUrl && { airbnbData }),
       };
 
-      // Try to save to Firebase via API
-      try {
-        const response = await api.post('/early-access/signup', signUpData);
-        console.log('✅ Saved to Firebase:', response);
-        toast.success('Successfully signed up for early access!');
-      } catch (apiError: any) {
-        console.error('API Error:', apiError);
-        
-        // Handle duplicate email error
-        if (apiError.response?.status === 409) {
-          toast.error('This email is already registered for early access in this category');
-          setIsLoading(false);
-          return;
-        }
-        
-        // If API fails, fall back to localStorage
-        console.warn('⚠️ API unavailable, saving to localStorage as fallback');
-        
-        const existingSignups = JSON.parse(localStorage.getItem('earlyAccessSignups') || '[]');
-        
-        // Check if email already signed up for this category
-        const alreadySignedUp = existingSignups.some(
-          (signup: SignUpData) => signup.email === formData.email && signup.category === category
-        );
-
-        if (alreadySignedUp) {
-          toast.error('This email is already registered for early access in this category');
-          setIsLoading(false);
-          return;
-        }
-
-        existingSignups.push(signUpData);
-        localStorage.setItem('earlyAccessSignups', JSON.stringify(existingSignups));
-        
-        toast.success('Successfully signed up for early access! (Saved locally)');
-      }
+      // Save to Firebase via API (NO localStorage fallback)
+      const response = await api.post('/early-access/signup', signUpData);
+      console.log('✅ Saved to Firebase:', response);
+      toast.success('Successfully signed up for early access!');
       
       // Redirect to thank you page
       router.push(`/thank-you?category=${category}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Signup error:', error);
-      toast.error('Something went wrong. Please try again.');
+      
+      // Handle specific error cases
+      if (error.response?.status === 409) {
+        toast.error('This email is already registered for early access in this category');
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error('Failed to sign up. Please check your connection and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
