@@ -44,12 +44,29 @@ Four user categories available for early access sign-up:
 
 ## Sign-Up Data Collection
 
-For each sign-up, we collect:
+### Basic Information (All Categories)
 - **Name** (Full name)
 - **Email** (Email address)
 - **Phone** (Contact number)
 - **Category** (host, traveller, service_host, dispensary)
 - **Timestamp** (When they signed up)
+
+### Additional Fields by Category
+
+#### For Hosts & Dispensaries
+**Location Information:**
+- **Google Places Autocomplete**: Search for business location
+- **Manual Entry Option**: Latitude and longitude if not found on Google
+- **Address**: Business address (from Google or manual)
+- **Place ID**: Google Place ID (if from autocomplete)
+- **Coordinates**: Latitude and longitude
+- **Entry Method**: Whether location was entered manually or via Google
+
+#### For Service Hosts
+**Service Details:**
+- **Services Offered**: Array of services (e.g., Yoga, Massage, Meditation)
+- **Service Areas**: Array of cities/regions where they provide services
+- **Pincodes/Zipcodes**: Array of postal codes they serve
 
 ### Data Storage
 
@@ -59,11 +76,43 @@ Currently stored in browser localStorage under the key `earlyAccessSignups`.
 ```json
 [
   {
-    "name": "John Doe",
-    "email": "john@example.com",
+    "name": "Jane Host",
+    "email": "jane@example.com",
     "phone": "+1 (555) 123-4567",
     "category": "host",
-    "timestamp": "2025-11-01T12:00:00.000Z"
+    "timestamp": "2025-11-01T12:00:00.000Z",
+    "location": {
+      "address": "123 Main St, San Francisco, CA",
+      "placeId": "ChIJd8BlQ2BZwokRAFUEcm_qrcA",
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "manualEntry": false
+    }
+  },
+  {
+    "name": "John Wellness",
+    "email": "john@example.com",
+    "phone": "+1 (555) 987-6543",
+    "category": "service_host",
+    "timestamp": "2025-11-01T13:00:00.000Z",
+    "serviceHostData": {
+      "services": ["Yoga", "Meditation", "Breathwork"],
+      "serviceAreas": ["San Francisco", "Oakland", "Berkeley"],
+      "pincodes": ["94102", "94103", "94607"]
+    }
+  },
+  {
+    "name": "Green Leaf Dispensary",
+    "email": "info@greenleaf.com",
+    "phone": "+1 (555) 456-7890",
+    "category": "dispensary",
+    "timestamp": "2025-11-01T14:00:00.000Z",
+    "location": {
+      "address": "Custom Location",
+      "latitude": 34.0522,
+      "longitude": -118.2437,
+      "manualEntry": true
+    }
   }
 ]
 ```
@@ -143,19 +192,52 @@ a.click();
 - **Category-Specific Design**: 
   - Icon and color scheme match selected category
   - Personalized description
+  - Conditional fields based on user category
 
-- **Sign-Up Form**:
+- **Basic Sign-Up Form** (All Categories):
   - Full Name (required)
   - Email Address (required)
   - Phone Number (required)
   - Form validation
   - Duplicate detection (prevents same email for same category)
 
-- **Features**:
+- **Location Features** (Hosts & Dispensaries):
+  - **Google Places Autocomplete**:
+    - Powered by Google Maps API
+    - Search for business by name or address
+    - Auto-fills address and coordinates
+    - Saves Google Place ID
+  - **Manual Entry Option**:
+    - Toggle button to switch input methods
+    - Manual latitude and longitude fields
+    - Optional address field
+    - Link to Google Maps for coordinate lookup
+  - Real-time validation
+  - Visual confirmation when location is selected
+
+- **Service Host Features**:
+  - **Services Offered**:
+    - Add/remove multiple services
+    - Tag-based UI
+    - Press Enter or click Add button
+    - At least one service required
+  - **Service Areas**:
+    - Add/remove multiple cities/regions
+    - Tag-based UI
+    - At least one area required
+  - **Pincodes/Zipcodes**:
+    - Add/remove multiple postal codes
+    - Tag-based UI
+    - At least one pincode required
+  - All fields use interactive tag system with remove buttons
+
+- **General Features**:
   - Back button to coming soon page
-  - Loading states
-  - Toast notifications
-  - Responsive design
+  - Loading states with spinner
+  - Toast notifications for success/errors
+  - Fully responsive design
+  - Section dividers for organized layout
+  - Icons for each section
 
 ### Thank You Page (`/thank-you`)
 
