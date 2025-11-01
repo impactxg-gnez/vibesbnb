@@ -58,13 +58,6 @@ const categoryInfo = {
   },
 };
 
-// Declare Google types
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
 export default function EarlyAccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -100,25 +93,29 @@ export default function EarlyAccessPage() {
     setMounted(true);
     
     if ((category === 'host' || category === 'dispensary') && !useManualLocation) {
-      if (typeof window !== 'undefined' && window.google && autocompleteInputRef.current) {
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(
-          autocompleteInputRef.current,
-          { types: ['establishment', 'geocode'] }
-        );
-        
-        autocompleteRef.current.addListener('place_changed', () => {
-          const place = autocompleteRef.current.getPlace();
+      if (typeof window !== 'undefined' && window.google?.maps?.places && autocompleteInputRef.current) {
+        try {
+          autocompleteRef.current = new window.google.maps.places.Autocomplete(
+            autocompleteInputRef.current,
+            { types: ['establishment', 'geocode'] }
+          );
           
-          if (place.geometry) {
-            setLocationData({
-              address: place.formatted_address || place.name,
-              placeId: place.place_id,
-              latitude: place.geometry.location.lat(),
-              longitude: place.geometry.location.lng(),
-              manualEntry: false,
-            });
-          }
-        });
+          autocompleteRef.current.addListener('place_changed', () => {
+            const place = autocompleteRef.current.getPlace();
+            
+            if (place.geometry) {
+              setLocationData({
+                address: place.formatted_address || place.name,
+                placeId: place.place_id,
+                latitude: place.geometry.location.lat(),
+                longitude: place.geometry.location.lng(),
+                manualEntry: false,
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error initializing Google Places:', error);
+        }
       }
     }
   }, [category, useManualLocation]);
