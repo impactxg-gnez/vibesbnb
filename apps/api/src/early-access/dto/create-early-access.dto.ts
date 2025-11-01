@@ -29,6 +29,32 @@ export class LocationDataDto {
   manualEntry?: boolean;
 }
 
+export class AirbnbDataDto {
+  @IsOptional()
+  @IsString()
+  listingUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  propertyName?: string;
+
+  @IsOptional()
+  @IsString()
+  propertyType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  bedrooms?: number;
+
+  @IsOptional()
+  @IsNumber()
+  bathrooms?: number;
+
+  @IsOptional()
+  @IsNumber()
+  guests?: number;
+}
+
 export class ServiceHostDataDto {
   @IsOptional()
   @IsArray()
@@ -72,5 +98,10 @@ export class CreateEarlyAccessDto {
   @ValidateNested()
   @Type(() => ServiceHostDataDto)
   serviceHostData?: ServiceHostDataDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AirbnbDataDto)
+  airbnbData?: AirbnbDataDto;
 }
 

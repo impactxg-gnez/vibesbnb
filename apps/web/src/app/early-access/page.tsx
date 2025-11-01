@@ -22,6 +22,15 @@ interface ServiceHostData {
   pincodes?: string[];
 }
 
+interface AirbnbData {
+  listingUrl?: string;
+  propertyName?: string;
+  propertyType?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  guests?: number;
+}
+
 interface SignUpData {
   name: string;
   email: string;
@@ -30,6 +39,7 @@ interface SignUpData {
   timestamp: string;
   location?: LocationData;
   serviceHostData?: ServiceHostData;
+  airbnbData?: AirbnbData;
 }
 
 const categoryInfo = {
@@ -86,6 +96,10 @@ export default function EarlyAccessPage() {
   const [currentArea, setCurrentArea] = useState('');
   const [currentPincode, setCurrentPincode] = useState('');
   
+  // Airbnb data for hosts
+  const [airbnbData, setAirbnbData] = useState<AirbnbData>({});
+  const [hasAirbnb, setHasAirbnb] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -123,6 +137,7 @@ export default function EarlyAccessPage() {
 
   const needsLocation = category === 'host' || category === 'dispensary';
   const needsServices = category === 'service_host';
+  const isHost = category === 'host';
 
   const addService = () => {
     if (currentService.trim()) {
@@ -230,6 +245,7 @@ export default function EarlyAccessPage() {
         timestamp: new Date().toISOString(),
         ...(needsLocation && { location: locationData }),
         ...(needsServices && { serviceHostData }),
+        ...(isHost && hasAirbnb && airbnbData.listingUrl && { airbnbData }),
       };
 
       // Try to save to Firebase via API
@@ -464,6 +480,139 @@ export default function EarlyAccessPage() {
                       <p className="text-xs text-gray-500">
                         You can find coordinates using <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:underline">Google Maps</a> (right-click on location)
                       </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Airbnb Import Section for Hosts */}
+              {isHost && (
+                <div className="border-t border-white/10 pt-5 mt-5">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-pink-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                        </svg>
+                        Already on Airbnb?
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setHasAirbnb(!hasAirbnb)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                          hasAirbnb
+                            ? 'bg-pink-500 text-white'
+                            : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                        }`}
+                      >
+                        {hasAirbnb ? 'Yes' : 'No'}
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Import your property details from Airbnb to save time. We'll help you migrate your listing when we launch!
+                    </p>
+                  </div>
+
+                  {hasAirbnb && (
+                    <div className="space-y-4 bg-pink-500/5 border border-pink-500/20 rounded-xl p-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Airbnb Listing URL *
+                        </label>
+                        <input
+                          type="url"
+                          required={hasAirbnb}
+                          value={airbnbData.listingUrl || ''}
+                          onChange={(e) => setAirbnbData({ ...airbnbData, listingUrl: e.target.value })}
+                          className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent placeholder-gray-500 transition-all"
+                          placeholder="https://www.airbnb.com/rooms/..."
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                          Paste your Airbnb listing URL. We'll use this to help migrate your property.
+                        </p>
+                      </div>
+
+                      {/* Optional: Quick property info */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Property Name (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={airbnbData.propertyName || ''}
+                            onChange={(e) => setAirbnbData({ ...airbnbData, propertyName: e.target.value })}
+                            className="w-full bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                            placeholder="My Cozy Cottage"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Property Type (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={airbnbData.propertyType || ''}
+                            onChange={(e) => setAirbnbData({ ...airbnbData, propertyType: e.target.value })}
+                            className="w-full bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                            placeholder="Entire home"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Bedrooms
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={airbnbData.bedrooms || ''}
+                            onChange={(e) => setAirbnbData({ ...airbnbData, bedrooms: parseInt(e.target.value) || undefined })}
+                            className="w-full bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                            placeholder="2"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Bathrooms
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={airbnbData.bathrooms || ''}
+                            onChange={(e) => setAirbnbData({ ...airbnbData, bathrooms: parseFloat(e.target.value) || undefined })}
+                            className="w-full bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                            placeholder="1"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Guests
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={airbnbData.guests || ''}
+                            onChange={(e) => setAirbnbData({ ...airbnbData, guests: parseInt(e.target.value) || undefined })}
+                            className="w-full bg-white/10 border border-white/20 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                            placeholder="4"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                        <p className="text-xs text-blue-300 flex items-start">
+                          <svg className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>
+                            You can leave the property details blank. We'll help you import everything from Airbnb when VibesBNB launches!
+                          </span>
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
