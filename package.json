@@ -20,7 +20,10 @@
     "test:web": "cd apps/web && npm run test",
     "seed": "cd apps/api && npm run seed",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "deploy:signup": "node -e \"process.platform === 'win32' ? require('child_process').execSync('powershell -File scripts/deploy-signup.ps1', {stdio: 'inherit'}) : require('child_process').execSync('bash scripts/deploy-signup.sh', {stdio: 'inherit'})\"",
+    "deploy:web": "node -e \"process.platform === 'win32' ? require('child_process').execSync('powershell -File scripts/deploy-web.ps1', {stdio: 'inherit'}) : require('child_process').execSync('bash scripts/deploy-web.sh', {stdio: 'inherit'})\"",
+    "deploy:all": "node -e \"process.platform === 'win32' ? require('child_process').execSync('powershell -File scripts/deploy-both.ps1', {stdio: 'inherit'}) : require('child_process').execSync('bash scripts/deploy-both.sh', {stdio: 'inherit'})\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

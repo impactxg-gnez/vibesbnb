@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd ../.. && npm run build -- --filter=@vibesbnb/web",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install",
+  "framework": "nextjs"
+}
+
