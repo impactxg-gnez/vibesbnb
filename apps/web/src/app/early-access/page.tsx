@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { api } from '@/lib/api';
 
 type UserCategory = 'host' | 'traveller' | 'service_host' | 'dispensary';
 
@@ -231,27 +232,42 @@ export default function EarlyAccessPage() {
         ...(needsServices && { serviceHostData }),
       };
 
-      // Store in localStorage
-      const existingSignups = JSON.parse(localStorage.getItem('earlyAccessSignups') || '[]');
-      
-      // Check if email already signed up for this category
-      const alreadySignedUp = existingSignups.some(
-        (signup: SignUpData) => signup.email === formData.email && signup.category === category
-      );
+      // Try to save to Firebase via API
+      try {
+        const response = await api.post('/early-access/signup', signUpData);
+        console.log('✅ Saved to Firebase:', response);
+        toast.success('Successfully signed up for early access!');
+      } catch (apiError: any) {
+        console.error('API Error:', apiError);
+        
+        // Handle duplicate email error
+        if (apiError.response?.status === 409) {
+          toast.error('This email is already registered for early access in this category');
+          setIsLoading(false);
+          return;
+        }
+        
+        // If API fails, fall back to localStorage
+        console.warn('⚠️ API unavailable, saving to localStorage as fallback');
+        
+        const existingSignups = JSON.parse(localStorage.getItem('earlyAccessSignups') || '[]');
+        
+        // Check if email already signed up for this category
+        const alreadySignedUp = existingSignups.some(
+          (signup: SignUpData) => signup.email === formData.email && signup.category === category
+        );
 
-      if (alreadySignedUp) {
-        toast.error('This email is already registered for early access in this category');
-        setIsLoading(false);
-        return;
+        if (alreadySignedUp) {
+          toast.error('This email is already registered for early access in this category');
+          setIsLoading(false);
+          return;
+        }
+
+        existingSignups.push(signUpData);
+        localStorage.setItem('earlyAccessSignups', JSON.stringify(existingSignups));
+        
+        toast.success('Successfully signed up for early access! (Saved locally)');
       }
-
-      existingSignups.push(signUpData);
-      localStorage.setItem('earlyAccessSignups', JSON.stringify(existingSignups));
-
-      // Log to console for admin to see
-      console.log('New Early Access Signup:', signUpData);
-
-      toast.success('Successfully signed up for early access!');
       
       // Redirect to thank you page
       router.push(`/thank-you?category=${category}`);

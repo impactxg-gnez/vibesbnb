@@ -16,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { KycModule } from './kyc/kyc.module';
 import { QueueModule } from './queue/queue.module';
 import { ItineraryModule } from './itinerary/itinerary.module';
+import { EarlyAccessModule } from './early-access/early-access.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ItineraryModule } from './itinerary/itinerary.module';
     KycModule,
     QueueModule,
     ItineraryModule,
+    EarlyAccessModule,
   ],
 })
 export class AppModule {}
