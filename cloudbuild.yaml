@@ -8,6 +8,21 @@ steps:
       - '-f'
       - 'apps/api/Dockerfile'
       - '.'
+  
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'vibesbnb-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/api'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
     
 # Push the image to Container Registry
 images:
