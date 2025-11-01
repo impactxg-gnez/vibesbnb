@@ -18,13 +18,26 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [devMode, setDevMode] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Check for developer bypass in localStorage
+    const isDev = localStorage.getItem('vibesbnb_dev_mode') === 'true';
+    setDevMode(isDev);
+    
+    if (isDev) {
+      console.log('🔓 Developer Mode: Active - All routes accessible');
+    }
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
+
+    // Developer bypass - allow all routes
+    if (devMode) {
+      return;
+    }
 
     // Check if current route is allowed
     const isAllowedRoute = ALLOWED_ROUTES.some(route => pathname.startsWith(route));
@@ -39,7 +52,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (!isAllowedRoute) {
       router.push('/coming-soon');
     }
-  }, [pathname, router, mounted]);
+  }, [pathname, router, mounted, devMode]);
 
   // Show loading state during redirect
   if (!mounted) {
@@ -51,6 +64,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         </div>
       </div>
     );
+  }
+
+  // Developer mode - allow all routes
+  if (devMode) {
+    return <>{children}</>;
   }
 
   // Check if current route is allowed
