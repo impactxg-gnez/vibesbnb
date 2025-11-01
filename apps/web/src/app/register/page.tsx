@@ -51,10 +51,10 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const roleLabels: Record<UserRole, string> = {
-    host: 'Host',
-    traveller: 'Traveller',
-    dispensary: 'Dispensary',
-    service_host: 'Service Host',
+    host: 'Host Registration',
+    traveller: 'Traveller Registration',
+    dispensary: 'Dispensary Registration',
+    service_host: 'Service Host Registration',
   };
 
   const updateField = (field: keyof FormData, value: string) => {
@@ -81,7 +81,7 @@ export default function RegisterPage() {
       const mockUser = {
         id: 'user-' + Date.now(),
         email: formData.email,
-        name: role === 'dispensary' 
+        name: (role === 'dispensary' || role === 'service_host')
           ? formData.businessName 
           : `${formData.firstName} ${formData.lastName}`,
         role: role,
@@ -106,14 +106,14 @@ export default function RegisterPage() {
       toast.success('Account created successfully!');
       
       // Navigate to role-specific dashboard
-      const roleRoutes = {
+      const roleRoutes: Record<UserRole, string> = {
         host: '/host/dashboard',
         traveller: '/dashboard',
-        service_host: '/service/dashboard',
-        dispensary: '/dispensary/dashboard',
+        service_host: '/dashboard', // Service hosts use main dashboard for now
+        dispensary: '/dashboard', // Dispensaries use main dashboard for now
       };
       
-      router.push(roleRoutes[role] || '/dashboard');
+      router.push(roleRoutes[role]);
     } catch (error: any) {
       toast.error('Registration failed');
     } finally {
@@ -203,7 +203,7 @@ export default function RegisterPage() {
         value={formData.businessName}
         onChange={(e) => updateField('businessName', e.target.value)}
         className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
-        placeholder="Business Name"
+        placeholder={role === 'service_host' ? 'Service Name / Your Name' : 'Business Name'}
       />
       
       <input
@@ -212,7 +212,7 @@ export default function RegisterPage() {
         value={formData.businessAddress}
         onChange={(e) => updateField('businessAddress', e.target.value)}
         className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
-        placeholder="Business Street Address"
+        placeholder={role === 'service_host' ? 'Service Location Address' : 'Business Street Address'}
       />
       
       <input
@@ -244,11 +244,11 @@ export default function RegisterPage() {
       
       <input
         type="text"
-        required
+        required={role === 'dispensary'}
         value={formData.federalTaxId}
         onChange={(e) => updateField('federalTaxId', e.target.value)}
         className="w-full bg-[#4a5568] text-white px-4 py-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-gray-400"
-        placeholder="Federal Tax ID - EIN"
+        placeholder={role === 'dispensary' ? 'Federal Tax ID - EIN (Required)' : 'Federal Tax ID - EIN (Optional)'}
       />
       
       <input
@@ -293,7 +293,7 @@ export default function RegisterPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {role === 'dispensary' ? renderBusinessForm() : renderPersonalForm()}
+          {(role === 'dispensary' || role === 'service_host') ? renderBusinessForm() : renderPersonalForm()}
           
           {/* Terms Agreement */}
           <div className="text-center text-xs text-gray-400 py-4">

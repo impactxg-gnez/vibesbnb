@@ -117,7 +117,7 @@ export function Header() {
                 >
                   Login
                 </Link>
-                <Link href="/register" className="btn-primary">
+                <Link href="/select-role" className="btn-primary">
                   Sign Up
                 </Link>
               </>
@@ -171,7 +171,7 @@ export function Header() {
                   <Link href="/login" className="text-gray-700">
                     Login
                   </Link>
-                  <Link href="/register" className="btn-primary">
+                  <Link href="/select-role" className="btn-primary">
                     Sign Up
                   </Link>
                 </>

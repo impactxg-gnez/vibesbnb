@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -18,25 +19,25 @@ const roles: RoleOption[] = [
   {
     id: 'host',
     title: 'Host',
-    description: 'List your property',
+    description: 'List your 420-friendly property and earn income',
     image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&h=300&fit=crop',
   },
   {
     id: 'traveller',
     title: 'Traveller',
-    description: 'Find your retreat',
+    description: 'Discover cannabis-friendly stays and wellness retreats',
     image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=400&h=300&fit=crop',
   },
   {
     id: 'service_host',
     title: 'Service Host',
-    description: 'Offer wellness services',
+    description: 'Offer yoga, massage, and holistic wellness services',
     image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400&h=300&fit=crop',
   },
   {
     id: 'dispensary',
     title: 'Dispensary',
-    description: 'Partner with us',
+    description: 'Partner with travelers and reach new customers',
     image: 'https://images.unsplash.com/photo-1628244404289-64e0a3683e4e?w=400&h=300&fit=crop',
   },
 ];
@@ -163,14 +164,25 @@ export default function SelectRolePage() {
           </button>
         </div>
 
-        {/* Skip for now */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-gray-400 hover:text-white transition-colors text-sm"
-          >
-            Skip for now
-          </button>
+        {/* Additional Links */}
+        <div className="text-center mt-6 space-y-2">
+          <div>
+            <Link
+              href="/welcome"
+              className="text-gray-400 hover:text-white transition-colors text-sm"
+            >
+              ← Back to Welcome
+            </Link>
+          </div>
+          <div>
+            <span className="text-gray-400 text-sm">Already have an account? </span>
+            <Link
+              href="/login"
+              className="text-green-500 hover:text-green-400 transition-colors text-sm font-semibold"
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
       </div>
     </div>
