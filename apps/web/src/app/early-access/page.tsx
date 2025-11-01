@@ -36,7 +36,6 @@ interface SignUpData {
   email: string;
   phone: string;
   category: UserCategory;
-  timestamp: string;
   location?: LocationData;
   serviceHostData?: ServiceHostData;
   airbnbData?: AirbnbData;
@@ -238,11 +237,10 @@ export default function EarlyAccessPage() {
         }
       }
 
-      // Create signup data
-      const signUpData: SignUpData = {
+      // Create signup data (API will generate timestamp)
+      const signUpData = {
         ...formData,
         category,
-        timestamp: new Date().toISOString(),
         ...(needsLocation && { location: locationData }),
         ...(needsServices && { serviceHostData }),
         ...(isHost && hasAirbnb && airbnbData.listingUrl && { airbnbData }),
