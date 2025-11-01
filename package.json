@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "cd apps/web && npm run dev",
-    "build": "cd packages/shared && npm run build && cd ../apps/web && npm run build",
+    "build": "cd packages/shared && npm run build && cd ../../apps/web && npm run build",
     "start": "cd apps/web && npm run start",
     "test": "cd apps/web && npm run test",
     "deploy": "node -e \"process.platform === 'win32' ? require('child_process').execSync('powershell -File scripts/deploy-signup.ps1', {stdio: 'inherit'}) : require('child_process').execSync('bash scripts/deploy-signup.sh', {stdio: 'inherit'})\""
