@@ -87,7 +87,7 @@ export class BookingsService {
     });
 
     // TODO: Create payment intent when Stripe is configured
-    let paymentIntent = null;
+    let paymentIntent: { clientSecret: string; paymentIntentId: string } | null = null;
     try {
       if (process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_SECRET_KEY.includes('dummy')) {
         paymentIntent = await this.paymentsService.createPaymentIntent(
@@ -102,9 +102,11 @@ export class BookingsService {
         );
 
         // Update booking with payment intent
-        await this.firebase.update('bookings', bookingId, {
-          paymentIntentId: paymentIntent.paymentIntentId,
-        });
+        if (paymentIntent) {
+          await this.firebase.update('bookings', bookingId, {
+            paymentIntentId: paymentIntent.paymentIntentId,
+          });
+        }
       }
     } catch (error) {
       console.error('Payment intent creation failed (Stripe not configured):', error.message);

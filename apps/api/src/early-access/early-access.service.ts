@@ -22,23 +22,42 @@ export class EarlyAccessService {
       );
     }
 
-    // Create signup
-    const signupId = await this.firebaseService.create('early_access_signups', {
+    // Create custom document ID: name_phone (sanitized)
+    const sanitizedName = createEarlyAccessDto.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .substring(0, 50);
+    
+    const sanitizedPhone = createEarlyAccessDto.phone
+      .replace(/[^0-9]/g, '')
+      .substring(0, 15);
+    
+    const customDocId = `${sanitizedName}_${sanitizedPhone}`;
+
+    // Create signup with custom document ID
+    const firestore = this.firebaseService.getFirestore();
+    const docRef = firestore.collection('early_access_signups').doc(customDocId);
+    
+    await docRef.set({
       ...createEarlyAccessDto,
       timestamp: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // Log for admin visibility
     console.log('✅ New Early Access Signup:', {
-      id: signupId,
+      id: customDocId,
       email: createEarlyAccessDto.email,
       category: createEarlyAccessDto.category,
       name: createEarlyAccessDto.name,
+      phone: createEarlyAccessDto.phone,
     });
 
     return {
       success: true,
-      id: signupId,
+      id: customDocId,
       message: 'Successfully signed up for early access',
     };
   }

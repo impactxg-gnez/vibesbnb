@@ -25,7 +25,11 @@ export class ItineraryService {
       sharedWith: [],
     });
 
-    return this.findById(itineraryId);
+    const itinerary = await this.findById(itineraryId);
+    if (!itinerary) {
+      throw new Error('Failed to create itinerary');
+    }
+    return itinerary;
   }
 
   async findById(id: string): Promise<Itinerary | null> {
@@ -56,7 +60,11 @@ export class ItineraryService {
     }
 
     await this.firebase.update('itineraries', id, data);
-    return this.findById(id);
+    const updated = await this.findById(id);
+    if (!updated) {
+      throw new Error('Failed to update itinerary');
+    }
+    return updated;
   }
 
   async deleteItinerary(id: string, userId: string): Promise<void> {
