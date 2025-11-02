@@ -36,13 +36,8 @@ export function middleware(request: NextRequest) {
   }
   
   // If on main app (NOT signup subdomain)
-  if (!hostname.includes('signup')) {
-    // Optional: Hide /coming-soon on production main site
-    // Uncomment these lines if you want to restrict access to signup pages on main site
-    // if (process.env.NODE_ENV === 'production' && pathname === '/coming-soon') {
-    //   return NextResponse.redirect(new URL('/', request.url));
-    // }
-  }
+  // Both signup pages and main app pages are accessible
+  // This allows for flexible testing and future separation if needed
 
   return NextResponse.next();
 }
