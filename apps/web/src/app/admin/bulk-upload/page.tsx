@@ -123,13 +123,13 @@ export default function BulkUploadPage() {
         const headers = lines[0].split(',').map(h => h.trim());
 
         // Validate headers
-        const requiredHeaders = ['name', 'bedrooms', 'amenities', 'wellness_friendly'];
+        const requiredHeaders = ['name', 'bedrooms', 'amenities', 'wellness_friendly', 'image_urls'];
         const hasAllHeaders = requiredHeaders.every(h => 
           headers.some(header => header.toLowerCase() === h)
         );
 
         if (!hasAllHeaders) {
-          toast.error('CSV must have columns: name, bedrooms, amenities, wellness_friendly');
+          toast.error('CSV must have columns: name, bedrooms, amenities, wellness_friendly, image_urls');
           return;
         }
 
@@ -145,12 +145,19 @@ export default function BulkUploadPage() {
           const bedroomsIndex = headers.findIndex(h => h.toLowerCase() === 'bedrooms');
           const amenitiesIndex = headers.findIndex(h => h.toLowerCase() === 'amenities');
           const smokeFriendlyIndex = headers.findIndex(h => h.toLowerCase() === 'wellness_friendly');
+          const imageUrlsIndex = headers.findIndex(h => h.toLowerCase() === 'image_urls');
 
           const amenitiesStr = values[amenitiesIndex] || '';
           const amenitiesList = amenitiesStr
             .split('|')
             .map(a => a.trim())
             .filter(a => a);
+
+          const imageUrlsStr = values[imageUrlsIndex] || '';
+          const imageUrls = imageUrlsStr
+            .split('|')
+            .map(url => url.trim())
+            .filter(url => url);
 
           newProperties.push({
             id: Date.now().toString() + i,
@@ -160,7 +167,7 @@ export default function BulkUploadPage() {
             smokeFriendly: values[smokeFriendlyIndex]?.toLowerCase() === 'yes' || 
                           values[smokeFriendlyIndex]?.toLowerCase() === 'true',
             images: [],
-            imagePreviewUrls: [],
+            imagePreviewUrls: imageUrls, // Use URLs from CSV
           });
         }
 
@@ -181,10 +188,10 @@ export default function BulkUploadPage() {
   };
 
   const downloadCsvTemplate = () => {
-    const template = `name,bedrooms,amenities,wellness_friendly
-Mountain View Cabin,3,WiFi|Kitchen|Parking|Hot Tub,yes
-Beachfront Villa,4,WiFi|Kitchen|Pool|Air Conditioning,no
-Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes`;
+    const template = `name,bedrooms,amenities,wellness_friendly,image_urls
+Mountain View Cabin,3,WiFi|Kitchen|Parking|Hot Tub,yes,https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800
+Beachfront Villa,4,WiFi|Kitchen|Pool|Air Conditioning,yes,https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800|https://images.unsplash.com/photo-1507525428034-b723cf961dde?w=800
+Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800|https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800`;
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -204,8 +211,8 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes`;
         toast.error('All properties must have a name');
         return;
       }
-      if (property.images.length === 0) {
-        toast.error(`${property.name || 'A property'} needs at least one image`);
+      if (property.images.length === 0 && property.imagePreviewUrls.length === 0) {
+        toast.error(`${property.name || 'A property'} needs at least one image or image URL`);
         return;
       }
     }
@@ -349,7 +356,8 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes`;
                   <li>• <strong className="text-gray-300">bedrooms</strong>: Number of bedrooms (required)</li>
                   <li>• <strong className="text-gray-300">amenities</strong>: Pipe-separated list (e.g., WiFi|Kitchen|Pool)</li>
                   <li>• <strong className="text-gray-300">wellness_friendly</strong>: yes/no or true/false</li>
-                  <li className="text-amber-400 mt-2">⚠️ Note: You'll still need to upload images manually after importing</li>
+                  <li>• <strong className="text-gray-300">image_urls</strong>: Pipe-separated image URLs (e.g., https://example.com/img1.jpg|https://example.com/img2.jpg)</li>
+                  <li className="text-emerald-400 mt-2">✅ Tip: Use direct image URLs from Unsplash, Imgur, or your own hosting</li>
                 </ul>
               </div>
             </div>
