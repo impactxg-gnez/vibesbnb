@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const { pathname } = request.nextUrl;
+
+  // Update Supabase session
+  const response = await updateSession(request);
 
   // Define signup-only pages
   const signupPages = ['/coming-soon', '/early-access', '/thank-you'];
@@ -39,7 +43,7 @@ export function middleware(request: NextRequest) {
   // Both signup pages and main app pages are accessible
   // This allows for flexible testing and future separation if needed
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
@@ -54,4 +58,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
-
