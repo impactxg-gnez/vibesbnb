@@ -92,8 +92,8 @@ export default function SearchPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-green-600 py-8">
+    <div className="min-h-screen bg-gray-950">
+      <div className="bg-emerald-600 py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-white mb-6">Find Your Perfect Stay</h1>
           <SearchBar />
@@ -102,10 +102,10 @@ export default function SearchPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <p className="text-gray-700">
+          <p className="text-gray-300">
             {loading ? 'Searching...' : `${listings.length} properties found`}
           </p>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent">
+          <select className="px-4 py-2 bg-gray-900 border border-gray-800 text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
             <option>Price: Low to High</option>
             <option>Price: High to Low</option>
             <option>Rating: High to Low</option>
@@ -117,9 +117,9 @@ export default function SearchPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <div key={n} className="animate-pulse">
-                <div className="bg-gray-300 h-64 rounded-xl mb-3"></div>
-                <div className="bg-gray-300 h-4 rounded w-3/4 mb-2"></div>
-                <div className="bg-gray-300 h-4 rounded w-1/2"></div>
+                <div className="bg-gray-800 h-64 rounded-xl mb-3"></div>
+                <div className="bg-gray-800 h-4 rounded w-3/4 mb-2"></div>
+                <div className="bg-gray-800 h-4 rounded w-1/2"></div>
               </div>
             ))}
           </div>
@@ -129,7 +129,7 @@ export default function SearchPage() {
               <Link
                 key={listing.id}
                 href={`/listings/${listing.id}`}
-                className="group bg-white rounded-xl overflow-hidden shadow hover:shadow-xl transition"
+                className="group bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:shadow-xl hover:border-emerald-500/50 transition"
               >
                 <div className="relative h-64">
                   <Image
@@ -138,33 +138,33 @@ export default function SearchPage() {
                     fill
                     className="object-cover group-hover:scale-110 transition duration-300"
                   />
-                  <div className="absolute top-3 right-3 bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
                     420-Friendly
                   </div>
                 </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-gray-900 text-lg group-hover:text-green-600">
+                    <h3 className="font-semibold text-white text-lg group-hover:text-emerald-500">
                       {listing.title}
                     </h3>
                     <div className="flex items-center gap-1">
                       <span className="text-yellow-500">★</span>
-                      <span className="text-sm font-medium">{listing.rating}</span>
+                      <span className="text-sm font-medium text-gray-100">{listing.rating}</span>
                     </div>
                   </div>
-                  <p className="text-gray-600 text-sm mb-3">{listing.location}</p>
+                  <p className="text-gray-400 text-sm mb-3">{listing.location}</p>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {listing.amenities.slice(0, 3).map((amenity) => (
                       <span
                         key={amenity}
-                        className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
+                        className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs"
                       >
                         {amenity}
                       </span>
                     ))}
                   </div>
-                  <p className="text-gray-900 font-bold text-lg">
-                    ${listing.price} <span className="font-normal text-gray-600 text-sm">/ night</span>
+                  <p className="text-white font-bold text-lg">
+                    ${listing.price} <span className="font-normal text-gray-400 text-sm">/ night</span>
                   </p>
                 </div>
               </Link>
@@ -175,4 +175,3 @@ export default function SearchPage() {
     </div>
   );
 }
-

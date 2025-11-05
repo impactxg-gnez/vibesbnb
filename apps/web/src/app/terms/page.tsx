@@ -2,12 +2,12 @@ import Link from 'next/link';
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#1a1d2e] px-4 py-12">
+    <div className="min-h-screen bg-gray-950 px-4 py-12">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <Link
-            href="/register"
-            className="text-[#4ade80] hover:text-[#22c55e] transition-colors inline-flex items-center gap-2"
+            href="/"
+            className="text-emerald-500 hover:text-emerald-400 transition-colors inline-flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -16,7 +16,7 @@ export default function TermsPage() {
           </Link>
         </div>
 
-        <div className="bg-[#252838] rounded-xl p-8 text-white">
+        <div className="bg-gray-900 rounded-xl p-8 text-white border border-gray-800">
           <h1 className="text-3xl font-bold mb-6">Terms of Service</h1>
           
           <div className="space-y-6 text-gray-300">
@@ -76,8 +76,8 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <div className="pt-8 border-t border-gray-700">
-              <p className="text-sm text-gray-400">
+            <div className="pt-8 border-t border-gray-800">
+              <p className="text-sm text-gray-500">
                 Last updated: October 31, 2025
               </p>
             </div>
@@ -87,4 +87,3 @@ export default function TermsPage() {
     </div>
   );
 }
-
