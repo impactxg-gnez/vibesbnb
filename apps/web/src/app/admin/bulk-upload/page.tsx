@@ -32,6 +32,7 @@ export default function BulkUploadPage() {
   ]);
   const [uploading, setUploading] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'csv' | 'zip'>('csv');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -111,6 +112,84 @@ export default function BulkUploadPage() {
     updateProperty(propertyId, 'amenities', newAmenities);
   };
 
+  const parseCsvText = (text: string, imageFiles?: { [key: string]: File }) => {
+    const lines = text.split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+
+    // Check which format (with image_urls or image_files)
+    const hasImageUrls = headers.some(h => h.toLowerCase() === 'image_urls');
+    const hasImageFiles = headers.some(h => h.toLowerCase() === 'image_files');
+
+    if (!hasImageUrls && !hasImageFiles) {
+      toast.error('CSV must have either image_urls or image_files column');
+      return [];
+    }
+
+    const newProperties: Property[] = [];
+
+    // Parse each line (skip header)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const values = line.split(',').map(v => v.trim());
+      const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
+      const bedroomsIndex = headers.findIndex(h => h.toLowerCase() === 'bedrooms');
+      const amenitiesIndex = headers.findIndex(h => h.toLowerCase() === 'amenities');
+      const smokeFriendlyIndex = headers.findIndex(h => h.toLowerCase() === 'wellness_friendly');
+      const imageUrlsIndex = headers.findIndex(h => h.toLowerCase() === 'image_urls');
+      const imageFilesIndex = headers.findIndex(h => h.toLowerCase() === 'image_files');
+
+      const amenitiesStr = values[amenitiesIndex] || '';
+      const amenitiesList = amenitiesStr
+        .split('|')
+        .map(a => a.trim())
+        .filter(a => a);
+
+      let images: File[] = [];
+      let imagePreviewUrls: string[] = [];
+
+      // Handle image URLs
+      if (hasImageUrls && imageUrlsIndex !== -1) {
+        const imageUrlsStr = values[imageUrlsIndex] || '';
+        imagePreviewUrls = imageUrlsStr
+          .split('|')
+          .map(url => url.trim())
+          .filter(url => url);
+      }
+
+      // Handle image files from ZIP
+      if (hasImageFiles && imageFilesIndex !== -1 && imageFiles) {
+        const imageFilesStr = values[imageFilesIndex] || '';
+        const fileNames = imageFilesStr
+          .split('|')
+          .map(name => name.trim())
+          .filter(name => name);
+
+        for (const fileName of fileNames) {
+          const file = imageFiles[fileName] || imageFiles[`images/${fileName}`];
+          if (file) {
+            images.push(file);
+            imagePreviewUrls.push(URL.createObjectURL(file));
+          }
+        }
+      }
+
+      newProperties.push({
+        id: Date.now().toString() + i,
+        name: values[nameIndex] || '',
+        bedrooms: parseInt(values[bedroomsIndex]) || 1,
+        amenities: amenitiesList,
+        smokeFriendly: values[smokeFriendlyIndex]?.toLowerCase() === 'yes' || 
+                      values[smokeFriendlyIndex]?.toLowerCase() === 'true',
+        images,
+        imagePreviewUrls,
+      });
+    }
+
+    return newProperties;
+  };
+
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -119,57 +198,7 @@ export default function BulkUploadPage() {
     reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
-        const lines = text.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim());
-
-        // Validate headers
-        const requiredHeaders = ['name', 'bedrooms', 'amenities', 'wellness_friendly', 'image_urls'];
-        const hasAllHeaders = requiredHeaders.every(h => 
-          headers.some(header => header.toLowerCase() === h)
-        );
-
-        if (!hasAllHeaders) {
-          toast.error('CSV must have columns: name, bedrooms, amenities, wellness_friendly, image_urls');
-          return;
-        }
-
-        const newProperties: Property[] = [];
-
-        // Parse each line (skip header)
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          const values = line.split(',').map(v => v.trim());
-          const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
-          const bedroomsIndex = headers.findIndex(h => h.toLowerCase() === 'bedrooms');
-          const amenitiesIndex = headers.findIndex(h => h.toLowerCase() === 'amenities');
-          const smokeFriendlyIndex = headers.findIndex(h => h.toLowerCase() === 'wellness_friendly');
-          const imageUrlsIndex = headers.findIndex(h => h.toLowerCase() === 'image_urls');
-
-          const amenitiesStr = values[amenitiesIndex] || '';
-          const amenitiesList = amenitiesStr
-            .split('|')
-            .map(a => a.trim())
-            .filter(a => a);
-
-          const imageUrlsStr = values[imageUrlsIndex] || '';
-          const imageUrls = imageUrlsStr
-            .split('|')
-            .map(url => url.trim())
-            .filter(url => url);
-
-          newProperties.push({
-            id: Date.now().toString() + i,
-            name: values[nameIndex] || '',
-            bedrooms: parseInt(values[bedroomsIndex]) || 1,
-            amenities: amenitiesList,
-            smokeFriendly: values[smokeFriendlyIndex]?.toLowerCase() === 'yes' || 
-                          values[smokeFriendlyIndex]?.toLowerCase() === 'true',
-            images: [],
-            imagePreviewUrls: imageUrls, // Use URLs from CSV
-          });
-        }
+        const newProperties = parseCsvText(text);
 
         if (newProperties.length > 0) {
           setProperties(newProperties);
@@ -185,6 +214,61 @@ export default function BulkUploadPage() {
     };
 
     reader.readAsText(file);
+  };
+
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Dynamic import of JSZip
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const contents = await zip.loadAsync(file);
+
+      // Find CSV file
+      const csvFile = Object.keys(contents.files).find(name => 
+        name.toLowerCase().endsWith('.csv') && !name.startsWith('__MACOSX')
+      );
+
+      if (!csvFile) {
+        toast.error('No CSV file found in ZIP. Please include a .csv file.');
+        return;
+      }
+
+      // Extract CSV content
+      const csvContent = await contents.files[csvFile].async('text');
+
+      // Extract all image files
+      const imageFiles: { [key: string]: File } = {};
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+
+      for (const [fileName, zipEntry] of Object.entries(contents.files)) {
+        if (zipEntry.dir || fileName.startsWith('__MACOSX')) continue;
+        
+        const lowerName = fileName.toLowerCase();
+        if (imageExtensions.some(ext => lowerName.endsWith(ext))) {
+          const blob = await zipEntry.async('blob');
+          const file = new File([blob], fileName.split('/').pop() || fileName, { type: blob.type });
+          imageFiles[fileName.split('/').pop() || fileName] = file;
+          imageFiles[fileName] = file; // Also store with full path
+        }
+      }
+
+      // Parse CSV with image files
+      const newProperties = parseCsvText(csvContent, imageFiles);
+
+      if (newProperties.length > 0) {
+        setProperties(newProperties);
+        toast.success(`Loaded ${newProperties.length} properties with images from ZIP!`);
+        setShowCsvUpload(false);
+      } else {
+        toast.error('No valid properties found in CSV');
+      }
+    } catch (error) {
+      toast.error('Failed to process ZIP file');
+      console.error(error);
+    }
   };
 
   const downloadCsvTemplate = () => {
@@ -294,15 +378,15 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
           </p>
         </div>
 
-        {/* CSV Upload Section */}
+        {/* Bulk Import Section */}
         <div className="mb-8 bg-gray-900 border border-gray-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold text-white mb-1">
-                📄 Import from CSV
+                📦 Bulk Import Properties
               </h3>
               <p className="text-sm text-gray-400">
-                Upload a CSV file to quickly add multiple properties at once
+                Upload CSV with URLs or ZIP with images - your choice!
               </p>
             </div>
             <button
@@ -310,12 +394,38 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
               onClick={() => setShowCsvUpload(!showCsvUpload)}
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
             >
-              {showCsvUpload ? 'Hide' : 'Show'} CSV Upload
+              {showCsvUpload ? 'Hide' : 'Show'} Bulk Import
             </button>
           </div>
 
           {showCsvUpload && (
             <div className="space-y-4">
+              {/* Upload Mode Selector */}
+              <div className="flex gap-3 p-1 bg-gray-800 rounded-lg w-fit">
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('csv')}
+                  className={`px-4 py-2 rounded-md font-medium transition ${
+                    uploadMode === 'csv'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  📄 CSV Only (with URLs)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMode('zip')}
+                  className={`px-4 py-2 rounded-md font-medium transition ${
+                    uploadMode === 'zip'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  📦 ZIP (with Images)
+                </button>
+              </div>
+
               <div className="flex gap-4">
                 <label className="flex-1 flex items-center justify-center border-2 border-dashed border-gray-700 rounded-lg p-6 cursor-pointer hover:border-emerald-500 transition">
                   <div className="text-center">
@@ -323,7 +433,7 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-sm font-medium text-white">
-                      Click to upload CSV
+                      {uploadMode === 'csv' ? 'Click to upload CSV' : 'Click to upload ZIP'}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       or drag and drop your file here
@@ -331,8 +441,8 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
                   </div>
                   <input
                     type="file"
-                    accept=".csv"
-                    onChange={handleCsvUpload}
+                    accept={uploadMode === 'csv' ? '.csv' : '.zip'}
+                    onChange={uploadMode === 'csv' ? handleCsvUpload : handleZipUpload}
                     className="hidden"
                   />
                 </label>
@@ -349,17 +459,44 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
                 </button>
               </div>
 
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-                <p className="text-sm font-medium text-white mb-2">CSV Format Instructions:</p>
-                <ul className="text-xs text-gray-400 space-y-1">
-                  <li>• <strong className="text-gray-300">name</strong>: Property name (required)</li>
-                  <li>• <strong className="text-gray-300">bedrooms</strong>: Number of bedrooms (required)</li>
-                  <li>• <strong className="text-gray-300">amenities</strong>: Pipe-separated list (e.g., WiFi|Kitchen|Pool)</li>
-                  <li>• <strong className="text-gray-300">wellness_friendly</strong>: yes/no or true/false</li>
-                  <li>• <strong className="text-gray-300">image_urls</strong>: Pipe-separated image URLs (e.g., https://example.com/img1.jpg|https://example.com/img2.jpg)</li>
-                  <li className="text-emerald-400 mt-2">✅ Tip: Use direct image URLs from Unsplash, Imgur, or your own hosting</li>
-                </ul>
-              </div>
+              {/* Instructions based on mode */}
+              {uploadMode === 'csv' ? (
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                  <p className="text-sm font-medium text-white mb-2">📄 CSV Format (with image URLs):</p>
+                  <ul className="text-xs text-gray-400 space-y-1">
+                    <li>• <strong className="text-gray-300">name</strong>: Property name (required)</li>
+                    <li>• <strong className="text-gray-300">bedrooms</strong>: Number of bedrooms (required)</li>
+                    <li>• <strong className="text-gray-300">amenities</strong>: Pipe-separated list (e.g., WiFi|Kitchen|Pool)</li>
+                    <li>• <strong className="text-gray-300">wellness_friendly</strong>: yes/no or true/false</li>
+                    <li>• <strong className="text-gray-300">image_urls</strong>: Pipe-separated image URLs</li>
+                    <li className="text-emerald-400 mt-2">✅ Use direct image URLs from Unsplash, Imgur, or your hosting</li>
+                  </ul>
+                </div>
+              ) : (
+                <div className="bg-blue-900/30 border border-blue-600/50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-white mb-2">📦 ZIP Format (with actual images):</p>
+                  <ul className="text-xs text-gray-400 space-y-1">
+                    <li>• Create a ZIP file containing:</li>
+                    <li className="ml-4">1. A CSV file (same format but use <strong className="text-gray-300">image_files</strong> column)</li>
+                    <li className="ml-4">2. An <strong className="text-gray-300">images/</strong> folder with your photos</li>
+                    <li>• In CSV, reference images like: <code className="text-gray-300">image1.jpg|image2.jpg</code></li>
+                    <li>• Supported formats: JPG, PNG, GIF, WebP</li>
+                    <li className="text-blue-400 mt-2">🎉 Images will be automatically uploaded to hosting!</li>
+                  </ul>
+                  <div className="mt-3 text-xs text-gray-400">
+                    <strong className="text-white">Example ZIP structure:</strong>
+                    <pre className="mt-1 text-gray-500">
+my-properties.zip
+├── properties.csv
+└── images/
+    ├── cabin1.jpg
+    ├── cabin2.jpg
+    ├── villa1.jpg
+    └── villa2.jpg
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
