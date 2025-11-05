@@ -20,7 +20,7 @@ const features = [
 export function WhyUs() {
   return (
     <div className="container mx-auto px-4 pb-20">
-      <h2 className="text-2xl font-bold text-white mb-6">Why Haven Stays</h2>
+      <h2 className="text-2xl font-bold text-white mb-6">Why VibesBNB</h2>
       
       <div className="flex flex-wrap gap-3">
         {features.map((feature, index) => (
