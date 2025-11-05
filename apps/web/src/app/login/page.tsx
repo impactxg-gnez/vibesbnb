@@ -53,6 +53,16 @@ export default function LoginPage() {
           <p className="mt-2 text-gray-400">
             Sign in to your VibesBNB account
           </p>
+          
+          {/* Demo Accounts Info */}
+          <div className="mt-4 bg-blue-900/30 border border-blue-600/50 rounded-lg p-4">
+            <p className="text-sm font-semibold text-blue-400 mb-2">Demo Accounts (password: password)</p>
+            <div className="text-xs text-blue-300 space-y-1">
+              <div>🧳 Traveller: demo@traveller.com</div>
+              <div>🏠 Host: demo@host.com</div>
+              <div>👑 Admin: demo@admin.com</div>
+            </div>
+          </div>
         </div>
 
         {/* Login Form */}
