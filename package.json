@@ -1,8 +1,8 @@
 {
-  "name": "vibesbnb-signup",
+  "name": "vibesbnb",
   "version": "1.0.0",
   "private": true,
-  "description": "VibesBNB Signup - Early access landing pages for 420-friendly travel marketplace",
+  "description": "VibesBNB - Complete 420-friendly travel marketplace connecting travelers with cannabis-welcoming accommodations",
   "workspaces": [
     "apps/*",
     "packages/*"

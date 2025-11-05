@@ -1,19 +1,22 @@
-# VibesBNB Signup
+# VibesBNB 🌿
 
-Early access landing pages for VibesBNB - The 420-friendly travel marketplace.
+The complete 420-friendly travel marketplace connecting travelers with cannabis-welcoming accommodations and wellness experiences.
 
-## 📋 What's Included
+## 🌟 Features
 
-This repository contains the signup/landing pages for VibesBNB:
+### For Travelers
+- **Search & Browse** - Find perfect 420-friendly accommodations by location, dates, and preferences
+- **Detailed Listings** - View property details, amenities, photos, and reviews
+- **Category Exploration** - Browse by Wellness Retreats, Adventure, City, Beach, Mountain, and Unique Spaces
+- **Secure Booking** - Safe booking process with verified hosts
+- **Reviews & Ratings** - Read authentic reviews from other travelers
 
-- **Coming Soon Page** (`/coming-soon`) - Countdown timer and early access signup
-- **Early Access Forms** (`/early-access`) - Signup forms for different user categories:
-  - Hosts
-  - Travellers
-  - Service Hosts
-  - Dispensaries
-- **Thank You Page** (`/thank-you`) - Post-signup confirmation
-- **Legal Pages** - Privacy policy and Terms of service
+### For Hosts
+- **List Your Space** - Create and manage property listings
+- **Flexible Pricing** - Set your own rates and availability
+- **Cannabis-Friendly** - Connect with guests who appreciate 420-welcoming spaces
+- **Host Protection** - Insurance and support included
+- **Earnings Dashboard** - Track bookings and income
 
 ## 🚀 Quick Start
 
@@ -25,6 +28,10 @@ This repository contains the signup/landing pages for VibesBNB:
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/impactxg-gnez/vibesbnb.git
+cd vibesbnb
+
 # Install dependencies
 npm install
 
@@ -32,7 +39,7 @@ npm install
 npm run dev
 ```
 
-Visit http://localhost:3000/coming-soon
+Visit http://localhost:3000
 
 ### Build for Production
 
@@ -41,46 +48,30 @@ npm run build
 npm run start
 ```
 
-## 📦 Deployment
+## 📁 Project Structure
 
-### Deploy to Vercel
-
-This project is configured for Vercel deployment:
-
-```bash
-# Deploy using the script
-npm run deploy
 ```
-
-Or via Vercel CLI:
-
-```bash
-vercel --prod
+vibesbnb/
+├── apps/
+│   └── web/                    # Next.js frontend application
+│       ├── src/
+│       │   ├── app/           # App router pages
+│       │   │   ├── page.tsx          # Homepage
+│       │   │   ├── search/           # Search page
+│       │   │   ├── listings/         # Listing details
+│       │   │   ├── host/             # Host landing
+│       │   │   ├── coming-soon/      # Pre-launch page
+│       │   │   └── early-access/     # Signup forms
+│       │   ├── components/    # React components
+│       │   │   ├── home/             # Homepage components
+│       │   │   ├── search/           # Search components
+│       │   │   └── layout/           # Layout components
+│       │   └── lib/          # Utilities
+│       └── middleware.ts      # Route middleware
+├── packages/
+│   └── shared/                # Shared types and utilities
+└── README.md
 ```
-
-Or via Vercel Dashboard:
-1. Import this repository
-2. Project name: `vibesbnb-signup`
-3. Root directory: `apps/web`
-4. Framework: Next.js
-5. Build settings:
-   ```
-   Build Command: cd ../.. && npm run build -- --filter=@vibesbnb/web
-   Output Directory: .next
-   Install Command: cd ../.. && npm install
-   ```
-
-## 🌐 Pages
-
-- `/` - Redirects to `/coming-soon`
-- `/coming-soon` - Landing page with early access signup
-- `/early-access?category=host` - Host signup form
-- `/early-access?category=traveller` - Traveller signup form
-- `/early-access?category=service_host` - Service host signup form
-- `/early-access?category=dispensary` - Dispensary signup form
-- `/thank-you?category=host` - Thank you confirmation page
-- `/privacy` - Privacy policy
-- `/terms` - Terms of service
 
 ## 🎨 Tech Stack
 
@@ -88,20 +79,125 @@ Or via Vercel Dashboard:
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Deployment**: Vercel
-- **Backend**: Firebase (for signup storage)
+- **Images**: Next.js Image Optimization
 
-## 📝 Environment Variables
+## 📄 Pages
+
+### Main App
+- `/` - Homepage with Hero, Search Bar, Categories, Featured Listings
+- `/search` - Browse and filter listings
+- `/listings/[id]` - Individual listing details with booking
+- `/host` - Become a host landing page
+
+### Pre-Launch
+- `/coming-soon` - Early access landing page
+- `/early-access` - Signup forms for hosts, travelers, services
+- `/thank-you` - Post-signup confirmation
+
+### Legal
+- `/privacy` - Privacy policy
+- `/terms` - Terms of service
+
+## 🎨 Design Features
+
+- **Mobile-First**: Responsive design optimized for all devices
+- **Modern UI**: Clean, intuitive interface with Tailwind CSS
+- **Cannabis-Friendly Branding**: Green color scheme (#16a34a)
+- **Image Optimization**: Unsplash integration with Next.js Image
+- **Smooth Animations**: Hover effects and transitions
+
+## 🚀 Deployment
+
+### Deploy to Vercel
+
+#### Via Vercel Dashboard
+
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Import repository: `impactxg-gnez/vibesbnb`
+3. Configure:
+   - **Project Name**: `vibesbnb-web`
+   - **Framework**: Next.js
+   - **Root Directory**: `apps/web`
+   - **Build Command**: `cd ../.. && npm run build -- --filter=@vibesbnb/web`
+   - **Output Directory**: `.next`
+   - **Install Command**: `cd ../.. && npm install`
+4. Add environment variables (see below)
+5. Deploy!
+
+#### Via Vercel CLI
 
 ```bash
-NEXT_PUBLIC_API_URL=https://your-api-url.com
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
+# Install Vercel CLI
+npm install -g vercel
+
+# Login
+vercel login
+
+# Deploy
+cd apps/web
+vercel --prod
 ```
 
-## 📖 Documentation
+### Environment Variables
 
-For the complete VibesBNB marketplace application, see the main repository.
+```env
+NEXT_PUBLIC_API_URL=https://your-api-url.com
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+```
 
-## 🔒 License
+## 🧪 Development
+
+```bash
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm run start
+
+# Run linter
+npm run lint
+```
+
+## 🎯 Component Architecture
+
+### Homepage Components
+
+**Hero** - Main hero section with CTA buttons
+- Gradient background
+- "Explore Listings" and "Become a Host" CTAs
+
+**SearchBar** - Property search widget
+- Location, check-in/out dates, guests
+- URL parameter-based search
+
+**WellnessCategories** - Category grid
+- 6 clickable category cards
+- Icons and descriptions
+
+**FeaturedListings** - Property showcase
+- 4 featured properties
+- Ratings, pricing, locations
+
+**HowItWorks** - Process explanation
+- 4-step guide
+- Call-to-action section
+
+## 🔍 Features Coming Soon
+
+- User authentication and profiles
+- Real-time booking system
+- Host dashboard
+- Messaging between hosts and guests
+- Payment processing with Stripe
+- Reviews and ratings system
+- Advanced search filters
+- Map view integration
+
+## 📝 License
 
 Proprietary - All rights reserved.
 
@@ -109,9 +205,10 @@ Proprietary - All rights reserved.
 
 For questions or issues:
 - Email: hello@vibesbnb.com
+- Repository: https://github.com/impactxg-gnez/vibesbnb
 
 ---
 
-**Part of the VibesBNB Platform**
+**Built with ❤️ and 🌿 by the VibesBNB Team**
 
 Last Updated: November 2025
