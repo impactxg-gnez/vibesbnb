@@ -33,7 +33,7 @@ export default function SearchPage() {
         rating: 4.9,
         images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
         type: 'Cabin',
-        amenities: ['420-Friendly', 'Hot Tub', 'Mountain View'],
+        amenities: ['Wellness-Friendly', 'Hot Tub', 'Mountain View'],
       },
       {
         id: '2',
@@ -43,7 +43,7 @@ export default function SearchPage() {
         rating: 4.8,
         images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
         type: 'Bungalow',
-        amenities: ['420-Friendly', 'Beach Access', 'Private Deck'],
+        amenities: ['Wellness-Friendly', 'Beach Access', 'Private Deck'],
       },
       {
         id: '3',
@@ -53,7 +53,7 @@ export default function SearchPage() {
         rating: 4.7,
         images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop'],
         type: 'Apartment',
-        amenities: ['420-Friendly', 'Downtown', 'Modern'],
+        amenities: ['Wellness-Friendly', 'Downtown', 'Modern'],
       },
       {
         id: '4',
@@ -63,7 +63,7 @@ export default function SearchPage() {
         rating: 4.9,
         images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'],
         type: 'Villa',
-        amenities: ['420-Friendly', 'Pool', 'Stargazing'],
+        amenities: ['Wellness-Friendly', 'Pool', 'Stargazing'],
       },
       {
         id: '5',
@@ -73,7 +73,7 @@ export default function SearchPage() {
         rating: 4.8,
         images: ['https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=400&h=300&fit=crop'],
         type: 'Cabin',
-        amenities: ['420-Friendly', 'Fireplace', 'Hiking Trails'],
+        amenities: ['Wellness-Friendly', 'Fireplace', 'Hiking Trails'],
       },
       {
         id: '6',
@@ -83,7 +83,7 @@ export default function SearchPage() {
         rating: 4.9,
         images: ['https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?w=400&h=300&fit=crop'],
         type: 'House',
-        amenities: ['420-Friendly', 'Lake View', 'Boat Dock'],
+        amenities: ['Wellness-Friendly', 'Lake View', 'Boat Dock'],
       },
     ];
 
@@ -139,7 +139,7 @@ export default function SearchPage() {
                     className="object-cover group-hover:scale-110 transition duration-300"
                   />
                   <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    420-Friendly
+                    Wellness-Friendly
                   </div>
                 </div>
                 <div className="p-4">

@@ -7,7 +7,7 @@ const steps = [
   {
     number: 1,
     title: 'Search',
-    description: 'Browse 420-friendly properties tailored to your travel style',
+    description: 'Browse wellness-friendly properties tailored to your travel style',
     icon: '🔍',
   },
   {
@@ -54,7 +54,7 @@ export function HowItWorks() {
             How It Works
           </h2>
           <p className="text-xl text-gray-400">
-            Your cannabis-friendly getaway in 4 simple steps
+            Your wellness-friendly getaway in 4 simple steps
           </p>
         </motion.div>
         

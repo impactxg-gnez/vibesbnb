@@ -9,7 +9,7 @@ export default function HostPage() {
               Become a VibesBNB Host
             </h1>
             <p className="text-xl mb-8 text-emerald-50">
-              Share your 420-friendly space with travelers who appreciate it
+              Share your wellness-friendly space with travelers who appreciate it
             </p>
             <button className="bg-white text-emerald-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition">
               Start Hosting
@@ -37,10 +37,10 @@ export default function HostPage() {
             </p>
           </div>
           <div className="text-center bg-gray-900 p-8 rounded-xl border border-gray-800">
-            <div className="text-5xl mb-4">🌿</div>
-            <h3 className="text-xl font-semibold mb-3 text-white">Cannabis-Friendly</h3>
+            <div className="text-5xl mb-4">🧘</div>
+            <h3 className="text-xl font-semibold mb-3 text-white">Wellness-Friendly</h3>
             <p className="text-gray-400">
-              Connect with guests who respect and appreciate your 420-friendly policies
+              Connect with guests who respect and appreciate your wellness-friendly policies
             </p>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function HostPage() {
         <div className="bg-emerald-900/30 border border-emerald-600/50 rounded-2xl p-12 text-center max-w-3xl mx-auto">
           <h2 className="text-3xl font-bold mb-4 text-white">Ready to Start Hosting?</h2>
           <p className="text-xl text-gray-300 mb-8">
-            Join thousands of hosts earning income from their 420-friendly spaces
+            Join thousands of hosts earning income from their wellness-friendly spaces
           </p>
           <button className="bg-emerald-600 text-white px-10 py-4 rounded-lg font-semibold text-lg hover:bg-emerald-700 transition">
             List Your Space

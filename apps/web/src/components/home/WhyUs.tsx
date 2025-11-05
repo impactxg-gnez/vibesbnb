@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 const features = [
   {
     icon: '✓',
-    text: 'Verified cannabis-friendly policies',
+    text: 'Verified wellness-friendly policies',
   },
   {
     icon: '🌿',

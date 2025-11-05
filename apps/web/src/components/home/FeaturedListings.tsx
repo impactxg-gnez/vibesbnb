@@ -77,7 +77,7 @@ export function FeaturedListings() {
             Hand-picked <span className="text-green-600">Favorites</span>
           </h2>
           <p className="text-xl text-gray-600">
-            Premium cannabis-friendly stays loved by our community
+            Premium wellness-friendly stays loved by our community
           </p>
         </motion.div>
         
@@ -109,7 +109,7 @@ export function FeaturedListings() {
                     </div>
                   )}
                   <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    <span className="text-white text-sm font-medium">🌿 420-Friendly</span>
+                    <span className="text-white text-sm font-medium">🧘 Wellness-Friendly</span>
                   </div>
                 </div>
                 

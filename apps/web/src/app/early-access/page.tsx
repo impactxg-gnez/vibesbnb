@@ -46,13 +46,13 @@ const categoryInfo = {
     title: 'Host',
     icon: '🏠',
     color: 'from-green-500 to-green-600',
-    description: 'Sign up to list your 420-friendly property and start earning',
+    description: 'Sign up to list your wellness-friendly property and start earning',
   },
   traveller: {
     title: 'Traveller',
     icon: '✈️',
     color: 'from-blue-500 to-blue-600',
-    description: 'Sign up to discover amazing cannabis-friendly stays worldwide',
+    description: 'Sign up to discover amazing wellness-friendly stays worldwide',
   },
   service_host: {
     title: 'Service Host',

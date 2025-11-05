@@ -14,7 +14,7 @@ const retreats = [
     price: 185,
     image: 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
     amenities: ['Yoga deck', 'Hot tub'],
-    badge: 'Cannabis-friendly',
+    badge: 'Wellness-friendly',
   },
   {
     id: 2,
@@ -25,7 +25,7 @@ const retreats = [
     price: 245,
     image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&h=400&fit=crop',
     amenities: ['Sauna', 'Lake view'],
-    badge: 'Cannabis-friendly',
+    badge: 'Wellness-friendly',
   },
 ];
 

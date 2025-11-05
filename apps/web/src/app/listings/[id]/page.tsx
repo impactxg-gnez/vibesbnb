@@ -34,9 +34,9 @@ export default function ListingDetailPage() {
       image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
       joinedDate: '2022',
     },
-    description: 'Escape to this stunning mountain cabin with breathtaking views and a welcoming atmosphere for cannabis enthusiasts. Perfect for a relaxing getaway with friends or family.',
+    description: 'Escape to this stunning mountain cabin with breathtaking views and a welcoming atmosphere for wellness enthusiasts. Perfect for a relaxing getaway with friends or family.',
     amenities: [
-      '420-Friendly',
+      'Wellness-Friendly',
       'Hot Tub',
       'Mountain View',
       'Fireplace',
@@ -48,9 +48,9 @@ export default function ListingDetailPage() {
     houseRules: [
       'Check-in after 3:00 PM',
       'Check-out before 11:00 AM',
-      'Respectful cannabis consumption allowed',
+      'Respectful wellness practices encouraged',
       'No parties or events',
-      'No smoking indoors (cannabis or tobacco)',
+      'Quiet hours from 10 PM to 8 AM',
     ],
   };
 
@@ -105,11 +105,11 @@ export default function ListingDetailPage() {
             <div className="border-b border-gray-800 pb-6 mb-6">
               <div className="bg-emerald-900/30 border border-emerald-600/50 rounded-xl p-4 mb-6">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">🌿</span>
+                  <span className="text-3xl">🧘</span>
                   <div>
-                    <h3 className="font-semibold text-white">420-Friendly Property</h3>
+                    <h3 className="font-semibold text-white">Wellness-Friendly Property</h3>
                     <p className="text-gray-300 text-sm">
-                      This host welcomes responsible cannabis consumption
+                      This host welcomes mindful wellness practices
                     </p>
                   </div>
                 </div>

@@ -8,7 +8,7 @@ export function Hero() {
     <div className="relative h-64 overflow-hidden">
       <Image
         src="https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800&h=400&fit=crop"
-        alt="Cannabis-friendly sanctuary"
+        alt="Wellness-friendly sanctuary"
         fill
         className="object-cover opacity-70"
         priority
@@ -23,7 +23,7 @@ export function Hero() {
           className="max-w-2xl"
         >
           <h1 className="text-3xl font-bold text-white mb-3">
-            Find your cannabis-friendly sanctuary
+            Find your wellness-friendly sanctuary
           </h1>
           <p className="text-gray-300">
             Discover serene stays with spas, yoga decks, and curated wellness amenities.

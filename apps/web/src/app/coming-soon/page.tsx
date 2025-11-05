@@ -17,7 +17,7 @@ const categories = [
   {
     id: 'host' as UserCategory,
     title: 'Host',
-    description: 'List your 420-friendly property',
+    description: 'List your wellness-friendly property',
     icon: '🏠',
     color: 'from-green-500 to-green-600',
     hoverColor: 'hover:shadow-green-500/30',
@@ -25,7 +25,7 @@ const categories = [
   {
     id: 'traveller' as UserCategory,
     title: 'Traveller',
-    description: 'Find cannabis-friendly stays',
+    description: 'Find wellness-friendly stays',
     icon: '✈️',
     color: 'from-blue-500 to-blue-600',
     hoverColor: 'hover:shadow-blue-500/30',
@@ -119,7 +119,7 @@ export default function ComingSoonPage() {
           <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
             The Future of{' '}
             <span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              420-Friendly Travel
+              Wellness-Friendly Travel
             </span>
             {' '}Is Almost Here
           </h2>

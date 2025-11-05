@@ -50,7 +50,7 @@ export function WellnessCategories() {
             Explore by <span className="text-green-600">Vibe</span>
           </h2>
           <p className="text-xl text-gray-600">
-            Discover your perfect cannabis-friendly getaway
+            Discover your perfect wellness-friendly getaway
           </p>
         </motion.div>
         
@@ -82,7 +82,7 @@ export function WellnessCategories() {
                   </p>
                 </div>
                 <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white text-sm font-medium border border-white/30">
-                  420-Friendly ✓
+                  Wellness-Friendly ✓
                 </div>
               </Link>
             </motion.div>

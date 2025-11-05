@@ -8,8 +8,8 @@ import Script from 'next/script';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'VibesBNB - Wellness & 420-Friendly Vacation Rentals',
-  description: 'Find your perfect wellness retreat with cannabis-friendly, yoga-inspired, and mindful travel experiences.',
+  title: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+  description: 'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
 };
 
 export default function RootLayout({
