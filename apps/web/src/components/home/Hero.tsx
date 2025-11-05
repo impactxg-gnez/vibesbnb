@@ -1,36 +1,35 @@
 'use client';
 
-import Link from 'next/link';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 export function Hero() {
   return (
-    <div className="relative bg-gradient-to-r from-green-600 to-emerald-700 text-white">
-      <div className="container mx-auto px-4 py-20 sm:py-32">
-        <div className="max-w-3xl">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
-            Your 420-Friendly Getaway Awaits
+    <div className="relative h-64 overflow-hidden">
+      <Image
+        src="https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800&h=400&fit=crop"
+        alt="Cannabis-friendly sanctuary"
+        fill
+        className="object-cover opacity-70"
+        priority
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/50 to-transparent" />
+      
+      <div className="relative container mx-auto px-4 h-full flex items-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="max-w-2xl"
+        >
+          <h1 className="text-3xl font-bold text-white mb-3">
+            Find your cannabis-friendly sanctuary
           </h1>
-          <p className="text-xl sm:text-2xl mb-8 text-green-50">
-            Discover cannabis-welcoming accommodations, wellness experiences, and unforgettable stays
+          <p className="text-gray-300">
+            Discover serene stays with spas, yoga decks, and curated wellness amenities.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Link
-              href="/search"
-              className="inline-block bg-white text-green-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-50 transition text-center"
-            >
-              Explore Listings
-            </Link>
-            <Link
-              href="/host"
-              className="inline-block bg-green-800 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-900 transition border-2 border-white text-center"
-            >
-              Become a Host
-            </Link>
-          </div>
-        </div>
+        </motion.div>
       </div>
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-50 to-transparent"></div>
     </div>
   );
 }
-

@@ -1,19 +1,17 @@
 import { Hero } from '@/components/home/Hero';
-import { SearchBar } from '@/components/search/SearchBar';
-import { FeaturedListings } from '@/components/home/FeaturedListings';
-import { WellnessCategories } from '@/components/home/WellnessCategories';
-import { HowItWorks } from '@/components/home/HowItWorks';
+import { SearchSection } from '@/components/home/SearchSection';
+import { FeaturedRetreats } from '@/components/home/FeaturedRetreats';
+import { BrowseByVibe } from '@/components/home/BrowseByVibe';
+import { WhyUs } from '@/components/home/WhyUs';
 
 export default function HomePage() {
   return (
-    <div>
+    <div className="bg-gray-950 min-h-screen">
       <Hero />
-      <div className="container mx-auto px-4 -mt-8 relative z-10">
-        <SearchBar />
-      </div>
-      <WellnessCategories />
-      <FeaturedListings />
-      <HowItWorks />
+      <SearchSection />
+      <FeaturedRetreats />
+      <BrowseByVibe />
+      <WhyUs />
     </div>
   );
 }
