@@ -1,4 +1,4 @@
-import { Browser, Page } from 'puppeteer';
+import type { Browser, Page } from 'puppeteer-core';
 
 interface ScrapedPropertyData {
   name: string;
