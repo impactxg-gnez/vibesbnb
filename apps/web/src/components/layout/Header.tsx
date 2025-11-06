@@ -67,11 +67,18 @@ export function Header() {
                             My Bookings
                           </Link>
                           <Link
-                            href="/host"
+                            href="/host/properties"
                             className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
                             onClick={() => setShowUserMenu(false)}
                           >
-                            Become a Host
+                            My Properties
+                          </Link>
+                          <Link
+                            href="/admin"
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            Admin Panel
                           </Link>
                           <button
                             onClick={() => {

@@ -11,9 +11,9 @@ export default function HostPage() {
             <p className="text-xl mb-8 text-emerald-50">
               Share your wellness-friendly space with travelers who appreciate it
             </p>
-            <button className="bg-white text-emerald-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition">
-              Start Hosting
-            </button>
+                  <Link href="/host/properties" className="bg-white text-emerald-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition inline-block">
+                    Start Hosting
+                  </Link>
           </div>
         </div>
       </div>
@@ -95,9 +95,9 @@ export default function HostPage() {
           <p className="text-xl text-gray-300 mb-8">
             Join thousands of hosts earning income from their wellness-friendly spaces
           </p>
-          <button className="bg-emerald-600 text-white px-10 py-4 rounded-lg font-semibold text-lg hover:bg-emerald-700 transition">
-            List Your Space
-          </button>
+                <Link href="/host/properties" className="bg-emerald-600 text-white px-10 py-4 rounded-lg font-semibold text-lg hover:bg-emerald-700 transition inline-block">
+                  List Your Space
+                </Link>
         </div>
       </div>
     </div>
