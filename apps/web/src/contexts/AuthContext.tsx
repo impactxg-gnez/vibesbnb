@@ -96,38 +96,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, useSupabase]);
 
   const signIn = async (email: string, password: string) => {
-    if (!useSupabase) {
-      // Demo authentication
-      const demoAccount = DEMO_ACCOUNTS[email as keyof typeof DEMO_ACCOUNTS];
+    // Check if this is a demo account first (even if Supabase is configured)
+    const demoAccount = DEMO_ACCOUNTS[email as keyof typeof DEMO_ACCOUNTS];
+    
+    if (demoAccount && demoAccount.password === password) {
+      const mockUser = {
+        id: `demo-${demoAccount.role}`,
+        email: demoAccount.email,
+        user_metadata: {
+          full_name: demoAccount.name,
+          role: demoAccount.role,
+        },
+        app_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+      };
       
-      if (demoAccount && demoAccount.password === password) {
-        const mockUser = {
-          id: `demo-${demoAccount.role}`,
-          email: demoAccount.email,
-          user_metadata: {
-            full_name: demoAccount.name,
-            role: demoAccount.role,
-          },
-          app_metadata: {},
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        };
-        
-        setUser(mockUser as any);
-        localStorage.setItem('demoUser', JSON.stringify(mockUser));
-        router.push('/');
-        router.refresh();
-        return { error: null };
-      } else {
-        return { 
-          error: { 
-            message: 'Invalid email or password. Try demo@traveller.com, demo@host.com, or demo@admin.com with password: password' 
-          } 
-        };
-      }
+      setUser(mockUser as any);
+      localStorage.setItem('demoUser', JSON.stringify(mockUser));
+      router.push('/');
+      router.refresh();
+      return { error: null };
     }
     
-    // Supabase authentication
+    // If not a demo account and Supabase is not configured, show error
+    if (!useSupabase) {
+      return { 
+        error: { 
+          message: 'Invalid email or password. Try demo@traveller.com, demo@host.com, demo@admin.com (password: password) or esca@vibesbnb.com (password: Esca123!)' 
+        } 
+      };
+    }
+    
+    // Supabase authentication for non-demo accounts
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
