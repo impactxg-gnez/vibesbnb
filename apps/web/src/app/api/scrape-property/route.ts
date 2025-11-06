@@ -5,7 +5,9 @@ import { scrapeWithPuppeteer } from '@/lib/scraper-puppeteer';
 // Force Node.js runtime (not Edge) to support cheerio and puppeteer
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Allow up to 60 seconds for scraping
+
+// Vercel function configuration (maxDuration in seconds)
+export const maxDuration = 60; // 60 seconds timeout for Puppeteer scraping
 
 interface ScrapedPropertyData {
   name: string;
@@ -86,21 +88,21 @@ export async function POST(request: NextRequest) {
  * Cheerio-based scraping (fallback method)
  */
 async function scrapeWithCheerio(url: string, isAirbnb: boolean): Promise<ScrapedPropertyData> {
-  // Fetch the property page
-  const response = await fetch(url, {
-    headers: {
+    // Fetch the property page
+    const response = await fetch(url, {
+      headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
-    },
-  });
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error('Failed to fetch property page');
-  }
+    if (!response.ok) {
+      throw new Error('Failed to fetch property page');
+    }
 
-  const html = await response.text();
-  const $ = cheerio.load(html);
+    const html = await response.text();
+    const $ = cheerio.load(html);
 
   if (isAirbnb) {
     return await scrapeAirbnb($, html, url);
@@ -314,58 +316,58 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
 
 async function scrapeGeneric($: cheerio.CheerioAPI, url: string): Promise<ScrapedPropertyData> {
   const propertyData: ScrapedPropertyData = {
-    name: '',
-    description: '',
-    location: '',
-    bedrooms: 1,
-    bathrooms: 1,
+      name: '',
+      description: '',
+      location: '',
+      bedrooms: 1,
+      bathrooms: 1,
     beds: 1,
-    guests: 2,
-    price: 100,
-    amenities: [],
-    images: [],
-    wellnessFriendly: false,
-  };
+      guests: 2,
+      price: 100,
+      amenities: [],
+      images: [],
+      wellnessFriendly: false,
+    };
 
   // Extract basic info
-  propertyData.name = 
-    $('h1').first().text().trim() ||
+    propertyData.name = 
+      $('h1').first().text().trim() ||
     $('meta[property="og:title"]').attr('content') ||
-    $('title').text().trim();
+      $('title').text().trim();
 
-  propertyData.description = 
+    propertyData.description = 
     $('meta[property="og:description"]').attr('content') ||
-    $('meta[name="description"]').attr('content') ||
+      $('meta[name="description"]').attr('content') ||
     '';
 
-  propertyData.location = 
-    $('.location').text().trim() ||
-    $('[itemprop="address"]').text().trim() ||
-    '';
+    propertyData.location = 
+      $('.location').text().trim() ||
+      $('[itemprop="address"]').text().trim() ||
+      '';
 
   // Extract images
-  const images = new Set<string>();
-  
-  $('meta[property="og:image"]').each((_, el) => {
-    const src = $(el).attr('content');
-    if (src && isValidImageUrl(src)) {
-      images.add(src);
-    }
-  });
+    const images = new Set<string>();
+    
+    $('meta[property="og:image"]').each((_, el) => {
+      const src = $(el).attr('content');
+      if (src && isValidImageUrl(src)) {
+        images.add(src);
+      }
+    });
 
-  $('img').each((_, el) => {
-    const src = $(el).attr('src') || $(el).attr('data-src');
-    if (src && isValidImageUrl(src)) {
+    $('img').each((_, el) => {
+      const src = $(el).attr('src') || $(el).attr('data-src');
+      if (src && isValidImageUrl(src)) {
       try {
         const absoluteUrl = new URL(src, url).href;
         images.add(absoluteUrl);
       } catch (e) {
         // Invalid URL, skip
+        }
       }
-    }
-  });
+    });
 
-  propertyData.images = Array.from(images);
+    propertyData.images = Array.from(images);
 
   // Extract room details from text
   const bodyText = $('body').text();
