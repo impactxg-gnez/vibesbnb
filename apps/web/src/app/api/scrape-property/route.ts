@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
+
+// Force Node.js runtime (not Edge) to support cheerio
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,9 +12,6 @@ export async function POST(request: NextRequest) {
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
-
-    // Dynamic import of cheerio to avoid webpack issues
-    const cheerio = await import('cheerio');
 
     // Fetch the property page
     const response = await fetch(url, {
@@ -194,8 +196,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function extractTextAfter($: any, keyword: string): string {
-  const elements = $('*').filter((_: any, el: any) => {
+function extractTextAfter($: cheerio.CheerioAPI, keyword: string): string {
+  const elements = $('*').filter((_, el) => {
     return $(el).text().toLowerCase().includes(keyword.toLowerCase());
   });
   

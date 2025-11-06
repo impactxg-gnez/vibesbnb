@@ -16,6 +16,13 @@ const nextConfig = {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
   },
+  webpack: (config, { isServer }) => {
+    // Externalize cheerio for server-side to avoid webpack bundling issues
+    if (isServer) {
+      config.externals = [...(config.externals || []), 'cheerio'];
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;
