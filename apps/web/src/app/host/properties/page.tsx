@@ -286,24 +286,9 @@ export default function HostPropertiesPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full p-6">
             <h2 className="text-2xl font-bold text-white mb-4">Import Property from URL</h2>
             <p className="text-gray-400 mb-6">
-              Paste the URL of your property listing from Airbnb, Booking.com, VRBO, or other sites.
+              Paste the URL of your property listing from any vacation rental platform.
               We'll automatically extract the details for you!
             </p>
-
-            {/* Supported platforms */}
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
-              <p className="text-sm font-medium text-white mb-2">Supported Platforms:</p>
-              <div className="flex flex-wrap gap-2">
-                {['Airbnb', 'Booking.com', 'VRBO', 'HomeAway', 'TripAdvisor'].map((platform) => (
-                  <span
-                    key={platform}
-                    className="px-3 py-1 bg-gray-700 text-gray-300 rounded-full text-xs"
-                  >
-                    {platform}
-                  </span>
-                ))}
-              </div>
-            </div>
 
             {/* URL Input */}
             <div className="mb-6">
@@ -314,11 +299,11 @@ export default function HostPropertiesPage() {
                 type="url"
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
-                placeholder="https://www.airbnb.com/rooms/12345678"
+                placeholder="https://example.com/listings/12345"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Example: https://www.airbnb.com/rooms/12345678
+                Paste any property listing URL (e.g., from Airbnb, Booking.com, VRBO, or your management platform)
               </p>
             </div>
 
