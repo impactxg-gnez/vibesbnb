@@ -33,31 +33,70 @@ export default function HostPropertiesPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    // Load mock properties (replace with actual API call)
-    const mockProperties: Property[] = [
-      {
-        id: '1',
-        name: 'Mountain View Cabin',
-        location: 'Aspen, Colorado',
-        bedrooms: 3,
-        price: 250,
-        images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
-        status: 'active',
-        wellnessFriendly: true,
-      },
-      {
-        id: '2',
-        name: 'Beach Villa',
-        location: 'Malibu, California',
-        bedrooms: 4,
-        price: 450,
-        images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
-        status: 'active',
-        wellnessFriendly: true,
-      },
-    ];
-    setProperties(mockProperties);
-  }, []);
+    if (user) {
+      // Load properties from localStorage for persistence
+      const savedProperties = localStorage.getItem(`properties_${user.id}`);
+      if (savedProperties) {
+        try {
+          const parsedProperties = JSON.parse(savedProperties);
+          setProperties(parsedProperties);
+        } catch (error) {
+          console.error('Failed to load properties:', error);
+          // Load default mock properties
+          const mockProperties: Property[] = [
+            {
+              id: '1',
+              name: 'Mountain View Cabin',
+              location: 'Aspen, Colorado',
+              bedrooms: 3,
+              price: 250,
+              images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
+              status: 'active',
+              wellnessFriendly: true,
+            },
+            {
+              id: '2',
+              name: 'Beach Villa',
+              location: 'Malibu, California',
+              bedrooms: 4,
+              price: 450,
+              images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
+              status: 'active',
+              wellnessFriendly: true,
+            },
+          ];
+          setProperties(mockProperties);
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(mockProperties));
+        }
+      } else {
+        // First time - load default mock properties
+        const mockProperties: Property[] = [
+          {
+            id: '1',
+            name: 'Mountain View Cabin',
+            location: 'Aspen, Colorado',
+            bedrooms: 3,
+            price: 250,
+            images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
+            status: 'active',
+            wellnessFriendly: true,
+          },
+          {
+            id: '2',
+            name: 'Beach Villa',
+            location: 'Malibu, California',
+            bedrooms: 4,
+            price: 450,
+            images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
+            status: 'active',
+            wellnessFriendly: true,
+          },
+        ];
+        setProperties(mockProperties);
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(mockProperties));
+      }
+    }
+  }, [user]);
 
   const handleImportFromUrl = async () => {
     if (!importUrl.trim()) {
@@ -68,30 +107,47 @@ export default function HostPropertiesPage() {
     setImporting(true);
 
     try {
-      // TODO: Implement actual API call to scrape/import property
-      // This would call your backend to extract property details from the URL
-      // For now, we'll simulate the import
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the scraping API
+      const response = await fetch('/api/scrape-property', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: importUrl }),
+      });
 
-      // Mock imported property
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to import property');
+      }
+
+      const scrapedData = result.data;
+
+      // Create imported property with scraped data
       const importedProperty: Property = {
         id: Date.now().toString(),
-        name: 'Imported Property',
-        location: 'Location from URL',
-        bedrooms: 2,
-        price: 150,
-        images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop'],
+        name: scrapedData.name || 'Imported Property',
+        location: scrapedData.location || 'Location not found',
+        bedrooms: scrapedData.bedrooms || 1,
+        price: scrapedData.price || 100,
+        images: scrapedData.images || [],
         status: 'draft',
-        wellnessFriendly: false,
+        wellnessFriendly: scrapedData.wellnessFriendly || false,
       };
 
+      // Save to localStorage for persistence
+      const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
+      const updatedProperties = [...existingProperties, importedProperty];
+      localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
+
       setProperties([...properties, importedProperty]);
-      toast.success('Property imported! Please review and publish.');
+      toast.success(`Property imported! Found ${scrapedData.images?.length || 0} images. Please review and publish.`);
       setShowImportModal(false);
       setImportUrl('');
-    } catch (error) {
-      toast.error('Failed to import property. Please try again.');
+    } catch (error: any) {
+      console.error('Import error:', error);
+      toast.error(error.message || 'Failed to import property. Please try again.');
     } finally {
       setImporting(false);
     }
@@ -99,7 +155,14 @@ export default function HostPropertiesPage() {
 
   const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this property?')) {
-      setProperties(properties.filter(p => p.id !== id));
+      const updatedProperties = properties.filter(p => p.id !== id);
+      setProperties(updatedProperties);
+      
+      // Update localStorage for persistence
+      if (user) {
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+      }
+      
       toast.success('Property deleted');
     }
   };

@@ -1,19 +1,33 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
+  const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  
+  const isHost = user?.user_metadata?.role === 'host';
+
+  const switchToTraveler = () => {
+    router.push('/search');
+    setShowUserMenu(false);
+  };
+
+  const switchToHost = () => {
+    router.push('/host/properties');
+    setShowUserMenu(false);
+  };
 
   return (
     <header className="bg-gray-950 border-b border-gray-800 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href={isHost ? "/host/properties" : "/"} className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xl">V</span>
             </div>
@@ -80,6 +94,23 @@ export function Header() {
                           >
                             Admin Panel
                           </Link>
+                          <div className="border-t border-gray-800 my-1"></div>
+                          {isHost ? (
+                            <button
+                              onClick={switchToTraveler}
+                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                            >
+                              🌍 Switch to Traveler Mode
+                            </button>
+                          ) : (
+                            <button
+                              onClick={switchToHost}
+                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                            >
+                              🏠 Switch to Host Mode
+                            </button>
+                          )}
+                          <div className="border-t border-gray-800 my-1"></div>
                           <button
                             onClick={() => {
                               signOut();
