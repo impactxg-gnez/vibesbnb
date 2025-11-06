@@ -10,12 +10,18 @@ import toast from 'react-hot-toast';
 interface Property {
   id: string;
   name: string;
+  description?: string;
   location: string;
   bedrooms: number;
+  bathrooms?: number;
+  beds?: number;
+  guests?: number;
   price: number;
   images: string[];
+  amenities?: string[];
   status: 'active' | 'draft' | 'inactive';
   wellnessFriendly: boolean;
+  googleMapsUrl?: string;
 }
 
 export default function HostPropertiesPage() {
@@ -123,17 +129,24 @@ export default function HostPropertiesPage() {
       }
 
       const scrapedData = result.data;
+      const meta = result.meta || {};
 
       // Create imported property with scraped data
       const importedProperty: Property = {
         id: Date.now().toString(),
         name: scrapedData.name || 'Imported Property',
+        description: scrapedData.description || '',
         location: scrapedData.location || 'Location not found',
         bedrooms: scrapedData.bedrooms || 1,
+        bathrooms: scrapedData.bathrooms || 1,
+        beds: scrapedData.beds || 1,
+        guests: scrapedData.guests || 2,
         price: scrapedData.price || 100,
         images: scrapedData.images || [],
+        amenities: scrapedData.amenities || [],
         status: 'draft',
         wellnessFriendly: scrapedData.wellnessFriendly || false,
+        googleMapsUrl: scrapedData.googleMapsUrl,
       };
 
       // Save to localStorage for persistence
@@ -142,7 +155,21 @@ export default function HostPropertiesPage() {
       localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
 
       setProperties([...properties, importedProperty]);
-      toast.success(`Property imported! Found ${scrapedData.images?.length || 0} images. Please review and publish.`);
+      
+      // Enhanced success message with more details
+      const details = [];
+      if (scrapedData.images?.length) details.push(`${scrapedData.images.length} photos`);
+      if (scrapedData.amenities?.length) details.push(`${scrapedData.amenities.length} amenities`);
+      if (scrapedData.guests) details.push(`${scrapedData.guests} guests`);
+      if (scrapedData.bedrooms) details.push(`${scrapedData.bedrooms} bedrooms`);
+      if (scrapedData.bathrooms) details.push(`${scrapedData.bathrooms} bathrooms`);
+      
+      const method = meta.scrapingMethod === 'puppeteer' ? '🚀 Browser automation' : '⚡ Fast mode';
+      const duration = meta.duration ? ` (${(meta.duration / 1000).toFixed(1)}s)` : '';
+      
+      toast.success(`${method}${duration}\n✅ Imported: ${details.join(', ')}. Review and publish!`, {
+        duration: 5000,
+      });
       setShowImportModal(false);
       setImportUrl('');
     } catch (error: any) {
@@ -304,13 +331,65 @@ export default function HostPropertiesPage() {
                   <h3 className="text-xl font-semibold text-white mb-1 group-hover:text-emerald-500 transition">
                     {property.name}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-3">{property.location}</p>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-gray-400 text-sm">{property.bedrooms} bedrooms</span>
-                    <span className="text-white font-bold text-lg">
-                      ${property.price}
-                      <span className="text-gray-400 text-sm font-normal">/night</span>
-                    </span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-gray-400 text-sm">{property.location}</p>
+                    {property.googleMapsUrl && (
+                      <a 
+                        href={property.googleMapsUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-400 text-xs"
+                      >
+                        📍 Map
+                      </a>
+                    )}
+                  </div>
+                  
+                  {/* Property Details */}
+                  <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                    <span className="text-gray-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
+                    {property.bathrooms && (
+                      <span className="text-gray-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
+                    )}
+                    {property.beds && (
+                      <span className="text-gray-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
+                    )}
+                    {property.guests && (
+                      <span className="text-gray-400">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
+
+                  {/* Amenities Preview */}
+                  {property.amenities && property.amenities.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex flex-wrap gap-1">
+                        {property.amenities.slice(0, 3).map((amenity, idx) => (
+                          <span key={idx} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+                            {amenity}
+                          </span>
+                        ))}
+                        {property.amenities.length > 3 && (
+                          <span className="text-xs text-gray-500 px-2 py-1">
+                            +{property.amenities.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price & Image Count */}
+                  <div className="flex items-center justify-between mb-4 pt-3 border-t border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-bold text-lg">
+                        ${property.price}
+                        <span className="text-gray-400 text-sm font-normal">/night</span>
+                      </span>
+                    </div>
+                    {property.images.length > 0 && (
+                      <span className="text-gray-500 text-xs">
+                        📷 {property.images.length} photo{property.images.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -349,8 +428,8 @@ export default function HostPropertiesPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full p-6">
             <h2 className="text-2xl font-bold text-white mb-4">Import Property from URL</h2>
             <p className="text-gray-400 mb-6">
-              Paste the URL of your property listing from any vacation rental platform.
-              We'll automatically extract the details for you!
+              Paste your Airbnb or other vacation rental listing URL.
+              We'll automatically extract all the important details for you!
             </p>
 
             {/* URL Input */}
@@ -362,20 +441,34 @@ export default function HostPropertiesPage() {
                 type="url"
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
-                placeholder="https://example.com/listings/12345"
+                placeholder="https://www.airbnb.com/rooms/12345678"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Paste any property listing URL (e.g., from Airbnb, Booking.com, VRBO, or your management platform)
+                🎯 Best results with Airbnb URLs. Also supports Booking.com, VRBO, and other platforms.
               </p>
             </div>
 
             {/* Info */}
-            <div className="bg-blue-900/30 border border-blue-600/50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-blue-300">
-                <strong>Note:</strong> We'll import the property details including name, description,
-                amenities, photos, and pricing. You can review and edit everything before publishing.
-              </p>
+            <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-600/50 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🚀</div>
+                <div>
+                  <p className="text-sm text-blue-300 mb-2">
+                    <strong>Advanced Browser Automation</strong>
+                  </p>
+                  <ul className="text-sm text-blue-200 space-y-1 ml-4">
+                    <li>📷 <strong>All property photos</strong> (including lazy-loaded images)</li>
+                    <li>🏠 Bedrooms, bathrooms, beds, and guest capacity</li>
+                    <li>✨ Complete list of amenities</li>
+                    <li>📍 Location with Google Maps integration</li>
+                    <li>📝 Property name and description</li>
+                  </ul>
+                  <p className="text-xs text-blue-300 mt-3">
+                    💡 For Airbnb URLs, we use browser automation to scroll and load ALL images!
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Actions */}

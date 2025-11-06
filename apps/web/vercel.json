@@ -2,6 +2,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "apps/web/src/app/api/scrape-property/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
 }
 
