@@ -36,6 +36,12 @@ const DEMO_ACCOUNTS = {
     name: 'Demo Admin',
     email: 'demo@admin.com',
   },
+  'esca@vibesbnb.com': {
+    password: 'Esca123!',
+    role: 'host',
+    name: 'EscaManagement',
+    email: 'esca@vibesbnb.com',
+  },
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
