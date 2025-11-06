@@ -17,10 +17,17 @@ const nextConfig = {
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
   },
   webpack: (config, { isServer }) => {
-    // Externalize cheerio for server-side to avoid webpack bundling issues
+    // Externalize packages for server-side to avoid webpack bundling issues
     if (isServer) {
-      config.externals = [...(config.externals || []), 'cheerio'];
+      config.externals = [
+        ...(config.externals || []), 
+        'cheerio',
+        '@sparticuz/chromium',
+        'puppeteer-core',
+        'puppeteer',
+      ];
     }
+    
     return config;
   },
 };

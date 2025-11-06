@@ -39,19 +39,20 @@ async function getBrowser(): Promise<Browser> {
   if (isProduction && isVercel) {
     // Serverless environment (Vercel)
     try {
-      const chromium = await import('chrome-aws-lambda');
+      const chromium = await import('@sparticuz/chromium');
       const puppeteerCore = await import('puppeteer-core');
       
-      console.log('[Puppeteer] Using chrome-aws-lambda for serverless');
+      console.log('[Puppeteer] Using @sparticuz/chromium for serverless');
       
       browserInstance = await puppeteerCore.default.launch({
         args: chromium.default.args,
-        executablePath: await chromium.default.executablePath,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath: await chromium.default.executablePath(),
         headless: chromium.default.headless,
       });
     } catch (error) {
-      console.error('[Puppeteer] Failed to load chrome-aws-lambda, falling back to local puppeteer');
-      // Fallback to regular puppeteer if chrome-aws-lambda fails
+      console.error('[Puppeteer] Failed to load @sparticuz/chromium, falling back to local puppeteer');
+      // Fallback to regular puppeteer if chromium fails
       const puppeteer = await import('puppeteer');
       browserInstance = await puppeteer.default.launch({
         headless: true,
