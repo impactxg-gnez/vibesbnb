@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "functions": {
-    "apps/web/src/app/api/scrape-property/route.ts": {
+    "api/scrape-property": {
       "memory": 1024,
       "maxDuration": 60
     }
