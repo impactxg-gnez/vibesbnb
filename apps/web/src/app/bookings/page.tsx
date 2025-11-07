@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Calendar, MapPin, Users, Star, ChevronRight } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface Booking {
   id: string;
@@ -41,10 +42,25 @@ export default function BookingsPage() {
     }
   }, [user]);
 
-  const loadBookings = () => {
+  const loadBookings = async () => {
     setLoadingBookings(true);
     try {
-      // Load bookings from localStorage
+      // Try to load from API first (cloud storage)
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        try {
+          const response = await api.get<Booking[]>('/bookings');
+          if (response && Array.isArray(response)) {
+            setBookings(response);
+            setLoadingBookings(false);
+            return;
+          }
+        } catch (apiError) {
+          // API not available or endpoint doesn't exist yet, fallback to localStorage
+          console.log('API not available, using localStorage fallback');
+        }
+      }
+
+      // Fallback to localStorage (client-side only)
       const bookingsKey = `bookings_${user?.id}`;
       const savedBookings = localStorage.getItem(bookingsKey);
       

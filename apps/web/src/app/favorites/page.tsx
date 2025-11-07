@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Heart, MapPin, Star, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { api } from '@/lib/api';
 
 interface Favorite {
   id: string;
@@ -39,10 +40,25 @@ export default function FavoritesPage() {
     }
   }, [user]);
 
-  const loadFavorites = () => {
+  const loadFavorites = async () => {
     setLoadingFavorites(true);
     try {
-      // Load favorites from localStorage
+      // Try to load from API first (cloud storage)
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        try {
+          const response = await api.get<Favorite[]>('/favorites');
+          if (response && Array.isArray(response)) {
+            setFavorites(response);
+            setLoadingFavorites(false);
+            return;
+          }
+        } catch (apiError) {
+          // API not available or endpoint doesn't exist yet, fallback to localStorage
+          console.log('API not available, using localStorage fallback');
+        }
+      }
+
+      // Fallback to localStorage (client-side only)
       const favoritesKey = `favorites_${user?.id}`;
       const savedFavorites = localStorage.getItem(favoritesKey);
       
@@ -111,10 +127,24 @@ export default function FavoritesPage() {
     }
   };
 
-  const removeFavorite = (propertyId: string) => {
+  const removeFavorite = async (propertyId: string) => {
     if (!user) return;
     
     try {
+      // Try to remove from API first (cloud storage)
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        try {
+          await api.delete(`/favorites/${propertyId}`);
+          setFavorites(prev => prev.filter(f => f.id !== propertyId));
+          toast.success('Removed from favorites');
+          return;
+        } catch (apiError) {
+          // API not available, fallback to localStorage
+          console.log('API not available, using localStorage fallback');
+        }
+      }
+
+      // Fallback to localStorage (client-side only)
       const favoritesKey = `favorites_${user.id}`;
       const savedFavorites = localStorage.getItem(favoritesKey);
       
