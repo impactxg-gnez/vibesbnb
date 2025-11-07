@@ -48,7 +48,7 @@ async function getBrowser(): Promise<Browser> {
         args: chromium.default.args,
         defaultViewport: { width: 1920, height: 1080 },
         executablePath: await chromium.default.executablePath(),
-        headless: chromium.default.headless,
+        headless: true,
       });
     } catch (error) {
       console.error('[Puppeteer] Failed to load @sparticuz/chromium, falling back to local puppeteer');
