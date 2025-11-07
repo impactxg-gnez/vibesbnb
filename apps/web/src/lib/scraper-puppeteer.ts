@@ -26,7 +26,7 @@ let browserInstance: Browser | null = null;
  * Supports both local development and serverless (Vercel) environments
  */
 async function getBrowser(): Promise<Browser> {
-  if (browserInstance && browserInstance.connected) {
+  if (browserInstance && browserInstance.isConnected()) {
     return browserInstance;
   }
 
