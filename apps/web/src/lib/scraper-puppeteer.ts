@@ -1,4 +1,4 @@
-import type { Browser, Page } from 'puppeteer-core';
+import type { Browser as PuppeteerCoreBrowser, Page } from 'puppeteer-core';
 
 interface ScrapedPropertyData {
   name: string;
@@ -19,14 +19,14 @@ interface ScrapedPropertyData {
   };
 }
 
-let browserInstance: Browser | null = null;
+let browserInstance: PuppeteerCoreBrowser | any = null;
 
 /**
  * Get or create a browser instance (reuse for performance)
  * Supports both local development and serverless (Vercel) environments
  */
-async function getBrowser(): Promise<Browser> {
-  if (browserInstance && browserInstance.isConnected()) {
+async function getBrowser(): Promise<PuppeteerCoreBrowser | any> {
+  if (browserInstance && browserInstance.isConnected && browserInstance.isConnected()) {
     return browserInstance;
   }
 
