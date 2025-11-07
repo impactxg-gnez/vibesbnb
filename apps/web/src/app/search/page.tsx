@@ -202,8 +202,8 @@ export default function SearchPage() {
               >
                 <div className="relative h-64">
                   <Image
-                    src={listing.images[0]}
-                    alt={listing.title}
+                    src={listing.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
+                    alt={listing.title || 'Property'}
                     fill
                     className="object-cover group-hover:scale-110 transition duration-300"
                   />
