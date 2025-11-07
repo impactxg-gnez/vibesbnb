@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { Heart, MapPin, Star, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
 
 interface Favorite {
   id: string;
@@ -43,7 +44,57 @@ export default function FavoritesPage() {
   const loadFavorites = async () => {
     setLoadingFavorites(true);
     try {
-      // Try to load from API first (cloud storage)
+      // Try to load from Supabase (cloud storage - syncs across devices)
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      if (supabaseUser) {
+        try {
+          // Get favorite property IDs from Supabase
+          const { data: favoritesData, error } = await supabase
+            .from('favorites')
+            .select('property_id')
+            .eq('user_id', supabaseUser.id);
+
+          if (!error && favoritesData && favoritesData.length > 0) {
+            const favoriteIds = favoritesData.map((f: any) => f.property_id);
+            
+            // Get property details from Supabase or localStorage
+            const { data: propertiesData } = await supabase
+              .from('properties')
+              .select('*')
+              .in('id', favoriteIds)
+              .eq('status', 'active');
+
+            if (propertiesData && propertiesData.length > 0) {
+              const transformedFavorites: Favorite[] = propertiesData.map((p: any) => ({
+                id: p.id,
+                name: p.name || p.title,
+                location: p.location,
+                price: p.price,
+                rating: p.rating,
+                images: p.images || [],
+                type: p.type,
+                amenities: p.amenities || [],
+                guests: p.guests,
+                status: p.status,
+              }));
+              setFavorites(transformedFavorites);
+              setLoadingFavorites(false);
+              return;
+            }
+          } else if (!error && favoritesData && favoritesData.length === 0) {
+            // No favorites in Supabase
+            setFavorites([]);
+            setLoadingFavorites(false);
+            return;
+          }
+        } catch (supabaseError) {
+          console.log('Supabase not available, trying localStorage fallback');
+        }
+      }
+
+      // Try backend API as second option
       if (process.env.NEXT_PUBLIC_API_URL) {
         try {
           const response = await api.get<Favorite[]>('/favorites');
@@ -53,12 +104,11 @@ export default function FavoritesPage() {
             return;
           }
         } catch (apiError) {
-          // API not available or endpoint doesn't exist yet, fallback to localStorage
           console.log('API not available, using localStorage fallback');
         }
       }
 
-      // Fallback to localStorage (client-side only)
+      // Fallback to localStorage (client-side only - won't sync across devices)
       const favoritesKey = `favorites_${user?.id}`;
       const savedFavorites = localStorage.getItem(favoritesKey);
       
@@ -131,7 +181,29 @@ export default function FavoritesPage() {
     if (!user) return;
     
     try {
-      // Try to remove from API first (cloud storage)
+      // Try to remove from Supabase first (cloud storage - syncs across devices)
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      if (supabaseUser) {
+        try {
+          const { error } = await supabase
+            .from('favorites')
+            .delete()
+            .eq('user_id', supabaseUser.id)
+            .eq('property_id', propertyId);
+
+          if (!error) {
+            setFavorites(prev => prev.filter(f => f.id !== propertyId));
+            toast.success('Removed from favorites');
+            return;
+          }
+        } catch (supabaseError) {
+          console.log('Supabase not available, trying localStorage fallback');
+        }
+      }
+
+      // Try backend API as second option
       if (process.env.NEXT_PUBLIC_API_URL) {
         try {
           await api.delete(`/favorites/${propertyId}`);
@@ -139,12 +211,11 @@ export default function FavoritesPage() {
           toast.success('Removed from favorites');
           return;
         } catch (apiError) {
-          // API not available, fallback to localStorage
           console.log('API not available, using localStorage fallback');
         }
       }
 
-      // Fallback to localStorage (client-side only)
+      // Fallback to localStorage (client-side only - won't sync across devices)
       const favoritesKey = `favorites_${user.id}`;
       const savedFavorites = localStorage.getItem(favoritesKey);
       

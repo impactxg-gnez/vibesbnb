@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Calendar, MapPin, Users, Star, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
 
 interface Booking {
   id: string;
@@ -45,7 +46,45 @@ export default function BookingsPage() {
   const loadBookings = async () => {
     setLoadingBookings(true);
     try {
-      // Try to load from API first (cloud storage)
+      // Try to load from Supabase (cloud storage - syncs across devices)
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      if (supabaseUser) {
+        try {
+          const { data, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('user_id', supabaseUser.id)
+            .order('check_in', { ascending: false });
+
+          if (!error && data) {
+            // Transform Supabase data to Booking format
+            const transformedBookings: Booking[] = data.map((booking: any) => ({
+              id: booking.id,
+              propertyId: booking.property_id,
+              propertyName: booking.property_name,
+              propertyImage: booking.property_image,
+              location: booking.location,
+              checkIn: booking.check_in,
+              checkOut: booking.check_out,
+              guests: booking.guests,
+              kids: booking.kids || 0,
+              pets: booking.pets || 0,
+              totalPrice: booking.total_price,
+              status: booking.status,
+              rating: booking.rating,
+            }));
+            setBookings(transformedBookings);
+            setLoadingBookings(false);
+            return;
+          }
+        } catch (supabaseError) {
+          console.log('Supabase not available, trying localStorage fallback');
+        }
+      }
+
+      // Try backend API as second option
       if (process.env.NEXT_PUBLIC_API_URL) {
         try {
           const response = await api.get<Booking[]>('/bookings');
@@ -55,12 +94,11 @@ export default function BookingsPage() {
             return;
           }
         } catch (apiError) {
-          // API not available or endpoint doesn't exist yet, fallback to localStorage
           console.log('API not available, using localStorage fallback');
         }
       }
 
-      // Fallback to localStorage (client-side only)
+      // Fallback to localStorage (client-side only - won't sync across devices)
       const bookingsKey = `bookings_${user?.id}`;
       const savedBookings = localStorage.getItem(bookingsKey);
       
