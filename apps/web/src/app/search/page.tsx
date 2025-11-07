@@ -8,13 +8,17 @@ import Image from 'next/image';
 
 interface Listing {
   id: string;
-  title: string;
+  title?: string;
+  name?: string;
   location: string;
   price: number;
-  rating: number;
+  rating?: number;
   images: string[];
-  type: string;
-  amenities: string[];
+  type?: string;
+  amenities?: string[];
+  guests?: number;
+  status?: string;
+  [key: string]: any;
 }
 
 export default function SearchPage() {
@@ -23,72 +27,137 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data - will be replaced with actual API call
-    const mockListings: Listing[] = [
-      {
-        id: '1',
-        title: 'Mountain View Cabin',
-        location: 'Colorado, USA',
-        price: 150,
-        rating: 4.9,
-        images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
-        type: 'Cabin',
-        amenities: ['Wellness-Friendly', 'Hot Tub', 'Mountain View'],
-      },
-      {
-        id: '2',
-        title: 'Beachfront Bungalow',
-        location: 'California, USA',
-        price: 200,
-        rating: 4.8,
-        images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
-        type: 'Bungalow',
-        amenities: ['Wellness-Friendly', 'Beach Access', 'Private Deck'],
-      },
-      {
-        id: '3',
-        title: 'Urban Loft',
-        location: 'Portland, OR',
-        price: 120,
-        rating: 4.7,
-        images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop'],
-        type: 'Apartment',
-        amenities: ['Wellness-Friendly', 'Downtown', 'Modern'],
-      },
-      {
-        id: '4',
-        title: 'Desert Oasis',
-        location: 'Arizona, USA',
-        price: 180,
-        rating: 4.9,
-        images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'],
-        type: 'Villa',
-        amenities: ['Wellness-Friendly', 'Pool', 'Stargazing'],
-      },
-      {
-        id: '5',
-        title: 'Forest Retreat',
-        location: 'Washington, USA',
-        price: 165,
-        rating: 4.8,
-        images: ['https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=400&h=300&fit=crop'],
-        type: 'Cabin',
-        amenities: ['Wellness-Friendly', 'Fireplace', 'Hiking Trails'],
-      },
-      {
-        id: '6',
-        title: 'Lake House',
-        location: 'Michigan, USA',
-        price: 190,
-        rating: 4.9,
-        images: ['https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?w=400&h=300&fit=crop'],
-        type: 'House',
-        amenities: ['Wellness-Friendly', 'Lake View', 'Boat Dock'],
-      },
-    ];
+    const loadAndFilterProperties = () => {
+      setLoading(true);
+      
+      // Get search parameters
+      const location = searchParams.get('location') || '';
+      const guests = parseInt(searchParams.get('guests') || '0');
+      const checkIn = searchParams.get('checkIn') || '';
+      const checkOut = searchParams.get('checkOut') || '';
 
-    setListings(mockListings);
-    setLoading(false);
+      // Get all properties from localStorage (from all users)
+      const allProperties: Listing[] = [];
+      const keys = Object.keys(localStorage);
+      
+      keys.forEach(key => {
+        if (key.startsWith('properties_')) {
+          try {
+            const properties = JSON.parse(localStorage.getItem(key) || '[]') as Listing[];
+            // Only include active properties
+            const activeProperties = properties.filter(p => p.status === 'active');
+            allProperties.push(...activeProperties);
+          } catch (e) {
+            console.error('Error parsing properties:', e);
+          }
+        }
+      });
+
+      // If no properties found, use mock data
+      let filteredListings: Listing[] = allProperties.length > 0 ? allProperties : [
+        {
+          id: '1',
+          name: 'Mountain View Cabin',
+          location: 'Colorado, USA',
+          price: 150,
+          rating: 4.9,
+          images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
+          type: 'Cabin',
+          amenities: ['Wellness-Friendly', 'Hot Tub', 'Mountain View'],
+          guests: 6,
+          status: 'active',
+        },
+        {
+          id: '2',
+          name: 'Beachfront Bungalow',
+          location: 'California, USA',
+          price: 200,
+          rating: 4.8,
+          images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
+          type: 'Bungalow',
+          amenities: ['Wellness-Friendly', 'Beach Access', 'Private Deck'],
+          guests: 4,
+          status: 'active',
+        },
+        {
+          id: '3',
+          name: 'Urban Loft',
+          location: 'Portland, OR',
+          price: 120,
+          rating: 4.7,
+          images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop'],
+          type: 'Apartment',
+          amenities: ['Wellness-Friendly', 'Downtown', 'Modern'],
+          guests: 2,
+          status: 'active',
+        },
+        {
+          id: '4',
+          name: 'Desert Oasis',
+          location: 'Arizona, USA',
+          price: 180,
+          rating: 4.9,
+          images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'],
+          type: 'Villa',
+          amenities: ['Wellness-Friendly', 'Pool', 'Stargazing'],
+          guests: 8,
+          status: 'active',
+        },
+        {
+          id: '5',
+          name: 'Forest Retreat',
+          location: 'Washington, USA',
+          price: 165,
+          rating: 4.8,
+          images: ['https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=400&h=300&fit=crop'],
+          type: 'Cabin',
+          amenities: ['Wellness-Friendly', 'Fireplace', 'Hiking Trails'],
+          guests: 4,
+          status: 'active',
+        },
+        {
+          id: '6',
+          name: 'Lake House',
+          location: 'Michigan, USA',
+          price: 190,
+          rating: 4.9,
+          images: ['https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?w=400&h=300&fit=crop'],
+          type: 'House',
+          amenities: ['Wellness-Friendly', 'Lake View', 'Boat Dock'],
+          guests: 10,
+          status: 'active',
+        },
+      ];
+
+      // Filter by location
+      if (location) {
+        filteredListings = filteredListings.filter(listing =>
+          listing.location.toLowerCase().includes(location.toLowerCase())
+        );
+      }
+
+      // Filter by guest count - show properties that allow selected guests or more
+      if (guests > 0) {
+        filteredListings = filteredListings.filter(listing => {
+          const propertyGuests = listing.guests || 0;
+          return propertyGuests >= guests;
+        });
+      }
+
+      // Convert to Listing format (normalize name/title)
+      const normalizedListings: Listing[] = filteredListings.map(listing => ({
+        ...listing,
+        title: listing.title || listing.name || 'Property',
+        rating: listing.rating || 4.5,
+        type: listing.type || 'Property',
+        amenities: listing.amenities || ['Wellness-Friendly'],
+      }));
+
+      setListings(normalizedListings);
+      setLoading(false);
+    };
+
+    loadAndFilterProperties();
   }, [searchParams]);
 
   return (
@@ -149,10 +218,13 @@ export default function SearchPage() {
                     </h3>
                     <div className="flex items-center gap-1">
                       <span className="text-yellow-500">★</span>
-                      <span className="text-sm font-medium text-gray-100">{listing.rating}</span>
+                      <span className="text-sm font-medium text-gray-100">{listing.rating?.toFixed(1) || '4.5'}</span>
                     </div>
                   </div>
                   <p className="text-gray-400 text-sm mb-3">{listing.location}</p>
+                  {listing.guests && (
+                    <p className="text-gray-500 text-xs mb-2">Up to {listing.guests} guests</p>
+                  )}
                   <div className="flex flex-wrap gap-2 mb-3">
                     {listing.amenities.slice(0, 3).map((amenity) => (
                       <span

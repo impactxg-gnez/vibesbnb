@@ -1,10 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface Property {
+  id: string;
+  location: string;
+  guests?: number;
+  [key: string]: any;
+}
 
 export function SearchSection() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showGuestPicker, setShowGuestPicker] = useState(false);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [guests, setGuests] = useState(1);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
 
   const categories = [
     { id: 'spa', label: 'Spa', icon: '💆' },
@@ -12,11 +33,87 @@ export function SearchSection() {
     { id: 'cabins', label: 'Cabins', icon: '🏡' },
   ];
 
+  // Fetch available locations from all properties in localStorage
+  useEffect(() => {
+    const allLocations = new Set<string>();
+    
+    // Get all properties from localStorage (from all users)
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('properties_')) {
+        try {
+          const properties = JSON.parse(localStorage.getItem(key) || '[]') as Property[];
+          properties.forEach(property => {
+            if (property.location) {
+              allLocations.add(property.location);
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing properties:', e);
+        }
+      }
+    });
+
+    // Add some default locations if none found
+    if (allLocations.size === 0) {
+      allLocations.add('Colorado, USA');
+      allLocations.add('California, USA');
+      allLocations.add('Portland, OR');
+      allLocations.add('Arizona, USA');
+      allLocations.add('Washington, USA');
+      allLocations.add('Michigan, USA');
+    }
+
+    setLocations(Array.from(allLocations).sort());
+  }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false);
+      }
+    };
+
+    if (showLocationDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLocationDropdown]);
+
   const toggleCategory = (id: string) => {
     setSelectedCategories(prev =>
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
   };
+
+  const handleLocationSelect = (location: string) => {
+    setSelectedLocation(location);
+    setShowLocationDropdown(false);
+  };
+
+  const handleGuestChange = (delta: number) => {
+    setGuests(prev => Math.max(1, prev + delta));
+  };
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (selectedLocation) params.set('location', selectedLocation);
+    if (checkIn) params.set('checkIn', checkIn);
+    if (checkOut) params.set('checkOut', checkOut);
+    if (guests) params.set('guests', guests.toString());
+    if (selectedCategories.length > 0) {
+      params.set('categories', selectedCategories.join(','));
+    }
+    router.push(`/search?${params.toString()}`);
+  };
+
+  const filteredLocations = locations.filter(loc =>
+    loc.toLowerCase().includes(selectedLocation.toLowerCase())
+  );
 
   return (
     <div className="container mx-auto px-4 -mt-16 relative z-10 pb-12">
@@ -35,27 +132,173 @@ export function SearchSection() {
           </div>
           
           <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
-            <button className="flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-2xl text-left hover:bg-gray-750 transition">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-white">Where to?</span>
-            </button>
+            {/* Where to? - Location Input */}
+            <div className="relative" ref={locationDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLocationDropdown(!showLocationDropdown);
+                  setShowDatePicker(false);
+                  setShowGuestPicker(false);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-2xl text-left hover:bg-gray-750 transition"
+              >
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span className="text-white flex-1 text-left">
+                  {selectedLocation || 'Where to?'}
+                </span>
+              </button>
+              
+              {showLocationDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl z-50 max-h-64 overflow-y-auto">
+                  <div className="p-2">
+                    <input
+                      ref={locationInputRef}
+                      type="text"
+                      value={selectedLocation}
+                      onChange={(e) => setSelectedLocation(e.target.value)}
+                      placeholder="Search locations..."
+                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-2"
+                      autoFocus
+                    />
+                    {filteredLocations.length > 0 ? (
+                      <div className="space-y-1">
+                        {filteredLocations.map((location) => (
+                          <button
+                            key={location}
+                            type="button"
+                            onClick={() => handleLocationSelect(location)}
+                            className="w-full text-left px-3 py-2 text-white hover:bg-gray-700 rounded-lg transition"
+                          >
+                            {location}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 text-gray-400 text-sm">No locations found</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             
-            <button className="flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-2xl text-left hover:bg-gray-750 transition">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-white">Dates</span>
-            </button>
+            {/* Dates - Date Picker */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDatePicker(!showDatePicker);
+                  setShowLocationDropdown(false);
+                  setShowGuestPicker(false);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-2xl text-left hover:bg-gray-750 transition"
+              >
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-white flex-1 text-left">
+                  {checkIn && checkOut 
+                    ? `${new Date(checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    : 'Dates'
+                  }
+                </span>
+              </button>
+              
+              {showDatePicker && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl z-50 p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Check In</label>
+                      <input
+                        type="date"
+                        value={checkIn}
+                        onChange={(e) => {
+                          setCheckIn(e.target.value);
+                          if (checkOut && e.target.value >= checkOut) {
+                            setCheckOut('');
+                          }
+                        }}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Check Out</label>
+                      <input
+                        type="date"
+                        value={checkOut}
+                        onChange={(e) => setCheckOut(e.target.value)}
+                        min={checkIn || new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(false)}
+                    className="mt-4 w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </div>
             
-            <button className="flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-2xl text-left hover:bg-gray-750 transition">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span className="text-white">Guests</span>
-            </button>
+            {/* Guests - Guest Picker */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGuestPicker(!showGuestPicker);
+                  setShowLocationDropdown(false);
+                  setShowDatePicker(false);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-gray-800 rounded-2xl text-left hover:bg-gray-750 transition"
+              >
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span className="text-white flex-1 text-left">
+                  {guests} {guests === 1 ? 'Guest' : 'Guests'}
+                </span>
+              </button>
+              
+              {showGuestPicker && (
+                <div className="absolute top-full right-0 mt-2 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl z-50 p-4 min-w-[200px]">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-white font-medium">Guests</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleGuestChange(-1)}
+                        disabled={guests <= 1}
+                        className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
+                      >
+                        −
+                      </button>
+                      <span className="text-white font-semibold w-8 text-center">{guests}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleGuestChange(1)}
+                        className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGuestPicker(false)}
+                    className="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -78,7 +321,11 @@ export function SearchSection() {
         </div>
 
         {/* Search Button */}
-        <button className="w-full bg-emerald-500 hover:bg-emerald-600 text-gray-900 font-semibold py-4 rounded-2xl transition">
+        <button
+          type="button"
+          onClick={handleSearch}
+          className="w-full bg-emerald-500 hover:bg-emerald-600 text-gray-900 font-semibold py-4 rounded-2xl transition"
+        >
           Search stays
         </button>
       </motion.div>

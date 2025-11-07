@@ -3,14 +3,41 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   
-  const isHost = user?.user_metadata?.role === 'host';
+  const userRole = user?.user_metadata?.role || 'traveller';
+  const isHost = userRole === 'host';
+  const isAdmin = userRole === 'admin';
+  const isTraveller = userRole === 'traveller' || (!isHost && !isAdmin);
+  
+  // Check if user has host role available (from localStorage, similar to RoleSwitcher)
+  useEffect(() => {
+    if (user) {
+      const rolesStr = localStorage.getItem('userRoles');
+      if (rolesStr) {
+        try {
+          const roles = JSON.parse(rolesStr) as string[];
+          setUserRoles(roles);
+        } catch (e) {
+          // If parsing fails, check if user has host role in metadata
+          if (user.user_metadata?.role === 'host') {
+            setUserRoles(['host']);
+          }
+        }
+      } else if (user.user_metadata?.role === 'host') {
+        // If no localStorage, check if current role is host
+        setUserRoles(['host']);
+      }
+    }
+  }, [user]);
+  
+  const hasHostRole = userRoles.includes('host') || isHost;
 
   const switchToTraveler = () => {
     router.push('/search');
@@ -19,6 +46,11 @@ export function Header() {
 
   const switchToHost = () => {
     router.push('/host/properties');
+    setShowUserMenu(false);
+  };
+
+  const registerAsHost = () => {
+    router.push('/host');
     setShowUserMenu(false);
   };
 
@@ -73,41 +105,74 @@ export function Header() {
                           >
                             Profile
                           </Link>
-                          <Link
-                            href="/bookings"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            My Bookings
-                          </Link>
-                          <Link
-                            href="/host/properties"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            My Properties
-                          </Link>
-                          <Link
-                            href="/admin"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            Admin Panel
-                          </Link>
+                          {/* My Bookings - always visible for travellers */}
+                          {isTraveller && (
+                            <Link
+                              href="/bookings"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              My Bookings
+                            </Link>
+                          )}
+                          {/* My Properties - only for hosts */}
+                          {isHost && (
+                            <Link
+                              href="/host/properties"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              My Properties
+                            </Link>
+                          )}
+                          {/* Favorite Properties - only for travellers */}
+                          {isTraveller && (
+                            <Link
+                              href="/favorites"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              Favorite Properties
+                            </Link>
+                          )}
+                          {/* Admin Panel - only for admins */}
+                          {isAdmin && (
+                            <Link
+                              href="/admin"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              Admin Panel
+                            </Link>
+                          )}
                           <div className="border-t border-gray-800 my-1"></div>
-                          {isHost ? (
+                          {/* Role switching - only show for travellers */}
+                          {isTraveller && (
+                            <>
+                              {hasHostRole ? (
+                                <button
+                                  onClick={switchToHost}
+                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                                >
+                                  🏠 Switch to Host
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={registerAsHost}
+                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                                >
+                                  🏠 Register as a Host
+                                </button>
+                              )}
+                            </>
+                          )}
+                          {/* Host can switch to traveller */}
+                          {isHost && (
                             <button
                               onClick={switchToTraveler}
                               className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
                             >
                               🌍 Switch to Traveler Mode
-                            </button>
-                          ) : (
-                            <button
-                              onClick={switchToHost}
-                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
-                            >
-                              🏠 Switch to Host Mode
                             </button>
                           )}
                           <div className="border-t border-gray-800 my-1"></div>
