@@ -133,9 +133,9 @@ export async function scrapeWithPuppeteer(url: string): Promise<ScrapedPropertyD
 
     // Block unnecessary resources for faster loading
     await page.setRequestInterception(true);
-    page.on('request', (req) => {
+    page.on('request', (req: any) => {
       const resourceType = req.resourceType();
-      // Block videos, fonts, and some other heavy resources
+      // Block videos, fonts, and some other heavy resources      
       if (['font', 'media', 'websocket'].includes(resourceType)) {
         req.abort();
       } else {
