@@ -282,17 +282,19 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
 
   // Try to get coordinates from the page
   const coordinates = await extractCoordinates(page);
-  if (coordinates) {
-    data.coordinates = coordinates;
-    data.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`;
-  }
-
-  console.log(`[Puppeteer] Extracted: ${data.images.length} images, ${data.amenities.length} amenities`);
-
-  return {
+  const result: ScrapedPropertyData = {
     ...data,
     price: 100, // Default price (not easily extractable without dates)
-  } as ScrapedPropertyData;
+  };
+  
+  if (coordinates) {
+    result.coordinates = coordinates;
+    result.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`;
+  }
+
+  console.log(`[Puppeteer] Extracted: ${result.images.length} images, ${result.amenities.length} amenities`);
+
+  return result;
 }
 
 /**
