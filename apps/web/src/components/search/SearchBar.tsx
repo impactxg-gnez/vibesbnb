@@ -10,6 +10,8 @@ export function SearchBar() {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
+  const [kids, setKids] = useState(0);
+  const [pets, setPets] = useState(0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,6 +20,8 @@ export function SearchBar() {
     if (checkIn) params.set('checkIn', checkIn);
     if (checkOut) params.set('checkOut', checkOut);
     if (guests) params.set('guests', guests.toString());
+    if (kids > 0) params.set('kids', kids.toString());
+    if (pets > 0) params.set('pets', pets.toString());
     router.push(`/search?${params.toString()}`);
   };
 
@@ -30,7 +34,7 @@ export function SearchBar() {
       transition={{ duration: 0.6 }}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label htmlFor="location" className="block text-sm font-semibold text-gray-900">
               📍 Where
@@ -70,10 +74,12 @@ export function SearchBar() {
               className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
             />
           </div>
-          
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label htmlFor="guests" className="block text-sm font-semibold text-gray-900">
-              👥 Guests
+              👥 Guests (Ages 13+)
             </label>
             <select
               id="guests"
@@ -81,9 +87,45 @@ export function SearchBar() {
               onChange={(e) => setGuests(Number(e.target.value))}
               className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
             >
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((num) => (
                 <option key={num} value={num}>
                   {num} {num === 1 ? 'Guest' : 'Guests'}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="kids" className="block text-sm font-semibold text-gray-900">
+              👶 Kids (Ages 2-12)
+            </label>
+            <select
+              id="kids"
+              value={kids}
+              onChange={(e) => setKids(Number(e.target.value))}
+              className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
+            >
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                <option key={num} value={num}>
+                  {num} {num === 1 ? 'Kid' : 'Kids'}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="pets" className="block text-sm font-semibold text-gray-900">
+              🐾 Pets
+            </label>
+            <select
+              id="pets"
+              value={pets}
+              onChange={(e) => setPets(Number(e.target.value))}
+              className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
+            >
+              {[0, 1, 2, 3, 4, 5].map((num) => (
+                <option key={num} value={num}>
+                  {num} {num === 1 ? 'Pet' : 'Pets'}
                 </option>
               ))}
             </select>

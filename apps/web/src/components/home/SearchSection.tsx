@@ -24,6 +24,8 @@ export function SearchSection() {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
+  const [kids, setKids] = useState(0);
+  const [pets, setPets] = useState(0);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -99,12 +101,22 @@ export function SearchSection() {
     setGuests(prev => Math.max(1, prev + delta));
   };
 
+  const handleKidsChange = (delta: number) => {
+    setKids(prev => Math.max(0, prev + delta));
+  };
+
+  const handlePetsChange = (delta: number) => {
+    setPets(prev => Math.max(0, prev + delta));
+  };
+
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (selectedLocation) params.set('location', selectedLocation);
     if (checkIn) params.set('checkIn', checkIn);
     if (checkOut) params.set('checkOut', checkOut);
     if (guests) params.set('guests', guests.toString());
+    if (kids > 0) params.set('kids', kids.toString());
+    if (pets > 0) params.set('pets', pets.toString());
     if (selectedCategories.length > 0) {
       params.set('categories', selectedCategories.join(','));
     }
@@ -263,36 +275,103 @@ export function SearchSection() {
                 </svg>
                 <span className="text-white flex-1 text-left">
                   {guests} {guests === 1 ? 'Guest' : 'Guests'}
+                  {kids > 0 && `, ${kids} ${kids === 1 ? 'Kid' : 'Kids'}`}
+                  {pets > 0 && `, ${pets} ${pets === 1 ? 'Pet' : 'Pets'}`}
                 </span>
               </button>
               
               {showGuestPicker && (
-                <div className="absolute top-full right-0 mt-2 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl z-50 p-4 min-w-[200px]">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-white font-medium">Guests</span>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleGuestChange(-1)}
-                        disabled={guests <= 1}
-                        className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
-                      >
-                        −
-                      </button>
-                      <span className="text-white font-semibold w-8 text-center">{guests}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleGuestChange(1)}
-                        className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
-                      >
-                        +
-                      </button>
+                <div className="absolute top-full right-0 mt-2 bg-gray-800 rounded-2xl border border-gray-700 shadow-xl z-50 p-4 min-w-[250px]">
+                  <div className="space-y-4">
+                    {/* Guests */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-white font-medium">Guests</span>
+                        <p className="text-gray-400 text-xs">Ages 13+</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleGuestChange(-1)}
+                          disabled={guests <= 1}
+                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
+                        >
+                          −
+                        </button>
+                        <span className="text-white font-semibold w-8 text-center">{guests}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleGuestChange(1)}
+                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-700"></div>
+
+                    {/* Kids */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-white font-medium">Kids</span>
+                        <p className="text-gray-400 text-xs">Ages 2-12</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleKidsChange(-1)}
+                          disabled={kids <= 0}
+                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
+                        >
+                          −
+                        </button>
+                        <span className="text-white font-semibold w-8 text-center">{kids}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleKidsChange(1)}
+                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-gray-700"></div>
+
+                    {/* Pets */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-white font-medium">Pets</span>
+                        <p className="text-gray-400 text-xs">Bringing a service animal?</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handlePetsChange(-1)}
+                          disabled={pets <= 0}
+                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
+                        >
+                          −
+                        </button>
+                        <span className="text-white font-semibold w-8 text-center">{pets}</span>
+                        <button
+                          type="button"
+                          onClick={() => handlePetsChange(1)}
+                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => setShowGuestPicker(false)}
-                    className="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition"
+                    className="mt-4 w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition"
                   >
                     Done
                   </button>
