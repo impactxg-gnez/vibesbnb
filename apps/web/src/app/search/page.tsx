@@ -226,7 +226,7 @@ export default function SearchPage() {
                     <p className="text-gray-500 text-xs mb-2">Up to {listing.guests} guests</p>
                   )}
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {listing.amenities.slice(0, 3).map((amenity) => (
+                    {(listing.amenities || []).slice(0, 3).map((amenity) => (
                       <span
                         key={amenity}
                         className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs"
