@@ -106,24 +106,8 @@ export default function BookingsPage() {
         const parsedBookings = JSON.parse(savedBookings) as Booking[];
         setBookings(parsedBookings);
       } else {
-        // Mock data for demo
-        setBookings([
-          {
-            id: '1',
-            propertyId: '1',
-            propertyName: 'Mountain View Cabin',
-            propertyImage: 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop',
-            location: 'Colorado, USA',
-            checkIn: '2024-12-15',
-            checkOut: '2024-12-20',
-            guests: 2,
-            kids: 1,
-            pets: 0,
-            totalPrice: 750,
-            status: 'confirmed',
-            rating: 4.9,
-          },
-        ]);
+        // No bookings found
+        setBookings([]);
       }
     } catch (error) {
       console.error('Error loading bookings:', error);
