@@ -49,6 +49,36 @@ export default function HostPropertiesPage() {
 
   useEffect(() => {
     if (user) {
+      // Clear any cached mock data from localStorage if Supabase is configured
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const isSupabaseConfigured = supabaseUrl && 
+                                    supabaseUrl !== '' &&
+                                    supabaseUrl !== 'https://placeholder.supabase.co';
+      
+      if (isSupabaseConfigured) {
+        // Clear localStorage properties cache to prevent showing old mock data
+        const propertiesKey = `properties_${user.id}`;
+        const cachedProperties = localStorage.getItem(propertiesKey);
+        if (cachedProperties) {
+          try {
+            const parsed = JSON.parse(cachedProperties);
+            // Check if it's mock data (has Mountain View Cabin or Beach Villa)
+            const isMockData = parsed.some((p: any) => 
+              p.name === 'Mountain View Cabin' || 
+              p.name === 'Beach Villa' ||
+              p.id === '1' || 
+              p.id === '2'
+            );
+            if (isMockData) {
+              localStorage.removeItem(propertiesKey);
+            }
+          } catch (e) {
+            // If parsing fails, remove it anyway
+            localStorage.removeItem(propertiesKey);
+          }
+        }
+      }
+      
       loadProperties();
     }
   }, [user]);
@@ -65,9 +95,14 @@ export default function HostPropertiesPage() {
     setLoadingProperties(true);
     try {
       const supabase = createClient();
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const isSupabaseConfigured = supabaseUrl && 
+                                    supabaseUrl !== '' &&
+                                    supabaseUrl !== 'https://placeholder.supabase.co';
+      
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
-      if (supabaseUser) {
+      if (isSupabaseConfigured && supabaseUser) {
         // Fetch properties from Supabase
         const { data: propertiesData, error } = await supabase
           .from('properties')
@@ -77,8 +112,15 @@ export default function HostPropertiesPage() {
 
         if (error) {
           console.error('Error loading properties:', error);
-          // Fallback to localStorage
-          loadFromLocalStorage();
+          // If Supabase is configured but there's an error, show empty state
+          setProperties([]);
+          setStats({
+            totalProperties: 0,
+            activeListings: 0,
+            thisMonthRevenue: 0,
+            totalBookings: 0,
+            newBookings: 0,
+          });
         } else if (propertiesData && propertiesData.length > 0) {
           // Transform Supabase data to Property interface
           const transformedProperties: Property[] = propertiesData.map((p: any) => ({
@@ -101,16 +143,40 @@ export default function HostPropertiesPage() {
           // Load stats after properties are loaded
           setTimeout(() => loadStats(), 100);
         } else {
-          // No properties found in Supabase, check localStorage as fallback
-          loadFromLocalStorage();
+          // No properties found in Supabase - show empty state (don't fall back to localStorage)
+          setProperties([]);
+          setStats({
+            totalProperties: 0,
+            activeListings: 0,
+            thisMonthRevenue: 0,
+            totalBookings: 0,
+            newBookings: 0,
+          });
         }
       } else {
-        // Fallback to localStorage
+        // Supabase not configured - fallback to localStorage (for demo mode only)
         loadFromLocalStorage();
       }
     } catch (error) {
       console.error('Error loading properties:', error);
-      loadFromLocalStorage();
+      // If Supabase is configured, show empty state on error
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const isSupabaseConfigured = supabaseUrl && 
+                                    supabaseUrl !== '' &&
+                                    supabaseUrl !== 'https://placeholder.supabase.co';
+      
+      if (isSupabaseConfigured) {
+        setProperties([]);
+        setStats({
+          totalProperties: 0,
+          activeListings: 0,
+          thisMonthRevenue: 0,
+          totalBookings: 0,
+          newBookings: 0,
+        });
+      } else {
+        loadFromLocalStorage();
+      }
     } finally {
       setLoadingProperties(false);
     }
