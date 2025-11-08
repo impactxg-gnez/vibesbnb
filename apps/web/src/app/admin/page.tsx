@@ -123,6 +123,20 @@ export default function AdminDashboard() {
               Configure platform settings
             </p>
           </Link>
+
+          {/* Migrate Hosts Card */}
+          <Link
+            href="/admin/migrate-hosts"
+            className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-emerald-500 transition group"
+          >
+            <div className="text-4xl mb-4">🔄</div>
+            <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-emerald-500 transition">
+              Migrate to Host
+            </h3>
+            <p className="text-gray-400 text-sm">
+              Update existing users to host role
+            </p>
+          </Link>
         </div>
       </div>
     </div>
