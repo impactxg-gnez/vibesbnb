@@ -10,7 +10,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithGithub: () => Promise<void>;
@@ -179,16 +179,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           roles.push(role);
           localStorage.setItem('userRoles', JSON.stringify(roles));
         }
+        
+        // Redirect based on role
+        if (role === 'host') {
+          router.push('/host/properties');
+        } else {
+          router.push('/');
+        }
+      } else {
+        // No role set, default to home
+        router.push('/');
       }
-      
-      router.push('/');
       router.refresh();
     }
 
     return { error };
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, role: string = 'traveller') => {
+    // Map 'traveler' to 'traveller' for consistency
+    const normalizedRole = role === 'traveler' ? 'traveller' : role;
+    
     if (!useSupabase) {
       // Demo mode - just create a mock user
       const mockUser = {
@@ -196,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: email,
         user_metadata: {
           full_name: name,
-          role: 'traveller',
+          role: normalizedRole,
         },
         app_metadata: {},
         aud: 'authenticated',
@@ -205,25 +216,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(mockUser as any);
       localStorage.setItem('demoUser', JSON.stringify(mockUser));
-      router.push('/');
+      
+      // Sync role to localStorage
+      const rolesStr = localStorage.getItem('userRoles');
+      const roles = rolesStr ? JSON.parse(rolesStr) : [];
+      if (!roles.includes(normalizedRole)) {
+        roles.push(normalizedRole);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+      }
+      
+      // Redirect based on role
+      if (normalizedRole === 'host') {
+        router.push('/host/properties');
+      } else {
+        router.push('/');
+      }
       router.refresh();
       return { error: null };
     }
     
     // Supabase authentication
-    const { error } = await supabase.auth.signUp({
+    const { error, data } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: name,
+          role: normalizedRole,
         },
       },
     });
 
-    if (!error) {
-      // Redirect to a page that tells them to check their email
-      router.push('/verify-email');
+    if (!error && data.user) {
+      // Sync role to localStorage
+      const rolesStr = localStorage.getItem('userRoles');
+      const roles = rolesStr ? JSON.parse(rolesStr) : [];
+      if (!roles.includes(normalizedRole)) {
+        roles.push(normalizedRole);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+      }
+      
+      // If host, redirect to host dashboard after email verification
+      // Otherwise, redirect to verify email page
+      if (normalizedRole === 'host') {
+        // For hosts, we might want to redirect them directly if email is already verified
+        // But typically, Supabase requires email verification first
+        router.push('/verify-email');
+      } else {
+        router.push('/verify-email');
+      }
     }
 
     return { error };

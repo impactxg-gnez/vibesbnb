@@ -31,12 +31,18 @@ export default function SignupPage() {
 
     setIsLoading(true);
 
-    const { error } = await signUp(formData.email, formData.password, formData.name);
+    // Map 'traveler' to 'traveller' for consistency, 'host' stays as 'host'
+    const role = formData.accountType === 'traveler' ? 'traveller' : formData.accountType;
+    const { error } = await signUp(formData.email, formData.password, formData.name, role);
 
     if (error) {
       toast.error(error.message || 'Failed to sign up');
     } else {
-      toast.success('Account created! Please check your email to verify your account.');
+      if (role === 'host') {
+        toast.success('Account created! Please check your email to verify your account. You will be redirected to the host dashboard after verification.');
+      } else {
+        toast.success('Account created! Please check your email to verify your account.');
+      }
     }
 
     setIsLoading(false);
