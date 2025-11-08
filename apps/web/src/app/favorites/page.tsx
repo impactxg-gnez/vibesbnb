@@ -135,37 +135,7 @@ export default function FavoritesPage() {
           favoriteIds.includes(p.id) && p.status === 'active'
         );
 
-        if (favoriteProperties.length > 0) {
-          setFavorites(favoriteProperties);
-        } else {
-          // Mock data for demo
-          setFavorites([
-            {
-              id: '1',
-              name: 'Mountain View Cabin',
-              location: 'Colorado, USA',
-              price: 150,
-              rating: 4.9,
-              images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
-              type: 'Cabin',
-              amenities: ['Wellness-Friendly', 'Hot Tub', 'Mountain View'],
-              guests: 6,
-              status: 'active',
-            },
-            {
-              id: '2',
-              name: 'Beachfront Bungalow',
-              location: 'California, USA',
-              price: 200,
-              rating: 4.8,
-              images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
-              type: 'Bungalow',
-              amenities: ['Wellness-Friendly', 'Beach Access', 'Private Deck'],
-              guests: 4,
-              status: 'active',
-            },
-          ]);
-        }
+        setFavorites(favoriteProperties);
       } else {
         setFavorites([]);
       }

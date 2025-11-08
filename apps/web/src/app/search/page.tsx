@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { SearchBar } from '@/components/search/SearchBar';
 import Link from 'next/link';
 import Image from 'next/image';
+import { createClient } from '@/lib/supabase/client';
 
 interface Listing {
   id: string;
@@ -27,134 +28,73 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadAndFilterProperties = () => {
+    const loadAndFilterProperties = async () => {
       setLoading(true);
       
       // Get search parameters
       const location = searchParams.get('location') || '';
       const guests = parseInt(searchParams.get('guests') || '0');
+      const kids = parseInt(searchParams.get('kids') || '0');
+      const pets = parseInt(searchParams.get('pets') || '0');
+      const totalOccupancy = guests + kids;
       const checkIn = searchParams.get('checkIn') || '';
       const checkOut = searchParams.get('checkOut') || '';
 
-      // Get all properties from localStorage (from all users)
-      const allProperties: Listing[] = [];
-      const keys = Object.keys(localStorage);
-      
-      keys.forEach(key => {
-        if (key.startsWith('properties_')) {
-          try {
-            const properties = JSON.parse(localStorage.getItem(key) || '[]') as Listing[];
-            // Only include active properties
-            const activeProperties = properties.filter(p => p.status === 'active');
-            allProperties.push(...activeProperties);
-          } catch (e) {
-            console.error('Error parsing properties:', e);
-          }
+      try {
+        const supabase = createClient();
+        
+        // Fetch active properties from Supabase
+        let query = supabase
+          .from('properties')
+          .select('*')
+          .eq('status', 'active');
+
+        const { data: propertiesData, error } = await query;
+
+        if (error) {
+          console.error('Error loading properties:', error);
+          setListings([]);
+          setLoading(false);
+          return;
         }
-      });
 
-      // If no properties found, use mock data
-      let filteredListings: Listing[] = allProperties.length > 0 ? allProperties : [
-        {
-          id: '1',
-          name: 'Mountain View Cabin',
-          location: 'Colorado, USA',
-          price: 150,
-          rating: 4.9,
-          images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
-          type: 'Cabin',
-          amenities: ['Wellness-Friendly', 'Hot Tub', 'Mountain View'],
-          guests: 6,
-          status: 'active',
-        },
-        {
-          id: '2',
-          name: 'Beachfront Bungalow',
-          location: 'California, USA',
-          price: 200,
-          rating: 4.8,
-          images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
-          type: 'Bungalow',
-          amenities: ['Wellness-Friendly', 'Beach Access', 'Private Deck'],
-          guests: 4,
-          status: 'active',
-        },
-        {
-          id: '3',
-          name: 'Urban Loft',
-          location: 'Portland, OR',
-          price: 120,
-          rating: 4.7,
-          images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop'],
-          type: 'Apartment',
-          amenities: ['Wellness-Friendly', 'Downtown', 'Modern'],
-          guests: 2,
-          status: 'active',
-        },
-        {
-          id: '4',
-          name: 'Desert Oasis',
-          location: 'Arizona, USA',
-          price: 180,
-          rating: 4.9,
-          images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'],
-          type: 'Villa',
-          amenities: ['Wellness-Friendly', 'Pool', 'Stargazing'],
-          guests: 8,
-          status: 'active',
-        },
-        {
-          id: '5',
-          name: 'Forest Retreat',
-          location: 'Washington, USA',
-          price: 165,
-          rating: 4.8,
-          images: ['https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=400&h=300&fit=crop'],
-          type: 'Cabin',
-          amenities: ['Wellness-Friendly', 'Fireplace', 'Hiking Trails'],
-          guests: 4,
-          status: 'active',
-        },
-        {
-          id: '6',
-          name: 'Lake House',
-          location: 'Michigan, USA',
-          price: 190,
-          rating: 4.9,
-          images: ['https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?w=400&h=300&fit=crop'],
-          type: 'House',
-          amenities: ['Wellness-Friendly', 'Lake View', 'Boat Dock'],
-          guests: 10,
-          status: 'active',
-        },
-      ];
+        // Transform Supabase data to Listing format
+        let filteredListings: Listing[] = (propertiesData || []).map((p: any) => ({
+          id: p.id,
+          name: p.name || p.title || 'Untitled Property',
+          title: p.name || p.title || 'Untitled Property',
+          location: p.location || '',
+          price: p.price ? Number(p.price) : 0,
+          rating: p.rating ? Number(p.rating) : 4.5,
+          images: p.images || [],
+          type: p.type || 'Property',
+          amenities: p.amenities || [],
+          guests: p.guests || 0,
+          status: p.status || 'active',
+        }));
 
-      // Filter by location
-      if (location) {
-        filteredListings = filteredListings.filter(listing =>
-          listing.location.toLowerCase().includes(location.toLowerCase())
-        );
+        // Filter by location
+        if (location) {
+          filteredListings = filteredListings.filter(listing =>
+            listing.location.toLowerCase().includes(location.toLowerCase())
+          );
+        }
+
+        // Filter by guest count - show properties that allow selected guests or more
+        if (totalOccupancy > 0) {
+          filteredListings = filteredListings.filter(listing => {
+            const propertyGuests = listing.guests || 0;
+            return propertyGuests >= totalOccupancy;
+          });
+        }
+
+        setListings(filteredListings);
+      } catch (error) {
+        console.error('Error loading properties:', error);
+        setListings([]);
+      } finally {
+        setLoading(false);
       }
-
-      // Filter by guest count - show properties that allow selected guests or more
-      if (guests > 0) {
-        filteredListings = filteredListings.filter(listing => {
-          const propertyGuests = listing.guests || 0;
-          return propertyGuests >= guests;
-        });
-      }
-
-      // Convert to Listing format (normalize name/title)
-      const normalizedListings: Listing[] = filteredListings.map(listing => ({
-        ...listing,
-        title: listing.title || listing.name || 'Property',
-        rating: listing.rating || 4.5,
-        type: listing.type || 'Property',
-        amenities: listing.amenities || ['Wellness-Friendly'],
-      }));
-
-      setListings(normalizedListings);
-      setLoading(false);
     };
 
     loadAndFilterProperties();
@@ -191,6 +131,20 @@ export default function SearchPage() {
                 <div className="bg-gray-800 h-4 rounded w-1/2"></div>
               </div>
             ))}
+          </div>
+        ) : listings.length === 0 ? (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-2xl font-semibold text-white mb-2">No properties found</h3>
+            <p className="text-gray-400 mb-6">
+              Try adjusting your search criteria or browse all available properties
+            </p>
+            <Link
+              href="/search"
+              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition"
+            >
+              Browse All Properties
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

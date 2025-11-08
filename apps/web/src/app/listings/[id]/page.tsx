@@ -22,6 +22,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
 interface Property {
   id: string;
@@ -59,32 +60,63 @@ export default function ListingDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
-    // Mock property data - replace with actual API call
-    const mockProperty: Property = {
-      id: params.id as string,
-      name: 'Mountain View Cabin',
-      location: 'Aspen, Colorado',
-      description: 'Experience tranquility in this beautifully appointed mountain cabin. Perfect for wellness retreats and peaceful getaways. Wake up to stunning mountain views and enjoy the fresh alpine air. This smoke-free property features modern amenities while maintaining a cozy, natural atmosphere.',
-      price: 250,
-      bedrooms: 3,
-      bathrooms: 2,
-      guests: 6,
-      images: [
-        'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&h=600&fit=crop',
-        'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800&h=600&fit=crop',
-        'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800&h=600&fit=crop',
-        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&h=600&fit=crop',
-      ],
-      amenities: ['WiFi', 'Kitchen', 'Parking', 'Hot Tub', 'Air Conditioning', 'Heating', 'TV', 'Gym'],
-      wellnessFriendly: true,
-      rating: 4.9,
-      reviews: 127,
-      hostName: 'EscaManagement',
-      hostImage: 'https://api.dicebear.com/7.x/initials/svg?seed=EM',
+    const loadProperty = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        const { data: propertyData, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', params.id as string)
+          .eq('status', 'active')
+          .single();
+
+        if (error || !propertyData) {
+          setProperty(null);
+          setLoading(false);
+          return;
+        }
+
+        // Get host info - use placeholder for now since we can't access other users' data without admin
+        // TODO: Create a public profiles table or use a different approach
+        let hostName = 'Host';
+        let hostImage = 'https://api.dicebear.com/7.x/initials/svg?seed=Host';
+        
+        // For now, we'll use a generic host name
+        // In production, you'd want to create a public profiles table or use a different approach
+        if (propertyData.host_id) {
+          hostName = 'Property Host';
+          hostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id}`;
+        }
+
+        const loadedProperty: Property = {
+          id: propertyData.id,
+          name: propertyData.name || propertyData.title || 'Untitled Property',
+          location: propertyData.location || '',
+          description: propertyData.description || 'No description available.',
+          price: propertyData.price ? Number(propertyData.price) : 0,
+          bedrooms: propertyData.bedrooms || 0,
+          bathrooms: propertyData.bathrooms || 0,
+          guests: propertyData.guests || 0,
+          images: propertyData.images || [],
+          amenities: propertyData.amenities || [],
+          wellnessFriendly: propertyData.wellness_friendly || false,
+          rating: propertyData.rating ? Number(propertyData.rating) : 4.5,
+          reviews: 0, // TODO: Get from reviews table
+          hostName,
+          hostImage,
+        };
+
+        setProperty(loadedProperty);
+      } catch (error) {
+        console.error('Error loading property:', error);
+        setProperty(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setProperty(mockProperty);
-    setLoading(false);
+    loadProperty();
   }, [params.id]);
 
   const nextImage = () => {

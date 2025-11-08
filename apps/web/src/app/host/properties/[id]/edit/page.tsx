@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
 interface Property {
   id: string;
@@ -65,26 +66,58 @@ export default function EditPropertyPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    // Load property data - replace with actual API call
-    const mockProperty: Property = {
-      id: params.id as string,
-      name: 'Mountain View Cabin',
-      description: 'Experience tranquility in this beautifully appointed mountain cabin.',
-      location: 'Aspen, Colorado',
-      bedrooms: 3,
-      bathrooms: 2,
-      guests: 6,
-      price: 250,
-      wellnessFriendly: true,
-      amenities: ['WiFi', 'Kitchen', 'Parking', 'Hot Tub'],
-      images: [],
-      imagePreviewUrls: [
-        'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=400&h=300&fit=crop',
-      ],
+    const loadProperty = async () => {
+      if (!user) return;
+
+      try {
+        const supabase = createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        if (!supabaseUser) {
+          router.push('/login');
+          return;
+        }
+
+        const { data: propertyData, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('id', params.id as string)
+          .eq('host_id', supabaseUser.id)
+          .single();
+
+        if (error || !propertyData) {
+          toast.error('Property not found');
+          router.push('/host/properties');
+          return;
+        }
+
+        const loadedProperty: Property = {
+          id: propertyData.id,
+          name: propertyData.name || propertyData.title || '',
+          description: propertyData.description || '',
+          location: propertyData.location || '',
+          bedrooms: propertyData.bedrooms || 0,
+          bathrooms: propertyData.bathrooms || 0,
+          guests: propertyData.guests || 0,
+          price: propertyData.price ? Number(propertyData.price) : 0,
+          wellnessFriendly: propertyData.wellness_friendly || false,
+          amenities: propertyData.amenities || [],
+          images: [],
+          imagePreviewUrls: propertyData.images || [],
+        };
+
+        setFormData(loadedProperty);
+      } catch (error) {
+        console.error('Error loading property:', error);
+        toast.error('Failed to load property');
+        router.push('/host/properties');
+      }
     };
-    setFormData(mockProperty);
-  }, [params.id]);
+
+    if (user) {
+      loadProperty();
+    }
+  }, [params.id, user, router]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -136,13 +169,42 @@ export default function EditPropertyPage() {
     setSaving(true);
 
     try {
-      // TODO: Implement actual API call to update property
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+      if (!supabaseUser) {
+        toast.error('You must be logged in to update properties');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          name: formData.name,
+          title: formData.name,
+          description: formData.description,
+          location: formData.location,
+          bedrooms: formData.bedrooms,
+          bathrooms: formData.bathrooms,
+          guests: formData.guests,
+          price: formData.price,
+          wellness_friendly: formData.wellnessFriendly,
+          amenities: formData.amenities,
+          images: formData.imagePreviewUrls,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', formData.id)
+        .eq('host_id', supabaseUser.id);
+
+      if (error) {
+        throw error;
+      }
 
       toast.success('Property updated successfully!');
       router.push('/host/properties');
-    } catch (error) {
-      toast.error('Failed to update property. Please try again.');
+    } catch (error: any) {
+      console.error('Error updating property:', error);
+      toast.error(error.message || 'Failed to update property. Please try again.');
     } finally {
       setSaving(false);
     }

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
+import { createClient } from '@/lib/supabase/client';
 
 interface Listing {
   id: string;
@@ -23,45 +24,52 @@ export function FeaturedListings() {
   const isInView = useInView(ref, { once: true, margin: "-100px" });
 
   useEffect(() => {
-    const mockListings: Listing[] = [
-      {
-        id: '1',
-        title: 'Luxury Mountain Chalet',
-        location: 'Aspen, Colorado',
-        price: 450,
-        rating: 4.95,
-        images: ['https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop'],
-        type: 'Chalet',
-        verified: true,
-      },
-      {
-        id: '2',
-        title: 'Modern Beach House',
-        location: 'Malibu, California',
-        price: 650,
-        rating: 4.89,
-        images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=600&h=400&fit=crop'],
-        type: 'Beach House',
-        verified: true,
-      },
-      {
-        id: '3',
-        title: 'Downtown Penthouse',
-        location: 'Seattle, Washington',
-        price: 320,
-        rating: 4.92,
-        images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&h=400&fit=crop'],
-        type: 'Penthouse',
-        verified: true,
-      },
-    ];
-    
-    setListings(mockListings);
-    setLoading(false);
+    const loadFeaturedListings = async () => {
+      try {
+        const supabase = createClient();
+        const { data: propertiesData, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (error) {
+          console.error('Error loading featured listings:', error);
+          setListings([]);
+          setLoading(false);
+          return;
+        }
+
+        const featuredListings: Listing[] = (propertiesData || []).map((p: any) => ({
+          id: p.id,
+          title: p.name || p.title || 'Property',
+          location: p.location || '',
+          price: p.price ? Number(p.price) : 0,
+          rating: p.rating ? Number(p.rating) : 4.5,
+          images: p.images || [],
+          type: p.type || 'Property',
+          verified: true,
+        }));
+        
+        setListings(featuredListings);
+      } catch (error) {
+        console.error('Error loading featured listings:', error);
+        setListings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeaturedListings();
   }, []);
 
   if (loading) {
     return null;
+  }
+
+  if (listings.length === 0) {
+    return null; // Don't show section if no listings
   }
 
   return (
