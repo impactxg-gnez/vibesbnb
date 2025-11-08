@@ -313,8 +313,15 @@ export default function HostPropertiesPage() {
       const supabase = createClient();
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
+      if (!supabaseUser) {
+        toast.error('You must be logged in to import properties');
+        setImporting(false);
+        return;
+      }
+
       // Create imported property with scraped data
-      const propertyId = Date.now().toString();
+      // Generate a unique ID that includes user ID to avoid conflicts
+      const propertyId = `${supabaseUser.id}_${Date.now()}`;
       const importedProperty: Property = {
         id: propertyId,
         name: scrapedData.name || 'Imported Property',
@@ -334,7 +341,7 @@ export default function HostPropertiesPage() {
 
       // Save to Supabase if available
       if (supabaseUser) {
-        const { error: insertError } = await supabase
+        const { data: insertedProperty, error: insertError } = await supabase
           .from('properties')
           .insert({
             id: propertyId,
@@ -353,24 +360,27 @@ export default function HostPropertiesPage() {
             status: 'draft',
             wellness_friendly: importedProperty.wellnessFriendly,
             google_maps_url: importedProperty.googleMapsUrl,
-          });
+          })
+          .select()
+          .single();
 
         if (insertError) {
           console.error('Error saving to Supabase:', insertError);
-          // Fallback to localStorage
-          const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
-          const updatedProperties = [...existingProperties, importedProperty];
-          localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
+          toast.error(`Failed to save property: ${insertError.message}`);
+          throw insertError;
         }
+
+        // Reload properties from Supabase to ensure data is fresh
+        await loadProperties();
+        loadStats(); // Reload stats after adding property
       } else {
-        // Fallback to localStorage
+        // Fallback to localStorage (demo mode only)
         const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
         const updatedProperties = [...existingProperties, importedProperty];
         localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
+        setProperties([...properties, importedProperty]);
+        loadStats();
       }
-
-      setProperties([...properties, importedProperty]);
-      loadStats(); // Reload stats after adding property
       
       // Enhanced success message with more details
       const details = [];

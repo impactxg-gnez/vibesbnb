@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
 export default function NewPropertyPage() {
   const { user, loading } = useAuth();
@@ -96,13 +97,61 @@ export default function NewPropertyPage() {
     setSaving(true);
 
     try {
-      // TODO: Implement actual API call to save property
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+      if (!supabaseUser) {
+        toast.error('You must be logged in to create properties');
+        return;
+      }
+
+      // Convert File objects to data URLs for storage
+      const imageUrls: string[] = [];
+      for (const file of images) {
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        imageUrls.push(dataUrl);
+      }
+
+      // Generate a unique ID for the property
+      const propertyId = `${supabaseUser.id}_${Date.now()}`;
+
+      const { data: insertedProperty, error: insertError } = await supabase
+        .from('properties')
+        .insert({
+          id: propertyId,
+          host_id: supabaseUser.id,
+          name: formData.name,
+          title: formData.name,
+          description: formData.description,
+          location: formData.location,
+          price: formData.price,
+          images: imageUrls,
+          amenities: formData.amenities,
+          bedrooms: formData.bedrooms,
+          bathrooms: formData.bathrooms,
+          guests: formData.guests,
+          status: 'draft',
+          wellness_friendly: formData.wellnessFriendly,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error saving property:', insertError);
+        toast.error(`Failed to save property: ${insertError.message}`);
+        throw insertError;
+      }
 
       toast.success('Property added successfully!');
       router.push('/host/properties');
-    } catch (error) {
-      toast.error('Failed to add property. Please try again.');
+    } catch (error: any) {
+      console.error('Error creating property:', error);
+      toast.error(error.message || 'Failed to add property. Please try again.');
     } finally {
       setSaving(false);
     }

@@ -28,6 +28,7 @@ export default function EditPropertyPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [loadingProperty, setLoadingProperty] = useState(true);
   const [formData, setFormData] = useState<Property>({
     id: '',
     name: '',
@@ -69,6 +70,7 @@ export default function EditPropertyPage() {
     const loadProperty = async () => {
       if (!user) return;
 
+      setLoadingProperty(true);
       try {
         const supabase = createClient();
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
@@ -85,7 +87,14 @@ export default function EditPropertyPage() {
           .eq('host_id', supabaseUser.id)
           .single();
 
-        if (error || !propertyData) {
+        if (error) {
+          console.error('Error loading property:', error);
+          toast.error(`Property not found: ${error.message}`);
+          router.push('/host/properties');
+          return;
+        }
+
+        if (!propertyData) {
           toast.error('Property not found');
           router.push('/host/properties');
           return;
@@ -106,11 +115,15 @@ export default function EditPropertyPage() {
           imagePreviewUrls: propertyData.images || [],
         };
 
+        console.log('Loaded property from Supabase:', loadedProperty);
+
         setFormData(loadedProperty);
       } catch (error) {
         console.error('Error loading property:', error);
         toast.error('Failed to load property');
         router.push('/host/properties');
+      } finally {
+        setLoadingProperty(false);
       }
     };
 
@@ -210,10 +223,13 @@ export default function EditPropertyPage() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingProperty) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-white">Loading property...</p>
+        </div>
       </div>
     );
   }
