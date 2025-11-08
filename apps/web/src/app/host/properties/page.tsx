@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Home, Edit, Trash2, ExternalLink, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
 interface Property {
   id: string;
@@ -31,6 +32,14 @@ export default function HostPropertiesPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
+  const [loadingProperties, setLoadingProperties] = useState(true);
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    activeListings: 0,
+    thisMonthRevenue: 0,
+    totalBookings: 0,
+    newBookings: 0,
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,69 +49,173 @@ export default function HostPropertiesPage() {
 
   useEffect(() => {
     if (user) {
-      // Load properties from localStorage for persistence
-      const savedProperties = localStorage.getItem(`properties_${user.id}`);
-      if (savedProperties) {
-        try {
-          const parsedProperties = JSON.parse(savedProperties);
-          setProperties(parsedProperties);
-        } catch (error) {
-          console.error('Failed to load properties:', error);
-          // Load default mock properties
-          const mockProperties: Property[] = [
-            {
-              id: '1',
-              name: 'Mountain View Cabin',
-              location: 'Aspen, Colorado',
-              bedrooms: 3,
-              price: 250,
-              images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
-              status: 'active',
-              wellnessFriendly: true,
-            },
-            {
-              id: '2',
-              name: 'Beach Villa',
-              location: 'Malibu, California',
-              bedrooms: 4,
-              price: 450,
-              images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
-              status: 'active',
-              wellnessFriendly: true,
-            },
-          ];
-          setProperties(mockProperties);
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(mockProperties));
-        }
-      } else {
-        // First time - load default mock properties
-        const mockProperties: Property[] = [
-          {
-            id: '1',
-            name: 'Mountain View Cabin',
-            location: 'Aspen, Colorado',
-            bedrooms: 3,
-            price: 250,
-            images: ['https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=400&h=300&fit=crop'],
-            status: 'active',
-            wellnessFriendly: true,
-          },
-          {
-            id: '2',
-            name: 'Beach Villa',
-            location: 'Malibu, California',
-            bedrooms: 4,
-            price: 450,
-            images: ['https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=400&h=300&fit=crop'],
-            status: 'active',
-            wellnessFriendly: true,
-          },
-        ];
-        setProperties(mockProperties);
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(mockProperties));
-      }
+      loadProperties();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && properties.length >= 0) {
+      loadStats();
+    }
+  }, [user, properties.length]);
+
+  const loadProperties = async () => {
+    if (!user) return;
+    
+    setLoadingProperties(true);
+    try {
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+      if (supabaseUser) {
+        // Fetch properties from Supabase
+        const { data: propertiesData, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('host_id', supabaseUser.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading properties:', error);
+          // Fallback to localStorage
+          loadFromLocalStorage();
+        } else if (propertiesData && propertiesData.length > 0) {
+          // Transform Supabase data to Property interface
+          const transformedProperties: Property[] = propertiesData.map((p: any) => ({
+            id: p.id,
+            name: p.name || p.title || 'Untitled Property',
+            description: p.description || '',
+            location: p.location || '',
+            bedrooms: p.bedrooms || 0,
+            bathrooms: p.bathrooms,
+            beds: p.beds,
+            guests: p.guests || 0,
+            price: p.price ? Number(p.price) : 0,
+            images: p.images || [],
+            amenities: p.amenities || [],
+            status: (p.status || 'active') as 'active' | 'draft' | 'inactive',
+            wellnessFriendly: p.wellness_friendly || false,
+            googleMapsUrl: p.google_maps_url,
+          }));
+          setProperties(transformedProperties);
+          // Load stats after properties are loaded
+          setTimeout(() => loadStats(), 100);
+        } else {
+          // No properties found in Supabase, check localStorage as fallback
+          loadFromLocalStorage();
+        }
+      } else {
+        // Fallback to localStorage
+        loadFromLocalStorage();
+      }
+    } catch (error) {
+      console.error('Error loading properties:', error);
+      loadFromLocalStorage();
+    } finally {
+      setLoadingProperties(false);
+    }
+  };
+
+  const loadFromLocalStorage = () => {
+    const savedProperties = localStorage.getItem(`properties_${user?.id}`);
+    if (savedProperties) {
+      try {
+        const parsedProperties = JSON.parse(savedProperties);
+        setProperties(parsedProperties);
+        // Load stats after properties are loaded
+        setTimeout(() => loadStats(), 100);
+      } catch (error) {
+        console.error('Failed to load properties from localStorage:', error);
+        setProperties([]);
+        setStats({
+          totalProperties: 0,
+          activeListings: 0,
+          thisMonthRevenue: 0,
+          totalBookings: 0,
+          newBookings: 0,
+        });
+      }
+    } else {
+      setProperties([]);
+      setStats({
+        totalProperties: 0,
+        activeListings: 0,
+        thisMonthRevenue: 0,
+        totalBookings: 0,
+        newBookings: 0,
+      });
+    }
+  };
+
+  const loadStats = async () => {
+    if (!user) return;
+
+    try {
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+      if (supabaseUser) {
+        // Get all properties for this host
+        const { data: propertiesData } = await supabase
+          .from('properties')
+          .select('id, status')
+          .eq('host_id', supabaseUser.id);
+
+        const totalProperties = propertiesData?.length || 0;
+        const activeListings = propertiesData?.filter(p => p.status === 'active').length || 0;
+
+        // Get bookings for this host's properties
+        const propertyIds = propertiesData?.map(p => p.id) || [];
+        let totalBookings = 0;
+        let thisMonthRevenue = 0;
+        let newBookings = 0;
+
+        if (propertyIds.length > 0) {
+          // Get bookings for this month
+          const now = new Date();
+          const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          
+          const { data: bookingsData } = await supabase
+            .from('bookings')
+            .select('*')
+            .in('property_id', propertyIds)
+            .eq('status', 'confirmed');
+
+          if (bookingsData) {
+            totalBookings = bookingsData.length;
+            
+            // Calculate this month's revenue
+            const thisMonthBookings = bookingsData.filter(b => {
+              const bookingDate = new Date(b.created_at);
+              return bookingDate >= firstDayOfMonth;
+            });
+            
+            thisMonthRevenue = thisMonthBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+            newBookings = thisMonthBookings.length;
+          }
+        }
+
+        setStats({
+          totalProperties,
+          activeListings,
+          thisMonthRevenue,
+          totalBookings,
+          newBookings,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+      // Set default stats based on current properties state
+      const currentProperties = properties.length > 0 ? properties : [];
+      setStats({
+        totalProperties: currentProperties.length,
+        activeListings: currentProperties.filter(p => p.status === 'active').length,
+        thisMonthRevenue: 0,
+        totalBookings: 0,
+        newBookings: 0,
+      });
+    }
+  };
 
   const handleImportFromUrl = async () => {
     if (!importUrl.trim()) {
@@ -131,9 +244,13 @@ export default function HostPropertiesPage() {
       const scrapedData = result.data;
       const meta = result.meta || {};
 
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
       // Create imported property with scraped data
+      const propertyId = Date.now().toString();
       const importedProperty: Property = {
-        id: Date.now().toString(),
+        id: propertyId,
         name: scrapedData.name || 'Imported Property',
         description: scrapedData.description || '',
         location: scrapedData.location || 'Location not found',
@@ -149,12 +266,45 @@ export default function HostPropertiesPage() {
         googleMapsUrl: scrapedData.googleMapsUrl,
       };
 
-      // Save to localStorage for persistence
-      const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
-      const updatedProperties = [...existingProperties, importedProperty];
-      localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
+      // Save to Supabase if available
+      if (supabaseUser) {
+        const { error: insertError } = await supabase
+          .from('properties')
+          .insert({
+            id: propertyId,
+            host_id: supabaseUser.id,
+            name: importedProperty.name,
+            title: importedProperty.name,
+            description: importedProperty.description,
+            location: importedProperty.location,
+            price: importedProperty.price,
+            images: importedProperty.images,
+            amenities: importedProperty.amenities,
+            guests: importedProperty.guests,
+            bedrooms: importedProperty.bedrooms,
+            bathrooms: importedProperty.bathrooms,
+            beds: importedProperty.beds,
+            status: 'draft',
+            wellness_friendly: importedProperty.wellnessFriendly,
+            google_maps_url: importedProperty.googleMapsUrl,
+          });
+
+        if (insertError) {
+          console.error('Error saving to Supabase:', insertError);
+          // Fallback to localStorage
+          const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
+          const updatedProperties = [...existingProperties, importedProperty];
+          localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
+        }
+      } else {
+        // Fallback to localStorage
+        const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
+        const updatedProperties = [...existingProperties, importedProperty];
+        localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
+      }
 
       setProperties([...properties, importedProperty]);
+      loadStats(); // Reload stats after adding property
       
       // Enhanced success message with more details
       const details = [];
@@ -180,24 +330,62 @@ export default function HostPropertiesPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this property?')) {
-      const updatedProperties = properties.filter(p => p.id !== id);
-      setProperties(updatedProperties);
-      
-      // Update localStorage for persistence
-      if (user) {
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this property?')) return;
+
+    try {
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+      if (supabaseUser) {
+        // Delete from Supabase
+        const { error } = await supabase
+          .from('properties')
+          .delete()
+          .eq('id', id)
+          .eq('host_id', supabaseUser.id);
+
+        if (error) {
+          throw error;
+        }
+
+        // Update local state
+        const updatedProperties = properties.filter(p => p.id !== id);
+        setProperties(updatedProperties);
+        
+        // Also update localStorage as fallback
+        if (user) {
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        }
+
+        // Reload stats
+        loadStats();
+        
+        toast.success('Property deleted');
+      } else {
+        // Fallback to localStorage
+        const updatedProperties = properties.filter(p => p.id !== id);
+        setProperties(updatedProperties);
+        
+        if (user) {
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        }
+        
+        toast.success('Property deleted');
       }
-      
-      toast.success('Property deleted');
+    } catch (error: any) {
+      console.error('Error deleting property:', error);
+      toast.error(error.message || 'Failed to delete property');
     }
   };
 
-  if (loading) {
+  if (loading || loadingProperties) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-white">Loading properties...</p>
+        </div>
       </div>
     );
   }
@@ -238,30 +426,34 @@ export default function HostPropertiesPage() {
               <h3 className="text-gray-400 text-sm font-medium">Total Properties</h3>
               <Home size={20} className="text-emerald-500" />
             </div>
-            <p className="text-3xl font-bold text-white">{properties.length}</p>
+            <p className="text-3xl font-bold text-white">{stats.totalProperties}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-400 text-sm font-medium">Active Listings</h3>
               <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
             </div>
-            <p className="text-3xl font-bold text-white">
-              {properties.filter(p => p.status === 'active').length}
-            </p>
+            <p className="text-3xl font-bold text-white">{stats.activeListings}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-400 text-sm font-medium">This Month</h3>
-              <span className="text-emerald-500 text-sm">+12%</span>
+              {stats.newBookings > 0 && (
+                <span className="text-emerald-500 text-sm">+{stats.newBookings}</span>
+              )}
             </div>
-            <p className="text-3xl font-bold text-white">$3,240</p>
+            <p className="text-3xl font-bold text-white">
+              ${stats.thisMonthRevenue.toLocaleString()}
+            </p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-400 text-sm font-medium">Total Bookings</h3>
-              <span className="text-blue-500 text-sm">24</span>
+              {stats.newBookings > 0 && (
+                <span className="text-blue-500 text-sm">{stats.newBookings}</span>
+              )}
             </div>
-            <p className="text-3xl font-bold text-white">156</p>
+            <p className="text-3xl font-bold text-white">{stats.totalBookings}</p>
           </div>
         </div>
 
