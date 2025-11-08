@@ -104,3 +104,5 @@ CREATE POLICY "Everyone can view active properties"
   ON properties FOR SELECT
   USING (status = 'active');
 
+
+

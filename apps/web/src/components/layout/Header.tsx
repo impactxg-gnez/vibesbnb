@@ -16,24 +16,41 @@ export function Header() {
   const isAdmin = userRole === 'admin';
   const isTraveller = userRole === 'traveller' || (!isHost && !isAdmin);
   
-  // Check if user has host role available (from localStorage, similar to RoleSwitcher)
+  // Check if user has host role available (from localStorage and user metadata)
   useEffect(() => {
     if (user) {
+      // First, check user metadata for role (most reliable source)
+      const metadataRole = user.user_metadata?.role;
+      
+      // Then check localStorage
       const rolesStr = localStorage.getItem('userRoles');
+      let roles: string[] = [];
+      
       if (rolesStr) {
         try {
-          const roles = JSON.parse(rolesStr) as string[];
-          setUserRoles(roles);
+          roles = JSON.parse(rolesStr) as string[];
         } catch (e) {
-          // If parsing fails, check if user has host role in metadata
-          if (user.user_metadata?.role === 'host') {
-            setUserRoles(['host']);
-          }
+          // If parsing fails, start fresh
+          roles = [];
         }
-      } else if (user.user_metadata?.role === 'host') {
-        // If no localStorage, check if current role is host
-        setUserRoles(['host']);
       }
+      
+      // If user metadata has a role, ensure it's in the roles array
+      if (metadataRole && !roles.includes(metadataRole)) {
+        roles.push(metadataRole);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+      }
+      
+      // If no roles in localStorage but user has role in metadata, use metadata
+      if (roles.length === 0 && metadataRole) {
+        roles = [metadataRole];
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+      }
+      
+      setUserRoles(roles);
+    } else {
+      // Clear roles when user logs out
+      setUserRoles([]);
     }
   }, [user]);
   

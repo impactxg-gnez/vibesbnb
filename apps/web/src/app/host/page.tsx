@@ -68,6 +68,9 @@ export default function HostPage() {
           throw updateError;
         }
 
+        // Refresh the user session to get updated metadata
+        const { data: { user: updatedUser } } = await supabase.auth.getUser();
+        
         // Also update localStorage for demo mode compatibility
         const rolesStr = localStorage.getItem('userRoles');
         const roles = rolesStr ? JSON.parse(rolesStr) : [];
@@ -78,8 +81,8 @@ export default function HostPage() {
 
         toast.success('Successfully registered as a host!');
         
-        // Redirect to host dashboard
-        router.push('/host/properties');
+        // Force a page refresh to reload user data
+        window.location.href = '/host/properties';
       } else {
         // Fallback for demo mode
         const demoUser = localStorage.getItem('demoUser');

@@ -67,15 +67,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Sync roles from user metadata to localStorage
+        if (session?.user?.user_metadata?.role) {
+          const role = session.user.user_metadata.role;
+          const rolesStr = localStorage.getItem('userRoles');
+          const roles = rolesStr ? JSON.parse(rolesStr) : [];
+          if (!roles.includes(role)) {
+            roles.push(role);
+            localStorage.setItem('userRoles', JSON.stringify(roles));
+          }
+        }
+        
         setLoading(false);
       });
 
       // Listen for auth changes
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Sync roles from user metadata to localStorage
+        if (session?.user?.user_metadata?.role) {
+          const role = session.user.user_metadata.role;
+          const rolesStr = localStorage.getItem('userRoles');
+          const roles = rolesStr ? JSON.parse(rolesStr) : [];
+          if (!roles.includes(role)) {
+            roles.push(role);
+            localStorage.setItem('userRoles', JSON.stringify(roles));
+          }
+        }
+        
         setLoading(false);
       });
 
@@ -87,6 +111,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsedUser = JSON.parse(demoUser);
           setUser(parsedUser as any);
+          
+          // Sync roles from demo user metadata to localStorage
+          if (parsedUser.user_metadata?.role) {
+            const role = parsedUser.user_metadata.role;
+            const rolesStr = localStorage.getItem('userRoles');
+            const roles = rolesStr ? JSON.parse(rolesStr) : [];
+            if (!roles.includes(role)) {
+              roles.push(role);
+              localStorage.setItem('userRoles', JSON.stringify(roles));
+            }
+          }
         } catch (e) {
           localStorage.removeItem('demoUser');
         }
@@ -129,12 +164,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Supabase authentication for non-demo accounts
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (!error) {
+    if (!error && data.user) {
+      // Sync roles from user metadata to localStorage after login
+      if (data.user.user_metadata?.role) {
+        const role = data.user.user_metadata.role;
+        const rolesStr = localStorage.getItem('userRoles');
+        const roles = rolesStr ? JSON.parse(rolesStr) : [];
+        if (!roles.includes(role)) {
+          roles.push(role);
+          localStorage.setItem('userRoles', JSON.stringify(roles));
+        }
+      }
+      
       router.push('/');
       router.refresh();
     }
