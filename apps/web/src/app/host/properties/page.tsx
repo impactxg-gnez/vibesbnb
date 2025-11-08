@@ -366,7 +366,16 @@ export default function HostPropertiesPage() {
 
         if (insertError) {
           console.error('Error saving to Supabase:', insertError);
-          toast.error(`Failed to save property: ${insertError.message}`);
+          
+          // Check if it's a missing column error
+          if (insertError.message?.includes('column') && insertError.message?.includes('does not exist')) {
+            toast.error(
+              `Database migration required! Please run the migration script in Supabase. Error: ${insertError.message}`,
+              { duration: 10000 }
+            );
+          } else {
+            toast.error(`Failed to save property: ${insertError.message}`);
+          }
           throw insertError;
         }
 

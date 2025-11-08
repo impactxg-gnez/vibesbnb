@@ -89,7 +89,16 @@ export default function EditPropertyPage() {
 
         if (error) {
           console.error('Error loading property:', error);
-          toast.error(`Property not found: ${error.message}`);
+          
+          // Check if it's a missing column error
+          if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+            toast.error(
+              `Database migration required! Please run the migration script in Supabase. Error: ${error.message}`,
+              { duration: 10000 }
+            );
+          } else {
+            toast.error(`Property not found: ${error.message}`);
+          }
           router.push('/host/properties');
           return;
         }
