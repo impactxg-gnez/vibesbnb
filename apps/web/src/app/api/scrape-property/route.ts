@@ -186,18 +186,103 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         listingData?.listing?.description ||
         '';
 
-      // Extract location
-      const location = listingData?.sections?.locationModule || listingData?.location || listingData?.listing?.location;
+      // Extract location - try multiple paths
+      let location = listingData?.sections?.locationModule || 
+                     listingData?.location || 
+                     listingData?.listing?.location ||
+                     listingData?.listing?.publicAddress ||
+                     listingData?.publicAddress;
+      
       if (location) {
-        propertyData.location = `${location.city || ''}, ${location.state || ''} ${location.country || ''}`.trim();
+        // Try different location formats
+        if (typeof location === 'string') {
+          propertyData.location = location;
+        } else {
+          // Build location string from parts
+          const parts = [
+            location.city,
+            location.locality,
+            location.neighborhood,
+            location.state,
+            location.region,
+            location.country,
+            location.countryCode
+          ].filter(Boolean);
+          propertyData.location = parts.join(', ').trim();
+        }
         
-        // Extract coordinates
+        // Extract coordinates - try multiple paths
+        let coords: { lat: number; lng: number } | null = null;
+        
+        // Try direct lat/lng
         if (location.lat && location.lng) {
-          propertyData.coordinates = {
-            lat: location.lat,
-            lng: location.lng,
-          };
-          propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`;
+          coords = { lat: location.lat, lng: location.lng };
+        } else if (location.latitude && location.longitude) {
+          coords = { lat: location.latitude, lng: location.longitude };
+        } else if (location.coordinates) {
+          // Array format [lat, lng] or [lng, lat]
+          if (Array.isArray(location.coordinates) && location.coordinates.length >= 2) {
+            const [val1, val2] = location.coordinates;
+            // Check which is which based on reasonable values
+            if (Math.abs(val1) <= 90 && Math.abs(val2) <= 180) {
+              coords = { lat: val1, lng: val2 };
+            } else if (Math.abs(val2) <= 90 && Math.abs(val1) <= 180) {
+              coords = { lat: val2, lng: val1 };
+            }
+          }
+        }
+        
+        // Try nested location objects
+        if (!coords && location.geo) {
+          const geo = location.geo;
+          if (geo.lat && geo.lng) {
+            coords = { lat: geo.lat, lng: geo.lng };
+          } else if (geo.latitude && geo.longitude) {
+            coords = { lat: geo.latitude, lng: geo.longitude };
+          }
+        }
+        
+        // Try position object
+        if (!coords && location.position) {
+          const pos = location.position;
+          if (pos.lat && pos.lng) {
+            coords = { lat: pos.lat, lng: pos.lng };
+          }
+        }
+        
+        if (coords) {
+          propertyData.coordinates = coords;
+          propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
+        }
+      }
+      
+      // Also try to find coordinates in other parts of the data structure
+      if (!propertyData.coordinates) {
+        const findCoords = (obj: any, depth = 0): { lat: number; lng: number } | null => {
+          if (depth > 10 || !obj || typeof obj !== 'object') return null;
+          
+          if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
+            return { lat: obj.lat, lng: obj.lng };
+          }
+          if (typeof obj.latitude === 'number' && typeof obj.longitude === 'number') {
+            return { lat: obj.latitude, lng: obj.longitude };
+          }
+          
+          // Check common keys
+          for (const key of ['location', 'coordinates', 'geo', 'position', 'map']) {
+            if (obj[key]) {
+              const result = findCoords(obj[key], depth + 1);
+              if (result) return result;
+            }
+          }
+          
+          return null;
+        };
+        
+        const coords = findCoords(listingData);
+        if (coords) {
+          propertyData.coordinates = coords;
+          propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
         }
       }
 
@@ -218,21 +303,126 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         });
       }
 
-      // Extract images
-      const photos = listingData?.sections?.photoModule?.images || 
-                    listingData?.listing?.photos || 
-                    listingData?.photos || [];
+      // Extract images - try multiple paths and formats
+      const photos: any[] = [];
       
-      propertyData.images = photos
-        .map((photo: any) => {
-          // Get the highest quality image URL
-          return photo?.xxlPictureUrl || 
-                 photo?.xlPictureUrl || 
-                 photo?.pictureUrl || 
-                 photo?.url ||
-                 (typeof photo === 'string' ? photo : null);
-        })
-        .filter((url: string | null) => url && isValidImageUrl(url));
+      // Try different paths in the data structure
+      const photoSources = [
+        listingData?.sections?.photoModule?.images,
+        listingData?.sections?.photoModule?.photoList,
+        listingData?.listing?.photos,
+        listingData?.listing?.pictureList,
+        listingData?.photos,
+        listingData?.pictureList,
+        listingData?.images,
+        listingData?.media?.photos,
+        listingData?.media?.images
+      ].filter(Boolean);
+      
+      // Collect all photos from all sources
+      photoSources.forEach((source: any) => {
+        if (Array.isArray(source)) {
+          photos.push(...source);
+        } else if (typeof source === 'object' && source !== null) {
+          // Handle object with photo arrays
+          Object.values(source).forEach((value: any) => {
+            if (Array.isArray(value)) {
+              photos.push(...value);
+            }
+          });
+        }
+      });
+      
+      // Extract image URLs from photos
+      const imageUrls = new Set<string>();
+      
+      photos.forEach((photo: any) => {
+        if (typeof photo === 'string') {
+          if (isValidImageUrl(photo)) {
+            imageUrls.add(photo);
+          }
+        } else if (typeof photo === 'object' && photo !== null) {
+          // Try all possible image URL properties
+          const urlProperties = [
+            'xxlPictureUrl', 'xlPictureUrl', 'largePictureUrl',
+            'pictureUrl', 'url', 'src', 'image', 'photo',
+            'mediumPictureUrl', 'smallPictureUrl', 'thumbnailUrl',
+            'originalUrl', 'highResUrl', 'fullUrl'
+          ];
+          
+          for (const prop of urlProperties) {
+            const url = photo[prop];
+            if (typeof url === 'string' && isValidImageUrl(url)) {
+              // Prefer higher quality images
+              if (prop.includes('xxl') || prop.includes('xl') || prop.includes('large')) {
+                imageUrls.add(url);
+                break; // Use highest quality found
+              } else if (!Array.from(imageUrls).some(existing => existing.includes(url) || url.includes(existing))) {
+                imageUrls.add(url);
+              }
+            }
+          }
+          
+          // Also check nested objects
+          if (photo.picture && typeof photo.picture === 'object') {
+            for (const prop of urlProperties) {
+              const url = photo.picture[prop];
+              if (typeof url === 'string' && isValidImageUrl(url)) {
+                imageUrls.add(url);
+                break;
+              }
+            }
+          }
+        }
+      });
+      
+      // Also try to find images in the entire data structure recursively
+      const findImagesInObject = (obj: any, depth = 0): void => {
+        if (depth > 15 || !obj || typeof obj !== 'object') return;
+        
+        if (Array.isArray(obj)) {
+          obj.forEach(item => {
+            if (typeof item === 'string' && isValidImageUrl(item)) {
+              imageUrls.add(item);
+            } else if (typeof item === 'object') {
+              findImagesInObject(item, depth + 1);
+            }
+          });
+          return;
+        }
+        
+        // Check for image-related keys
+        const imageKeys = ['url', 'src', 'image', 'photo', 'picture', 'pictureUrl'];
+        for (const key in obj) {
+          const value = obj[key];
+          if (typeof value === 'string' && isValidImageUrl(value)) {
+            imageUrls.add(value);
+          } else if (imageKeys.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
+            if (typeof value === 'string' && isValidImageUrl(value)) {
+              imageUrls.add(value);
+            } else if (typeof value === 'object' && value !== null) {
+              findImagesInObject(value, depth + 1);
+            }
+          } else if (typeof value === 'object' && value !== null) {
+            findImagesInObject(value, depth + 1);
+          }
+        }
+      };
+      
+      // Search the entire listing data for images
+      findImagesInObject(listingData);
+      
+      // Convert to array and sort by quality
+      propertyData.images = Array.from(imageUrls).sort((a, b) => {
+        // Prefer higher quality images
+        if (a.includes('xxl') && !b.includes('xxl')) return -1;
+        if (b.includes('xxl') && !a.includes('xxl')) return 1;
+        if (a.includes('xl') && !b.includes('xl')) return -1;
+        if (b.includes('xl') && !a.includes('xl')) return 1;
+        if (a.includes('large') && !b.includes('large')) return -1;
+        if (b.includes('large') && !a.includes('large')) return 1;
+        return 0;
+      });
 
       // Extract amenities
       const amenitiesData = listingData?.sections?.amenitiesModule?.seeAllAmenitiesGroups || 
@@ -267,6 +457,151 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         $('meta[name="description"]').attr('content') ||
         '';
     }
+    
+    // Fallback location extraction if not found in JSON
+    if (!propertyData.location) {
+      // Try meta tags
+      const ogLoc = $('meta[property="og:locality"]').attr('content');
+      const ogRegion = $('meta[property="og:region"]').attr('content');
+      const ogCountry = $('meta[property="og:country-name"]').attr('content');
+      if (ogLoc || ogRegion || ogCountry) {
+        propertyData.location = [ogLoc, ogRegion, ogCountry].filter(Boolean).join(', ');
+      }
+      
+      // Try location section
+      if (!propertyData.location) {
+        const locationSection = $('[data-section-id="LOCATION_DEFAULT"]');
+        if (locationSection.length) {
+          const h2 = locationSection.find('h2').first();
+          if (h2.length) {
+            propertyData.location = h2.text().trim();
+          } else {
+            propertyData.location = locationSection.text().split('\n')[0]?.trim() || '';
+          }
+        }
+      }
+      
+      // Try title parsing (e.g., "Rental unit in Colva")
+      if (!propertyData.location) {
+        const title = $('h1').first().text().trim();
+        const inMatch = title.match(/in\s+(.+?)(?:\s*·|$)/i);
+        if (inMatch) {
+          propertyData.location = inMatch[1].trim();
+        }
+      }
+    }
+    
+    // Try to extract coordinates from JSON-LD if not found
+    if (!propertyData.coordinates) {
+      $('script[type="application/ld+json"]').each((_, el) => {
+        try {
+          const jsonLd = JSON.parse($(el).html() || '{}');
+          if (jsonLd['@type'] === 'Place' || jsonLd['@type'] === 'Accommodation') {
+            // Check for geo coordinates
+            if (jsonLd.geo) {
+              if (jsonLd.geo['@type'] === 'GeoCoordinates') {
+                const lat = parseFloat(jsonLd.geo.latitude);
+                const lng = parseFloat(jsonLd.geo.longitude);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                  propertyData.coordinates = { lat, lng };
+                  propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+                  return false; // Break the loop
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Continue
+        }
+      });
+    }
+    
+    // Try to extract coordinates from data attributes
+    if (!propertyData.coordinates) {
+      const mapEl = $('[data-lat], [data-latitude], [data-lng], [data-longitude]').first();
+      if (mapEl.length) {
+        const lat = parseFloat(mapEl.attr('data-lat') || mapEl.attr('data-latitude') || '');
+        const lng = parseFloat(mapEl.attr('data-lng') || mapEl.attr('data-longitude') || '');
+        if (!isNaN(lat) && !isNaN(lng)) {
+          propertyData.coordinates = { lat, lng };
+          propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        }
+      }
+    }
+    
+    // Try to extract coordinates from script tags with regex patterns
+    if (!propertyData.coordinates) {
+      let lat: number | null = null;
+      let lng: number | null = null;
+      
+      $('script:not([src])').each((_, el) => {
+        const content = $(el).html() || '';
+        if (content.length < 50) return;
+        
+        // Try to parse as JSON first
+        if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+          try {
+            const data = JSON.parse(content);
+            const findCoords = (obj: any, depth = 0): { lat: number; lng: number } | null => {
+              if (depth > 10 || !obj || typeof obj !== 'object') return null;
+              if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
+                return { lat: obj.lat, lng: obj.lng };
+              }
+              if (typeof obj.latitude === 'number' && typeof obj.longitude === 'number') {
+                return { lat: obj.latitude, lng: obj.longitude };
+              }
+              for (const key of ['location', 'coordinates', 'geo', 'position']) {
+                if (obj[key]) {
+                  const result = findCoords(obj[key], depth + 1);
+                  if (result) return result;
+                }
+              }
+              return null;
+            };
+            const coords = findCoords(data);
+            if (coords) {
+              lat = coords.lat;
+              lng = coords.lng;
+              return false; // Break
+            }
+          } catch (e) {
+            // Not valid JSON, continue with regex
+          }
+        }
+        
+        // Try regex patterns
+        const latMatch = content.match(/"lat(?:itude)?"\s*:\s*([-\d.]+)/i);
+        const lngMatch = content.match(/"lng|lon(?:gitude)?"\s*:\s*([-\d.]+)/i);
+        
+        if (latMatch && !lat) lat = parseFloat(latMatch[1]);
+        if (lngMatch && !lng) lng = parseFloat(lngMatch[1]);
+        
+        // Try array format [lat, lng]
+        const arrayMatch = content.match(/\[([-\d.]+)\s*,\s*([-\d.]+)\]/);
+        if (arrayMatch && !lat && !lng) {
+          const val1 = parseFloat(arrayMatch[1]);
+          const val2 = parseFloat(arrayMatch[2]);
+          if (!isNaN(val1) && !isNaN(val2)) {
+            if (Math.abs(val1) <= 90 && Math.abs(val2) <= 180) {
+              lat = val1;
+              lng = val2;
+            } else if (Math.abs(val2) <= 90 && Math.abs(val1) <= 180) {
+              lat = val2;
+              lng = val1;
+            }
+          }
+        }
+        
+        if (lat !== null && lng !== null) {
+          return false; // Break
+        }
+      });
+      
+      if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+        propertyData.coordinates = { lat, lng };
+        propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      }
+    }
 
     // Try to extract room info from visible text if not found in JSON
     if (propertyData.guests === 0 || propertyData.bedrooms === 0) {
@@ -289,10 +624,54 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
     if (propertyData.images.length === 0) {
       const images = new Set<string>();
       
+      // Try meta tags
       $('meta[property="og:image"]').each((_, el) => {
         const src = $(el).attr('content');
         if (src && isValidImageUrl(src)) {
           images.add(src);
+        }
+      });
+      
+      // Try img tags
+      $('img').each((_, el) => {
+        const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-original-uri');
+        if (src && isValidImageUrl(src)) {
+          try {
+            const absoluteUrl = new URL(src, url).href;
+            images.add(absoluteUrl);
+          } catch (e) {
+            // Invalid URL, skip
+          }
+        }
+      });
+      
+      // Try background images
+      $('[style*="background-image"]').each((_, el) => {
+        const style = $(el).attr('style') || '';
+        const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
+        if (match && match[1]) {
+          const src = match[1].trim();
+          if (isValidImageUrl(src)) {
+            try {
+              const absoluteUrl = new URL(src, url).href;
+              images.add(absoluteUrl);
+            } catch (e) {
+              // Invalid URL, skip
+            }
+          }
+        }
+      });
+      
+      // Try data attributes
+      $('[data-src], [data-image], [data-photo]').each((_, el) => {
+        const src = $(el).attr('data-src') || $(el).attr('data-image') || $(el).attr('data-photo');
+        if (src && isValidImageUrl(src)) {
+          try {
+            const absoluteUrl = new URL(src, url).href;
+            images.add(absoluteUrl);
+          } catch (e) {
+            // Invalid URL, skip
+          }
         }
       });
 

@@ -94,8 +94,9 @@ async function autoScroll(page: Page): Promise<void> {
     await new Promise<void>((resolve) => {
       let totalHeight = 0;
       const distance = 300; // Scroll 300px at a time
-      const maxScrolls = 20; // Maximum scroll iterations
+      const maxScrolls = 30; // Increased max scrolls to load more images
       let scrollCount = 0;
+      let lastHeight = document.body.scrollHeight;
 
       const timer = setInterval(() => {
         const scrollHeight = document.body.scrollHeight;
@@ -103,16 +104,57 @@ async function autoScroll(page: Page): Promise<void> {
         totalHeight += distance;
         scrollCount++;
 
+        // Check if new content loaded (height changed)
+        if (scrollHeight > lastHeight) {
+          lastHeight = scrollHeight;
+          scrollCount = 0; // Reset counter if new content loaded
+        }
+
         // Stop if we've reached the bottom or hit max scrolls
         if (totalHeight >= scrollHeight || scrollCount >= maxScrolls) {
           clearInterval(timer);
           // Scroll back to top
           window.scrollTo(0, 0);
-          setTimeout(() => resolve(), 500);
+          // Wait a bit longer for images to load
+          setTimeout(() => resolve(), 1000);
         }
-      }, 150);
+      }, 200); // Slightly slower to allow images to load
     });
   });
+  
+  // Wait for any lazy-loaded images to finish loading
+  await page.waitForTimeout(1000);
+  
+  // Try to click "Show more photos" or similar buttons if they exist
+  try {
+    // Try different selectors for "show more" buttons
+    const buttonSelectors = [
+      'button[data-testid*="show"]',
+      'button[data-testid*="more"]',
+      '[aria-label*="show" i]',
+      '[aria-label*="more" i]',
+      'button'
+    ];
+    
+    for (const selector of buttonSelectors) {
+      try {
+        const buttons = await page.$$(selector);
+        for (const button of buttons) {
+          const text = await page.evaluate(el => el.textContent?.toLowerCase() || '', button);
+          if (text.includes('show') || text.includes('more') || text.includes('photo')) {
+            await button.click();
+            await page.waitForTimeout(2000);
+            await autoScroll(page); // Scroll again after clicking
+            break;
+          }
+        }
+      } catch (e) {
+        // Continue to next selector
+      }
+    }
+  } catch (e) {
+    // Button might not exist or be clickable, continue
+  }
 }
 
 /**
@@ -192,37 +234,198 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
       return match ? parseInt(match[1]) : 0;
     };
 
-    // Get all images - filter for property photos
-    const allImages = Array.from(document.querySelectorAll('img'))
-      .map(img => {
-        // Get the highest quality image source
-        return (
-          img.getAttribute('data-original-uri') ||
-          img.src ||
-          img.getAttribute('data-src') ||
-          ''
-        );
-      })
-      .filter(src => {
-        if (!src || !src.startsWith('http')) return false;
-        
-        // Filter for Airbnb property images
-        if (src.includes('airbnb.com/pictures') || src.includes('a0.muscache.com')) {
-          // Exclude icons, logos, avatars
-          if (src.includes('icon') || 
-              src.includes('logo') || 
-              src.includes('avatar') ||
-              src.includes('profile') ||
-              src.match(/\/\d+x\d+\//)) { // Small dimension images
-            return false;
-          }
-          return true;
-        }
+    // Helper to check if URL is a valid property image
+    const isValidPropertyImage = (url: string): boolean => {
+      if (!url || !url.startsWith('http')) return false;
+      
+      // Exclude icons, logos, avatars, small images
+      if (url.includes('icon') || 
+          url.includes('logo') || 
+          url.includes('avatar') ||
+          url.includes('profile') ||
+          url.includes('sprite') ||
+          url.match(/\/\d+x\d+\//)) { // Small dimension images
         return false;
+      }
+      
+      // Include Airbnb property images
+      if (url.includes('airbnb.com/pictures') || 
+          url.includes('a0.muscache.com') ||
+          url.includes('a1.muscache.com') ||
+          url.includes('a2.muscache.com') ||
+          url.includes('muscache.com')) {
+        return true;
+      }
+      
+      // Include other common image patterns
+      if (url.match(/\.(jpg|jpeg|png|webp|gif)(\?|$|&)/i)) {
+        return true;
+      }
+      
+      return false;
+    };
+    
+    // Collect all images from multiple sources
+    const allImages = new Set<string>();
+    
+    // 1. Extract from img tags
+    Array.from(document.querySelectorAll('img')).forEach(img => {
+      const sources = [
+        img.getAttribute('data-original-uri'),
+        img.getAttribute('data-original'),
+        img.getAttribute('data-src'),
+        img.getAttribute('data-lazy-src'),
+        img.src,
+        img.currentSrc
+      ].filter(Boolean) as string[];
+      
+      sources.forEach(src => {
+        if (isValidPropertyImage(src)) {
+          allImages.add(src);
+        }
       });
-
-    // Remove duplicates and sort by URL (larger images usually have higher numbers)
-    const uniqueImages = [...new Set(allImages)];
+    });
+    
+    // 2. Extract from background images in style attributes
+    Array.from(document.querySelectorAll('[style*="background-image"]')).forEach(el => {
+      const style = el.getAttribute('style') || '';
+      const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
+      if (match && match[1]) {
+        const url = match[1].trim();
+        if (isValidPropertyImage(url)) {
+          allImages.add(url);
+        }
+      }
+    });
+    
+    // 3. Extract from data attributes
+    Array.from(document.querySelectorAll('[data-src], [data-image], [data-photo]')).forEach(el => {
+      const sources = [
+        el.getAttribute('data-src'),
+        el.getAttribute('data-image'),
+        el.getAttribute('data-photo'),
+        el.getAttribute('data-url')
+      ].filter(Boolean) as string[];
+      
+      sources.forEach(src => {
+        if (isValidPropertyImage(src)) {
+          allImages.add(src);
+        }
+      });
+    });
+    
+    // 4. Extract from JSON data in script tags
+    Array.from(document.querySelectorAll('script[type="application/json"]')).forEach(script => {
+      try {
+        const data = JSON.parse(script.textContent || '{}');
+        const findImages = (obj: any, depth = 0): void => {
+          if (depth > 15) return; // Prevent infinite recursion
+          if (!obj || typeof obj !== 'object') return;
+          
+          // Check for image arrays
+          if (Array.isArray(obj)) {
+            obj.forEach(item => {
+              if (typeof item === 'string' && isValidPropertyImage(item)) {
+                allImages.add(item);
+              } else if (typeof item === 'object') {
+                findImages(item, depth + 1);
+              }
+            });
+            return;
+          }
+          
+          // Check for common image property names
+          const imageKeys = ['url', 'src', 'image', 'photo', 'picture', 'pictureUrl', 
+                           'xlPictureUrl', 'xxlPictureUrl', 'largePictureUrl', 
+                           'mediumPictureUrl', 'smallPictureUrl', 'thumbnailUrl'];
+          
+          for (const key in obj) {
+            const value = obj[key];
+            if (typeof value === 'string' && isValidPropertyImage(value)) {
+              allImages.add(value);
+            } else if (imageKeys.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
+              if (typeof value === 'string' && isValidPropertyImage(value)) {
+                allImages.add(value);
+              } else if (typeof value === 'object' && value !== null) {
+                findImages(value, depth + 1);
+              }
+            } else if (typeof value === 'object' && value !== null) {
+              findImages(value, depth + 1);
+            }
+          }
+        };
+        
+        findImages(data);
+      } catch (e) {
+        // Not valid JSON, skip
+      }
+    });
+    
+    // 5. Extract from window/global objects (if accessible)
+    try {
+      const win = window as any;
+      if (win.__INITIAL_STATE__) {
+        const findImages = (obj: any, depth = 0): void => {
+          if (depth > 15) return;
+          if (!obj || typeof obj !== 'object') return;
+          
+          if (Array.isArray(obj)) {
+            obj.forEach(item => {
+              if (typeof item === 'string' && isValidPropertyImage(item)) {
+                allImages.add(item);
+              } else if (typeof item === 'object') {
+                findImages(item, depth + 1);
+              }
+            });
+            return;
+          }
+          
+          for (const key in obj) {
+            const value = obj[key];
+            if (typeof value === 'string' && isValidPropertyImage(value)) {
+              allImages.add(value);
+            } else if (typeof value === 'object' && value !== null) {
+              findImages(value, depth + 1);
+            }
+          }
+        };
+        findImages(win.__INITIAL_STATE__);
+      }
+    } catch (e) {
+      // Window access might be restricted
+    }
+    
+    // 6. Extract from photo gallery components
+    Array.from(document.querySelectorAll('[data-testid*="photo"], [class*="photo"], [class*="image"]')).forEach(el => {
+      const sources = [
+        el.getAttribute('src'),
+        el.getAttribute('data-src'),
+        el.getAttribute('data-image'),
+        el.style.backgroundImage?.match(/url\(['"]?([^'")]+)['"]?\)/)?.[1]
+      ].filter(Boolean) as string[];
+      
+      sources.forEach(src => {
+        if (isValidPropertyImage(src)) {
+          allImages.add(src);
+        }
+      });
+    });
+    
+    // Convert to array and sort (prefer higher quality images)
+    const uniqueImages = Array.from(allImages).sort((a, b) => {
+      // Prefer larger image URLs (often have larger dimensions in URL)
+      const aSize = a.match(/(\d+)x(\d+)/)?.[0] || '';
+      const bSize = b.match(/(\d+)x(\d+)/)?.[0] || '';
+      if (aSize && bSize) {
+        return bSize.localeCompare(aSize);
+      }
+      // Prefer xxl/xl over smaller sizes
+      if (a.includes('xxl') && !b.includes('xxl')) return -1;
+      if (b.includes('xxl') && !a.includes('xxl')) return 1;
+      if (a.includes('xl') && !b.includes('xl')) return -1;
+      if (b.includes('xl') && !a.includes('xl')) return 1;
+      return 0;
+    });
 
     // Get body text for parsing
     const bodyText = document.body.textContent || '';
@@ -245,13 +448,77 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
       document.querySelector('meta[name="description"]')?.getAttribute('content') ||
       '';
 
-    // Get location - try various selectors
-    const location = 
-      getTextContent('[data-section-id="LOCATION_DEFAULT"] h2') ||
-      getTextContent('[data-section-id="LOCATION_DEFAULT"]').split('\n')[0] ||
-      Array.from(document.querySelectorAll('button'))
-        .find(btn => btn.textContent?.includes('·'))?.textContent?.trim() ||
-      '';
+    // Get location - try various selectors and data sources
+    let location = '';
+    
+    // Try location section
+    const locationSection = document.querySelector('[data-section-id="LOCATION_DEFAULT"]');
+    if (locationSection) {
+      const h2 = locationSection.querySelector('h2');
+      if (h2) {
+        location = h2.textContent?.trim() || '';
+      }
+      if (!location) {
+        location = locationSection.textContent?.split('\n')[0]?.trim() || '';
+      }
+    }
+    
+    // Try meta tags
+    if (!location) {
+      const ogLoc = document.querySelector('meta[property="og:locality"]')?.getAttribute('content');
+      const ogRegion = document.querySelector('meta[property="og:region"]')?.getAttribute('content');
+      const ogCountry = document.querySelector('meta[property="og:country-name"]')?.getAttribute('content');
+      if (ogLoc || ogRegion || ogCountry) {
+        location = [ogLoc, ogRegion, ogCountry].filter(Boolean).join(', ');
+      }
+    }
+    
+    // Try structured data (JSON-LD)
+    if (!location) {
+      const jsonLdScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const script of jsonLdScripts) {
+        try {
+          const data = JSON.parse(script.textContent || '{}');
+          if (data['@type'] === 'Place' || data['@type'] === 'Accommodation') {
+            const address = data.address || data.location?.address;
+            if (address) {
+              const parts = [
+                address.addressLocality,
+                address.addressRegion,
+                address.addressCountry
+              ].filter(Boolean);
+              if (parts.length > 0) {
+                location = parts.join(', ');
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          // Continue
+        }
+      }
+    }
+    
+    // Try button with location info
+    if (!location) {
+      const locationButton = Array.from(document.querySelectorAll('button'))
+        .find(btn => {
+          const text = btn.textContent || '';
+          return text.includes('·') || text.includes(',');
+        });
+      if (locationButton) {
+        location = locationButton.textContent?.trim() || '';
+      }
+    }
+    
+    // Try title parsing (e.g., "Rental unit in Colva")
+    if (!location) {
+      const title = document.querySelector('h1')?.textContent || '';
+      const inMatch = title.match(/in\s+(.+?)(?:\s*·|$)/i);
+      if (inMatch) {
+        location = inMatch[1].trim();
+      }
+    }
 
     // Try to extract amenities
     const amenities = Array.from(
@@ -304,28 +571,161 @@ async function extractCoordinates(page: Page): Promise<{ lat: number; lng: numbe
   try {
     // Try to find coordinates in page scripts or data attributes
     const coords = await page.evaluate(() => {
-      // Look for coordinates in script tags
+      // Helper to extract coordinates from an object recursively
+      const findCoordsInObject = (obj: any, depth = 0): { lat: number; lng: number } | null => {
+        if (depth > 10) return null; // Prevent infinite recursion
+        if (!obj || typeof obj !== 'object') return null;
+        
+        // Check if this object has lat/lng
+        if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
+          return { lat: obj.lat, lng: obj.lng };
+        }
+        if (typeof obj.latitude === 'number' && typeof obj.longitude === 'number') {
+          return { lat: obj.latitude, lng: obj.longitude };
+        }
+        if (typeof obj.coordinates?.[0] === 'number' && typeof obj.coordinates?.[1] === 'number') {
+          // GeoJSON format: [lng, lat] or [lat, lng]
+          return { lat: obj.coordinates[1], lng: obj.coordinates[0] };
+        }
+        
+        // Recursively search in nested objects
+        for (const key in obj) {
+          if (key === 'location' || key === 'coordinates' || key === 'geo' || key === 'position') {
+            const result = findCoordsInObject(obj[key], depth + 1);
+            if (result) return result;
+          }
+        }
+        
+        return null;
+      };
+      
+      // 1. Try JSON-LD structured data
+      const jsonLdScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      for (const script of jsonLdScripts) {
+        try {
+          const data = JSON.parse(script.textContent || '{}');
+          const coords = findCoordsInObject(data);
+          if (coords) return coords;
+          
+          // Check for geo coordinates in JSON-LD
+          if (data.geo) {
+            if (data.geo.latitude && data.geo.longitude) {
+              return { lat: parseFloat(data.geo.latitude), lng: parseFloat(data.geo.longitude) };
+            }
+            if (data.geo['@type'] === 'GeoCoordinates') {
+              return { lat: parseFloat(data.geo.latitude), lng: parseFloat(data.geo.longitude) };
+            }
+          }
+        } catch (e) {
+          // Continue
+        }
+      }
+      
+      // 2. Try data attributes on map elements
+      const mapElements = document.querySelectorAll('[data-lat], [data-latitude], [data-lng], [data-longitude]');
+      for (const el of mapElements) {
+        const lat = parseFloat(el.getAttribute('data-lat') || el.getAttribute('data-latitude') || '');
+        const lng = parseFloat(el.getAttribute('data-lng') || el.getAttribute('data-longitude') || '');
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng };
+        }
+      }
+      
+      // 3. Try to find coordinates in script tags with comprehensive parsing
       const scripts = Array.from(document.querySelectorAll('script'));
       for (const script of scripts) {
         const content = script.textContent || '';
+        if (!content || content.length < 50) continue;
         
-        // Look for common coordinate patterns
-        const latMatch = content.match(/"lat(?:itude)?"\s*:\s*([-\d.]+)/i);
-        const lngMatch = content.match(/"lng|lon(?:gitude)?"\s*:\s*([-\d.]+)/i);
+        // Try to parse as JSON if it looks like JSON
+        if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+          try {
+            const data = JSON.parse(content);
+            const coords = findCoordsInObject(data);
+            if (coords) return coords;
+          } catch (e) {
+            // Not valid JSON, continue with regex
+          }
+        }
         
-        if (latMatch && lngMatch) {
-          return {
-            lat: parseFloat(latMatch[1]),
-            lng: parseFloat(lngMatch[1]),
-          };
+        // Look for common coordinate patterns with more variations
+        const patterns = [
+          // Standard patterns
+          /"lat(?:itude)?"\s*:\s*([-\d.]+)/i,
+          /"lng|lon(?:gitude)?"\s*:\s*([-\d.]+)/i,
+          // With quotes
+          /latitude["\s:]+([-\d.]+)/i,
+          /longitude["\s:]+([-\d.]+)/i,
+          // Array format [lat, lng] or [lng, lat]
+          /\[([-\d.]+)\s*,\s*([-\d.]+)\]/,
+          // Coordinates object
+          /coordinates["\s:]*\{[^}]*lat(?:itude)?["\s:]*([-\d.]+)[^}]*lng|lon(?:gitude)?["\s:]*([-\d.]+)/i,
+        ];
+        
+        let lat: number | null = null;
+        let lng: number | null = null;
+        
+        for (const pattern of patterns) {
+          const match = content.match(pattern);
+          if (match) {
+            if (match.length === 3) {
+              // Array format [lat, lng]
+              const val1 = parseFloat(match[1]);
+              const val2 = parseFloat(match[2]);
+              // Assume first is lat, second is lng (common format)
+              if (!isNaN(val1) && !isNaN(val2)) {
+                // Check if values are reasonable (lat: -90 to 90, lng: -180 to 180)
+                if (Math.abs(val1) <= 90 && Math.abs(val2) <= 180) {
+                  return { lat: val1, lng: val2 };
+                } else if (Math.abs(val2) <= 90 && Math.abs(val1) <= 180) {
+                  return { lat: val2, lng: val1 };
+                }
+              }
+            } else if (match[1]) {
+              const value = parseFloat(match[1]);
+              if (!isNaN(value)) {
+                if (pattern.source.includes('lat')) {
+                  lat = value;
+                } else if (pattern.source.includes('lng') || pattern.source.includes('lon')) {
+                  lng = value;
+                }
+              }
+            }
+          }
+        }
+        
+        // If we found both lat and lng from different patterns
+        if (lat !== null && lng !== null) {
+          return { lat, lng };
         }
       }
+      
+      // 4. Try to find in window object (if accessible)
+      try {
+        const win = window as any;
+        if (win.__INITIAL_STATE__) {
+          const coords = findCoordsInObject(win.__INITIAL_STATE__);
+          if (coords) return coords;
+        }
+        if (win.__NEXT_DATA__) {
+          const coords = findCoordsInObject(win.__NEXT_DATA__);
+          if (coords) return coords;
+        }
+      } catch (e) {
+        // Window access might be restricted
+      }
+      
       return null;
     });
 
-    return coords;
+    if (coords && !isNaN(coords.lat) && !isNaN(coords.lng)) {
+      console.log(`[Puppeteer] Extracted coordinates: ${coords.lat}, ${coords.lng}`);
+      return coords;
+    }
+    
+    return null;
   } catch (error) {
-    console.log('[Puppeteer] Could not extract coordinates');
+    console.log('[Puppeteer] Could not extract coordinates:', error);
     return null;
   }
 }
@@ -350,10 +750,71 @@ async function scrapeGenericWithPuppeteer(page: Page): Promise<ScrapedPropertyDa
       document.querySelector('meta[name="description"]')?.getAttribute('content') ||
       '';
 
-    // Get all images
-    const images = Array.from(document.querySelectorAll('img'))
-      .map(img => img.src || img.getAttribute('data-src') || '')
-      .filter(src => src && src.startsWith('http') && !src.includes('icon') && !src.includes('logo'));
+    // Helper to check if URL is a valid property image
+    const isValidPropertyImage = (url: string): boolean => {
+      if (!url || !url.startsWith('http')) return false;
+      if (url.includes('icon') || url.includes('logo') || url.includes('avatar') || url.includes('profile')) {
+        return false;
+      }
+      return true;
+    };
+    
+    // Collect all images from multiple sources
+    const allImages = new Set<string>();
+    
+    // 1. Extract from img tags
+    Array.from(document.querySelectorAll('img')).forEach(img => {
+      const sources = [
+        img.getAttribute('data-original-uri'),
+        img.getAttribute('data-original'),
+        img.getAttribute('data-src'),
+        img.getAttribute('data-lazy-src'),
+        img.src,
+        img.currentSrc
+      ].filter(Boolean) as string[];
+      
+      sources.forEach(src => {
+        if (isValidPropertyImage(src)) {
+          allImages.add(src);
+        }
+      });
+    });
+    
+    // 2. Extract from background images
+    Array.from(document.querySelectorAll('[style*="background-image"]')).forEach(el => {
+      const style = el.getAttribute('style') || '';
+      const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
+      if (match && match[1]) {
+        const url = match[1].trim();
+        if (isValidPropertyImage(url)) {
+          allImages.add(url);
+        }
+      }
+    });
+    
+    // 3. Extract from data attributes
+    Array.from(document.querySelectorAll('[data-src], [data-image], [data-photo]')).forEach(el => {
+      const sources = [
+        el.getAttribute('data-src'),
+        el.getAttribute('data-image'),
+        el.getAttribute('data-photo'),
+        el.getAttribute('data-url')
+      ].filter(Boolean) as string[];
+      
+      sources.forEach(src => {
+        if (isValidPropertyImage(src)) {
+          allImages.add(src);
+        }
+      });
+    });
+    
+    // 4. Extract from meta tags
+    Array.from(document.querySelectorAll('meta[property="og:image"]')).forEach(meta => {
+      const src = meta.getAttribute('content');
+      if (src && isValidPropertyImage(src)) {
+        allImages.add(src);
+      }
+    });
 
     const bodyText = document.body.textContent || '';
     
@@ -370,7 +831,7 @@ async function scrapeGenericWithPuppeteer(page: Page): Promise<ScrapedPropertyDa
       bathrooms: extractNumber(/(\d+)\s+bathrooms?/i),
       beds: extractNumber(/(\d+)\s+beds?/i),
       guests: extractNumber(/(\d+)\s+guests?/i),
-      images: [...new Set(images)],
+      images: Array.from(allImages),
       amenities: [],
       wellnessFriendly: false,
       price: 100,
