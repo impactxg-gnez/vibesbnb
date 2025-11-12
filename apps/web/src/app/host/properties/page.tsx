@@ -322,11 +322,20 @@ export default function HostPropertiesPage() {
       // Create imported property with scraped data
       // Generate a unique ID that includes user ID to avoid conflicts
       const propertyId = `${supabaseUser.id}_${Date.now()}`;
+      // Extract location from title if not found (e.g., "Rental unit in Beloshi" -> "Beloshi")
+      let location = scrapedData.location || '';
+      if (!location && scrapedData.name) {
+        const locationMatch = scrapedData.name.match(/in\s+(.+?)(?:\s*·|$)/i);
+        if (locationMatch) {
+          location = locationMatch[1].trim();
+        }
+      }
+
       const importedProperty: Property = {
         id: propertyId,
         name: scrapedData.name || 'Imported Property',
         description: scrapedData.description || '',
-        location: scrapedData.location || 'Location not found',
+        location: location || 'Location not found',
         bedrooms: scrapedData.bedrooms || 1,
         bathrooms: scrapedData.bathrooms || 1,
         beds: scrapedData.beds || 1,
@@ -337,6 +346,7 @@ export default function HostPropertiesPage() {
         status: 'draft',
         wellnessFriendly: scrapedData.wellnessFriendly || false,
         googleMapsUrl: scrapedData.googleMapsUrl,
+        coordinates: scrapedData.coordinates,
       };
 
       // Save to Supabase if available
@@ -360,6 +370,8 @@ export default function HostPropertiesPage() {
             status: 'draft',
             wellness_friendly: importedProperty.wellnessFriendly,
             google_maps_url: importedProperty.googleMapsUrl,
+            latitude: importedProperty.coordinates?.lat,
+            longitude: importedProperty.coordinates?.lng,
           })
           .select()
           .single();

@@ -559,7 +559,7 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
     result.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`;
   }
 
-  console.log(`[Puppeteer] Extracted: ${result.images.length} images, ${result.amenities.length} amenities`);
+  console.log(`[Puppeteer] Extracted: ${result.images.length} images, Location: "${result.location}", Coordinates: ${coordinates ? `${coordinates.lat}, ${coordinates.lng}` : 'none'}, ${result.amenities.length} amenities`);
 
   return result;
 }

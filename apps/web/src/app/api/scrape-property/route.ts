@@ -28,6 +28,58 @@ interface ScrapedPropertyData {
   };
 }
 
+/**
+ * Geocode location using Google Geocoding API
+ */
+async function geocodeLocation(
+  location?: string,
+  coordinates?: { lat: number; lng: number }
+): Promise<{
+  formattedAddress?: string;
+  placeId?: string;
+  coordinates?: { lat: number; lng: number };
+} | null> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+  
+  if (!apiKey) {
+    console.log('[Geocoding] No Google Maps API key found, skipping geocoding');
+    return null;
+  }
+
+  try {
+    let url = '';
+    
+    if (coordinates) {
+      // Reverse geocoding: coordinates -> address
+      url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinates.lat},${coordinates.lng}&key=${apiKey}`;
+    } else if (location) {
+      // Forward geocoding: address -> coordinates
+      url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${apiKey}`;
+    } else {
+      return null;
+    }
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      return {
+        formattedAddress: result.formatted_address,
+        placeId: result.place_id,
+        coordinates: coordinates || {
+          lat: result.geometry.location.lat,
+          lng: result.geometry.location.lng,
+        },
+      };
+    }
+  } catch (error) {
+    console.error('[Geocoding] Error:', error);
+  }
+
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
@@ -63,8 +115,34 @@ export async function POST(request: NextRequest) {
       propertyData = await scrapeWithCheerio(url, isAirbnb);
     }
 
+    // Enhance location data with Google Geocoding
+    console.log('[Scraper] Extracted location:', propertyData.location, 'Coordinates:', propertyData.coordinates);
+    
+    if (propertyData.coordinates || propertyData.location) {
+      console.log('[Scraper] Geocoding location...');
+      const geocodeResult = await geocodeLocation(
+        propertyData.location,
+        propertyData.coordinates
+      );
+
+      if (geocodeResult) {
+        // Use geocoded data if available
+        if (geocodeResult.formattedAddress) {
+          propertyData.location = geocodeResult.formattedAddress;
+        }
+        if (geocodeResult.coordinates) {
+          propertyData.coordinates = geocodeResult.coordinates;
+          propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${geocodeResult.coordinates.lat},${geocodeResult.coordinates.lng}`;
+        }
+        console.log('[Scraper] Geocoded location:', propertyData.location);
+      } else if (propertyData.coordinates) {
+        // If geocoding failed but we have coordinates, still create maps URL
+        propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
+      }
+    }
+
     const duration = Date.now() - startTime;
-    console.log(`[Scraper] Completed in ${duration}ms - Images: ${propertyData.images.length}, Amenities: ${propertyData.amenities.length}`);
+    console.log(`[Scraper] Completed in ${duration}ms - Images: ${propertyData.images.length}, Location: ${propertyData.location || 'NOT FOUND'}, Amenities: ${propertyData.amenities.length}`);
 
     return NextResponse.json({ 
       success: true, 
@@ -350,17 +428,34 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             'originalUrl', 'highResUrl', 'fullUrl'
           ];
           
+          // Collect ALL image URLs from photo object, prioritizing higher quality
+          const foundUrls: string[] = [];
           for (const prop of urlProperties) {
             const url = photo[prop];
             if (typeof url === 'string' && isValidImageUrl(url)) {
-              // Prefer higher quality images
-              if (prop.includes('xxl') || prop.includes('xl') || prop.includes('large')) {
-                imageUrls.add(url);
-                break; // Use highest quality found
-              } else if (!Array.from(imageUrls).some(existing => existing.includes(url) || url.includes(existing))) {
+              foundUrls.push(url);
+            }
+          }
+          
+          // Add the highest quality image first, then others if different
+          if (foundUrls.length > 0) {
+            // Sort by quality (xxl > xl > large > others)
+            foundUrls.sort((a, b) => {
+              if (a.includes('xxl') && !b.includes('xxl')) return -1;
+              if (b.includes('xxl') && !a.includes('xxl')) return 1;
+              if (a.includes('xl') && !b.includes('xl')) return -1;
+              if (b.includes('xl') && !a.includes('xl')) return 1;
+              if (a.includes('large') && !b.includes('large')) return -1;
+              if (b.includes('large') && !a.includes('large')) return 1;
+              return 0;
+            });
+            
+            // Add all unique URLs
+            foundUrls.forEach(url => {
+              if (!Array.from(imageUrls).some(existing => existing === url || existing.includes(url) || url.includes(existing))) {
                 imageUrls.add(url);
               }
-            }
+            });
           }
           
           // Also check nested objects
@@ -368,8 +463,9 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             for (const prop of urlProperties) {
               const url = photo.picture[prop];
               if (typeof url === 'string' && isValidImageUrl(url)) {
-                imageUrls.add(url);
-                break;
+                if (!Array.from(imageUrls).some(existing => existing === url || existing.includes(url) || url.includes(existing))) {
+                  imageUrls.add(url);
+                }
               }
             }
           }
@@ -423,6 +519,8 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         if (b.includes('large') && !a.includes('large')) return 1;
         return 0;
       });
+      
+      console.log(`[Cheerio] Extracted ${propertyData.images.length} images from ${photos.length} photo objects`);
 
       // Extract amenities
       const amenitiesData = listingData?.sections?.amenitiesModule?.seeAllAmenitiesGroups || 
