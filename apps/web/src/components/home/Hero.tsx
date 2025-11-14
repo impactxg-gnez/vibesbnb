@@ -28,10 +28,10 @@ export function Hero() {
           transition={{ duration: 0.6 }}
           className="max-w-2xl"
         >
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-2xl" style={{ textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(0, 0, 0, 0.6)' }}>
             Find your wellness-friendly sanctuary
           </h1>
-          <p className="text-lg md:text-xl text-white drop-shadow-md">
+          <p className="text-lg md:text-xl text-white drop-shadow-2xl" style={{ textShadow: '1px 1px 6px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.6)' }}>
             Discover serene stays with spas, yoga decks, and curated wellness amenities.
           </p>
         </motion.div>
