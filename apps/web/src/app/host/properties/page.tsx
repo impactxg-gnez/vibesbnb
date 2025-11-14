@@ -160,26 +160,41 @@ export default function HostPropertiesPage() {
           
           if (propertiesData && propertiesData.length > 0) {
             // Transform Supabase data to Property interface
-            finalProperties = propertiesData.map((p: any) => ({
-              id: p.id,
-              name: p.name || p.title || 'Untitled Property',
-              description: p.description || '',
-              location: p.location || '',
-              bedrooms: p.bedrooms || 0,
-              bathrooms: p.bathrooms,
-              beds: p.beds,
-              guests: p.guests || 0,
-              price: p.price ? Number(p.price) : 0,
-              images: p.images || [],
-              amenities: p.amenities || [],
-              status: (p.status || 'active') as 'active' | 'draft' | 'inactive',
-              wellnessFriendly: p.wellness_friendly || false,
-              googleMapsUrl: p.google_maps_url,
-              coordinates: p.latitude && p.longitude ? {
-                lat: p.latitude,
-                lng: p.longitude,
-              } : undefined,
-            }));
+            finalProperties = propertiesData.map((p: any) => {
+              // Clean up property name - remove "Property Listing" prefix
+              let propertyName = p.name || p.title || 'Untitled Property';
+              propertyName = propertyName
+                .replace(/^Property\s+Listing[_\s-]*/i, '')
+                .replace(/^property-listing[_\s-]*/i, '')
+                .trim() || 'Untitled Property';
+              
+              // Ensure at least one image
+              let images = p.images || [];
+              if (images.length === 0) {
+                images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
+              }
+              
+              return {
+                id: p.id,
+                name: propertyName,
+                description: p.description || '',
+                location: p.location || '',
+                bedrooms: p.bedrooms || 0,
+                bathrooms: p.bathrooms,
+                beds: p.beds,
+                guests: p.guests || 0,
+                price: p.price ? Number(p.price) : 0,
+                images: images,
+                amenities: p.amenities || [],
+                status: (p.status || 'active') as 'active' | 'draft' | 'inactive',
+                wellnessFriendly: p.wellness_friendly || false,
+                googleMapsUrl: p.google_maps_url,
+                coordinates: p.latitude && p.longitude ? {
+                  lat: p.latitude,
+                  lng: p.longitude,
+                } : undefined,
+              };
+            });
           }
           
           // Always check localStorage as backup/fallback
