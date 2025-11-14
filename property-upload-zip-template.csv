@@ -1,0 +1,20 @@
+name,bedrooms,amenities,wellness_friendly,image_files
+Mountain View Cabin,3,WiFi|Kitchen|Parking|Hot Tub|Fireplace,yes,cabin1.jpg|cabin2.jpg
+Beachfront Villa,4,WiFi|Kitchen|Pool|Air Conditioning|Beach Access,yes,villa1.jpg|villa2.jpg
+Urban Loft,2,WiFi|Kitchen|Gym|Workspace|Parking,yes,loft1.jpg|loft2.jpg
+Desert Oasis,5,WiFi|Kitchen|Pool|Hot Tub|Air Conditioning|Stargazing Deck,yes,desert1.jpg|desert2.jpg
+Forest Retreat,2,WiFi|Kitchen|Fireplace|Hiking Trails|Pet Friendly,yes,forest1.jpg|forest2.jpg
+Lake House,4,WiFi|Kitchen|Boat Dock|Lake View|Fireplace,yes,lake1.jpg|lake2.jpg
+Coastal Cottage,3,WiFi|Kitchen|Beach Access|Private Deck|Ocean View,yes,coastal1.jpg|coastal2.jpg
+Mountain Chalet,6,WiFi|Kitchen|Hot Tub|Fireplace|Ski Access|Heating,yes,chalet1.jpg|chalet2.jpg
+Downtown Penthouse,2,WiFi|Kitchen|Gym|Workspace|City Views|Concierge,no,penthouse1.jpg|penthouse2.jpg
+Countryside Manor,5,WiFi|Kitchen|Pool|Gardens|Pet Friendly|Parking,yes,manor1.jpg|manor2.jpg
+Treehouse Escape,1,WiFi|Kitchen|Nature Views|Hot Tub|Unique Stay,yes,treehouse1.jpg|treehouse2.jpg
+Luxury Villa,7,WiFi|Kitchen|Pool|Hot Tub|Gym|Theater Room|Wine Cellar,yes,luxury1.jpg|luxury2.jpg
+Rustic Farmhouse,4,WiFi|Kitchen|Fireplace|Farm Animals|Garden|Parking,yes,farm1.jpg|farm2.jpg
+Seaside Bungalow,2,WiFi|Kitchen|Beach Access|Surfboard Storage|Outdoor Shower,yes,seaside1.jpg|seaside2.jpg
+Alpine Lodge,8,WiFi|Kitchen|Hot Tub|Sauna|Fireplace|Mountain Views|Ski Storage,yes,alpine1.jpg|alpine2.jpg
+
+
+
+

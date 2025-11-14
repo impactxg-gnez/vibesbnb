@@ -1,0 +1,32 @@
+{
+  "buildCommand": "cd ../.. && npm run build -- --filter=@vibesbnb/web",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install",
+  "framework": "nextjs",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/coming-soon"
+    },
+    {
+      "source": "/early-access",
+      "destination": "/early-access"
+    },
+    {
+      "source": "/thank-you",
+      "destination": "/thank-you"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    }
+  ]
+}
+

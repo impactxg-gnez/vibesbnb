@@ -1,0 +1,17 @@
+name,bedrooms,amenities,wellness_friendly,image_urls
+Mountain View Cabin,3,WiFi|Kitchen|Parking|Hot Tub|Fireplace,yes,https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800&h=600&fit=crop
+Beachfront Villa,4,WiFi|Kitchen|Pool|Air Conditioning|Beach Access,yes,https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1507525428034-b723cf961dde?w=800&h=600&fit=crop
+Urban Loft,2,WiFi|Kitchen|Gym|Workspace|Parking,yes,https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop
+Desert Oasis,5,WiFi|Kitchen|Pool|Hot Tub|Air Conditioning|Stargazing Deck,yes,https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1523821741446-edb2b6192180?w=800&h=600&fit=crop
+Forest Retreat,2,WiFi|Kitchen|Fireplace|Hiking Trails|Pet Friendly,yes,https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1501785888041-af3ba6f06062?w=800&h=600&fit=crop
+Lake House,4,WiFi|Kitchen|Boat Dock|Lake View|Fireplace,yes,https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&h=600&fit=crop
+Coastal Cottage,3,WiFi|Kitchen|Beach Access|Private Deck|Ocean View,yes,https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&h=600&fit=crop
+Mountain Chalet,6,WiFi|Kitchen|Hot Tub|Fireplace|Ski Access|Heating,yes,https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1605016807203-c74e6e5d78a6?w=800&h=600&fit=crop
+Downtown Penthouse,2,WiFi|Kitchen|Gym|Workspace|City Views|Concierge,no,https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop
+Countryside Manor,5,WiFi|Kitchen|Pool|Gardens|Pet Friendly|Parking,yes,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop
+Treehouse Escape,1,WiFi|Kitchen|Nature Views|Hot Tub|Unique Stay,yes,https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1618767689160-da3fb810aad7?w=800&h=600&fit=crop
+Luxury Villa,7,WiFi|Kitchen|Pool|Hot Tub|Gym|Theater Room|Wine Cellar,yes,https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&h=600&fit=crop
+Rustic Farmhouse,4,WiFi|Kitchen|Fireplace|Farm Animals|Garden|Parking,yes,https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?w=800&h=600&fit=crop
+Seaside Bungalow,2,WiFi|Kitchen|Beach Access|Surfboard Storage|Outdoor Shower,yes,https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1520454974749-611b7248ffdb?w=800&h=600&fit=crop
+Alpine Lodge,8,WiFi|Kitchen|Hot Tub|Sauna|Fireplace|Mountain Views|Ski Storage,yes,https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop|https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&h=600&fit=crop
+
