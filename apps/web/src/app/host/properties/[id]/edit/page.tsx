@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2, MapPin } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
@@ -310,7 +310,7 @@ export default function EditPropertyPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, publish: boolean = false) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -325,8 +325,11 @@ export default function EditPropertyPage() {
       return;
     }
 
-    // Note: Coordinate validation for publishing is handled in the publish toggle function
-    // This allows saving as draft without coordinates
+    // If trying to publish, require coordinates
+    if (publish && !formData.coordinates) {
+      toast.error('Map coordinates are required to publish a property. Please add location coordinates using the map picker.');
+      return;
+    }
 
     if (!user) {
       toast.error('You must be logged in to update properties');
@@ -334,6 +337,8 @@ export default function EditPropertyPage() {
     }
 
     setSaving(true);
+    
+    const newStatus = publish ? 'active' : 'draft';
 
     try {
       const supabase = createClient();
@@ -401,6 +406,7 @@ export default function EditPropertyPage() {
             latitude: formData.coordinates?.lat,
             longitude: formData.coordinates?.lng,
             google_maps_url: formData.googleMapsUrl,
+            status: newStatus,
             updated_at: new Date().toISOString(),
           })
           .eq('id', formData.id)
