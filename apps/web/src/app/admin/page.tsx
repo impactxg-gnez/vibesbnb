@@ -90,13 +90,37 @@ export default function AdminDashboard() {
         throw new Error(data.error || 'Failed to cleanup properties');
       }
 
-      toast.success(`Successfully cleaned up ${data.updated} properties!`);
+      if (data.total === 0) {
+        toast.warning(`No properties found in database. Debug info: ${JSON.stringify(data.debug || {})}`);
+      } else if (data.updated === 0) {
+        toast.info(`Found ${data.total} properties, but none needed updates. All properties already have clean names and images.`);
+        console.log('Cleanup details:', data);
+      } else {
+        toast.success(`Successfully cleaned up ${data.updated} out of ${data.total} properties! (${data.breakdown?.nameCleanups || 0} name cleanups, ${data.breakdown?.imageAdditions || 0} image additions)`);
+      }
       fetchStats(); // Refresh stats
     } catch (error: any) {
       console.error('Error cleaning up properties:', error);
       toast.error(error.message || 'Failed to cleanup properties');
     } finally {
       setCleaningUp(false);
+    }
+  };
+
+  const handleDebugProperties = async () => {
+    try {
+      const response = await fetch('/api/admin/debug-properties');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to debug properties');
+      }
+      
+      console.log('Properties Debug Info:', data);
+      alert(`Properties Debug Info:\n\nTotal: ${data.count}\nUsing Service Role: ${data.usingServiceRole}\n\nAnalysis:\n- With Name: ${data.analysis.withName}\n- With Title: ${data.analysis.withTitle}\n- With Images: ${data.analysis.withImages}\n- Without Images: ${data.analysis.withoutImages}\n- With "Property Listing" Prefix: ${data.analysis.withPropertyListingPrefix}\n\nCheck console for full details.`);
+    } catch (error: any) {
+      console.error('Error debugging properties:', error);
+      toast.error(error.message || 'Failed to debug properties');
     }
   };
 
@@ -159,6 +183,13 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <div className="flex gap-3">
+            <button
+              onClick={handleDebugProperties}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Debug Properties
+            </button>
             <button
               onClick={handleCleanupProperties}
               disabled={cleaningUp || grabbingImages}

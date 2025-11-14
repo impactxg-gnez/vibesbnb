@@ -62,14 +62,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         message: 'No properties found in database',
         total: 0,
-        updated: 0
+        updated: 0,
+        debug: {
+          usingServiceRole: !!supabaseServiceKey,
+          supabaseUrl: supabaseUrl ? 'configured' : 'missing',
+        }
       });
     }
 
     let updatedCount = 0;
+    let nameCleanupCount = 0;
+    let imageAddCount = 0;
     const updatePromises: Promise<any>[] = [];
+    const sampleProperties = properties.slice(0, 3).map(p => ({
+      id: p.id,
+      name: p.name,
+      title: p.title,
+      imagesCount: Array.isArray(p.images) ? p.images.length : 0,
+    }));
 
     console.log('[Cleanup] Processing', properties.length, 'properties...');
+    console.log('[Cleanup] Sample properties:', JSON.stringify(sampleProperties, null, 2));
+    
     // Process each property
     for (const property of properties) {
       let needsUpdate = false;
@@ -88,16 +102,21 @@ export async function POST(request: NextRequest) {
           updateData.name = cleanedName;
           updateData.title = cleanedName;
           needsUpdate = true;
+          nameCleanupCount++;
         }
       }
 
       // Ensure at least one image exists
+      // Check if images is null, undefined, empty array, or array with empty/null values
       const images = property.images || [];
-      if (images.length === 0) {
-        console.log(`[Cleanup] Property ${property.id}: Adding placeholder image`);
+      const hasValidImages = Array.isArray(images) && images.length > 0 && images.some(img => img && img.trim() !== '');
+      
+      if (!hasValidImages) {
+        console.log(`[Cleanup] Property ${property.id}: Adding placeholder image (current images: ${JSON.stringify(images)})`);
         // Use a placeholder image - hosts should add their own images
         updateData.images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
         needsUpdate = true;
+        imageAddCount++;
       }
 
       if (needsUpdate) {
@@ -121,6 +140,7 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('[Cleanup] Found', updatedCount, 'properties that need updates out of', properties.length, 'total');
+    console.log('[Cleanup] Breakdown: name cleanups:', nameCleanupCount, 'image additions:', imageAddCount);
 
     // Wait for all updates to complete
     await Promise.all(updatePromises);
@@ -130,6 +150,15 @@ export async function POST(request: NextRequest) {
       message: `Cleaned up ${updatedCount} properties`,
       total: properties.length,
       updated: updatedCount,
+      breakdown: {
+        nameCleanups: nameCleanupCount,
+        imageAdditions: imageAddCount,
+      },
+      sampleProperties,
+      debug: {
+        usingServiceRole: !!supabaseServiceKey,
+        propertiesFound: properties.length,
+      }
     });
 
   } catch (error: any) {
