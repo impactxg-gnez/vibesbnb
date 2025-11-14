@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Users, List, Bell, RefreshCw } from 'lucide-react';
+import { Users, List, Bell, RefreshCw, Image } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface DashboardStats {
@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [grabbingImages, setGrabbingImages] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -93,6 +94,33 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleGrabImages = async () => {
+    if (!confirm('This will attempt to grab images for all properties that are missing photos. This may take a while. Continue?')) {
+      return;
+    }
+
+    setGrabbingImages(true);
+    try {
+      const response = await fetch('/api/admin/grab-images', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to grab images');
+      }
+
+      toast.success(`Successfully grabbed images for ${data.updated} properties!`);
+      fetchStats(); // Refresh stats
+    } catch (error: any) {
+      console.error('Error grabbing images:', error);
+      toast.error(error.message || 'Failed to grab images');
+    } finally {
+      setGrabbingImages(false);
+    }
+  };
+
   if (loading || loadingStats) {
     return (
       <AdminLayout>
@@ -116,7 +144,27 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Admin Dashboard</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCleanupProperties}
+              disabled={cleaningUp || grabbingImages}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${cleaningUp ? 'animate-spin' : ''}`} />
+              {cleaningUp ? 'Cleaning...' : 'Cleanup Properties'}
+            </button>
+            <button
+              onClick={handleGrabImages}
+              disabled={cleaningUp || grabbingImages}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Image className={`w-4 h-4 ${grabbingImages ? 'animate-spin' : ''}`} />
+              {grabbingImages ? 'Grabbing Images...' : 'Grab Images'}
+            </button>
+          </div>
+        </div>
 
         {/* User Statistics - Top Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
