@@ -437,13 +437,14 @@ export default function EditPropertyPage() {
                 rooms: roomsData,
                 coordinates: formData.coordinates,
                 googleMapsUrl: formData.googleMapsUrl,
+                status: newStatus,
               }
             : p
         );
         localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
         console.log('[Edit Property] Property also updated in localStorage as backup');
 
-        toast.success('Property updated successfully!');
+        toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
       } else {
         // Fallback to localStorage (for demo accounts)
@@ -466,12 +467,15 @@ export default function EditPropertyPage() {
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
+                coordinates: formData.coordinates,
+                googleMapsUrl: formData.googleMapsUrl,
+                status: newStatus,
               }
             : p
         );
 
         localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        toast.success('Property updated successfully!');
+        toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
       }
     } catch (error: any) {
@@ -763,20 +767,34 @@ export default function EditPropertyPage() {
             </div>
           </div>
 
-          {/* Submit */}
+          {/* Submit Buttons */}
           <div className="flex gap-4">
             <Link
               href="/host/properties"
-              className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-center"
+              className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-center"
             >
               Cancel
             </Link>
             <button
-              type="submit"
+              type="button"
+              onClick={(e) => handleSubmit(e, false)}
               disabled={saving}
-              className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : 'Save as Draft'}
+            </button>
+            <button
+              type="submit"
+              onClick={(e) => handleSubmit(e, true)}
+              disabled={saving}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {saving ? 'Saving...' : (
+                <>
+                  <Power size={18} />
+                  Save and Publish
+                </>
+              )}
             </button>
           </div>
         </form>
