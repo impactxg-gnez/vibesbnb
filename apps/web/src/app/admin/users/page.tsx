@@ -22,10 +22,16 @@ interface UserData {
 interface Booking {
   id: string;
   property_name: string;
+  property_image?: string;
+  location: string;
   check_in: string;
   check_out: string;
+  guests: number;
+  kids?: number;
+  pets?: number;
   total_price: number;
   status: string;
+  rating?: number;
   created_at: string;
 }
 
