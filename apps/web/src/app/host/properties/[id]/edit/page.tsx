@@ -325,10 +325,7 @@ export default function EditPropertyPage() {
       return;
     }
 
-    // Check if property is being published - require coordinates
-    const currentProperty = properties.find((p: any) => p.id === formData.id);
-    const isCurrentlyDraft = currentProperty?.status === 'draft' || !currentProperty?.status;
-    // Note: We'll check coordinates when trying to publish, not on save
+    // Note: Coordinate validation for publishing is handled in the publish toggle function
     // This allows saving as draft without coordinates
 
     if (!user) {
