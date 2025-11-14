@@ -130,12 +130,12 @@ export async function GET(request: NextRequest) {
         hasAnonKey: !!supabaseAnonKey,
         queryCount: count,
         queryError: fetchError ? {
-          message: fetchError.message,
-          code: fetchError.code,
+          message: (fetchError as any).message || 'Unknown error',
+          code: (fetchError as any).code || 'UNKNOWN',
         } : null,
         simpleCountError: countError ? {
-          message: countError.message,
-          code: countError.code,
+          message: (countError as any).message || 'Unknown error',
+          code: (countError as any).code || 'UNKNOWN',
         } : null,
       }
     });
