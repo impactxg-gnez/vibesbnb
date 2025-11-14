@@ -42,20 +42,60 @@ export default function SearchPage() {
 
       try {
         const supabase = createClient();
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const isSupabaseConfigured = supabaseUrl && 
+                                      supabaseUrl !== '' &&
+                                      supabaseUrl !== 'https://placeholder.supabase.co' &&
+                                      supabaseKey &&
+                                      supabaseKey !== '' &&
+                                      supabaseKey !== 'placeholder-key';
         
-        // Fetch active properties from Supabase
-        let query = supabase
-          .from('properties')
-          .select('*')
-          .eq('status', 'active');
+        let propertiesData: any[] = [];
+        
+        if (isSupabaseConfigured) {
+          // Fetch active properties from Supabase
+          let query = supabase
+            .from('properties')
+            .select('*')
+            .eq('status', 'active');
 
-        const { data: propertiesData, error } = await query;
+          const { data, error } = await query;
 
-        if (error) {
-          console.error('Error loading properties:', error);
-          setListings([]);
-          setLoading(false);
-          return;
+          if (error) {
+            console.error('[Search] Error loading properties from Supabase:', error);
+            // Fall through to localStorage fallback
+          } else {
+            propertiesData = data || [];
+          }
+        }
+        
+        // Fallback to localStorage if Supabase is not configured or query failed
+        if (!isSupabaseConfigured || propertiesData.length === 0) {
+          console.log('[Search] Loading properties from localStorage fallback');
+          const allProperties: any[] = [];
+          
+          // Check all localStorage keys for properties
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.startsWith('properties_')) {
+              try {
+                const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
+                // Only include active properties
+                const activeProperties = userProperties.filter((p: any) => 
+                  p.status === 'active' || !p.status // Include properties without status as active
+                );
+                allProperties.push(...activeProperties);
+              } catch (e) {
+                console.error('[Search] Error parsing localStorage properties:', e);
+              }
+            }
+          });
+          
+          if (allProperties.length > 0) {
+            propertiesData = allProperties;
+            console.log('[Search] Found', allProperties.length, 'properties from localStorage');
+          }
         }
 
         // Transform Supabase data to Listing format

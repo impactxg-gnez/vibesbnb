@@ -251,6 +251,15 @@ export default function ImportReviewPage() {
       const propertyId = `${userId}_${Date.now()}`;
 
       if (isSupabaseConfigured && supabaseUser) {
+        console.log('[Import Review] Saving property with host_id:', supabaseUser.id);
+        console.log('[Import Review] Property data:', {
+          id: propertyId,
+          name: formData.name,
+          location: formData.location,
+          price: formData.price,
+          status: status,
+        });
+        
         const { data: insertedProperty, error: insertError } = await supabase
           .from('properties')
           .insert({
@@ -279,10 +288,36 @@ export default function ImportReviewPage() {
           .single();
 
         if (insertError) {
-          console.error('Error saving property:', insertError);
+          console.error('[Import Review] Error saving property:', insertError);
           toast.error(`Failed to save property: ${insertError.message}`);
           throw insertError;
         }
+        
+        console.log('[Import Review] Property saved successfully to Supabase:', insertedProperty);
+        
+        // Also save to localStorage as backup
+        const savedProperties = localStorage.getItem(`properties_${userId}`);
+        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+        const backupProperty = {
+          id: propertyId,
+          name: formData.name,
+          description: formData.description,
+          location: formData.location,
+          bedrooms: formData.bedrooms,
+          bathrooms: formData.bathrooms,
+          beds: formData.beds,
+          guests: formData.guests,
+          price: formData.price,
+          wellnessFriendly: formData.wellnessFriendly,
+          smokeFriendly: smokeFriendly,
+          amenities: formData.amenities,
+          images: allImageUrls,
+          rooms: roomsData,
+          status: status,
+        };
+        parsedProperties.push(backupProperty);
+        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+        console.log('[Import Review] Property also saved to localStorage as backup');
 
         toast.success(isPublishing ? 'Property published successfully!' : 'Property saved as draft!');
         // Clear sessionStorage

@@ -200,6 +200,14 @@ export default function NewPropertyPage() {
       const propertyId = `${userId}_${Date.now()}`;
 
       if (isSupabaseConfigured && supabaseUser) {
+        console.log('[New Property] Saving property with host_id:', supabaseUser.id);
+        console.log('[New Property] Property data:', {
+          id: propertyId,
+          name: formData.name,
+          location: formData.location,
+          price: formData.price,
+        });
+        
         const { data: insertedProperty, error: insertError } = await supabase
           .from('properties')
           .insert({
@@ -223,10 +231,34 @@ export default function NewPropertyPage() {
           .single();
 
         if (insertError) {
-          console.error('Error saving property:', insertError);
+          console.error('[New Property] Error saving property:', insertError);
           toast.error(`Failed to save property: ${insertError.message}`);
           throw insertError;
         }
+        
+        console.log('[New Property] Property saved successfully to Supabase:', insertedProperty);
+        
+        // Also save to localStorage as backup
+        const savedProperties = localStorage.getItem(`properties_${userId}`);
+        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+        const backupProperty = {
+          id: propertyId,
+          name: formData.name,
+          description: formData.description,
+          location: formData.location,
+          bedrooms: formData.bedrooms,
+          bathrooms: formData.bathrooms,
+          guests: formData.guests,
+          price: formData.price,
+          wellnessFriendly: formData.wellnessFriendly,
+          amenities: formData.amenities,
+          images: allImageUrls,
+          rooms: roomsData,
+          status: 'draft',
+        };
+        parsedProperties.push(backupProperty);
+        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+        console.log('[New Property] Property also saved to localStorage as backup');
 
         toast.success('Property added successfully!');
         router.push('/host/properties');

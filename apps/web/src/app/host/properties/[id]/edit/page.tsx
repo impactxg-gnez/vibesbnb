@@ -398,6 +398,31 @@ export default function EditPropertyPage() {
         if (error) {
           throw error;
         }
+        
+        // Also update localStorage as backup
+        const savedProperties = localStorage.getItem(`properties_${user.id}`);
+        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+        const updatedProperties = parsedProperties.map((p: any) =>
+          p.id === formData.id
+            ? {
+                ...p,
+                name: formData.name,
+                description: formData.description,
+                location: formData.location,
+                bedrooms: formData.bedrooms,
+                bathrooms: formData.bathrooms,
+                guests: formData.guests,
+                price: formData.price,
+                wellnessFriendly: formData.wellnessFriendly,
+                smokeFriendly: formData.smokeFriendly || false,
+                amenities: formData.amenities,
+                images: allImageUrls,
+                rooms: roomsData,
+              }
+            : p
+        );
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        console.log('[Edit Property] Property also updated in localStorage as backup');
 
         toast.success('Property updated successfully!');
         router.push('/host/properties');
