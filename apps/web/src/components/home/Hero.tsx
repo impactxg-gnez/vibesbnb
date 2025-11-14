@@ -3,12 +3,10 @@
 import { motion } from 'framer-motion';
 
 export function Hero() {
-  // Get image URL from environment variable
-  // Set NEXT_PUBLIC_HERO_BACKGROUND_URL in your .env.local after uploading via /admin/upload-hero-image
-  // Or construct the Supabase URL: https://YOUR_PROJECT.supabase.co/storage/v1/object/public/hero-images/hero/FILENAME
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  // Hero background image URL from Supabase Storage
+  // Can be overridden with NEXT_PUBLIC_HERO_BACKGROUND_URL environment variable
   const backgroundImageUrl = process.env.NEXT_PUBLIC_HERO_BACKGROUND_URL || 
-    (supabaseUrl ? `${supabaseUrl.replace('/rest/v1', '')}/storage/v1/object/public/hero-images/hero/peace-sign-background.jpg` : '');
+    'https://okmudgacbpgycixtpoqx.supabase.co/storage/v1/object/public/hero-images/a7af8f52-573a-49db-a8a8-ee3cb49cbe69.jfif';
   
   return (
     <div className="relative h-[500px] md:h-[600px] overflow-hidden">
