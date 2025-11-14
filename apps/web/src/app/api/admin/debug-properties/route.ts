@@ -83,9 +83,15 @@ export async function GET(request: NextRequest) {
     if ((!properties || properties.length === 0) && count === 0) {
       console.log('[Debug] No properties found. Checking if table exists...');
       // Try to query table schema
-      const { data: tableInfo, error: tableError } = await supabase
-        .rpc('get_table_info', { table_name: 'properties' })
-        .catch(() => ({ data: null, error: { message: 'RPC function not available' } }));
+      let tableInfo = null;
+      let tableError = null;
+      try {
+        const result = await supabase.rpc('get_table_info', { table_name: 'properties' });
+        tableInfo = result.data;
+        tableError = result.error;
+      } catch (e: any) {
+        tableError = { message: 'RPC function not available', details: e.message };
+      }
       
       console.log('[Debug] Table info check:', { tableInfo, tableError });
     }
