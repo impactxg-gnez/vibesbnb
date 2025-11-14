@@ -73,60 +73,95 @@ export default function EditPropertyPage() {
       setLoadingProperty(true);
       try {
         const supabase = createClient();
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const isSupabaseConfigured = supabaseUrl && 
+                                      supabaseUrl !== '' &&
+                                      supabaseUrl !== 'https://placeholder.supabase.co';
+        
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
-        if (!supabaseUser) {
-          router.push('/login');
-          return;
-        }
+        if (isSupabaseConfigured && supabaseUser) {
+          // Try to load from Supabase
+          const { data: propertyData, error } = await supabase
+            .from('properties')
+            .select('*')
+            .eq('id', params.id as string)
+            .eq('host_id', supabaseUser.id)
+            .single();
 
-        const { data: propertyData, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('id', params.id as string)
-          .eq('host_id', supabaseUser.id)
-          .single();
-
-        if (error) {
-          console.error('Error loading property:', error);
-          
-          // Check if it's a missing column error
-          if (error.message?.includes('column') && error.message?.includes('does not exist')) {
-            toast.error(
-              `Database migration required! Please run the migration script in Supabase. Error: ${error.message}`,
-              { duration: 10000 }
-            );
-          } else {
-            toast.error(`Property not found: ${error.message}`);
+          if (error) {
+            console.error('Error loading property:', error);
+            
+            // Check if it's a missing column error
+            if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+              toast.error(
+                `Database migration required! Please run the migration script in Supabase. Error: ${error.message}`,
+                { duration: 10000 }
+              );
+            } else {
+              toast.error(`Property not found: ${error.message}`);
+            }
+            router.push('/host/properties');
+            return;
           }
-          router.push('/host/properties');
-          return;
+
+          if (propertyData) {
+            const loadedProperty: Property = {
+              id: propertyData.id,
+              name: propertyData.name || propertyData.title || '',
+              description: propertyData.description || '',
+              location: propertyData.location || '',
+              bedrooms: propertyData.bedrooms || 0,
+              bathrooms: propertyData.bathrooms || 0,
+              guests: propertyData.guests || 0,
+              price: propertyData.price ? Number(propertyData.price) : 0,
+              wellnessFriendly: propertyData.wellness_friendly || false,
+              amenities: propertyData.amenities || [],
+              images: [],
+              imagePreviewUrls: propertyData.images || [],
+            };
+
+            console.log('Loaded property from Supabase:', loadedProperty);
+            setFormData(loadedProperty);
+            return;
+          }
         }
 
-        if (!propertyData) {
-          toast.error('Property not found');
-          router.push('/host/properties');
-          return;
+        // Fallback to localStorage (for demo accounts or when Supabase is not configured)
+        const savedProperties = localStorage.getItem(`properties_${user.id}`);
+        if (savedProperties) {
+          try {
+            const parsedProperties = JSON.parse(savedProperties);
+            const property = parsedProperties.find((p: any) => p.id === params.id);
+            
+            if (property) {
+              const loadedProperty: Property = {
+                id: property.id,
+                name: property.name || '',
+                description: property.description || '',
+                location: property.location || '',
+                bedrooms: property.bedrooms || 0,
+                bathrooms: property.bathrooms || 0,
+                guests: property.guests || 0,
+                price: property.price || 0,
+                wellnessFriendly: property.wellnessFriendly || false,
+                amenities: property.amenities || [],
+                images: [],
+                imagePreviewUrls: property.images || [],
+              };
+
+              console.log('Loaded property from localStorage:', loadedProperty);
+              setFormData(loadedProperty);
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing localStorage properties:', e);
+          }
         }
 
-        const loadedProperty: Property = {
-          id: propertyData.id,
-          name: propertyData.name || propertyData.title || '',
-          description: propertyData.description || '',
-          location: propertyData.location || '',
-          bedrooms: propertyData.bedrooms || 0,
-          bathrooms: propertyData.bathrooms || 0,
-          guests: propertyData.guests || 0,
-          price: propertyData.price ? Number(propertyData.price) : 0,
-          wellnessFriendly: propertyData.wellness_friendly || false,
-          amenities: propertyData.amenities || [],
-          images: [],
-          imagePreviewUrls: propertyData.images || [],
-        };
-
-        console.log('Loaded property from Supabase:', loadedProperty);
-
-        setFormData(loadedProperty);
+        // Property not found
+        toast.error('Property not found');
+        router.push('/host/properties');
       } catch (error) {
         console.error('Error loading property:', error);
         toast.error('Failed to load property');
@@ -188,42 +223,76 @@ export default function EditPropertyPage() {
       return;
     }
 
+    if (!user) {
+      toast.error('You must be logged in to update properties');
+      return;
+    }
+
     setSaving(true);
 
     try {
       const supabase = createClient();
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const isSupabaseConfigured = supabaseUrl && 
+                                    supabaseUrl !== '' &&
+                                    supabaseUrl !== 'https://placeholder.supabase.co';
+      
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
-      if (!supabaseUser) {
-        toast.error('You must be logged in to update properties');
-        return;
+      if (isSupabaseConfigured && supabaseUser) {
+        // Save to Supabase
+        const { error } = await supabase
+          .from('properties')
+          .update({
+            name: formData.name,
+            title: formData.name,
+            description: formData.description,
+            location: formData.location,
+            bedrooms: formData.bedrooms,
+            bathrooms: formData.bathrooms,
+            guests: formData.guests,
+            price: formData.price,
+            wellness_friendly: formData.wellnessFriendly,
+            amenities: formData.amenities,
+            images: formData.imagePreviewUrls,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', formData.id)
+          .eq('host_id', supabaseUser.id);
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success('Property updated successfully!');
+        router.push('/host/properties');
+      } else {
+        // Fallback to localStorage (for demo accounts)
+        const savedProperties = localStorage.getItem(`properties_${user.id}`);
+        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+        
+        const updatedProperties = parsedProperties.map((p: any) =>
+          p.id === formData.id
+            ? {
+                ...p,
+                name: formData.name,
+                description: formData.description,
+                location: formData.location,
+                bedrooms: formData.bedrooms,
+                bathrooms: formData.bathrooms,
+                guests: formData.guests,
+                price: formData.price,
+                wellnessFriendly: formData.wellnessFriendly,
+                amenities: formData.amenities,
+                images: formData.imagePreviewUrls,
+              }
+            : p
+        );
+
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        toast.success('Property updated successfully!');
+        router.push('/host/properties');
       }
-
-      const { error } = await supabase
-        .from('properties')
-        .update({
-          name: formData.name,
-          title: formData.name,
-          description: formData.description,
-          location: formData.location,
-          bedrooms: formData.bedrooms,
-          bathrooms: formData.bathrooms,
-          guests: formData.guests,
-          price: formData.price,
-          wellness_friendly: formData.wellnessFriendly,
-          amenities: formData.amenities,
-          images: formData.imagePreviewUrls,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', formData.id)
-        .eq('host_id', supabaseUser.id);
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success('Property updated successfully!');
-      router.push('/host/properties');
     } catch (error: any) {
       console.error('Error updating property:', error);
       toast.error(error.message || 'Failed to update property. Please try again.');
