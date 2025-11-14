@@ -966,6 +966,39 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   });
 
   propertyData.images = Array.from(images);
+  
+  // Ensure we have at least one image - try additional sources if needed
+  if (propertyData.images.length === 0) {
+    // Try to find images in gallery or carousel elements
+    $('[class*="gallery"], [class*="carousel"], [class*="slider"], [class*="image"]').each((_, el) => {
+      const img = $(el).find('img').first();
+      const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy-src');
+      if (src && isValidImageUrl(src)) {
+        try {
+          const absoluteUrl = new URL(src, url).href;
+          propertyData.images.push(absoluteUrl);
+        } catch (e) {
+          // Invalid URL, skip
+        }
+      }
+    });
+    
+    // If still no images, try to get the first large image from the page
+    if (propertyData.images.length === 0) {
+      $('img').each((_, el) => {
+        const src = $(el).attr('src') || $(el).attr('data-src');
+        if (src && isValidImageUrl(src) && !src.includes('icon') && !src.includes('logo')) {
+          try {
+            const absoluteUrl = new URL(src, url).href;
+            propertyData.images.push(absoluteUrl);
+            return false; // Break the loop after finding one
+          } catch (e) {
+            // Invalid URL, skip
+          }
+        }
+      });
+    }
+  }
 
   // Try to extract map coordinates from embedded maps or data attributes
   // Look for Google Maps iframe or embed
