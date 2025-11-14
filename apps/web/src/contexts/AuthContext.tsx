@@ -141,8 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const demoAccount = DEMO_ACCOUNTS[email as keyof typeof DEMO_ACCOUNTS];
     
     if (demoAccount && demoAccount.password === password) {
+      // Generate unique ID based on email to ensure each account has unique properties
+      const emailHash = demoAccount.email.replace(/[@.]/g, '-');
       const mockUser = {
-        id: `demo-${demoAccount.role}`,
+        id: `demo-${emailHash}`,
         email: demoAccount.email,
         user_metadata: {
           full_name: demoAccount.name,

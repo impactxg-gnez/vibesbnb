@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
@@ -15,47 +14,44 @@ interface Room {
   imagePreviewUrls: string[];
 }
 
-interface Property {
-  id: string;
+interface ImportedPropertyData {
   name: string;
   description: string;
   location: string;
   bedrooms: number;
   bathrooms: number;
+  beds: number;
   guests: number;
   price: number;
-  wellnessFriendly: boolean;
-  smokeFriendly?: boolean;
+  images: string[];
   amenities: string[];
-  images: File[];
-  imagePreviewUrls: string[];
-  rooms?: Room[];
+  wellnessFriendly: boolean;
+  googleMapsUrl?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
-export default function EditPropertyPage() {
-  const params = useParams();
-  const { user, loading } = useAuth();
+export default function ImportReviewPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading } = useAuth();
   const [saving, setSaving] = useState(false);
-  const [loadingProperty, setLoadingProperty] = useState(true);
-  const [formData, setFormData] = useState<Property>({
-    id: '',
+  const [publishing, setPublishing] = useState(false);
+  const [formData, setFormData] = useState<ImportedPropertyData>({
     name: '',
     description: '',
     location: '',
     bedrooms: 1,
     bathrooms: 1,
+    beds: 1,
     guests: 2,
     price: 100,
-    wellnessFriendly: false,
-    smokeFriendly: false,
-    amenities: [],
     images: [],
-    imagePreviewUrls: [],
-    rooms: [],
+    amenities: [],
+    wellnessFriendly: false,
   });
+  const [smokeFriendly, setSmokeFriendly] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([
-    { id: Date.now().toString(), name: 'Living Room', images: [], imagePreviewUrls: [] },
+    { id: Date.now().toString(), name: 'All Photos', images: [], imagePreviewUrls: [] },
   ]);
 
   const availableAmenities = [
@@ -81,160 +77,34 @@ export default function EditPropertyPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    const loadProperty = async () => {
-      if (!user) return;
-
-      setLoadingProperty(true);
+    // Load imported data from sessionStorage
+    const importedData = sessionStorage.getItem('importedPropertyData');
+    if (importedData) {
       try {
-        const supabase = createClient();
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const isSupabaseConfigured = supabaseUrl && 
-                                      supabaseUrl !== '' &&
-                                      supabaseUrl !== 'https://placeholder.supabase.co';
+        const data = JSON.parse(importedData);
+        setFormData(data);
         
-        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-        if (isSupabaseConfigured && supabaseUser) {
-          // Try to load from Supabase
-          const { data: propertyData, error } = await supabase
-            .from('properties')
-            .select('*')
-            .eq('id', params.id as string)
-            .eq('host_id', supabaseUser.id)
-            .single();
-
-          if (error) {
-            console.error('Error loading property:', error);
-            
-            // Check if it's a missing column error
-            if (error.message?.includes('column') && error.message?.includes('does not exist')) {
-              toast.error(
-                `Database migration required! Please run the migration script in Supabase. Error: ${error.message}`,
-                { duration: 10000 }
-              );
-            } else {
-              toast.error(`Property not found: ${error.message}`);
-            }
-            router.push('/host/properties');
-            return;
-          }
-
-          if (propertyData) {
-            const loadedProperty: Property = {
-              id: propertyData.id,
-              name: propertyData.name || propertyData.title || '',
-              description: propertyData.description || '',
-              location: propertyData.location || '',
-              bedrooms: propertyData.bedrooms || 0,
-              bathrooms: propertyData.bathrooms || 0,
-              guests: propertyData.guests || 0,
-              price: propertyData.price ? Number(propertyData.price) : 0,
-              wellnessFriendly: propertyData.wellness_friendly || false,
-              smokeFriendly: propertyData.smoke_friendly || false,
-              amenities: propertyData.amenities || [],
-              images: [],
-              imagePreviewUrls: propertyData.images || [],
-              rooms: propertyData.rooms || [],
-            };
-
-            console.log('Loaded property from Supabase:', loadedProperty);
-            setFormData(loadedProperty);
-            
-            // Load rooms if they exist, otherwise create default room from images
-            if (propertyData.rooms && Array.isArray(propertyData.rooms) && propertyData.rooms.length > 0) {
-              const loadedRooms: Room[] = propertyData.rooms.map((r: any, idx: number) => ({
-                id: `room-${idx}-${Date.now()}`,
-                name: r.name || `Room ${idx + 1}`,
-                images: [],
-                imagePreviewUrls: r.images || [],
-              }));
-              setRooms(loadedRooms);
-            } else if (propertyData.images && propertyData.images.length > 0) {
-              // Migrate old format: create a default room with all images
-              setRooms([
-                {
-                  id: Date.now().toString(),
-                  name: 'All Photos',
-                  images: [],
-                  imagePreviewUrls: propertyData.images || [],
-                },
-              ]);
-            }
-            return;
-          }
-        }
-
-        // Fallback to localStorage (for demo accounts or when Supabase is not configured)
-        const savedProperties = localStorage.getItem(`properties_${user.id}`);
-        if (savedProperties) {
-          try {
-            const parsedProperties = JSON.parse(savedProperties);
-            const property = parsedProperties.find((p: any) => p.id === params.id);
-            
-            if (property) {
-              const loadedProperty: Property = {
-                id: property.id,
-                name: property.name || '',
-                description: property.description || '',
-                location: property.location || '',
-                bedrooms: property.bedrooms || 0,
-                bathrooms: property.bathrooms || 0,
-                guests: property.guests || 0,
-                price: property.price || 0,
-                wellnessFriendly: property.wellnessFriendly || false,
-                smokeFriendly: property.smokeFriendly || false,
-                amenities: property.amenities || [],
-                images: [],
-                imagePreviewUrls: property.images || [],
-                rooms: property.rooms || [],
-              };
-
-              console.log('Loaded property from localStorage:', loadedProperty);
-              setFormData(loadedProperty);
-              
-              // Load rooms if they exist, otherwise create default room from images
-              if (property.rooms && Array.isArray(property.rooms) && property.rooms.length > 0) {
-                const loadedRooms: Room[] = property.rooms.map((r: any, idx: number) => ({
-                  id: `room-${idx}-${Date.now()}`,
-                  name: r.name || `Room ${idx + 1}`,
-                  images: [],
-                  imagePreviewUrls: r.images || [],
-                }));
-                setRooms(loadedRooms);
-              } else if (property.images && property.images.length > 0) {
-                // Migrate old format: create a default room with all images
-                setRooms([
-                  {
-                    id: Date.now().toString(),
-                    name: 'All Photos',
-                    images: [],
-                    imagePreviewUrls: property.images || [],
-                  },
-                ]);
-              }
-              return;
-            }
-          } catch (e) {
-            console.error('Error parsing localStorage properties:', e);
-          }
-        }
-
-        // Property not found
-        toast.error('Property not found');
-        router.push('/host/properties');
+        // Initialize rooms with all imported images
+        const importedImages = data.images || [];
+        
+        setRooms([
+          {
+            id: Date.now().toString(),
+            name: 'All Photos',
+            images: [],
+            imagePreviewUrls: importedImages, // Show all imported images
+          },
+        ]);
       } catch (error) {
-        console.error('Error loading property:', error);
-        toast.error('Failed to load property');
+        console.error('Error loading imported data:', error);
+        toast.error('Failed to load imported property data');
         router.push('/host/properties');
-      } finally {
-        setLoadingProperty(false);
       }
-    };
-
-    if (user) {
-      loadProperty();
+    } else {
+      toast.error('No imported property data found');
+      router.push('/host/properties');
     }
-  }, [params.id, user, router]);
+  }, [router]);
 
   const addRoom = () => {
     setRooms([
@@ -244,11 +114,9 @@ export default function EditPropertyPage() {
   };
 
   const removeRoom = (roomId: string) => {
-    if (rooms.length === 1) {
-      toast.error('At least one room is required');
-      return;
+    if (rooms.length > 1) {
+      setRooms(rooms.filter((r) => r.id !== roomId));
     }
-    setRooms(rooms.filter((r) => r.id !== roomId));
   };
 
   const updateRoomName = (roomId: string, name: string) => {
@@ -305,27 +173,35 @@ export default function EditPropertyPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const saveProperty = async (status: 'draft' | 'active') => {
     if (!formData.name.trim()) {
       toast.error('Property name is required');
       return;
     }
 
-    // Validate rooms
     const allRoomsValid = rooms.every((r) => r.name.trim() !== '');
     if (!allRoomsValid) {
       toast.error('Please provide a name for all rooms');
       return;
     }
 
-    if (!user) {
-      toast.error('You must be logged in to update properties');
+    const totalImages = rooms.reduce((sum, r) => sum + r.imagePreviewUrls.length, 0);
+    if (totalImages < 2) {
+      toast.error('Please add at least 2 photos');
       return;
     }
 
-    setSaving(true);
+    if (!user) {
+      toast.error('You must be logged in to save properties');
+      return;
+    }
+
+    const isPublishing = status === 'active';
+    if (isPublishing) {
+      setPublishing(true);
+    } else {
+      setSaving(true);
+    }
 
     try {
       const supabase = createClient();
@@ -336,6 +212,9 @@ export default function EditPropertyPage() {
       
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
+      // Use Supabase user ID if available, otherwise use demo user ID
+      const userId = supabaseUser?.id || user.id;
+
       // Collect all images from rooms
       const allImageUrls: string[] = [];
       const roomsData: any[] = [];
@@ -343,12 +222,10 @@ export default function EditPropertyPage() {
       for (const room of rooms) {
         const roomImages: string[] = [];
         for (const previewUrl of room.imagePreviewUrls) {
-          // If it's already a data URL, use it; otherwise convert the file
           if (previewUrl.startsWith('data:')) {
             roomImages.push(previewUrl);
             allImageUrls.push(previewUrl);
           } else {
-            // Find the corresponding file
             const fileIndex = room.imagePreviewUrls.indexOf(previewUrl);
             if (fileIndex < room.images.length) {
               const reader = new FileReader();
@@ -360,7 +237,6 @@ export default function EditPropertyPage() {
               roomImages.push(dataUrl);
               allImageUrls.push(dataUrl);
             } else {
-              // Already a URL, just use it
               roomImages.push(previewUrl);
               allImageUrls.push(previewUrl);
             }
@@ -372,78 +248,90 @@ export default function EditPropertyPage() {
         });
       }
 
+      const propertyId = `${userId}_${Date.now()}`;
+
       if (isSupabaseConfigured && supabaseUser) {
-        // Save to Supabase
-        const { error } = await supabase
+        const { data: insertedProperty, error: insertError } = await supabase
           .from('properties')
-          .update({
+          .insert({
+            id: propertyId,
+            host_id: supabaseUser.id,
             name: formData.name,
             title: formData.name,
             description: formData.description,
             location: formData.location,
-            bedrooms: formData.bedrooms,
-            bathrooms: formData.bathrooms,
-            guests: formData.guests,
             price: formData.price,
-            wellness_friendly: formData.wellnessFriendly,
-            smoke_friendly: formData.smokeFriendly || false,
-            amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
-            updated_at: new Date().toISOString(),
+            amenities: formData.amenities,
+            guests: formData.guests,
+            bedrooms: formData.bedrooms,
+            bathrooms: formData.bathrooms,
+            beds: formData.beds,
+            status: status,
+            wellness_friendly: formData.wellnessFriendly,
+            smoke_friendly: smokeFriendly,
+            google_maps_url: formData.googleMapsUrl,
+            latitude: formData.coordinates?.lat,
+            longitude: formData.coordinates?.lng,
           })
-          .eq('id', formData.id)
-          .eq('host_id', supabaseUser.id);
+          .select()
+          .single();
 
-        if (error) {
-          throw error;
+        if (insertError) {
+          console.error('Error saving property:', insertError);
+          toast.error(`Failed to save property: ${insertError.message}`);
+          throw insertError;
         }
 
-        toast.success('Property updated successfully!');
+        toast.success(isPublishing ? 'Property published successfully!' : 'Property saved as draft!');
+        // Clear sessionStorage
+        sessionStorage.removeItem('importedPropertyData');
         router.push('/host/properties');
       } else {
-        // Fallback to localStorage (for demo accounts)
-        const savedProperties = localStorage.getItem(`properties_${user.id}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        
-        const updatedProperties = parsedProperties.map((p: any) =>
-          p.id === formData.id
-            ? {
-                ...p,
-                name: formData.name,
-                description: formData.description,
-                location: formData.location,
-                bedrooms: formData.bedrooms,
-                bathrooms: formData.bathrooms,
-                guests: formData.guests,
-                price: formData.price,
-                wellnessFriendly: formData.wellnessFriendly,
-                smokeFriendly: formData.smokeFriendly || false,
-                amenities: formData.amenities,
-                images: allImageUrls,
-                rooms: roomsData,
-              }
-            : p
-        );
+        // Fallback to localStorage (demo mode only)
+        const newProperty = {
+          id: propertyId,
+          name: formData.name,
+          description: formData.description,
+          location: formData.location,
+          bedrooms: formData.bedrooms,
+          bathrooms: formData.bathrooms,
+          beds: formData.beds,
+          guests: formData.guests,
+          price: formData.price,
+          wellnessFriendly: formData.wellnessFriendly,
+          smokeFriendly: smokeFriendly,
+          amenities: formData.amenities,
+          images: allImageUrls,
+          rooms: roomsData,
+          status: status,
+        };
 
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        toast.success('Property updated successfully!');
+        const savedProperties = localStorage.getItem(`properties_${userId}`);
+        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+        parsedProperties.push(newProperty);
+        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+
+        toast.success(isPublishing ? 'Property published successfully!' : 'Property saved as draft!');
+        sessionStorage.removeItem('importedPropertyData');
         router.push('/host/properties');
       }
     } catch (error: any) {
-      console.error('Error updating property:', error);
-      toast.error(error.message || 'Failed to update property. Please try again.');
+      console.error('Error saving property:', error);
+      toast.error(error.message || 'Failed to save property. Please try again.');
     } finally {
       setSaving(false);
+      setPublishing(false);
     }
   };
 
-  if (loading || loadingProperty) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-white">Loading property...</p>
+          <p className="text-white">Loading...</p>
         </div>
       </div>
     );
@@ -454,18 +342,18 @@ export default function EditPropertyPage() {
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/host/properties"
+          <button
+            onClick={() => router.push('/host/properties')}
             className="text-emerald-500 hover:text-emerald-400 mb-4 inline-flex items-center gap-2"
           >
             <ArrowLeft size={20} />
             Back to Properties
-          </Link>
-          <h1 className="text-4xl font-bold text-white mb-2">Edit Property</h1>
-          <p className="text-gray-400">Update your property details</p>
+          </button>
+          <h1 className="text-4xl font-bold text-white mb-2">Review Imported Property</h1>
+          <p className="text-gray-400">Review and edit the imported property details before publishing</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="space-y-8">
           {/* Basic Info */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-xl font-semibold text-white mb-6">Basic Information</h2>
@@ -487,15 +375,21 @@ export default function EditPropertyPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Description
+                  Description *
                 </label>
                 <textarea
+                  required
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
+                  rows={6}
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                   placeholder="Describe your property, amenities, and what makes it special..."
                 />
+                {!formData.description && (
+                  <p className="text-yellow-500 text-sm mt-1">
+                    ⚠️ Description was not found on the source page. Please add one.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -558,11 +452,12 @@ export default function EditPropertyPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Price/Night ($)
+                    Price/Night ($) *
                   </label>
                   <input
                     type="number"
                     min="0"
+                    required
                     value={formData.price}
                     onChange={(e) =>
                       setFormData({ ...formData, price: parseInt(e.target.value) })
@@ -592,10 +487,8 @@ export default function EditPropertyPage() {
                   <input
                     type="checkbox"
                     id="smokeFriendly"
-                    checked={formData.smokeFriendly || false}
-                    onChange={(e) =>
-                      setFormData({ ...formData, smokeFriendly: e.target.checked })
-                    }
+                    checked={smokeFriendly}
+                    onChange={(e) => setSmokeFriendly(e.target.checked)}
                     className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
                   />
                   <label htmlFor="smokeFriendly" className="ml-2 block text-sm text-gray-300">
@@ -627,10 +520,15 @@ export default function EditPropertyPage() {
             </div>
           </div>
 
-          {/* Images by Room */}
+          {/* Photos */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white">Photos by Room</h2>
+              <div>
+                <h2 className="text-xl font-semibold text-white">Photos</h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  At least 2 photos required. {rooms.reduce((sum, r) => sum + r.imagePreviewUrls.length, 0)} photos added.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={addRoom}
@@ -660,7 +558,7 @@ export default function EditPropertyPage() {
                         className="ml-3 p-2 text-red-500 hover:text-red-400 transition"
                         title="Remove room"
                       >
-                        <Trash2 size={20} />
+                        <X size={20} />
                       </button>
                     )}
                   </div>
@@ -703,23 +601,33 @@ export default function EditPropertyPage() {
             </div>
           </div>
 
-          {/* Submit */}
-          <div className="flex gap-4">
-            <Link
-              href="/host/properties"
-              className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-center"
-            >
-              Cancel
-            </Link>
+          {/* Action Buttons */}
+          <div className="flex gap-4 justify-end">
             <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              onClick={() => saveProperty('draft')}
+              disabled={saving || publishing}
+              className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : 'Save as Draft'}
+            </button>
+            <button
+              type="button"
+              onClick={() => saveProperty('active')}
+              disabled={saving || publishing}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {publishing ? (
+                'Publishing...'
+              ) : (
+                <>
+                  <Check size={20} />
+                  Publish Property
+                </>
+              )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

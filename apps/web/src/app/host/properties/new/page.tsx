@@ -194,8 +194,9 @@ export default function NewPropertyPage() {
         });
       }
 
-      // Use user ID from auth context (works for both demo and Supabase)
-      const userId = user.id;
+      // Use Supabase user ID if available, otherwise use demo user ID
+      // This ensures properties are correctly associated with the right host
+      const userId = supabaseUser?.id || user.id;
       const propertyId = `${userId}_${Date.now()}`;
 
       if (isSupabaseConfigured && supabaseUser) {
@@ -203,7 +204,7 @@ export default function NewPropertyPage() {
           .from('properties')
           .insert({
             id: propertyId,
-            host_id: userId,
+            host_id: supabaseUser.id, // Always use Supabase user ID when saving to Supabase
             name: formData.name,
             title: formData.name,
             description: formData.description,

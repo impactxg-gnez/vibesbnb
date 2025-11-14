@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
@@ -329,8 +329,9 @@ export default function HostPropertiesPage() {
       const supabase = createClient();
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
-      // Use user ID from auth context (works for both demo and Supabase)
-      const userId = user.id;
+      // Use Supabase user ID if available, otherwise use demo user ID
+      // This ensures properties are correctly associated with the right host
+      const userId = supabaseUser?.id || user.id;
 
       // Create imported property with scraped data
       // Generate a unique ID that includes user ID to avoid conflicts
@@ -344,8 +345,8 @@ export default function HostPropertiesPage() {
         }
       }
 
-      const importedProperty: Property = {
-        id: propertyId,
+      // Prepare imported property data for review page
+      const importedPropertyData = {
         name: scrapedData.name || 'Imported Property',
         description: scrapedData.description || '',
         location: location || 'Location not found',
@@ -356,65 +357,13 @@ export default function HostPropertiesPage() {
         price: scrapedData.price || 100,
         images: scrapedData.images || [],
         amenities: scrapedData.amenities || [],
-        status: 'draft',
         wellnessFriendly: scrapedData.wellnessFriendly || false,
         googleMapsUrl: scrapedData.googleMapsUrl,
         coordinates: scrapedData.coordinates,
       };
 
-      // Save to Supabase if available
-      if (supabaseUser) {
-        const { data: insertedProperty, error: insertError } = await supabase
-          .from('properties')
-          .insert({
-            id: propertyId,
-            host_id: userId,
-            name: importedProperty.name,
-            title: importedProperty.name,
-            description: importedProperty.description,
-            location: importedProperty.location,
-            price: importedProperty.price,
-            images: importedProperty.images,
-            amenities: importedProperty.amenities,
-            guests: importedProperty.guests,
-            bedrooms: importedProperty.bedrooms,
-            bathrooms: importedProperty.bathrooms,
-            beds: importedProperty.beds,
-            status: 'draft',
-            wellness_friendly: importedProperty.wellnessFriendly,
-            google_maps_url: importedProperty.googleMapsUrl,
-            latitude: importedProperty.coordinates?.lat,
-            longitude: importedProperty.coordinates?.lng,
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error saving to Supabase:', insertError);
-          
-          // Check if it's a missing column error
-          if (insertError.message?.includes('column') && insertError.message?.includes('does not exist')) {
-            toast.error(
-              `Database migration required! Please run the migration script in Supabase. Error: ${insertError.message}`,
-              { duration: 10000 }
-            );
-          } else {
-            toast.error(`Failed to save property: ${insertError.message}`);
-          }
-          throw insertError;
-        }
-
-        // Reload properties from Supabase to ensure data is fresh
-        await loadProperties();
-        loadStats(); // Reload stats after adding property
-      } else {
-        // Fallback to localStorage (demo mode only)
-        const existingProperties = JSON.parse(localStorage.getItem(`properties_${user?.id}`) || '[]');
-        const updatedProperties = [...existingProperties, importedProperty];
-        localStorage.setItem(`properties_${user?.id}`, JSON.stringify(updatedProperties));
-        setProperties([...properties, importedProperty]);
-        loadStats();
-      }
+      // Store imported data in sessionStorage for the review page
+      sessionStorage.setItem('importedPropertyData', JSON.stringify(importedPropertyData));
       
       // Enhanced success message with more details
       const details = [];
@@ -427,16 +376,72 @@ export default function HostPropertiesPage() {
       const method = meta.scrapingMethod === 'puppeteer' ? '🚀 Browser automation' : '⚡ Fast mode';
       const duration = meta.duration ? ` (${(meta.duration / 1000).toFixed(1)}s)` : '';
       
-      toast.success(`${method}${duration}\n✅ Imported: ${details.join(', ')}. Review and publish!`, {
+      toast.success(`${method}${duration}\n✅ Imported: ${details.join(', ')}. Please review and publish!`, {
         duration: 5000,
       });
       setShowImportModal(false);
       setImportUrl('');
+      
+      // Redirect to review page
+      router.push('/host/properties/import-review');
     } catch (error: any) {
       console.error('Import error:', error);
       toast.error(error.message || 'Failed to import property. Please try again.');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleTogglePublish = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'draft' : 'active';
+    
+    try {
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+      if (supabaseUser) {
+        // Update in Supabase
+        const { error } = await supabase
+          .from('properties')
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('host_id', supabaseUser.id);
+
+        if (error) {
+          throw error;
+        }
+
+        // Update local state
+        const updatedProperties = properties.map(p => 
+          p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
+        );
+        setProperties(updatedProperties);
+        
+        // Also update localStorage as fallback
+        if (user) {
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        }
+
+        // Reload stats
+        loadStats();
+        
+        toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
+      } else {
+        // Fallback to localStorage
+        const updatedProperties = properties.map(p => 
+          p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
+        );
+        setProperties(updatedProperties);
+        
+        if (user) {
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        }
+        
+        toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
+      }
+    } catch (error: any) {
+      console.error('Error toggling publish status:', error);
+      toast.error(error.message || 'Failed to update property status');
     }
   };
 
@@ -703,6 +708,18 @@ export default function HostPropertiesPage() {
                       <Edit size={16} />
                       Edit
                     </Link>
+                    <button
+                      onClick={() => handleTogglePublish(property.id, property.status)}
+                      className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
+                        property.status === 'active'
+                          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                      title={property.status === 'active' ? 'Unpublish' : 'Publish'}
+                    >
+                      <Power size={16} />
+                      {property.status === 'active' ? 'Unpublish' : 'Publish'}
+                    </button>
                     <Link
                       href={`/listings/${property.id}`}
                       className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"
