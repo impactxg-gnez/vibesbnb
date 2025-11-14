@@ -26,6 +26,7 @@ export default function PropertiesMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const infoWindowsRef = useRef<Map<any, any>>(new Map());
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Filter properties with coordinates
@@ -53,13 +54,19 @@ export default function PropertiesMap({
     }
 
     return () => {
-      // Cleanup markers
+      // Cleanup markers and info windows
       markersRef.current.forEach(marker => {
         if (marker && marker.setMap) {
           marker.setMap(null);
         }
       });
+      infoWindowsRef.current.forEach(infoWindow => {
+        if (infoWindow && infoWindow.close) {
+          infoWindow.close();
+        }
+      });
       markersRef.current = [];
+      infoWindowsRef.current.clear();
     };
   }, [propertiesWithCoords.length]);
 
@@ -169,15 +176,16 @@ export default function PropertiesMap({
 
       marker.addListener('click', () => {
         // Close all other info windows
-        markersRef.current.forEach(m => {
-          if (m.infoWindow) {
-            m.infoWindow.close();
+        infoWindowsRef.current.forEach(iw => {
+          if (iw && iw.close) {
+            iw.close();
           }
         });
         infoWindow.open(mapInstanceRef.current, marker);
       });
 
-      marker.infoWindow = infoWindow;
+      // Store info window in a Map
+      infoWindowsRef.current.set(marker, infoWindow);
       markersRef.current.push(marker);
       bounds.extend({
         lat: property.coordinates.lat,
