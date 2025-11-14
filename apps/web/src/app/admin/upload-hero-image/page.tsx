@@ -55,6 +55,9 @@ export default function UploadHeroImagePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      // Pass user role for demo account support
+      const userRole = user?.user_metadata?.role || 'admin';
+      formData.append('userRole', userRole);
 
       const response = await fetch('/api/upload-hero-image', {
         method: 'POST',

@@ -8,16 +8,39 @@ export async function POST(request: NextRequest) {
     const supabase = createClient();
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const userRole = formData.get('userRole') as string; // Pass role from client
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Check if user is authenticated (optional - you might want to make this admin-only)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check Supabase configuration first
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isSupabaseConfigured = supabaseUrl && 
+                                  supabaseUrl !== '' &&
+                                  supabaseUrl !== 'https://placeholder.supabase.co';
+    
+    if (!isSupabaseConfigured) {
+      return NextResponse.json({ 
+        error: 'Supabase is not configured. Please configure Supabase to use storage.' 
+      }, { status: 500 });
     }
+
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // For demo accounts, check role from form data
+    // For Supabase users, check role from user metadata
+    const isAdmin = user 
+      ? user.user_metadata?.role === 'admin'
+      : userRole === 'admin';
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
+    }
+
+    // For storage uploads, we might need to use service role key
+    // But for now, try with the current client - if it fails, we'll get a permission error
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
