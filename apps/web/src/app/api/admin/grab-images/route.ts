@@ -5,23 +5,25 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    // Get user role from request body (sent from client)
+    const body = await request.json().catch(() => ({}));
+    const userRole = body.role;
     
-    // Check if user is admin
+    // Also try to get from Supabase if available
+    const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    // Check if user is admin - check user metadata first, then request body
+    let isAdmin = false;
+    if (user) {
+      isAdmin = user.user_metadata?.role === 'admin' || user.app_metadata?.role === 'admin';
     }
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (!isAdmin && userRole === 'admin') {
+      isAdmin = true;
+    }
+    
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

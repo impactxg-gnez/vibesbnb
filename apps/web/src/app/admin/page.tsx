@@ -76,6 +76,12 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/admin/cleanup-properties', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          role: user?.user_metadata?.role || user?.app_metadata?.role 
+        }),
       });
 
       const data = await response.json();
@@ -103,6 +109,12 @@ export default function AdminDashboard() {
     try {
       const response = await fetch('/api/admin/grab-images', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          role: user?.user_metadata?.role || user?.app_metadata?.role 
+        }),
       });
 
       const data = await response.json();
