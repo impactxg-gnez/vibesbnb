@@ -94,7 +94,13 @@ export async function POST(request: NextRequest) {
           if (escaSlug) {
             try {
               const escaUrl = `https://esca-management.com/property-listing_${escaSlug}/`;
-              const scrapeResponse = await fetch('/api/scrape-property', {
+              
+              // Call the scrape-property API using the full URL
+              const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                             process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 
+                             'http://localhost:3000';
+              
+              const scrapeResponse = await fetch(`${baseUrl}/api/scrape-property`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
