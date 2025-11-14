@@ -30,6 +30,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [cleaningUp, setCleaningUp] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
