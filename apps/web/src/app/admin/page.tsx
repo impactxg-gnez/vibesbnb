@@ -119,7 +119,28 @@ export default function AdminDashboard() {
       }
       
       console.log('Properties Debug Info:', data);
-      alert(`Properties Debug Info:\n\nTotal: ${data.count}\nUsing Service Role: ${data.usingServiceRole}\n\nAnalysis:\n- With Name: ${data.analysis.withName}\n- With Title: ${data.analysis.withTitle}\n- With Images: ${data.analysis.withImages}\n- Without Images: ${data.analysis.withoutImages}\n- With "Property Listing" Prefix: ${data.analysis.withPropertyListingPrefix}\n\nCheck console for full details.`);
+      console.table(data.analysis);
+      if (data.properties && data.properties.length > 0) {
+        console.log('Sample Properties:', data.properties);
+      }
+      
+      const message = `Properties Debug Info:
+
+Total Properties: ${data.count}
+Using Service Role: ${data.usingServiceRole ? 'Yes' : 'No'}
+
+Analysis:
+- With Name: ${data.analysis.withName}
+- With Title: ${data.analysis.withTitle}
+- With Images: ${data.analysis.withImages}
+- Without Images: ${data.analysis.withoutImages}
+- With "Property Listing" Prefix: ${data.analysis.withPropertyListingPrefix}
+
+${data.analysis.sampleProperties.length > 0 ? `\nSample Properties:\n${data.analysis.sampleProperties.map((p: any, i: number) => `${i + 1}. ${p.name || p.title || 'Untitled'} (ID: ${p.id}, Images: ${p.imagesCount}, Has Prefix: ${p.hasPropertyListingPrefix})`).join('\n')}` : ''}
+
+Check browser console for full details and property data.`;
+      
+      alert(message);
     } catch (error: any) {
       console.error('Error debugging properties:', error);
       toast.error(error.message || 'Failed to debug properties');
