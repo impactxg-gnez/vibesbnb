@@ -3,12 +3,20 @@
 import { motion } from 'framer-motion';
 
 export function Hero() {
+  // Replace this URL with your hosted image URL from Imgur/ImgBB/Cloudinary
+  // Example: 'https://i.imgur.com/your-image-id.jpg'
+  const backgroundImageUrl = 'https://i.imgur.com/PLACEHOLDER.jpg'; // TODO: Replace with actual hosted image URL
+  
   return (
     <div className="relative h-[500px] md:h-[600px] overflow-hidden">
       <img
-        src="/peace-sign-background.jpg"
+        src={backgroundImageUrl}
         alt="VibesBNB - Peace, Love, Good Vibes"
         className="absolute inset-0 w-full h-full object-cover"
+        onError={(e) => {
+          // Fallback if image fails to load
+          console.error('Background image failed to load:', backgroundImageUrl);
+        }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-gray-950/60 via-gray-950/20 to-transparent" />
       
