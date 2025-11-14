@@ -314,18 +314,23 @@ export default function HostPropertiesPage() {
       const scrapedData = result.data;
       const meta = result.meta || {};
 
-      const supabase = createClient();
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-      if (!supabaseUser) {
+      // Check if user is logged in (works for both demo and Supabase users)
+      if (!user) {
         toast.error('You must be logged in to import properties');
         setImporting(false);
         return;
       }
 
+      // Try to get Supabase user for database operations
+      const supabase = createClient();
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      // Use user ID from auth context (works for both demo and Supabase)
+      const userId = user.id;
+
       // Create imported property with scraped data
       // Generate a unique ID that includes user ID to avoid conflicts
-      const propertyId = `${supabaseUser.id}_${Date.now()}`;
+      const propertyId = `${userId}_${Date.now()}`;
       // Extract location from title if not found (e.g., "Rental unit in Beloshi" -> "Beloshi")
       let location = scrapedData.location || '';
       if (!location && scrapedData.name) {
@@ -359,7 +364,7 @@ export default function HostPropertiesPage() {
           .from('properties')
           .insert({
             id: propertyId,
-            host_id: supabaseUser.id,
+            host_id: userId,
             name: importedProperty.name,
             title: importedProperty.name,
             description: importedProperty.description,
