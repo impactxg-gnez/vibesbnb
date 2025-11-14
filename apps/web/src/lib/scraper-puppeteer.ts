@@ -161,6 +161,11 @@ async function autoScroll(page: Page): Promise<void> {
  * Main scraper function using Puppeteer
  */
 export async function scrapeWithPuppeteer(url: string): Promise<ScrapedPropertyData> {
+  const isEscaManagement = url.includes('esca-management.com');
+  
+  if (isEscaManagement) {
+    return await scrapeEscaManagementWithPuppeteer(url);
+  }
   const browser = await getBrowser();
   const page = await browser.newPage();
 
@@ -212,6 +217,217 @@ export async function scrapeWithPuppeteer(url: string): Promise<ScrapedPropertyD
   } catch (error) {
     console.error('[Puppeteer] Error:', error);
     throw error;
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Scrape Esca Management property with Puppeteer
+ */
+async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPropertyData> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  
+  try {
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    await page.waitForTimeout(2000); // Wait for any lazy-loaded content
+    
+    const data = await page.evaluate(() => {
+      const getTextContent = (selector: string): string => {
+        const el = document.querySelector(selector);
+        return el?.textContent?.trim() || '';
+      };
+
+      const name = 
+        getTextContent('h1') ||
+        document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+        document.title.split('|')[0].trim();
+
+      // Extract location
+      const bodyText = document.body.textContent || '';
+      const locationMatch = bodyText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa)[,\s]+(Florida|FL)/i);
+      const location = locationMatch ? locationMatch[0] : 
+        getTextContent('.location') || 
+        getTextContent('[itemprop="address"]') || '';
+
+      // Extract full description - combine all meaningful paragraphs
+      const descriptionParts: string[] = [];
+      document.querySelectorAll('p').forEach(p => {
+        const text = p.textContent?.trim() || '';
+        if (text.length > 50 && 
+            !text.includes('Skip to') && 
+            !text.includes('Book Now') &&
+            !text.includes('Sign Up') &&
+            !text.includes('Copyright')) {
+          descriptionParts.push(text);
+        }
+      });
+      const description = descriptionParts
+        .filter((part, index, arr) => arr.indexOf(part) === index)
+        .join('\n\n')
+        .trim() ||
+        document.querySelector('meta[property="og:description"]')?.getAttribute('content') ||
+        '';
+
+      // Extract property details
+      const extractNumber = (pattern: RegExp): number => {
+        const match = bodyText.match(pattern);
+        return match ? parseInt(match[1]) : 0;
+      };
+
+      const extractFloat = (pattern: RegExp): number => {
+        const match = bodyText.match(pattern);
+        return match ? parseFloat(match[1]) : 0;
+      };
+
+      const guests = extractNumber(/(\d+)\s+Guests?/i);
+      const bedrooms = extractNumber(/(\d+)[-\s]bedroom/i) || extractNumber(/(\d+)\s+Bedrooms?/i);
+      const bathrooms = extractFloat(/(\d+(?:\.\d+)?)[-\s]bath/i) || extractFloat(/(\d+(?:\.\d+)?)\s+Baths?/i);
+      const beds = extractNumber(/(\d+)\s+Beds?(?!\s*room)/i);
+
+      // Extract price
+      const priceMatch = bodyText.match(/\$(\d+)\s*\/?\s*night/i) || bodyText.match(/From\s*:\s*\$(\d+)/i);
+      const price = priceMatch ? parseInt(priceMatch[1]) : 100;
+
+      // Extract amenities
+      const amenitiesSet = new Set<string>();
+      const amenityKeywords = [
+        'Air Conditioning', 'Home Theater', 'Pool', 'Living Room', 'Waterfront Deck',
+        'Private Parking', 'Sound System', 'Outdoor Kitchen', 'Full Kitchen Appliances', 'Wi-Fi',
+        'WiFi', 'Kitchen', 'Parking', 'Hot Tub', 'Gym', 'Heating', 'TV', 'Washer', 'Dryer',
+        'Fireplace', 'Workspace', 'Pet Friendly'
+      ];
+
+      amenityKeywords.forEach(keyword => {
+        if (bodyText.match(new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))) {
+          amenitiesSet.add(keyword);
+        }
+      });
+
+      // Also check list items
+      document.querySelectorAll('li').forEach(li => {
+        const text = li.textContent?.trim() || '';
+        if (text && text.length < 50 && !text.includes('Personalize') && !text.includes('Conditions')) {
+          amenityKeywords.forEach(keyword => {
+            if (text.toLowerCase().includes(keyword.toLowerCase())) {
+              amenitiesSet.add(keyword);
+            }
+          });
+        }
+      });
+
+      // Extract images
+      const allImages = new Set<string>();
+      const isValidPropertyImage = (url: string): boolean => {
+        if (!url || !url.startsWith('http')) return false;
+        if (url.includes('icon') || url.includes('logo') || url.includes('avatar') || url.includes('profile')) {
+          return false;
+        }
+        return true;
+      };
+
+      // From img tags
+      Array.from(document.querySelectorAll('img')).forEach(img => {
+        const sources = [
+          img.getAttribute('data-original-uri'),
+          img.getAttribute('data-original'),
+          img.getAttribute('data-src'),
+          img.getAttribute('data-lazy-src'),
+          img.src,
+          img.currentSrc
+        ].filter(Boolean) as string[];
+        
+        sources.forEach(src => {
+          if (isValidPropertyImage(src)) {
+            try {
+              const absoluteUrl = new URL(src, window.location.href).href;
+              allImages.add(absoluteUrl);
+            } catch (e) {
+              // Invalid URL
+            }
+          }
+        });
+      });
+
+      // From background images
+      Array.from(document.querySelectorAll('[style*="background-image"]')).forEach(el => {
+        const style = el.getAttribute('style') || '';
+        const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
+        if (match && match[1]) {
+          const url = match[1].trim();
+          if (isValidPropertyImage(url)) {
+            try {
+              const absoluteUrl = new URL(url, window.location.href).href;
+              allImages.add(absoluteUrl);
+            } catch (e) {
+              // Invalid URL
+            }
+          }
+        }
+      });
+
+      // From meta tags
+      Array.from(document.querySelectorAll('meta[property="og:image"]')).forEach(meta => {
+        const src = meta.getAttribute('content');
+        if (src && isValidPropertyImage(src)) {
+          allImages.add(src);
+        }
+      });
+
+      // Extract map coordinates
+      let coordinates: { lat: number; lng: number } | null = null;
+      let googleMapsUrl: string | undefined = undefined;
+
+      // Check for Google Maps iframe
+      const mapIframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.google"]') as HTMLIFrameElement;
+      if (mapIframe && mapIframe.src) {
+        const coordMatch = mapIframe.src.match(/[?&]q=([+-]?\d+\.\d+),([+-]?\d+\.\d+)/) || 
+                          mapIframe.src.match(/@([+-]?\d+\.\d+),([+-]?\d+\.\d+)/);
+        if (coordMatch) {
+          coordinates = {
+            lat: parseFloat(coordMatch[1]),
+            lng: parseFloat(coordMatch[2]),
+          };
+          googleMapsUrl = mapIframe.src;
+        }
+      }
+
+      // Check for data attributes
+      const latEl = document.querySelector('[data-lat]');
+      const lngEl = document.querySelector('[data-lng]');
+      if (latEl && lngEl) {
+        const lat = latEl.getAttribute('data-lat');
+        const lng = lngEl.getAttribute('data-lng');
+        if (lat && lng) {
+          coordinates = {
+            lat: parseFloat(lat),
+            lng: parseFloat(lng),
+          };
+        }
+      }
+
+      // Check for wellness-friendly
+      const wellnessFriendly = /wellness|yoga|spa|meditation|healing/i.test(bodyText);
+
+      return {
+        name,
+        description,
+        location,
+        bedrooms,
+        bathrooms,
+        beds,
+        guests,
+        price,
+        amenities: Array.from(amenitiesSet),
+        images: Array.from(allImages),
+        wellnessFriendly,
+        googleMapsUrl,
+        coordinates: coordinates || undefined,
+      };
+    });
+
+    return data as ScrapedPropertyData;
   } finally {
     await page.close();
   }

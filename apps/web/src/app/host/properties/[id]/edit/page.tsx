@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Trash2, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import LocationPicker from '@/components/LocationPicker';
 
 interface Room {
   id: string;
@@ -30,6 +31,8 @@ interface Property {
   images: File[];
   imagePreviewUrls: string[];
   rooms?: Room[];
+  coordinates?: { lat: number; lng: number };
+  googleMapsUrl?: string;
 }
 
 export default function EditPropertyPage() {
@@ -187,6 +190,8 @@ export default function EditPropertyPage() {
                 images: [],
                 imagePreviewUrls: property.images || [],
                 rooms: property.rooms || [],
+                coordinates: property.coordinates,
+                googleMapsUrl: property.googleMapsUrl,
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -320,6 +325,12 @@ export default function EditPropertyPage() {
       return;
     }
 
+    // Check if property is being published - require coordinates
+    const currentProperty = properties.find((p: any) => p.id === formData.id);
+    const isCurrentlyDraft = currentProperty?.status === 'draft' || !currentProperty?.status;
+    // Note: We'll check coordinates when trying to publish, not on save
+    // This allows saving as draft without coordinates
+
     if (!user) {
       toast.error('You must be logged in to update properties');
       return;
@@ -390,6 +401,9 @@ export default function EditPropertyPage() {
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
+            latitude: formData.coordinates?.lat,
+            longitude: formData.coordinates?.lng,
+            google_maps_url: formData.googleMapsUrl,
             updated_at: new Date().toISOString(),
           })
           .eq('id', formData.id)
@@ -418,6 +432,8 @@ export default function EditPropertyPage() {
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
+                coordinates: formData.coordinates,
+                googleMapsUrl: formData.googleMapsUrl,
               }
             : p
         );
@@ -525,16 +541,32 @@ export default function EditPropertyPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Location *
+                  Location * {!formData.coordinates && (
+                    <span className="text-yellow-500 text-xs ml-2">
+                      ⚠️ Map coordinates required for publishing
+                    </span>
+                  )}
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                  placeholder="e.g., Aspen, Colorado"
+                <LocationPicker
+                  location={formData.location}
+                  coordinates={formData.coordinates}
+                  onLocationChange={(location, coordinates) => {
+                    setFormData({
+                      ...formData,
+                      location,
+                      coordinates,
+                      googleMapsUrl: coordinates 
+                        ? `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`
+                        : undefined,
+                    });
+                  }}
+                  className="mb-2"
                 />
+                {formData.coordinates && (
+                  <p className="text-xs text-emerald-400 mt-1">
+                    ✓ Coordinates set: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

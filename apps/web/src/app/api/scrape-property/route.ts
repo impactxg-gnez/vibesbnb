@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
 
     // Detect if this is an Airbnb URL
     const isAirbnb = url.includes('airbnb.com');
+    // Detect if this is an Esca Management URL
+    const isEscaManagement = url.includes('esca-management.com');
 
     let propertyData: ScrapedPropertyData;
 
@@ -184,6 +186,8 @@ async function scrapeWithCheerio(url: string, isAirbnb: boolean): Promise<Scrape
 
   if (isAirbnb) {
     return await scrapeAirbnb($, html, url);
+  } else if (url.includes('esca-management.com')) {
+    return await scrapeEscaManagement($, html, url);
   } else {
     return await scrapeGeneric($, url);
   }
@@ -787,6 +791,218 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
   } catch (error) {
     console.error('Error parsing Airbnb data:', error);
   }
+
+  return propertyData;
+}
+
+async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: string): Promise<ScrapedPropertyData> {
+  const propertyData: ScrapedPropertyData = {
+    name: '',
+    description: '',
+    location: '',
+    bedrooms: 0,
+    bathrooms: 0,
+    beds: 0,
+    guests: 0,
+    price: 100,
+    amenities: [],
+    images: [],
+    wellnessFriendly: false,
+  };
+
+  // Extract property name
+  propertyData.name = 
+    $('h1').first().text().trim() ||
+    $('meta[property="og:title"]').attr('content') ||
+    $('title').text().split('|')[0].trim();
+
+  // Extract location - look for "Ft Lauderdale, Florida" or similar patterns
+  const locationText = $('body').text();
+  const locationMatch = locationText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa)[,\s]+(Florida|FL)/i);
+  if (locationMatch) {
+    propertyData.location = locationMatch[0];
+  } else {
+    // Fallback: look for location in common selectors
+    propertyData.location = 
+      $('.location').text().trim() ||
+      $('[itemprop="address"]').text().trim() ||
+      $('p:contains("Florida")').first().text().trim() ||
+      '';
+  }
+
+  // Extract full description - combine all paragraph text from the description section
+  let descriptionParts: string[] = [];
+  
+  // Look for description paragraphs - typically after the property name
+  $('p').each((_, el) => {
+    const text = $(el).text().trim();
+    // Skip short paragraphs (likely navigation or metadata)
+    if (text.length > 50 && 
+        !text.includes('Skip to') && 
+        !text.includes('Book Now') &&
+        !text.includes('Sign Up') &&
+        !text.includes('Copyright')) {
+      descriptionParts.push(text);
+    }
+  });
+
+  // Combine description parts
+  propertyData.description = descriptionParts
+    .filter((part, index, arr) => {
+      // Remove duplicates
+      return arr.indexOf(part) === index;
+    })
+    .join('\n\n')
+    .trim();
+
+  // If description is still empty, try meta tags
+  if (!propertyData.description) {
+    propertyData.description = 
+      $('meta[property="og:description"]').attr('content') ||
+      $('meta[name="description"]').attr('content') ||
+      '';
+  }
+
+  // Extract property details from text
+  const bodyText = $('body').text();
+  
+  // Extract guests (e.g., "10 Guests")
+  const guestMatch = bodyText.match(/(\d+)\s+Guests?/i);
+  if (guestMatch) propertyData.guests = parseInt(guestMatch[1]);
+
+  // Extract bedrooms (e.g., "5-bedroom" or "5 Bedrooms")
+  const bedroomMatch = bodyText.match(/(\d+)[-\s]bedroom/i) || bodyText.match(/(\d+)\s+Bedrooms?/i);
+  if (bedroomMatch) propertyData.bedrooms = parseInt(bedroomMatch[1]);
+
+  // Extract bathrooms (e.g., "4-bathroom" or "4 Bath")
+  const bathroomMatch = bodyText.match(/(\d+(?:\.\d+)?)[-\s]bath/i) || bodyText.match(/(\d+(?:\.\d+)?)\s+Baths?/i);
+  if (bathroomMatch) propertyData.bathrooms = parseFloat(bathroomMatch[1]);
+
+  // Extract beds (e.g., "6 Beds")
+  const bedMatch = bodyText.match(/(\d+)\s+Beds?(?!\s*room)/i);
+  if (bedMatch) propertyData.beds = parseInt(bedMatch[1]);
+
+  // Extract price (e.g., "$699 / night" or "From : $699 / night")
+  const priceMatch = bodyText.match(/\$(\d+)\s*\/?\s*night/i) || bodyText.match(/From\s*:\s*\$(\d+)/i);
+  if (priceMatch) {
+    propertyData.price = parseInt(priceMatch[1]);
+  }
+
+  // Extract amenities - look for the amenities section
+  const amenitiesSet = new Set<string>();
+  
+  // Try to find amenities in a list or grid
+  $('li, .amenity, [class*="amenity"]').each((_, el) => {
+    const text = $(el).text().trim();
+    if (text && text.length < 50 && !text.includes('Personalize') && !text.includes('Conditions')) {
+      const normalized = normalizeAmenity(text);
+      if (normalized) {
+        amenitiesSet.add(normalized);
+      }
+    }
+  });
+
+  // Also extract from text patterns (e.g., "Air Conditioning", "Home Theater", etc.)
+  const amenityKeywords = [
+    'Air Conditioning', 'Home Theater', 'Pool', 'Living Room', 'Waterfront Deck',
+    'Private Parking', 'Sound System', 'Outdoor Kitchen', 'Full Kitchen Appliances', 'Wi-Fi',
+    'WiFi', 'Kitchen', 'Parking', 'Hot Tub', 'Gym', 'Heating', 'TV', 'Washer', 'Dryer',
+    'Fireplace', 'Workspace', 'Pet Friendly'
+  ];
+
+  amenityKeywords.forEach(keyword => {
+    if (bodyText.match(new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))) {
+      amenitiesSet.add(normalizeAmenity(keyword));
+    }
+  });
+
+  propertyData.amenities = Array.from(amenitiesSet);
+
+  // Extract images
+  const images = new Set<string>();
+  
+  // Extract from meta tags
+  $('meta[property="og:image"]').each((_, el) => {
+    const src = $(el).attr('content');
+    if (src && isValidImageUrl(src)) {
+      images.add(src);
+    }
+  });
+
+  // Extract from img tags
+  $('img').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src');
+    if (src && isValidImageUrl(src)) {
+      try {
+        const absoluteUrl = new URL(src, url).href;
+        images.add(absoluteUrl);
+      } catch (e) {
+        // Invalid URL, skip
+      }
+    }
+  });
+
+  // Extract from background images
+  $('[style*="background-image"]').each((_, el) => {
+    const style = $(el).attr('style') || '';
+    const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
+    if (match && match[1]) {
+      const imageUrl = match[1].trim();
+      if (isValidImageUrl(imageUrl)) {
+        try {
+          const absoluteUrl = new URL(imageUrl, url).href;
+          images.add(absoluteUrl);
+        } catch (e) {
+          // Invalid URL, skip
+        }
+      }
+    }
+  });
+
+  propertyData.images = Array.from(images);
+
+  // Try to extract map coordinates from embedded maps or data attributes
+  // Look for Google Maps iframe or embed
+  const mapIframe = $('iframe[src*="google.com/maps"], iframe[src*="maps.google"]').first();
+  if (mapIframe.length) {
+    const mapSrc = mapIframe.attr('src') || '';
+    const coordMatch = mapSrc.match(/[?&]q=([+-]?\d+\.\d+),([+-]?\d+\.\d+)/) || 
+                      mapSrc.match(/@([+-]?\d+\.\d+),([+-]?\d+\.\d+)/);
+    if (coordMatch) {
+      propertyData.coordinates = {
+        lat: parseFloat(coordMatch[1]),
+        lng: parseFloat(coordMatch[2]),
+      };
+      propertyData.googleMapsUrl = mapSrc;
+    }
+  }
+
+  // Check for data attributes with coordinates
+  const latAttr = $('[data-lat]').first().attr('data-lat');
+  const lngAttr = $('[data-lng]').first().attr('data-lng');
+  if (latAttr && lngAttr) {
+    propertyData.coordinates = {
+      lat: parseFloat(latAttr),
+      lng: parseFloat(lngAttr),
+    };
+  }
+
+  // Check for wellness-friendly indicators
+  if (bodyText.match(/wellness|yoga|spa|meditation|healing/i)) {
+    propertyData.wellnessFriendly = true;
+  }
+
+  console.log('[Esca Management] Extracted:', {
+    name: propertyData.name,
+    location: propertyData.location,
+    bedrooms: propertyData.bedrooms,
+    bathrooms: propertyData.bathrooms,
+    guests: propertyData.guests,
+    price: propertyData.price,
+    amenities: propertyData.amenities.length,
+    images: propertyData.images.length,
+    descriptionLength: propertyData.description.length,
+  });
 
   return propertyData;
 }

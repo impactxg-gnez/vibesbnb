@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map } from 'lucide-react';
+import PropertiesMap from '@/components/PropertiesMap';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
@@ -174,6 +175,10 @@ export default function HostPropertiesPage() {
               status: (p.status || 'active') as 'active' | 'draft' | 'inactive',
               wellnessFriendly: p.wellness_friendly || false,
               googleMapsUrl: p.google_maps_url,
+              coordinates: p.latitude && p.longitude ? {
+                lat: p.latitude,
+                lng: p.longitude,
+              } : undefined,
             }));
           }
           
@@ -477,6 +482,15 @@ export default function HostPropertiesPage() {
   };
 
   const handleTogglePublish = async (id: string, currentStatus: string) => {
+    // If trying to publish, check for coordinates
+    if (currentStatus !== 'active') {
+      const property = properties.find(p => p.id === id);
+      if (property && !property.coordinates) {
+        toast.error('Map coordinates are required to publish a property. Please edit the property and add location coordinates.');
+        return;
+      }
+    }
+
     const newStatus = currentStatus === 'active' ? 'draft' : 'active';
     
     try {
@@ -610,6 +624,13 @@ export default function HostPropertiesPage() {
               Import from URL
             </button>
             <Link
+              href="/host/properties/bulk-import"
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
+            >
+              <Upload size={20} />
+              Bulk Import
+            </Link>
+            <Link
               href="/host/properties/new"
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
             >
@@ -618,6 +639,17 @@ export default function HostPropertiesPage() {
             </Link>
           </div>
         </div>
+
+        {/* Properties Map */}
+        {properties.filter(p => p.coordinates).length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+              <Map size={24} />
+              Properties Map
+            </h2>
+            <PropertiesMap properties={properties} height="500px" />
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -799,11 +831,20 @@ export default function HostPropertiesPage() {
                         property.status === 'active'
                           ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      }`}
-                      title={property.status === 'active' ? 'Unpublish' : 'Publish'}
+                      } ${!property.coordinates && property.status !== 'active' ? 'opacity-75' : ''}`}
+                      title={
+                        property.status === 'active' 
+                          ? 'Unpublish' 
+                          : !property.coordinates 
+                          ? 'Map coordinates required to publish'
+                          : 'Publish'
+                      }
                     >
                       <Power size={16} />
                       {property.status === 'active' ? 'Unpublish' : 'Publish'}
+                      {!property.coordinates && property.status !== 'active' && (
+                        <span className="ml-1 text-xs">⚠️</span>
+                      )}
                     </button>
                     <Link
                       href={`/listings/${property.id}`}

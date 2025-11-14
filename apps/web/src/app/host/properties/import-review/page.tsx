@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Check } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Check, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import LocationPicker from '@/components/LocationPicker';
 
 interface Room {
   id: string;
@@ -191,6 +192,12 @@ export default function ImportReviewPage() {
       return;
     }
 
+    // If publishing, require coordinates
+    if (status === 'active' && !formData.coordinates) {
+      toast.error('Map coordinates are required to publish a property. Please add location coordinates using the map picker.');
+      return;
+    }
+
     if (!user) {
       toast.error('You must be logged in to save properties');
       return;
@@ -314,6 +321,8 @@ export default function ImportReviewPage() {
           images: allImageUrls,
           rooms: roomsData,
           status: status,
+          coordinates: formData.coordinates,
+          googleMapsUrl: formData.googleMapsUrl,
         };
         parsedProperties.push(backupProperty);
         localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
@@ -341,6 +350,8 @@ export default function ImportReviewPage() {
           images: allImageUrls,
           rooms: roomsData,
           status: status,
+          coordinates: formData.coordinates,
+          googleMapsUrl: formData.googleMapsUrl,
         };
 
         const savedProperties = localStorage.getItem(`properties_${userId}`);
@@ -429,16 +440,32 @@ export default function ImportReviewPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Location *
+                  Location * {!formData.coordinates && (
+                    <span className="text-yellow-500 text-xs ml-2">
+                      ⚠️ Map coordinates required for publishing
+                    </span>
+                  )}
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                  placeholder="e.g., Aspen, Colorado"
+                <LocationPicker
+                  location={formData.location}
+                  coordinates={formData.coordinates}
+                  onLocationChange={(location, coordinates) => {
+                    setFormData({
+                      ...formData,
+                      location,
+                      coordinates,
+                      googleMapsUrl: coordinates 
+                        ? `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`
+                        : undefined,
+                    });
+                  }}
+                  className="mb-2"
                 />
+                {formData.coordinates && (
+                  <p className="text-xs text-emerald-400 mt-1">
+                    ✓ Coordinates set: {formData.coordinates.lat.toFixed(6)}, {formData.coordinates.lng.toFixed(6)}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
