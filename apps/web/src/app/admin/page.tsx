@@ -91,9 +91,11 @@ export default function AdminDashboard() {
       }
 
       if (data.total === 0) {
-        toast.warning(`No properties found in database. Debug info: ${JSON.stringify(data.debug || {})}`);
+        toast.error(`No properties found in database. Debug info: ${JSON.stringify(data.debug || {})}`);
       } else if (data.updated === 0) {
-        toast.info(`Found ${data.total} properties, but none needed updates. All properties already have clean names and images.`);
+        toast(`Found ${data.total} properties, but none needed updates. All properties already have clean names and images.`, {
+          icon: 'ℹ️',
+        });
         console.log('Cleanup details:', data);
       } else {
         toast.success(`Successfully cleaned up ${data.updated} out of ${data.total} properties! (${data.breakdown?.nameCleanups || 0} name cleanups, ${data.breakdown?.imageAdditions || 0} image additions)`);
