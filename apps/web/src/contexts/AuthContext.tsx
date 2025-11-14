@@ -36,6 +36,12 @@ const DEMO_ACCOUNTS = {
     name: 'Demo Admin',
     email: 'demo@admin.com',
   },
+  'admin@vibesbnb.com': {
+    password: 'Vibes123!',
+    role: 'admin',
+    name: 'Admin',
+    email: 'admin@vibesbnb.com',
+  },
   'esca@vibesbnb.com': {
     password: 'Esca123!',
     role: 'host',
@@ -149,7 +155,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(mockUser as any);
       localStorage.setItem('demoUser', JSON.stringify(mockUser));
-      router.push('/');
+      
+      // Sync role to localStorage
+      const rolesStr = localStorage.getItem('userRoles');
+      const roles = rolesStr ? JSON.parse(rolesStr) : [];
+      if (!roles.includes(demoAccount.role)) {
+        roles.push(demoAccount.role);
+        localStorage.setItem('userRoles', JSON.stringify(roles));
+      }
+      
+      // Redirect based on role
+      if (demoAccount.role === 'admin') {
+        router.push('/admin');
+      } else if (demoAccount.role === 'host') {
+        router.push('/host/properties');
+      } else {
+        router.push('/');
+      }
       router.refresh();
       return { error: null };
     }
@@ -158,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!useSupabase) {
       return { 
         error: { 
-          message: 'Invalid email or password. Try demo@traveller.com, demo@host.com, demo@admin.com (password: password) or esca@vibesbnb.com (password: Esca123!)' 
+          message: 'Invalid email or password. Try demo@traveller.com, demo@host.com, demo@admin.com (password: password), admin@vibesbnb.com (password: Vibes123!) or esca@vibesbnb.com (password: Esca123!)' 
         } 
       };
     }
@@ -181,7 +203,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         // Redirect based on role
-        if (role === 'host') {
+        if (role === 'admin') {
+          router.push('/admin');
+        } else if (role === 'host') {
           router.push('/host/properties');
         } else {
           router.push('/');
