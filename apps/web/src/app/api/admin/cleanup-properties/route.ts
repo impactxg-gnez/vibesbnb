@@ -89,17 +89,18 @@ export async function POST(request: NextRequest) {
 
       if (needsUpdate) {
         updatePromises.push(
-          supabase
-            .from('properties')
-            .update(updateData)
-            .eq('id', property.id)
-            .then(({ error }) => {
-              if (error) {
-                console.error(`Error updating property ${property.id}:`, error);
-                return false;
-              }
-              return true;
-            })
+          Promise.resolve(
+            supabase
+              .from('properties')
+              .update(updateData)
+              .eq('id', property.id)
+          ).then(({ error }) => {
+            if (error) {
+              console.error(`Error updating property ${property.id}:`, error);
+              return false;
+            }
+            return true;
+          })
         );
         updatedCount++;
       }
