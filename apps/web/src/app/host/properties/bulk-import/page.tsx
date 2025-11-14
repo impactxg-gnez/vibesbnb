@@ -273,7 +273,7 @@ export default function BulkImportPage() {
                   type="url"
                   value={url}
                   onChange={(e) => updateUrl(index, e.target.value)}
-                  placeholder="https://esca-management.com/property-listing_the-netflix-house/"
+                  placeholder="Paste property link here"
                   className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                   disabled={importing}
                 />
@@ -291,7 +291,7 @@ export default function BulkImportPage() {
           </div>
 
           <p className="text-sm text-gray-400 mt-4">
-            💡 Enter one Esca Management property URL per line. All properties will be imported as drafts for review.
+            1 URL per line
           </p>
         </div>
 
