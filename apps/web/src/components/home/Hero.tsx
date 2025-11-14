@@ -3,9 +3,12 @@
 import { motion } from 'framer-motion';
 
 export function Hero() {
-  // Replace this URL with your hosted image URL from Imgur/ImgBB/Cloudinary
-  // Example: 'https://i.imgur.com/your-image-id.jpg'
-  const backgroundImageUrl = 'https://i.imgur.com/PLACEHOLDER.jpg'; // TODO: Replace with actual hosted image URL
+  // Get image URL from environment variable
+  // Set NEXT_PUBLIC_HERO_BACKGROUND_URL in your .env.local after uploading via /admin/upload-hero-image
+  // Or construct the Supabase URL: https://YOUR_PROJECT.supabase.co/storage/v1/object/public/hero-images/hero/FILENAME
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const backgroundImageUrl = process.env.NEXT_PUBLIC_HERO_BACKGROUND_URL || 
+    (supabaseUrl ? `${supabaseUrl.replace('/rest/v1', '')}/storage/v1/object/public/hero-images/hero/peace-sign-background.jpg` : '');
   
   return (
     <div className="relative h-[500px] md:h-[600px] overflow-hidden">
