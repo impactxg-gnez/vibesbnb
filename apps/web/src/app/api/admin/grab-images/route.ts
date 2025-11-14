@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // Fetch all properties that need images
     const { data: properties, error: fetchError } = await supabase
       .from('properties')
-      .select('id, name, location, images, google_maps_url');
+      .select('id, name, location, images, google_maps_url, description');
 
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
@@ -78,20 +78,55 @@ export async function POST(request: NextRequest) {
     // Process each property
     for (const property of propertiesNeedingImages) {
       try {
-        // Try to get images from Unsplash based on property name and location
-        const searchQuery = `${property.name} ${property.location || ''} property vacation rental`.trim();
-        const unsplashUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=3&client_id=${process.env.UNSPLASH_ACCESS_KEY || ''}`;
-        
         let newImages: string[] = [];
         
-        // If Unsplash API key is available, try to fetch images
-        if (process.env.UNSPLASH_ACCESS_KEY) {
+        // First, try to scrape images from the original source if we have a way to identify it
+        // For Esca Management properties, we can try to reconstruct the URL
+        const propertyName = property.name || '';
+        const location = property.location || '';
+        
+        // Try to construct Esca Management URL if it's an Esca property
+        if (propertyName && !propertyName.includes('Untitled')) {
+          const escaSlug = propertyName.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          
+          if (escaSlug) {
+            try {
+              const escaUrl = `https://esca-management.com/property-listing_${escaSlug}/`;
+              const scrapeResponse = await fetch('/api/scrape-property', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: escaUrl }),
+              });
+              
+              if (scrapeResponse.ok) {
+                const scrapeData = await scrapeResponse.json();
+                if (scrapeData.success && scrapeData.data?.images && scrapeData.data.images.length > 0) {
+                  newImages = scrapeData.data.images.slice(0, 5); // Get up to 5 images
+                  console.log(`Found ${newImages.length} images for property ${property.id} from source`);
+                }
+              }
+            } catch (e) {
+              console.error(`Error scraping images for property ${property.id}:`, e);
+            }
+          }
+        }
+        
+        // If no images from scraping, try Unsplash
+        if (newImages.length === 0 && process.env.UNSPLASH_ACCESS_KEY) {
+          const searchQuery = `${propertyName} ${location} property vacation rental`.trim();
+          const unsplashUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=3&client_id=${process.env.UNSPLASH_ACCESS_KEY}`;
+          
           try {
             const unsplashResponse = await fetch(unsplashUrl);
             if (unsplashResponse.ok) {
               const unsplashData = await unsplashResponse.json();
               if (unsplashData.results && unsplashData.results.length > 0) {
                 newImages = unsplashData.results.slice(0, 3).map((photo: any) => photo.urls.regular);
+                console.log(`Found ${newImages.length} images for property ${property.id} from Unsplash`);
               }
             }
           } catch (e) {
@@ -99,11 +134,10 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // If no images from Unsplash, try to scrape from Google Images or use a better placeholder
+        // If still no images, use a descriptive placeholder
         if (newImages.length === 0) {
-          // Use a more descriptive placeholder based on property name
-          const propertyName = property.name || 'Property';
-          newImages = [`https://via.placeholder.com/800x600/1a1a1a/ffffff?text=${encodeURIComponent(propertyName)}`];
+          const displayName = propertyName || 'Property';
+          newImages = [`https://via.placeholder.com/800x600/1a1a1a/ffffff?text=${encodeURIComponent(displayName.substring(0, 30))}`];
         }
 
         // Update the property with new images
