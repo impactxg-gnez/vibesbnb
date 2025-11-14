@@ -23,6 +23,10 @@ interface Property {
   status: 'active' | 'draft' | 'inactive';
   wellnessFriendly: boolean;
   googleMapsUrl?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 export default function HostPropertiesPage() {
