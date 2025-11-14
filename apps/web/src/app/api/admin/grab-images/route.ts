@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,31 +9,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const userRole = body.role;
     
-    // Also try to get from Supabase if available
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    // Check if user is admin - check user metadata first, then request body
-    let isAdmin = false;
-    if (user) {
-      isAdmin = user.user_metadata?.role === 'admin' || user.app_metadata?.role === 'admin';
-    }
-    if (!isAdmin && userRole === 'admin') {
-      isAdmin = true;
-    }
-    
-    if (!isAdmin) {
+    // Check if user is admin
+    if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
     const isSupabaseConfigured = supabaseUrl && 
                                   supabaseUrl !== '' &&
                                   supabaseUrl !== 'https://placeholder.supabase.co' &&
-                                  supabaseKey &&
-                                  supabaseKey !== '' &&
-                                  supabaseKey !== 'placeholder-key';
+                                  supabaseAnonKey &&
+                                  supabaseAnonKey !== '' &&
+                                  supabaseAnonKey !== 'placeholder-key';
 
     if (!isSupabaseConfigured) {
       return NextResponse.json({ 
@@ -42,18 +32,36 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch all properties that need images
+    // Use service role key if available (bypasses RLS), otherwise use anon key
+    const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    console.log('[Grab Images] Fetching all properties...');
+    // Fetch all properties
     const { data: properties, error: fetchError } = await supabase
       .from('properties')
       .select('id, name, location, images, google_maps_url, description');
+    
+    console.log('[Grab Images] Found', properties?.length || 0, 'properties');
+    if (fetchError) {
+      console.error('[Grab Images] Fetch error:', fetchError);
+    }
 
     if (fetchError) {
+      console.error('[Grab Images] Error fetching properties:', fetchError);
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
     if (!properties || properties.length === 0) {
+      console.log('[Grab Images] No properties found in database');
       return NextResponse.json({ 
-        message: 'No properties found',
+        message: 'No properties found in database',
+        total: 0,
         updated: 0
       });
     }
@@ -64,6 +72,8 @@ export async function POST(request: NextRequest) {
       return images.length === 0 || 
              (images.length === 1 && images[0].includes('placeholder'));
     });
+
+    console.log('[Grab Images] Found', propertiesNeedingImages.length, 'properties needing images out of', properties.length, 'total');
 
     if (propertiesNeedingImages.length === 0) {
       return NextResponse.json({

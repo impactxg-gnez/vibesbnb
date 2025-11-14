@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,31 +9,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const userRole = body.role;
     
-    // Also try to get from Supabase if available
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    // Check if user is admin - check user metadata first, then request body
-    let isAdmin = false;
-    if (user) {
-      isAdmin = user.user_metadata?.role === 'admin' || user.app_metadata?.role === 'admin';
-    }
-    if (!isAdmin && userRole === 'admin') {
-      isAdmin = true;
-    }
-    
-    if (!isAdmin) {
+    // Check if user is admin
+    if (userRole !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
     const isSupabaseConfigured = supabaseUrl && 
                                   supabaseUrl !== '' &&
                                   supabaseUrl !== 'https://placeholder.supabase.co' &&
-                                  supabaseKey &&
-                                  supabaseKey !== '' &&
-                                  supabaseKey !== 'placeholder-key';
+                                  supabaseAnonKey &&
+                                  supabaseAnonKey !== '' &&
+                                  supabaseAnonKey !== 'placeholder-key';
 
     if (!isSupabaseConfigured) {
       return NextResponse.json({ 
@@ -42,18 +32,36 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Use service role key if available (bypasses RLS), otherwise use anon key
+    const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    console.log('[Cleanup] Fetching all properties...');
     // Fetch all properties
     const { data: properties, error: fetchError } = await supabase
       .from('properties')
       .select('id, name, title, images');
+    
+    console.log('[Cleanup] Found', properties?.length || 0, 'properties');
+    if (fetchError) {
+      console.error('[Cleanup] Fetch error:', fetchError);
+    }
 
     if (fetchError) {
+      console.error('[Cleanup] Error fetching properties:', fetchError);
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
     if (!properties || properties.length === 0) {
+      console.log('[Cleanup] No properties found in database');
       return NextResponse.json({ 
-        message: 'No properties found to clean up',
+        message: 'No properties found in database',
+        total: 0,
         updated: 0
       });
     }
@@ -61,6 +69,7 @@ export async function POST(request: NextRequest) {
     let updatedCount = 0;
     const updatePromises: Promise<any>[] = [];
 
+    console.log('[Cleanup] Processing', properties.length, 'properties...');
     // Process each property
     for (const property of properties) {
       let needsUpdate = false;
@@ -75,6 +84,7 @@ export async function POST(request: NextRequest) {
           .trim();
         
         if (cleanedName !== currentName && cleanedName.length > 0) {
+          console.log(`[Cleanup] Property ${property.id}: "${currentName}" -> "${cleanedName}"`);
           updateData.name = cleanedName;
           updateData.title = cleanedName;
           needsUpdate = true;
@@ -84,6 +94,7 @@ export async function POST(request: NextRequest) {
       // Ensure at least one image exists
       const images = property.images || [];
       if (images.length === 0) {
+        console.log(`[Cleanup] Property ${property.id}: Adding placeholder image`);
         // Use a placeholder image - hosts should add their own images
         updateData.images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
         needsUpdate = true;
@@ -98,15 +109,18 @@ export async function POST(request: NextRequest) {
               .eq('id', property.id)
           ).then(({ error }) => {
             if (error) {
-              console.error(`Error updating property ${property.id}:`, error);
+              console.error(`[Cleanup] Error updating property ${property.id}:`, error);
               return false;
             }
+            console.log(`[Cleanup] Successfully updated property ${property.id}`);
             return true;
           })
         );
         updatedCount++;
       }
     }
+    
+    console.log('[Cleanup] Found', updatedCount, 'properties that need updates out of', properties.length, 'total');
 
     // Wait for all updates to complete
     await Promise.all(updatePromises);
