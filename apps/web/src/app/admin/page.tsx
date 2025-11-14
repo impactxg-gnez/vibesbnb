@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Users, List, Bell } from 'lucide-react';
+import { Users, List, Bell, RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface DashboardStats {
   users: {
@@ -61,6 +62,33 @@ export default function AdminDashboard() {
       });
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const handleCleanupProperties = async () => {
+    if (!confirm('This will clean up all property names (remove "Property Listing" prefix) and ensure all properties have at least 1 photo. Continue?')) {
+      return;
+    }
+
+    setCleaningUp(true);
+    try {
+      const response = await fetch('/api/admin/cleanup-properties', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cleanup properties');
+      }
+
+      toast.success(`Successfully cleaned up ${data.updated} properties!`);
+      fetchStats(); // Refresh stats
+    } catch (error: any) {
+      console.error('Error cleaning up properties:', error);
+      toast.error(error.message || 'Failed to cleanup properties');
+    } finally {
+      setCleaningUp(false);
     }
   };
 
