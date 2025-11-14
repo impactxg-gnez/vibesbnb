@@ -111,6 +111,13 @@ export default function BulkImportPage() {
           }
         }
 
+        // Ensure we have at least one image - add placeholder if none found
+        let images = scrapedData.images || [];
+        if (images.length === 0) {
+          console.warn(`[Bulk Import] No images found for ${scrapedData.name || url}, adding placeholder`);
+          images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
+        }
+
         const propertyData = {
           name: scrapedData.name || 'Imported Property',
           description: scrapedData.description || '',
@@ -120,7 +127,7 @@ export default function BulkImportPage() {
           beds: scrapedData.beds || 1,
           guests: scrapedData.guests || 2,
           price: scrapedData.price || 100,
-          images: scrapedData.images || [],
+          images: images, // Use the validated images array
           amenities: scrapedData.amenities || [],
           wellnessFriendly: scrapedData.wellnessFriendly || false,
           smokeFriendly: false,
@@ -128,6 +135,8 @@ export default function BulkImportPage() {
           coordinates: scrapedData.coordinates,
           status: 'draft', // Always save as draft so host can review
         };
+        
+        console.log(`[Bulk Import] Property ${propertyData.name} - Images: ${images.length}`);
 
         importedData.push(propertyData);
 

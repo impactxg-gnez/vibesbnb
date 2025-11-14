@@ -986,7 +986,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
     // If still no images, try to get the first large image from the page
     if (propertyData.images.length === 0) {
       $('img').each((_, el) => {
-        const src = $(el).attr('src') || $(el).attr('data-src');
+        const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src');
         if (src && isValidImageUrl(src) && !src.includes('icon') && !src.includes('logo')) {
           try {
             const absoluteUrl = new URL(src, url).href;
@@ -997,6 +997,12 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
           }
         }
       });
+    }
+    
+    // Final fallback: if still no images, add a placeholder
+    if (propertyData.images.length === 0) {
+      console.warn(`[Scraper] No images found for ${url}, adding placeholder`);
+      propertyData.images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
     }
   }
 

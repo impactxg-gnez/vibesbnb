@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log('[Grab Images] Fetching all properties...');
-    // Fetch all properties
+    console.log('[Grab Images] Fetching all properties (including drafts)...');
+    // Fetch all properties (including drafts) - don't filter by status
     const { data: properties, error: fetchError } = await supabase
       .from('properties')
-      .select('id, name, location, images, google_maps_url, description');
+      .select('id, name, location, images, google_maps_url, description, status');
     
     console.log('[Grab Images] Found', properties?.length || 0, 'properties');
     if (fetchError) {
@@ -67,10 +67,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Filter properties that need images (empty or only placeholder)
+    // Also check for empty arrays, null, or arrays with empty strings
     const propertiesNeedingImages = properties.filter(p => {
       const images = p.images || [];
-      return images.length === 0 || 
-             (images.length === 1 && images[0].includes('placeholder'));
+      const hasValidImages = Array.isArray(images) && 
+                            images.length > 0 && 
+                            images.some(img => img && img.trim() !== '' && !img.includes('placeholder'));
+      return !hasValidImages;
+    });
+    
+    console.log('[Grab Images] Properties needing images breakdown:', {
+      total: properties.length,
+      needingImages: propertiesNeedingImages.length,
+      withValidImages: properties.length - propertiesNeedingImages.length,
+      byStatus: {
+        draft: propertiesNeedingImages.filter(p => p.status === 'draft').length,
+        active: propertiesNeedingImages.filter(p => p.status === 'active').length,
+        other: propertiesNeedingImages.filter(p => !p.status || (p.status !== 'draft' && p.status !== 'active')).length,
+      }
     });
 
     console.log('[Grab Images] Found', propertiesNeedingImages.length, 'properties needing images out of', properties.length, 'total');
@@ -98,14 +112,24 @@ export async function POST(request: NextRequest) {
         const location = property.location || '';
         
         // Try to construct Esca Management URL if it's an Esca property
-        if (propertyName && !propertyName.includes('Untitled')) {
-          const escaSlug = propertyName.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
+        // Check if property name contains "Esca Management" or if it looks like an Esca property
+        const isEscaProperty = propertyName.includes('Esca Management') || 
+                              propertyName.includes('Esca') ||
+                              (property.google_maps_url && property.google_maps_url.includes('esca'));
+        
+        if (propertyName && !propertyName.includes('Untitled') && isEscaProperty) {
+          // Try multiple URL patterns
+          const urlPatterns = [
+            // Pattern 1: property-listing_{slug}
+            `https://esca-management.com/property-listing_${propertyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}/`,
+            // Pattern 2: Try to extract from name if it has a specific format
+            propertyName.toLowerCase().includes('the netflix house') ? 'https://esca-management.com/property-listing_the-netflix-house/' : null,
+            propertyName.toLowerCase().includes('prima studio') ? 'https://esca-management.com/property-listing_prima-studio/' : null,
+          ].filter(Boolean);
           
-          if (escaSlug) {
+          for (const escaUrl of urlPatterns) {
             try {
-              const escaUrl = `https://esca-management.com/property-listing_${escaSlug}/`;
+              console.log(`[Grab Images] Trying to scrape from: ${escaUrl}`);
               
               // Call the scrape-property API using the full URL
               const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
@@ -123,12 +147,19 @@ export async function POST(request: NextRequest) {
               if (scrapeResponse.ok) {
                 const scrapeData = await scrapeResponse.json();
                 if (scrapeData.success && scrapeData.data?.images && scrapeData.data.images.length > 0) {
-                  newImages = scrapeData.data.images.slice(0, 5); // Get up to 5 images
-                  console.log(`Found ${newImages.length} images for property ${property.id} from source`);
+                  // Filter out placeholder images
+                  newImages = scrapeData.data.images
+                    .filter((img: string) => !img.includes('placeholder'))
+                    .slice(0, 5); // Get up to 5 images
+                  
+                  if (newImages.length > 0) {
+                    console.log(`[Grab Images] Found ${newImages.length} images for property ${property.id} from ${escaUrl}`);
+                    break; // Found images, stop trying other URLs
+                  }
                 }
               }
             } catch (e) {
-              console.error(`Error scraping images for property ${property.id}:`, e);
+              console.error(`[Grab Images] Error scraping images for property ${property.id} from ${escaUrl}:`, e);
             }
           }
         }
