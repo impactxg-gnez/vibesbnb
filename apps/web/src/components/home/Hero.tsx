@@ -7,11 +7,12 @@ export function Hero() {
   return (
     <div className="relative h-[500px] md:h-[600px] overflow-hidden">
       <Image
-        src="/peace-sign-background.jpg"
+        src="/peace-sign-background.jfif"
         alt="VibesBNB - Peace, Love, Good Vibes"
         fill
         className="object-cover"
         priority
+        unoptimized
       />
       <div className="absolute inset-0 bg-gradient-to-t from-gray-950/60 via-gray-950/20 to-transparent" />
       
