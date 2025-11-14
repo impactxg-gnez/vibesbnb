@@ -59,20 +59,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Manage Payout', href: '/admin/payouts', icon: <Settings className="w-5 h-5" /> },
     { label: 'Search Settings', href: '/admin/search-settings', icon: <Search className="w-5 h-5" /> },
     { label: 'Change Password', href: '/admin/change-password', icon: <Lock className="w-5 h-5" /> },
-    {
-      label: 'List Settings for Step#1',
-      icon: <Settings className="w-5 h-5" />,
-      children: [
-        { label: 'Step 1 Settings', href: '/admin/list-settings/step1', icon: <Settings className="w-4 h-4" /> },
-      ],
-    },
-    {
-      label: 'List Settings for Step#3',
-      icon: <Settings className="w-5 h-5" />,
-      children: [
-        { label: 'Step 3 Settings', href: '/admin/list-settings/step3', icon: <Settings className="w-4 h-4" /> },
-      ],
-    },
   ];
 
   const toggleExpanded = (label: string) => {
