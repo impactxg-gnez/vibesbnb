@@ -66,12 +66,16 @@ export default function HostPropertiesPage() {
         if (cachedProperties) {
           try {
             const parsed = JSON.parse(cachedProperties);
-            // Check if it's mock data (has Mountain View Cabin or Beach Villa)
+            // Check if it's mock data (common dummy property names or simple IDs)
             const isMockData = parsed.some((p: any) => 
               p.name === 'Mountain View Cabin' || 
               p.name === 'Beach Villa' ||
+              p.name === 'Cedar Grove Cabin' ||
+              p.name === 'Lakeside Lodge' ||
               p.id === '1' || 
-              p.id === '2'
+              p.id === '2' ||
+              p.id === '3' ||
+              (typeof p.id === 'string' && p.id.length < 5) // Very short IDs are likely mock data
             );
             if (isMockData) {
               localStorage.removeItem(propertiesKey);

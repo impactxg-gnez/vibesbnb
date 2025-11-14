@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 
 interface Property {
   id: string;
@@ -35,38 +36,54 @@ export function SearchSection() {
     { id: 'cabins', label: 'Cabins', icon: '🏡' },
   ];
 
-  // Fetch available locations from all properties in localStorage
+  // Fetch available locations from Supabase properties
   useEffect(() => {
-    const allLocations = new Set<string>();
-    
-    // Get all properties from localStorage (from all users)
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith('properties_')) {
-        try {
-          const properties = JSON.parse(localStorage.getItem(key) || '[]') as Property[];
-          properties.forEach(property => {
-            if (property.location) {
-              allLocations.add(property.location);
+    const loadLocations = async () => {
+      const allLocations = new Set<string>();
+      
+      try {
+        const supabase = createClient();
+        const { data: propertiesData, error } = await supabase
+          .from('properties')
+          .select('location')
+          .eq('status', 'active')
+          .not('location', 'is', null);
+
+        if (!error && propertiesData) {
+          propertiesData.forEach((p: any) => {
+            if (p.location) {
+              allLocations.add(p.location);
             }
           });
-        } catch (e) {
-          console.error('Error parsing properties:', e);
         }
+
+        // Fallback to localStorage if Supabase is not configured or has no data
+        if (allLocations.size === 0) {
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.startsWith('properties_')) {
+              try {
+                const properties = JSON.parse(localStorage.getItem(key) || '[]') as Property[];
+                properties.forEach(property => {
+                  if (property.location) {
+                    allLocations.add(property.location);
+                  }
+                });
+              } catch (e) {
+                console.error('Error parsing properties:', e);
+              }
+            }
+          });
+        }
+
+        setLocations(Array.from(allLocations).sort());
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        setLocations([]);
       }
-    });
+    };
 
-    // Add some default locations if none found
-    if (allLocations.size === 0) {
-      allLocations.add('Colorado, USA');
-      allLocations.add('California, USA');
-      allLocations.add('Portland, OR');
-      allLocations.add('Arizona, USA');
-      allLocations.add('Washington, USA');
-      allLocations.add('Michigan, USA');
-    }
-
-    setLocations(Array.from(allLocations).sort());
+    loadLocations();
   }, []);
 
   // Close dropdowns when clicking outside

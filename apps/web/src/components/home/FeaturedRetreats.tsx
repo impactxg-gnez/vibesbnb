@@ -1,35 +1,78 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
-const retreats = [
-  {
-    id: 1,
-    name: 'Cedar Grove Cabin',
-    location: 'Asheville, NC',
-    rating: 4.8,
-    reviews: 126,
-    price: 185,
-    image: 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
-    amenities: ['Yoga deck', 'Hot tub'],
-    badge: 'Wellness-friendly',
-  },
-  {
-    id: 2,
-    name: 'Lakeside Lodge',
-    location: 'Truckee, CA',
-    rating: 4.9,
-    reviews: 89,
-    price: 245,
-    image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&h=400&fit=crop',
-    amenities: ['Sauna', 'Lake view'],
-    badge: 'Wellness-friendly',
-  },
-];
+interface Retreat {
+  id: string;
+  name: string;
+  location: string;
+  rating: number;
+  reviews: number;
+  price: number;
+  image: string;
+  amenities: string[];
+  badge: string;
+}
 
 export function FeaturedRetreats() {
+  const [retreats, setRetreats] = useState<Retreat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadFeaturedRetreats = async () => {
+      try {
+        const supabase = createClient();
+        const { data: propertiesData, error } = await supabase
+          .from('properties')
+          .select('*')
+          .eq('status', 'active')
+          .eq('wellness_friendly', true)
+          .order('created_at', { ascending: false })
+          .limit(6);
+
+        if (error) {
+          console.error('Error loading featured retreats:', error);
+          setRetreats([]);
+          setLoading(false);
+          return;
+        }
+
+        const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => ({
+          id: p.id,
+          name: p.name || p.title || 'Property',
+          location: p.location || '',
+          rating: p.rating ? Number(p.rating) : 4.5,
+          reviews: 0, // TODO: Get from reviews table
+          price: p.price ? Number(p.price) : 0,
+          image: p.images && p.images.length > 0 ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
+          amenities: (p.amenities || []).slice(0, 2),
+          badge: 'Wellness-friendly',
+        }));
+
+        setRetreats(featuredRetreats);
+      } catch (error) {
+        console.error('Error loading featured retreats:', error);
+        setRetreats([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeaturedRetreats();
+  }, []);
+
+  if (loading) {
+    return null;
+  }
+
+  if (retreats.length === 0) {
+    return null; // Don't show section if no retreats
+  }
+
   return (
     <div className="container mx-auto px-4 pb-12">
       <h2 className="text-2xl font-bold text-white mb-6">Featured retreats</h2>
