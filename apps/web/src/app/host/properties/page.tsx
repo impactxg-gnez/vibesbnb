@@ -209,9 +209,22 @@ export default function HostPropertiesPage() {
               localStorageProperties.forEach((localProp: any) => {
                 if (!supabaseIds.has(localProp.id)) {
                   // Property exists in localStorage but not in Supabase - add it
+                  // Clean up property name - remove "Property Listing" prefix
+                  let propertyName = localProp.name || 'Untitled Property';
+                  propertyName = propertyName
+                    .replace(/^Property\s+Listing[_\s-]*/i, '')
+                    .replace(/^property-listing[_\s-]*/i, '')
+                    .trim() || 'Untitled Property';
+                  
+                  // Ensure at least one image
+                  let images = localProp.images || [];
+                  if (images.length === 0) {
+                    images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
+                  }
+                  
                   finalProperties.push({
                     id: localProp.id,
-                    name: localProp.name || 'Untitled Property',
+                    name: propertyName,
                     description: localProp.description || '',
                     location: localProp.location || '',
                     bedrooms: localProp.bedrooms || 0,
@@ -219,11 +232,12 @@ export default function HostPropertiesPage() {
                     beds: localProp.beds,
                     guests: localProp.guests || 0,
                     price: localProp.price ? Number(localProp.price) : 0,
-                    images: localProp.images || [],
+                    images: images,
                     amenities: localProp.amenities || [],
                     status: (localProp.status || 'draft') as 'active' | 'draft' | 'inactive',
                     wellnessFriendly: localProp.wellnessFriendly || false,
                     googleMapsUrl: localProp.googleMapsUrl,
+                    coordinates: localProp.coordinates,
                   });
                   console.log('[Properties] Added property from localStorage backup:', localProp.id);
                 }
