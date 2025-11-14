@@ -397,11 +397,12 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
     
     // 6. Extract from photo gallery components
     Array.from(document.querySelectorAll('[data-testid*="photo"], [class*="photo"], [class*="image"]')).forEach(el => {
+      const htmlEl = el as HTMLElement;
       const sources = [
         el.getAttribute('src'),
         el.getAttribute('data-src'),
         el.getAttribute('data-image'),
-        el.style.backgroundImage?.match(/url\(['"]?([^'")]+)['"]?\)/)?.[1]
+        htmlEl.style?.backgroundImage?.match(/url\(['"]?([^'")]+)['"]?\)/)?.[1]
       ].filter(Boolean) as string[];
       
       sources.forEach(src => {

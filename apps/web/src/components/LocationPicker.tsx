@@ -23,9 +23,9 @@ export default function LocationPicker({
   
   const mapRef = useRef<HTMLDivElement>(null);
   const autocompleteInputRef = useRef<HTMLInputElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const autocompleteRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize Google Maps
