@@ -4,9 +4,16 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+
+interface Room {
+  id: string;
+  name: string;
+  images: File[];
+  imagePreviewUrls: string[];
+}
 
 interface Property {
   id: string;
@@ -21,6 +28,7 @@ interface Property {
   amenities: string[];
   images: File[];
   imagePreviewUrls: string[];
+  rooms?: Room[];
 }
 
 export default function EditPropertyPage() {
@@ -42,7 +50,11 @@ export default function EditPropertyPage() {
     amenities: [],
     images: [],
     imagePreviewUrls: [],
+    rooms: [],
   });
+  const [rooms, setRooms] = useState<Room[]>([
+    { id: Date.now().toString(), name: 'Living Room', images: [], imagePreviewUrls: [] },
+  ]);
 
   const availableAmenities = [
     'WiFi',
@@ -119,10 +131,32 @@ export default function EditPropertyPage() {
               amenities: propertyData.amenities || [],
               images: [],
               imagePreviewUrls: propertyData.images || [],
+              rooms: propertyData.rooms || [],
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
             setFormData(loadedProperty);
+            
+            // Load rooms if they exist, otherwise create default room from images
+            if (propertyData.rooms && Array.isArray(propertyData.rooms) && propertyData.rooms.length > 0) {
+              const loadedRooms: Room[] = propertyData.rooms.map((r: any, idx: number) => ({
+                id: `room-${idx}-${Date.now()}`,
+                name: r.name || `Room ${idx + 1}`,
+                images: [],
+                imagePreviewUrls: r.images || [],
+              }));
+              setRooms(loadedRooms);
+            } else if (propertyData.images && propertyData.images.length > 0) {
+              // Migrate old format: create a default room with all images
+              setRooms([
+                {
+                  id: Date.now().toString(),
+                  name: 'All Photos',
+                  images: [],
+                  imagePreviewUrls: propertyData.images || [],
+                },
+              ]);
+            }
             return;
           }
         }
@@ -148,10 +182,32 @@ export default function EditPropertyPage() {
                 amenities: property.amenities || [],
                 images: [],
                 imagePreviewUrls: property.images || [],
+                rooms: property.rooms || [],
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
               setFormData(loadedProperty);
+              
+              // Load rooms if they exist, otherwise create default room from images
+              if (property.rooms && Array.isArray(property.rooms) && property.rooms.length > 0) {
+                const loadedRooms: Room[] = property.rooms.map((r: any, idx: number) => ({
+                  id: `room-${idx}-${Date.now()}`,
+                  name: r.name || `Room ${idx + 1}`,
+                  images: [],
+                  imagePreviewUrls: r.images || [],
+                }));
+                setRooms(loadedRooms);
+              } else if (property.images && property.images.length > 0) {
+                // Migrate old format: create a default room with all images
+                setRooms([
+                  {
+                    id: Date.now().toString(),
+                    name: 'All Photos',
+                    images: [],
+                    imagePreviewUrls: property.images || [],
+                  },
+                ]);
+              }
               return;
             }
           } catch (e) {
@@ -176,34 +232,64 @@ export default function EditPropertyPage() {
     }
   }, [params.id, user, router]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length + formData.images.length > 10) {
-      toast.error('Maximum 10 images allowed');
+  const addRoom = () => {
+    setRooms([
+      ...rooms,
+      { id: Date.now().toString(), name: '', images: [], imagePreviewUrls: [] },
+    ]);
+  };
+
+  const removeRoom = (roomId: string) => {
+    if (rooms.length === 1) {
+      toast.error('At least one room is required');
       return;
     }
+    setRooms(rooms.filter((r) => r.id !== roomId));
+  };
 
-    const newImages = [...formData.images, ...files];
-    const newPreviews = [...formData.imagePreviewUrls];
+  const updateRoomName = (roomId: string, name: string) => {
+    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, name } : r)));
+  };
+
+  const handleImageUpload = (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) return;
+
+    const newImages = [...room.images, ...files];
+    const newPreviews = [...room.imagePreviewUrls];
 
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         newPreviews.push(reader.result as string);
-        setFormData(prev => ({ ...prev, imagePreviewUrls: newPreviews }));
+        setRooms(
+          rooms.map((r) =>
+            r.id === roomId ? { ...r, images: newImages, imagePreviewUrls: newPreviews } : r
+          )
+        );
       };
       reader.readAsDataURL(file);
     });
 
-    setFormData(prev => ({ ...prev, images: newImages }));
+    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, images: newImages } : r)));
   };
 
-  const removeImage = (index: number) => {
-    setFormData({
-      ...formData,
-      images: formData.images.filter((_, i) => i !== index),
-      imagePreviewUrls: formData.imagePreviewUrls.filter((_, i) => i !== index),
-    });
+  const removeImage = (roomId: string, index: number) => {
+    setRooms(
+      rooms.map((r) => {
+        if (r.id === roomId) {
+          return {
+            ...r,
+            images: r.images.filter((_, i) => i !== index),
+            imagePreviewUrls: r.imagePreviewUrls.filter((_, i) => i !== index),
+          };
+        }
+        return r;
+      })
+    );
   };
 
   const toggleAmenity = (amenity: string) => {
@@ -223,6 +309,13 @@ export default function EditPropertyPage() {
       return;
     }
 
+    // Validate rooms
+    const allRoomsValid = rooms.every((r) => r.name.trim() !== '');
+    if (!allRoomsValid) {
+      toast.error('Please provide a name for all rooms');
+      return;
+    }
+
     if (!user) {
       toast.error('You must be logged in to update properties');
       return;
@@ -239,6 +332,42 @@ export default function EditPropertyPage() {
       
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
+      // Collect all images from rooms
+      const allImageUrls: string[] = [];
+      const roomsData: any[] = [];
+
+      for (const room of rooms) {
+        const roomImages: string[] = [];
+        for (const previewUrl of room.imagePreviewUrls) {
+          // If it's already a data URL, use it; otherwise convert the file
+          if (previewUrl.startsWith('data:')) {
+            roomImages.push(previewUrl);
+            allImageUrls.push(previewUrl);
+          } else {
+            // Find the corresponding file
+            const fileIndex = room.imagePreviewUrls.indexOf(previewUrl);
+            if (fileIndex < room.images.length) {
+              const reader = new FileReader();
+              const dataUrl = await new Promise<string>((resolve, reject) => {
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(room.images[fileIndex]);
+              });
+              roomImages.push(dataUrl);
+              allImageUrls.push(dataUrl);
+            } else {
+              // Already a URL, just use it
+              roomImages.push(previewUrl);
+              allImageUrls.push(previewUrl);
+            }
+          }
+        }
+        roomsData.push({
+          name: room.name,
+          images: roomImages,
+        });
+      }
+
       if (isSupabaseConfigured && supabaseUser) {
         // Save to Supabase
         const { error } = await supabase
@@ -254,7 +383,8 @@ export default function EditPropertyPage() {
             price: formData.price,
             wellness_friendly: formData.wellnessFriendly,
             amenities: formData.amenities,
-            images: formData.imagePreviewUrls,
+            images: allImageUrls,
+            rooms: roomsData,
             updated_at: new Date().toISOString(),
           })
           .eq('id', formData.id)
@@ -284,7 +414,8 @@ export default function EditPropertyPage() {
                 price: formData.price,
                 wellnessFriendly: formData.wellnessFriendly,
                 amenities: formData.amenities,
-                images: formData.imagePreviewUrls,
+                images: allImageUrls,
+                rooms: roomsData,
               }
             : p
         );
@@ -473,43 +604,80 @@ export default function EditPropertyPage() {
             </div>
           </div>
 
-          {/* Images */}
+          {/* Images by Room */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Photos</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white">Photos by Room</h2>
+              <button
+                type="button"
+                onClick={addRoom}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+              >
+                <Plus size={20} />
+                Add Room
+              </button>
+            </div>
 
-            <label className="block border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-emerald-500 transition">
-              <Upload size={48} className="mx-auto text-gray-400 mb-4" />
-              <p className="text-white mb-2">Click to upload images</p>
-              <p className="text-sm text-gray-500">Maximum 10 images (JPG, PNG)</p>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-            </label>
-
-            {formData.imagePreviewUrls.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                {formData.imagePreviewUrls.map((preview, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={preview}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
+            <div className="space-y-6">
+              {rooms.map((room, roomIndex) => (
+                <div key={room.id} className="border border-gray-700 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <input
+                      type="text"
+                      value={room.name}
+                      onChange={(e) => updateRoomName(room.id, e.target.value)}
+                      placeholder="Room name (e.g., Living Room, Bedroom 1, Kitchen)"
+                      className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                      required
                     />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition"
-                    >
-                      <X size={16} className="text-white" />
-                    </button>
+                    {rooms.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRoom(room.id)}
+                        className="ml-3 p-2 text-red-500 hover:text-red-400 transition"
+                        title="Remove room"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <label className="block border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-emerald-500 transition">
+                    <Upload size={32} className="mx-auto text-gray-400 mb-2" />
+                    <p className="text-white text-sm mb-1">Click to upload images for {room.name || 'this room'}</p>
+                    <p className="text-xs text-gray-500">Unlimited images (JPG, PNG)</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleImageUpload(room.id, e)}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {room.imagePreviewUrls.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                      {room.imagePreviewUrls.map((preview, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={preview}
+                            alt={`${room.name} - Image ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(room.id, index)}
+                            className="absolute top-2 right-2 p-1 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <X size={16} className="text-white" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Submit */}
