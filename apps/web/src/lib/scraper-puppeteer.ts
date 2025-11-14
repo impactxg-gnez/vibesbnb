@@ -239,10 +239,16 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         return el?.textContent?.trim() || '';
       };
 
-      const name = 
+      let rawName = 
         getTextContent('h1') ||
         document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
         document.title.split('|')[0].trim();
+      
+      // Remove "Property Listing" prefix if present
+      const name = rawName
+        .replace(/^Property\s+Listing[_\s-]*/i, '')
+        .replace(/^property-listing[_\s-]*/i, '')
+        .trim();
 
       // Extract location
       const bodyText = document.body.textContent || '';

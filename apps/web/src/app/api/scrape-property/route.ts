@@ -811,10 +811,16 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   };
 
   // Extract property name
-  propertyData.name = 
+  let rawName = 
     $('h1').first().text().trim() ||
     $('meta[property="og:title"]').attr('content') ||
     $('title').text().split('|')[0].trim();
+  
+  // Remove "Property Listing" prefix if present
+  propertyData.name = rawName
+    .replace(/^Property\s+Listing[_\s-]*/i, '')
+    .replace(/^property-listing[_\s-]*/i, '')
+    .trim();
 
   // Extract location - look for "Ft Lauderdale, Florida" or similar patterns
   const locationText = $('body').text();
