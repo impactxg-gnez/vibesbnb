@@ -98,20 +98,55 @@ export default function SearchPage() {
           }
         }
 
+        // Helper function to normalize image URLs
+        const normalizeImageUrl = (url: string): string => {
+          if (!url || typeof url !== 'string') {
+            return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
+          }
+          
+          // If it's already a data URL or placeholder, return as-is
+          if (url.startsWith('data:') || url.startsWith('https://via.placeholder.com')) {
+            return url;
+          }
+          
+          // If it's already a valid absolute URL, return as-is
+          try {
+            new URL(url);
+            return url;
+          } catch (e) {
+            // Not a valid absolute URL, return placeholder
+            console.warn('[Search] Invalid image URL:', url);
+            return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
+          }
+        };
+
         // Transform Supabase data to Listing format
-        let filteredListings: Listing[] = (propertiesData || []).map((p: any) => ({
-          id: p.id,
-          name: p.name || p.title || 'Untitled Property',
-          title: p.name || p.title || 'Untitled Property',
-          location: p.location || '',
-          price: p.price ? Number(p.price) : 0,
-          rating: p.rating ? Number(p.rating) : 4.5,
-          images: p.images || [],
-          type: p.type || 'Property',
-          amenities: p.amenities || [],
-          guests: p.guests || 0,
-          status: p.status || 'active',
-        }));
+        let filteredListings: Listing[] = (propertiesData || []).map((p: any) => {
+          // Normalize and filter images
+          const rawImages = p.images || [];
+          const normalizedImages = rawImages
+            .map(normalizeImageUrl)
+            .filter((img: string) => img && img.length > 0);
+          
+          // Ensure at least one image
+          const images = normalizedImages.length > 0 
+            ? normalizedImages 
+            : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
+          
+          return {
+            id: p.id,
+            name: p.name || p.title || 'Untitled Property',
+            title: p.name || p.title || 'Untitled Property',
+            location: p.location || '',
+            price: p.price ? Number(p.price) : 0,
+            rating: p.rating ? Number(p.rating) : 4.5,
+            images: images,
+            type: p.type || 'Property',
+            amenities: p.amenities || [],
+            guests: p.guests || 0,
+            status: p.status || 'active',
+          };
+        });
 
         // Filter by location
         if (location) {
@@ -194,13 +229,23 @@ export default function SearchPage() {
                 href={`/listings/${listing.id}`}
                 className="group bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:shadow-xl hover:border-emerald-500/50 transition"
               >
-                <div className="relative h-64">
-                  <Image
-                    src={listing.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
-                    alt={listing.title || 'Property'}
-                    fill
-                    className="object-cover group-hover:scale-110 transition duration-300"
-                  />
+                <div className="relative h-64 bg-gray-800">
+                  {listing.images && listing.images[0] ? (
+                    <img
+                      src={listing.images[0]}
+                      alt={listing.title || 'Property'}
+                      className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=Image+Failed+to+Load';
+                        target.onerror = null; // Prevent infinite loop
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      <span>No Image</span>
+                    </div>
+                  )}
                   <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
                     Wellness-Friendly
                   </div>
