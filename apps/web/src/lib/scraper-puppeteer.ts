@@ -438,35 +438,20 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       };
 
       // 1. From img tags - check all possible attributes
-      // Exclude images in header, nav, footer, and logo areas (but be less aggressive)
+      // Only exclude images in actual header/nav/footer tags, not classes
       const excludedSelectors = 'header img, nav img, footer img';
       const excludedImages = new Set(Array.from(document.querySelectorAll(excludedSelectors)));
       
-      Array.from(document.querySelectorAll('img')).forEach(img => {
-        // Skip if in header, nav, or footer (but allow images in content areas even if they have header/nav classes)
+      const allImgElements = Array.from(document.querySelectorAll('img'));
+      console.log(`[Browser] Found ${allImgElements.length} total img elements`);
+      
+      allImgElements.forEach((img, index) => {
+        // Skip if in actual header, nav, or footer tags
         if (excludedImages.has(img)) {
           return;
         }
         
-        // Check if parent has logo/brand classes (more specific check)
-        const parent = img.closest('[class*="logo"], [class*="brand"], [class*="navbar"]');
-        if (parent) {
-          // Only skip if it's actually a logo/brand element, not just a container
-          const parentClasses = Array.from(parent.classList || []).join(' ').toLowerCase();
-          if (parentClasses.includes('logo') || parentClasses.includes('brand') || parentClasses.includes('navbar')) {
-            return;
-          }
-        }
-        
-        // Check image dimensions if available (but don't exclude if dimensions aren't loaded yet)
-        const width = img.naturalWidth || img.width || 0;
-        const height = img.naturalHeight || img.height || 0;
-        
-        // Only skip very small images if we have actual dimensions (not 0)
-        if (width > 0 && height > 0 && (width < 50 || height < 50)) {
-          return;
-        }
-        
+        // Don't check dimensions - accept all images and filter later
         const sources = [
           img.getAttribute('data-original-uri'),
           img.getAttribute('data-original'),
@@ -477,13 +462,14 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
           img.getAttribute('srcset')?.split(',').map(s => s.trim().split(' ')[0]),
           img.src,
           img.currentSrc,
-          (img as any).complete ? img.src : null, // Only if image is loaded
+          (img as any).complete ? img.src : null,
         ].flat().filter(Boolean) as string[];
         
         sources.forEach(src => {
-          if (src && isValidPropertyImage(src, img)) {
+          if (src && src.startsWith('http')) {
             try {
               const absoluteUrl = new URL(src, window.location.href).href;
+              // Add all images first, filter later
               allImages.add(absoluteUrl);
             } catch (e) {
               // Invalid URL, skip
@@ -491,6 +477,8 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
           }
         });
       });
+      
+      console.log(`[Browser] Collected ${allImages.size} image URLs from img tags`);
 
       // 2. From picture elements and source tags
       Array.from(document.querySelectorAll('picture source, source[srcset]')).forEach(source => {
@@ -649,22 +637,31 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       // Check for wellness-friendly
       const wellnessFriendly = /wellness|yoga|spa|meditation|healing/i.test(bodyText);
 
-      // Filter and sort images - prefer larger/higher quality images
-      // Be very lenient - only exclude obvious logos
+      // Filter and sort images - be VERY lenient, only exclude obvious logos
+      console.log(`[Browser] Before filtering: ${allImages.size} images`);
       const imageArray = Array.from(allImages).filter(img => {
-        if (!img || img.length < 15) return false;
+        if (!img || img.length < 10) return false;
         
         const lowerImg = img.toLowerCase();
         const urlParts = lowerImg.split('/');
         const filename = urlParts[urlParts.length - 1]?.split('?')[0] || ''; // Remove query params
         
-        // Only exclude if brand name is in filename (not in full URL path)
-        if (filename.includes('landland') || filename.includes('lanclanc')) {
+        // Only exclude if brand name is clearly in the filename (not just anywhere)
+        if (filename.includes('landland.') || filename.includes('lanclanc.')) {
           return false;
         }
         
-        // Only exclude if logo/brand is clearly in the filename
-        if (filename.includes('logo.') || filename.includes('brand.') || filename.includes('icon.')) {
+        // Only exclude if logo/brand/icon is clearly in the filename with extension
+        if (filename.match(/logo\.(jpg|jpeg|png|gif|svg|webp)/i) ||
+            filename.match(/brand\.(jpg|jpeg|png|gif|svg|webp)/i) ||
+            filename.match(/icon\.(jpg|jpeg|png|gif|svg|webp)/i) ||
+            filename.match(/favicon\.(jpg|jpeg|png|gif|svg|webp|ico)/i)) {
+          return false;
+        }
+        
+        // Must have image extension or be from image path
+        if (!img.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?|$|&)/i) && 
+            !img.match(/\/(images?|photos?|media|img|pics?|pictures?|uploads?|assets?)\//i)) {
           return false;
         }
         
@@ -681,7 +678,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         return 0;
       });
 
-      console.log(`[Puppeteer Esca] Found ${imageArray.length} images`);
+      console.log(`[Puppeteer Esca] Found ${imageArray.length} images after filtering (from ${allImages.size} total)`);
 
       return {
         name,
