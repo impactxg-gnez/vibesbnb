@@ -156,11 +156,44 @@ export default function NewPropertyPage() {
 
       const supabase = createClient();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const isSupabaseConfigured = supabaseUrl && 
                                     supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co';
+                                    supabaseUrl !== 'https://placeholder.supabase.co' &&
+                                    supabaseKey &&
+                                    supabaseKey !== '' &&
+                                    supabaseKey !== 'placeholder-key';
       
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      // Wait for session to be available (important after sign-in)
+      let supabaseUser = null;
+      let retries = 0;
+      const maxRetries = 5;
+      
+      if (isSupabaseConfigured) {
+        while (retries < maxRetries && !supabaseUser) {
+          const { data: { user: userData, session }, error: authError } = await supabase.auth.getUser();
+          
+          if (userData && session) {
+            supabaseUser = userData;
+            console.log('[New Property] Session loaded successfully, user ID:', supabaseUser.id);
+            break;
+          }
+          
+          if (authError) {
+            console.log('[New Property] Auth error (attempt', retries + 1, '):', authError.message);
+          }
+          
+          // If no user found, wait a bit and retry (session might still be loading)
+          if (retries < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          retries++;
+        }
+        
+        if (!supabaseUser) {
+          console.warn('[New Property] No Supabase session available after', maxRetries, 'attempts. Will save to localStorage only.');
+        }
+      }
 
       // Convert all room images to data URLs for storage
       const allImageUrls: string[] = [];
@@ -200,12 +233,46 @@ export default function NewPropertyPage() {
       const propertyId = `${userId}_${Date.now()}`;
 
       if (isSupabaseConfigured && supabaseUser) {
-        console.log('[New Property] Saving property with host_id:', supabaseUser.id);
+        // Verify session is still valid before inserting
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (!currentSession || sessionError) {
+          console.error('[New Property] Session not available when attempting insert:', sessionError);
+          console.error('[New Property] Falling back to localStorage');
+          toast.error('Session expired. Please sign in again.');
+          
+          // Save to localStorage as fallback
+          const savedProperties = localStorage.getItem(`properties_${userId}`);
+          const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+          const backupProperty = {
+            id: propertyId,
+            name: formData.name,
+            description: formData.description,
+            location: formData.location,
+            bedrooms: formData.bedrooms,
+            bathrooms: formData.bathrooms,
+            guests: formData.guests,
+            price: formData.price,
+            wellnessFriendly: formData.wellnessFriendly,
+            amenities: formData.amenities,
+            images: allImageUrls,
+            rooms: roomsData,
+            status: 'draft',
+          };
+          parsedProperties.push(backupProperty);
+          localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+          setSaving(false);
+          return;
+        }
+        
+        console.log('[New Property] Session verified, saving property with host_id:', supabaseUser.id);
+        console.log('[New Property] Session token exists:', !!currentSession.access_token);
         console.log('[New Property] Property data:', {
           id: propertyId,
           name: formData.name,
           location: formData.location,
           price: formData.price,
+          host_id: supabaseUser.id,
         });
         
         const { data: insertedProperty, error: insertError } = await supabase
@@ -231,12 +298,43 @@ export default function NewPropertyPage() {
           .single();
 
         if (insertError) {
-          console.error('[New Property] Error saving property:', insertError);
-          toast.error(`Failed to save property: ${insertError.message}`);
+          console.error('[New Property] Error saving property to Supabase:', insertError);
+          console.error('[New Property] Error details:', {
+            code: insertError.code,
+            message: insertError.message,
+            details: insertError.details,
+            hint: insertError.hint,
+          });
+          toast.error(`Failed to save property to database: ${insertError.message}. Check console for details.`);
+          
+          // Still save to localStorage as backup even if Supabase fails
+          const savedProperties = localStorage.getItem(`properties_${userId}`);
+          const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+          const backupProperty = {
+            id: propertyId,
+            name: formData.name,
+            description: formData.description,
+            location: formData.location,
+            bedrooms: formData.bedrooms,
+            bathrooms: formData.bathrooms,
+            guests: formData.guests,
+            price: formData.price,
+            wellnessFriendly: formData.wellnessFriendly,
+            amenities: formData.amenities,
+            images: allImageUrls,
+            rooms: roomsData,
+            status: 'draft',
+          };
+          parsedProperties.push(backupProperty);
+          localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+          console.log('[New Property] Property saved to localStorage as backup due to Supabase error');
+          
           throw insertError;
         }
         
         console.log('[New Property] Property saved successfully to Supabase:', insertedProperty);
+        console.log('[New Property] Property ID:', insertedProperty?.id);
+        console.log('[New Property] Host ID:', insertedProperty?.host_id);
         
         // Also save to localStorage as backup
         const savedProperties = localStorage.getItem(`properties_${userId}`);

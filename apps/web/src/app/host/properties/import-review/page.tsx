@@ -119,6 +119,39 @@ export default function ImportReviewPage() {
     if (importedData) {
       try {
         const data = JSON.parse(importedData);
+        console.log('[Import Review] Loaded imported data:', {
+          name: data.name,
+          location: data.location,
+          coordinates: data.coordinates,
+          hasLocation: !!data.location,
+          hasCoordinates: !!data.coordinates,
+          locationLength: data.location?.length || 0,
+          allKeys: Object.keys(data),
+        });
+        
+        // If location is missing or "Location not found", try to extract from name
+        if (!data.location || data.location === 'Location not found' || data.location.trim() === '') {
+          console.log('[Import Review] Location missing, attempting to extract from name:', data.name);
+          if (data.name) {
+            // Try Esca pattern: "The Netflix House – Fort Lauderdale, FL"
+            const escaMatch = data.name.match(/[–-]\s*(.+?),\s*(FL|Florida)/i);
+            if (escaMatch) {
+              const extractedLocation = escaMatch[0].replace(/^[–-]\s*/, '').trim();
+              console.log('[Import Review] Extracted location from name:', extractedLocation);
+              data.location = extractedLocation;
+            } else {
+              // Try Airbnb pattern: "Rental unit in Beloshi"
+              const airbnbMatch = data.name.match(/in\s+(.+?)(?:\s*·|$)/i);
+              if (airbnbMatch) {
+                const extractedLocation = airbnbMatch[1].trim();
+                console.log('[Import Review] Extracted location from name (Airbnb pattern):', extractedLocation);
+                data.location = extractedLocation;
+              }
+            }
+          }
+        }
+        
+        console.log('[Import Review] Final location after processing:', data.location);
         setFormData(data);
         
         // Normalize and filter imported images
@@ -255,11 +288,44 @@ export default function ImportReviewPage() {
     try {
       const supabase = createClient();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const isSupabaseConfigured = supabaseUrl && 
                                     supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co';
+                                    supabaseUrl !== 'https://placeholder.supabase.co' &&
+                                    supabaseKey &&
+                                    supabaseKey !== '' &&
+                                    supabaseKey !== 'placeholder-key';
       
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      // Wait for session to be available (important after sign-in)
+      let supabaseUser = null;
+      let retries = 0;
+      const maxRetries = 5;
+      
+      if (isSupabaseConfigured) {
+        while (retries < maxRetries && !supabaseUser) {
+          const { data: { user: userData, session }, error: authError } = await supabase.auth.getUser();
+          
+          if (userData && session) {
+            supabaseUser = userData;
+            console.log('[Import Review] Session loaded successfully, user ID:', supabaseUser.id);
+            break;
+          }
+          
+          if (authError) {
+            console.log('[Import Review] Auth error (attempt', retries + 1, '):', authError.message);
+          }
+          
+          // If no user found, wait a bit and retry (session might still be loading)
+          if (retries < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          retries++;
+        }
+        
+        if (!supabaseUser) {
+          console.warn('[Import Review] No Supabase session available after', maxRetries, 'attempts. Will save to localStorage only.');
+        }
+      }
 
       // Use Supabase user ID if available, otherwise use demo user ID
       const userId = supabaseUser?.id || user.id;
@@ -300,13 +366,34 @@ export default function ImportReviewPage() {
       const propertyId = `${userId}_${Date.now()}`;
 
       if (isSupabaseConfigured && supabaseUser) {
-        console.log('[Import Review] Saving property with host_id:', supabaseUser.id);
+        // Verify session is still valid before inserting
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (!currentSession || sessionError) {
+          console.error('[Import Review] Session not available when attempting insert:', sessionError);
+          toast.error('Session expired. Please sign in again.');
+          setSaving(false);
+          setPublishing(false);
+          return;
+        }
+        
+        console.log('[Import Review] Session verified, saving property with host_id:', supabaseUser.id);
         console.log('[Import Review] Property data:', {
           id: propertyId,
           name: formData.name,
           location: formData.location,
           price: formData.price,
           status: status,
+          roomsCount: roomsData.length,
+          imagesCount: allImageUrls.length,
+        });
+        console.log('[Import Review] Full insert data:', {
+          id: propertyId,
+          host_id: supabaseUser.id,
+          name: formData.name,
+          location: formData.location,
+          rooms: roomsData,
+          hasRooms: !!roomsData && roomsData.length > 0,
         });
         
         const { data: insertedProperty, error: insertError } = await supabase
@@ -337,12 +424,53 @@ export default function ImportReviewPage() {
           .single();
 
         if (insertError) {
-          console.error('[Import Review] Error saving property:', insertError);
-          toast.error(`Failed to save property: ${insertError.message}`);
-          throw insertError;
+          console.error('[Import Review] ❌ ERROR SAVING PROPERTY TO SUPABASE:', insertError);
+          console.error('[Import Review] Error code:', insertError.code);
+          console.error('[Import Review] Error message:', insertError.message);
+          console.error('[Import Review] Error details:', insertError.details);
+          console.error('[Import Review] Error hint:', insertError.hint);
+          
+          // Check if it's a missing column error
+          if (insertError.message?.includes('rooms') || insertError.message?.includes('column') || insertError.code === 'PGRST204') {
+            const errorMsg = `Database migration required! The 'rooms' column is missing. Please run SUPABASE_FIX_PROPERTIES_TABLE.sql in Supabase SQL Editor. Error: ${insertError.message}`;
+            console.error('[Import Review] ⚠️ MISSING COLUMN ERROR - Run SQL migration!');
+            toast.error(errorMsg, { duration: 10000 });
+          } else {
+            toast.error(`Failed to save property: ${insertError.message}. Check console for details.`, { duration: 8000 });
+          }
+          
+          // Still save to localStorage as backup even if Supabase fails
+          const savedProperties = localStorage.getItem(`properties_${userId}`);
+          const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+          const backupProperty = {
+            id: propertyId,
+            name: formData.name,
+            description: formData.description,
+            location: formData.location,
+            bedrooms: formData.bedrooms,
+            bathrooms: formData.bathrooms,
+            guests: formData.guests,
+            price: formData.price,
+            wellnessFriendly: formData.wellnessFriendly,
+            amenities: formData.amenities,
+            images: allImageUrls,
+            rooms: roomsData,
+            status: status,
+            googleMapsUrl: formData.googleMapsUrl,
+            coordinates: formData.coordinates,
+          };
+          parsedProperties.push(backupProperty);
+          localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+          console.log('[Import Review] Property saved to localStorage as backup due to Supabase error');
+          
+          setSaving(false);
+          setPublishing(false);
+          return; // Don't throw, just return so user can see the error
         }
         
         console.log('[Import Review] Property saved successfully to Supabase:', insertedProperty);
+        console.log('[Import Review] Property ID:', insertedProperty?.id);
+        console.log('[Import Review] Host ID:', insertedProperty?.host_id);
         
         // Also save to localStorage as backup
         const savedProperties = localStorage.getItem(`properties_${userId}`);

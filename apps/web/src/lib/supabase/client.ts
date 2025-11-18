@@ -11,6 +11,19 @@ export function createClient() {
     return createBrowserClient('https://placeholder.supabase.co', 'placeholder-key');
   }
   
-  return createBrowserClient(supabaseUrl, supabaseKey);
+  // createBrowserClient automatically handles cookies in the browser
+  // It reads from document.cookie and writes to it
+  const client = createBrowserClient(supabaseUrl, supabaseKey);
+  
+  // Ensure session is refreshed on client creation
+  // This helps if cookies exist but session isn't loaded yet
+  if (typeof window !== 'undefined') {
+    client.auth.getSession().catch((error) => {
+      // Silently handle - session might not exist yet
+      console.debug('[Supabase Client] Session check:', error.message);
+    });
+  }
+  
+  return client;
 }
 

@@ -69,29 +69,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (useSupabase) {
-      // Get initial session from Supabase
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      // Get initial session from Supabase with retry logic
+      const initializeSession = async () => {
+        let retries = 0;
+        const maxRetries = 3;
         
-        // Sync roles from user metadata to localStorage
-        if (session?.user?.user_metadata?.role) {
-          const role = session.user.user_metadata.role;
-          const rolesStr = localStorage.getItem('userRoles');
-          const roles = rolesStr ? JSON.parse(rolesStr) : [];
-          if (!roles.includes(role)) {
-            roles.push(role);
-            localStorage.setItem('userRoles', JSON.stringify(roles));
+        while (retries < maxRetries) {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (session && !error) {
+              setSession(session);
+              setUser(session?.user ?? null);
+              
+              // Sync roles from user metadata to localStorage
+              if (session?.user?.user_metadata?.role) {
+                const role = session.user.user_metadata.role;
+                const rolesStr = localStorage.getItem('userRoles');
+                const roles = rolesStr ? JSON.parse(rolesStr) : [];
+                if (!roles.includes(role)) {
+                  roles.push(role);
+                  localStorage.setItem('userRoles', JSON.stringify(roles));
+                }
+              }
+              
+              console.log('[AuthContext] Session initialized:', session.user?.id);
+              setLoading(false);
+              return;
+            }
+            
+            if (error) {
+              console.log('[AuthContext] Session error (attempt', retries + 1, '):', error.message);
+            }
+            
+            // Wait before retry
+            if (retries < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            retries++;
+          } catch (error: any) {
+            console.error('[AuthContext] Error initializing session:', error);
+            retries++;
+            if (retries < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
           }
         }
         
+        // If no session after retries, set loading to false
+        console.warn('[AuthContext] No session found after', maxRetries, 'attempts');
         setLoading(false);
-      });
+      };
+      
+      initializeSession();
 
       // Listen for auth changes
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -194,6 +230,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (!error && data.user) {
+      // Ensure session is properly set
+      if (data.session) {
+        // Session is already available from signInWithPassword
+        console.log('[Auth] Session established after sign-in');
+      } else {
+        // If no session in response, get it explicitly
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('[Auth] Session retrieved after sign-in');
+        }
+      }
+      
       // Sync roles from user metadata to localStorage after login
       if (data.user.user_metadata?.role) {
         const role = data.user.user_metadata.role;
@@ -203,6 +251,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           roles.push(role);
           localStorage.setItem('userRoles', JSON.stringify(roles));
         }
+        
+        // Small delay to ensure session is fully propagated
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Redirect based on role
         if (role === 'admin') {
@@ -214,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         // No role set, default to home
+        await new Promise(resolve => setTimeout(resolve, 100));
         router.push('/');
       }
       router.refresh();
@@ -270,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: name,
           role: normalizedRole,
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
       },
     });
 

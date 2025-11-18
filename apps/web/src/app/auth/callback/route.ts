@@ -5,13 +5,24 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const next = searchParams.get('next');
+  const type = searchParams.get('type'); // Supabase includes type=signup for email verification
 
   if (code) {
     const supabase = createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Get the user to check their role
+      // Get the user to check their role and verification status
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Check if this is an email verification (type=signup or email_confirmed_at is recent)
+      const isEmailVerification = type === 'signup' || 
+        (user?.email_confirmed_at && 
+         new Date(user.email_confirmed_at).getTime() > Date.now() - 60000); // Verified within last minute
+      
+      // If this is an email verification, redirect to success page
+      if (isEmailVerification) {
+        return NextResponse.redirect(`${origin}/auth/verify-success`);
+      }
       
       // If next is specified, use it; otherwise redirect based on role
       if (next) {

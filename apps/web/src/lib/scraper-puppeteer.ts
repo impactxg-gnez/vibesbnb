@@ -289,12 +289,48 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         .replace(/^property-listing[_\s-]*/i, '')
         .trim();
 
-      // Extract location
+      // Extract location - try multiple methods
       const bodyText = document.body.textContent || '';
-      const locationMatch = bodyText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa)[,\s]+(Florida|FL)/i);
-      const location = locationMatch ? locationMatch[0] : 
-        getTextContent('.location') || 
-        getTextContent('[itemprop="address"]') || '';
+      let location = '';
+      
+      // Method 1: Look for common Florida city patterns
+      const locationMatch = bodyText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa|Orlando|Jacksonville|Naples|Sarasota|Key\s+West|West\s+Palm\s+Beach)[,\s]+(Florida|FL|USA)/i);
+      if (locationMatch) {
+        location = locationMatch[0].trim();
+      }
+      
+      // Method 2: Look for address patterns
+      if (!location) {
+        const addressMatch = bodyText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)(?:,\s*(USA|United\s+States))?/i);
+        if (addressMatch) {
+          location = addressMatch[0].trim();
+        }
+      }
+      
+      // Method 3: Look for location in common selectors
+      if (!location) {
+        const locationEl = document.querySelector('.location, .address, [class*="location"], [class*="address"], [itemprop="address"]');
+        if (locationEl) {
+          location = locationEl.textContent?.trim() || '';
+          // Clean up if too long
+          if (location.length > 100) {
+            const shortMatch = location.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)/i);
+            if (shortMatch) {
+              location = shortMatch[0].trim();
+            }
+          }
+        }
+      }
+      
+      // Method 4: Try to extract from property name
+      if (!location && name) {
+        const nameLocationMatch = name.match(/[–-]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)/i);
+        if (nameLocationMatch) {
+          location = nameLocationMatch[0].replace(/^[–-]\s*/, '').trim();
+        }
+      }
+      
+      const finalLocation = location || 'Location not found';
 
       // Extract full description - combine all meaningful paragraphs
       const descriptionParts: string[] = [];
@@ -705,7 +741,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       return {
         name,
         description,
-        location,
+        location: finalLocation,
         bedrooms,
         bathrooms,
         beds,

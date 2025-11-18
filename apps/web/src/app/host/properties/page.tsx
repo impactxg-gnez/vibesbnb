@@ -54,21 +54,22 @@ export default function HostPropertiesPage() {
 
   useEffect(() => {
     if (user) {
-      // Clear any cached mock data from localStorage if Supabase is configured
+      // Only clear mock data, not real properties
+      // We'll be more conservative - only remove if ALL properties are clearly mock data
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const isSupabaseConfigured = supabaseUrl && 
                                     supabaseUrl !== '' &&
                                     supabaseUrl !== 'https://placeholder.supabase.co';
       
       if (isSupabaseConfigured) {
-        // Clear localStorage properties cache to prevent showing old mock data
         const propertiesKey = `properties_${user.id}`;
         const cachedProperties = localStorage.getItem(propertiesKey);
         if (cachedProperties) {
           try {
             const parsed = JSON.parse(cachedProperties);
-            // Check if it's mock data (common dummy property names or simple IDs)
-            const isMockData = parsed.some((p: any) => 
+            // Only remove if ALL properties are mock data (not just some)
+            // This prevents accidentally removing real properties
+            const allMockData = parsed.length > 0 && parsed.every((p: any) => 
               p.name === 'Mountain View Cabin' || 
               p.name === 'Beach Villa' ||
               p.name === 'Cedar Grove Cabin' ||
@@ -78,12 +79,15 @@ export default function HostPropertiesPage() {
               p.id === '3' ||
               (typeof p.id === 'string' && p.id.length < 5) // Very short IDs are likely mock data
             );
-            if (isMockData) {
+            if (allMockData) {
+              console.log('[Properties] Removing mock data from localStorage');
               localStorage.removeItem(propertiesKey);
+            } else {
+              console.log('[Properties] Keeping localStorage properties (contains real data)');
             }
           } catch (e) {
-            // If parsing fails, remove it anyway
-            localStorage.removeItem(propertiesKey);
+            // If parsing fails, don't remove - might be corrupted but could contain real data
+            console.error('[Properties] Error parsing localStorage, keeping it:', e);
           }
         }
       }
@@ -121,12 +125,34 @@ export default function HostPropertiesPage() {
         return;
       }
 
-      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+      // Wait for session to be available (important after sign-in)
+      let supabaseUser = null;
+      let retries = 0;
+      const maxRetries = 5;
       
-      // If there's an auth error or no user, fall back to localStorage
-      if (authError || !supabaseUser) {
-        console.log('[Properties] No Supabase user found, falling back to localStorage');
-        console.log('[Properties] Auth error:', authError);
+      while (retries < maxRetries && !supabaseUser) {
+        const { data: { user: userData, session }, error: authError } = await supabase.auth.getUser();
+        
+        if (userData && session) {
+          supabaseUser = userData;
+          console.log('[Properties] Session loaded successfully, user ID:', supabaseUser.id);
+          break;
+        }
+        
+        if (authError) {
+          console.log('[Properties] Auth error (attempt', retries + 1, '):', authError.message);
+        }
+        
+        // If no user found, wait a bit and retry (session might still be loading)
+        if (retries < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        retries++;
+      }
+      
+      // If there's an auth error or no user after retries, fall back to localStorage
+      if (!supabaseUser) {
+        console.log('[Properties] No Supabase user found after', maxRetries, 'attempts, falling back to localStorage');
         loadFromLocalStorage();
         return;
       }
@@ -141,17 +167,11 @@ export default function HostPropertiesPage() {
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('[Properties] Error loading properties:', error);
-          toast.error(`Error loading properties: ${error.message}`);
-          // If Supabase is configured but there's an error, show empty state
-          setProperties([]);
-          setStats({
-            totalProperties: 0,
-            activeListings: 0,
-            thisMonthRevenue: 0,
-            totalBookings: 0,
-            newBookings: 0,
-          });
+          console.error('[Properties] Error loading properties from Supabase:', error);
+          console.log('[Properties] Falling back to localStorage due to Supabase error');
+          // If Supabase query fails, fall back to localStorage
+          loadFromLocalStorage();
+          return;
         } else {
           console.log('[Properties] Found properties from Supabase:', propertiesData?.length || 0);
           console.log('[Properties] Properties data:', propertiesData);
@@ -247,19 +267,52 @@ export default function HostPropertiesPage() {
             }
           }
           
+          // Always sync merged properties back to localStorage for persistence
           if (finalProperties.length > 0) {
             setProperties(finalProperties);
-            // Sync back to localStorage to ensure persistence
+            // Sync back to localStorage to ensure persistence (includes both Supabase and localStorage properties)
             localStorage.setItem(`properties_${user.id}`, JSON.stringify(finalProperties));
             console.log('[Properties] Synced', finalProperties.length, 'properties to localStorage');
             // Load stats after properties are loaded
             setTimeout(() => loadStats(), 100);
           } else {
-            // No properties found anywhere - check if there are any properties with different host_id
-            console.log('[Properties] No properties found for host_id:', supabaseUser.id);
-            console.log('[Properties] Checking all properties in database...');
+            // No properties found in Supabase - check localStorage one more time
+            console.log('[Properties] No properties found in Supabase for host_id:', supabaseUser.id);
+            const savedProperties = localStorage.getItem(`properties_${user.id}`);
+            if (savedProperties) {
+              try {
+                const localStorageProperties = JSON.parse(savedProperties);
+                if (localStorageProperties.length > 0) {
+                  console.log('[Properties] Found', localStorageProperties.length, 'properties in localStorage fallback');
+                  // Transform localStorage properties to Property interface
+                  const transformedProperties = localStorageProperties.map((p: any) => ({
+                    id: p.id,
+                    name: p.name || p.title || 'Untitled Property',
+                    description: p.description || '',
+                    location: p.location || '',
+                    bedrooms: p.bedrooms || 0,
+                    bathrooms: p.bathrooms,
+                    beds: p.beds,
+                    guests: p.guests || 0,
+                    price: p.price ? Number(p.price) : 0,
+                    images: p.images || [],
+                    amenities: p.amenities || [],
+                    status: (p.status || 'draft') as 'active' | 'draft' | 'inactive',
+                    wellnessFriendly: p.wellnessFriendly || p.wellness_friendly || false,
+                    googleMapsUrl: p.googleMapsUrl || p.google_maps_url,
+                    coordinates: p.coordinates || (p.latitude && p.longitude ? { lat: p.latitude, lng: p.longitude } : undefined),
+                  }));
+                  setProperties(transformedProperties);
+                  setTimeout(() => loadStats(), 100);
+                  return;
+                }
+              } catch (e) {
+                console.error('[Properties] Error parsing localStorage in fallback:', e);
+              }
+            }
             
             // Debug: Check all properties (without host_id filter) to see what's in the database
+            console.log('[Properties] Checking all properties in database...');
             const { data: allProperties, error: allError } = await supabase
               .from('properties')
               .select('id, name, host_id, status')
@@ -271,7 +324,7 @@ export default function HostPropertiesPage() {
               console.log('[Properties] Properties with matching host_id:', allProperties.filter(p => p.host_id === supabaseUser.id));
             }
             
-            // No properties found - show empty state
+            // No properties found anywhere - show empty state
             setProperties([]);
             setStats({
               totalProperties: 0,
@@ -285,24 +338,9 @@ export default function HostPropertiesPage() {
       }
     } catch (error) {
       console.error('Error loading properties:', error);
-      // If Supabase is configured, show empty state on error
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const isSupabaseConfigured = supabaseUrl && 
-                                    supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co';
-      
-      if (isSupabaseConfigured) {
-        setProperties([]);
-        setStats({
-          totalProperties: 0,
-          activeListings: 0,
-          thisMonthRevenue: 0,
-          totalBookings: 0,
-          newBookings: 0,
-        });
-      } else {
-        loadFromLocalStorage();
-      }
+      // Always try localStorage as fallback, even if Supabase is configured
+      console.log('[Properties] Error occurred, falling back to localStorage');
+      loadFromLocalStorage();
     } finally {
       setLoadingProperties(false);
     }
@@ -344,7 +382,14 @@ export default function HostPropertiesPage() {
 
     try {
       const supabase = createClient();
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      // Wait for session to be available
+      const { data: { user: supabaseUser, session } } = await supabase.auth.getUser();
+      
+      if (!supabaseUser || !session) {
+        console.log('[Stats] No Supabase session available, skipping stats load');
+        return;
+      }
 
       if (supabaseUser) {
         // Get all properties for this host
@@ -454,14 +499,33 @@ export default function HostPropertiesPage() {
       // Create imported property with scraped data
       // Generate a unique ID that includes user ID to avoid conflicts
       const propertyId = `${userId}_${Date.now()}`;
-      // Extract location from title if not found (e.g., "Rental unit in Beloshi" -> "Beloshi")
+      // Extract location from scraped data
       let location = scrapedData.location || '';
-      if (!location && scrapedData.name) {
-        const locationMatch = scrapedData.name.match(/in\s+(.+?)(?:\s*·|$)/i);
-        if (locationMatch) {
-          location = locationMatch[1].trim();
+      
+      // If location is missing, try to extract from name (e.g., "Rental unit in Beloshi" -> "Beloshi")
+      if (!location || location === 'Location not found') {
+        if (scrapedData.name) {
+          // Try Airbnb pattern: "Rental unit in Beloshi"
+          const airbnbMatch = scrapedData.name.match(/in\s+(.+?)(?:\s*·|$)/i);
+          if (airbnbMatch) {
+            location = airbnbMatch[1].trim();
+          } else {
+            // Try Esca pattern: "The Netflix House – Fort Lauderdale, FL"
+            const escaMatch = scrapedData.name.match(/[–-]\s*(.+?),\s*(FL|Florida)/i);
+            if (escaMatch) {
+              location = escaMatch[0].replace(/^[–-]\s*/, '').trim();
+            }
+          }
         }
       }
+      
+      console.log('[Properties] Location extraction:', {
+        originalLocation: scrapedData.location,
+        extractedLocation: location,
+        propertyName: scrapedData.name,
+        hasCoordinates: !!scrapedData.coordinates,
+        coordinates: scrapedData.coordinates,
+      });
 
       // Prepare imported property data for review page
       const importedPropertyData = {
@@ -526,7 +590,23 @@ export default function HostPropertiesPage() {
     
     try {
       const supabase = createClient();
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      // Wait for session to be available
+      const { data: { user: supabaseUser, session } } = await supabase.auth.getUser();
+      
+      if (!supabaseUser || !session) {
+        console.log('[Toggle Publish] No Supabase session available');
+        // Fallback to localStorage
+        const updatedProperties = properties.map(p => 
+          p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
+        );
+        setProperties(updatedProperties);
+        if (user) {
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        }
+        toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
+        return;
+      }
 
       if (supabaseUser) {
         // Update in Supabase
@@ -580,7 +660,22 @@ export default function HostPropertiesPage() {
 
     try {
       const supabase = createClient();
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      
+      // Wait for session to be available
+      const { data: { user: supabaseUser, session } } = await supabase.auth.getUser();
+      
+      if (!supabaseUser || !session) {
+        console.log('[Delete] No Supabase session available, using localStorage fallback');
+        // Fallback to localStorage
+        const updatedProperties = properties.filter(p => p.id !== id);
+        setProperties(updatedProperties);
+        if (user) {
+          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        }
+        toast.success('Property deleted');
+        loadStats();
+        return;
+      }
 
       if (supabaseUser) {
         // Delete from Supabase

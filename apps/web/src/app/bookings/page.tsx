@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Calendar, MapPin, Users, Star, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Users, Star, ChevronRight, CreditCard, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
 
@@ -21,7 +22,8 @@ interface Booking {
   kids?: number;
   pets?: number;
   totalPrice: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
+  status: 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled';
+  payment_status?: 'pending' | 'paid' | 'refunded' | 'failed';
   rating?: number;
 }
 
@@ -73,6 +75,7 @@ export default function BookingsPage() {
               pets: booking.pets || 0,
               totalPrice: booking.total_price,
               status: booking.status,
+              payment_status: booking.payment_status,
               rating: booking.rating,
             }));
             setBookings(transformedBookings);
@@ -126,8 +129,12 @@ export default function BookingsPage() {
     switch (status) {
       case 'confirmed':
         return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'accepted':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'pending_approval':
       case 'pending':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'rejected':
       case 'cancelled':
         return 'bg-red-500/20 text-red-400 border-red-500/30';
       default:
@@ -246,6 +253,43 @@ export default function BookingsPage() {
                           <p className="font-semibold text-lg text-emerald-400">${booking.totalPrice}</p>
                         </div>
                       </div>
+
+                      {/* Payment Prompt for Accepted Bookings */}
+                      {booking.status === 'accepted' && booking.payment_status === 'pending' && (
+                        <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <AlertCircle className="w-5 h-5 text-yellow-400" />
+                            <div>
+                              <p className="text-yellow-400 font-semibold">Payment Required</p>
+                              <p className="text-yellow-400/80 text-sm">Your booking has been accepted. Please complete payment to confirm.</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // TODO: Integrate with payment gateway (Stripe, etc.)
+                              toast.success('Payment integration coming soon!');
+                            }}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+                          >
+                            <CreditCard size={18} />
+                            Pay Now
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Status Messages */}
+                      {booking.status === 'pending_approval' && (
+                        <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                          <p className="text-blue-400 text-sm">⏳ Waiting for host approval...</p>
+                        </div>
+                      )}
+                      {booking.status === 'rejected' && (
+                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                          <p className="text-red-400 text-sm">❌ This booking was declined by the host</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Link>

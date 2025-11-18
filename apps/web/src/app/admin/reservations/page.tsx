@@ -24,7 +24,8 @@ interface Reservation {
   kids?: number;
   pets?: number;
   total_price: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
+  status: 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled';
+  payment_status?: 'pending' | 'paid' | 'refunded' | 'failed';
   rating?: number;
   created_at: string;
 }
@@ -35,7 +36,7 @@ export default function ManageReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'pending' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled'>('all');
   const [loadingReservations, setLoadingReservations] = useState(true);
 
   useEffect(() => {
@@ -89,8 +90,8 @@ export default function ManageReservationsPage() {
       const reservationsData: Reservation[] = (data || []).map((booking: any) => ({
         id: booking.id,
         user_id: booking.user_id,
-        user_name: `User ${booking.user_id.substring(0, 8)}`,
-        user_email: `user-${booking.user_id.substring(0, 8)}@example.com`,
+        user_name: booking.guest_name || `User ${booking.user_id.substring(0, 8)}`,
+        user_email: booking.guest_email || `user-${booking.user_id.substring(0, 8)}@example.com`,
         property_id: booking.property_id,
         property_name: booking.property_name,
         property_image: booking.property_image,
@@ -101,7 +102,8 @@ export default function ManageReservationsPage() {
         kids: booking.kids,
         pets: booking.pets,
         total_price: Number(booking.total_price || 0),
-        status: booking.status as 'confirmed' | 'pending' | 'cancelled',
+        status: booking.status as 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled',
+        payment_status: booking.payment_status,
         rating: booking.rating,
         created_at: booking.created_at,
       }));
@@ -179,8 +181,11 @@ export default function ManageReservationsPage() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
+              <option value="pending_approval">Pending Approval</option>
+              <option value="accepted">Accepted</option>
               <option value="confirmed">Confirmed</option>
               <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
@@ -211,6 +216,9 @@ export default function ManageReservationsPage() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Payment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -218,7 +226,7 @@ export default function ManageReservationsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredReservations.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                       {loadingReservations ? 'Loading reservations...' : 'No reservations found'}
                     </td>
                   </tr>
@@ -253,12 +261,29 @@ export default function ManageReservationsPage() {
                           className={`px-2 py-1 text-xs rounded-full ${
                             reservation.status === 'confirmed'
                               ? 'bg-green-100 text-green-800'
-                              : reservation.status === 'pending'
+                              : reservation.status === 'accepted'
+                              ? 'bg-blue-100 text-blue-800'
+                              : reservation.status === 'pending_approval' || reservation.status === 'pending'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
-                          {reservation.status}
+                          {reservation.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            reservation.payment_status === 'paid'
+                              ? 'bg-green-100 text-green-800'
+                              : reservation.payment_status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : reservation.payment_status === 'failed'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {reservation.payment_status || 'N/A'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

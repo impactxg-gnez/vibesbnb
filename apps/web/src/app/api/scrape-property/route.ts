@@ -119,6 +119,13 @@ export async function POST(request: NextRequest) {
 
     // Enhance location data with Google Geocoding
     console.log('[Scraper] Extracted location:', propertyData.location, 'Coordinates:', propertyData.coordinates);
+    console.log('[Scraper] Location details:', {
+      location: propertyData.location,
+      locationType: typeof propertyData.location,
+      locationLength: propertyData.location?.length || 0,
+      hasCoordinates: !!propertyData.coordinates,
+      coordinates: propertyData.coordinates,
+    });
     
     if (propertyData.coordinates || propertyData.location) {
       console.log('[Scraper] Geocoding location...');
@@ -858,19 +865,57 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
     .replace(/^property-listing[_\s-]*/i, '')
     .trim();
 
-  // Extract location - look for "Ft Lauderdale, Florida" or similar patterns
+  // Extract location - try multiple methods
+  let location = '';
+  
+  // Method 1: Look for common Florida city patterns
   const locationText = $('body').text();
-  const locationMatch = locationText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa)[,\s]+(Florida|FL)/i);
+  const locationMatch = locationText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa|Orlando|Jacksonville|Naples|Sarasota|Key\s+West|West\s+Palm\s+Beach)[,\s]+(Florida|FL|USA)/i);
   if (locationMatch) {
-    propertyData.location = locationMatch[0];
-  } else {
-    // Fallback: look for location in common selectors
-    propertyData.location = 
-      $('.location').text().trim() ||
-      $('[itemprop="address"]').text().trim() ||
-      $('p:contains("Florida")').first().text().trim() ||
-      '';
+    location = locationMatch[0].trim();
   }
+  
+  // Method 2: Look for address patterns (City, State or City, State, Country)
+  if (!location) {
+    const addressMatch = locationText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)(?:,\s*(USA|United\s+States))?/i);
+    if (addressMatch) {
+      location = addressMatch[0].trim();
+    }
+  }
+  
+  // Method 3: Look for location in common selectors
+  if (!location) {
+    location = 
+      $('.location, .address, [class*="location"], [class*="address"]').first().text().trim() ||
+      $('[itemprop="address"]').text().trim() ||
+      $('p:contains("Florida"), p:contains("FL")').first().text().trim() ||
+      '';
+    
+    // Clean up location text (remove extra whitespace, limit length)
+    if (location) {
+      location = location.replace(/\s+/g, ' ').trim();
+      // If location is too long, try to extract just the city/state part
+      if (location.length > 100) {
+        const shortMatch = location.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)/i);
+        if (shortMatch) {
+          location = shortMatch[0].trim();
+        } else {
+          // Just take first 50 chars
+          location = location.substring(0, 50).trim();
+        }
+      }
+    }
+  }
+  
+  // Method 4: Try to extract from property name (e.g., "The Netflix House – Fort Lauderdale")
+  if (!location && propertyData.name) {
+    const nameLocationMatch = propertyData.name.match(/[–-]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)/i);
+    if (nameLocationMatch) {
+      location = nameLocationMatch[0].replace(/^[–-]\s*/, '').trim();
+    }
+  }
+  
+  propertyData.location = location || 'Location not found';
 
   // Extract full description - combine all paragraph text from the description section
   let descriptionParts: string[] = [];
