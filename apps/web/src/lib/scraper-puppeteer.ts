@@ -251,7 +251,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       const buttons = await page.$$('button, [role="button"], a[class*="button"]');
       for (const button of buttons) {
         try {
-          const text = await page.evaluate(el => el.textContent?.toLowerCase() || '', button);
+          const text = await page.evaluate((el: Element) => el.textContent?.toLowerCase() || '', button);
           if (text.includes('show more') || 
               text.includes('view all') || 
               text.includes('see more') ||
