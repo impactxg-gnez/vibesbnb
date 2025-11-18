@@ -301,15 +301,8 @@ export default function BulkImportPage() {
 
         {/* URL Input Fields */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4">
             <h2 className="text-xl font-semibold text-white">Property URLs</h2>
-            <button
-              onClick={addUrlField}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
-            >
-              <Upload size={16} />
-              Add URL
-            </button>
           </div>
 
           <div className="space-y-3">
@@ -336,9 +329,19 @@ export default function BulkImportPage() {
             ))}
           </div>
 
-          <p className="text-sm text-gray-400 mt-4">
-            1 URL per line
-          </p>
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-sm text-gray-400">
+              1 URL per line
+            </p>
+            <button
+              onClick={addUrlField}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+              disabled={importing}
+            >
+              <Upload size={16} />
+              Add URL
+            </button>
+          </div>
         </div>
 
         {/* Import Status */}
