@@ -570,35 +570,39 @@ export default function ImportReviewPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="wellnessFriendly"
-                    checked={formData.wellnessFriendly}
-                    onChange={(e) =>
-                      setFormData({ ...formData, wellnessFriendly: e.target.checked })
-                    }
-                    className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
-                  />
-                  <label htmlFor="wellnessFriendly" className="ml-2 block text-sm text-gray-300">
-                    This is a wellness-friendly property
-                  </label>
-                </div>
+          {/* Property Features */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-6">Property Features</h2>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="wellnessFriendly"
+                  checked={formData.wellnessFriendly}
+                  onChange={(e) =>
+                    setFormData({ ...formData, wellnessFriendly: e.target.checked })
+                  }
+                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
+                />
+                <label htmlFor="wellnessFriendly" className="ml-3 block text-sm text-gray-300">
+                  This is a wellness-friendly property
+                </label>
+              </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="smokeFriendly"
-                    checked={smokeFriendly}
-                    onChange={(e) => setSmokeFriendly(e.target.checked)}
-                    className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
-                  />
-                  <label htmlFor="smokeFriendly" className="ml-2 block text-sm text-gray-300">
-                    This property is smoke-friendly
-                  </label>
-                </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="smokeFriendly"
+                  checked={smokeFriendly}
+                  onChange={(e) => setSmokeFriendly(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
+                />
+                <label htmlFor="smokeFriendly" className="ml-3 block text-sm text-gray-300">
+                  This property is smoke-friendly
+                </label>
               </div>
             </div>
           </div>
