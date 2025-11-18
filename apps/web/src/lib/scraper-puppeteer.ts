@@ -367,62 +367,70 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       const isValidPropertyImage = (url: string, element?: Element): boolean => {
         if (!url || !url.startsWith('http')) return false;
         
-        // Skip icons, logos, avatars, small images, brand images
         const lowerUrl = url.toLowerCase();
-        if (lowerUrl.includes('icon') || 
-            lowerUrl.includes('logo') || 
-            lowerUrl.includes('avatar') || 
-            lowerUrl.includes('profile') ||
-            lowerUrl.includes('sprite') ||
-            lowerUrl.includes('favicon') ||
-            lowerUrl.includes('brand') ||
-            lowerUrl.includes('header') ||
-            lowerUrl.includes('nav') ||
-            lowerUrl.includes('footer') ||
-            lowerUrl.includes('button') ||
-            lowerUrl.includes('badge') ||
-            lowerUrl.includes('landland') || // Brand name filter
-            lowerUrl.includes('lanclanc') || // Brand name filter
-            url.match(/\/\d+x\d+\//)) { // Small dimension images like /16x16/
+        
+        // Only exclude very obvious non-property images
+        // Check filename and last path segment for logo/icon indicators
+        const urlParts = lowerUrl.split('/');
+        const filename = urlParts[urlParts.length - 1]?.split('?')[0] || ''; // Remove query params
+        const lastPathSegment = urlParts[urlParts.length - 2] || '';
+        
+        // Exclude only if logo/icon/brand is in the filename or last path segment
+        if (filename.includes('logo') || 
+            filename.includes('icon') || 
+            filename.includes('favicon') ||
+            filename.includes('avatar') ||
+            filename.includes('sprite') ||
+            filename.includes('landland') ||
+            filename.includes('lanclanc') ||
+            lastPathSegment.includes('logo') ||
+            lastPathSegment.includes('icon') ||
+            lastPathSegment.includes('favicon') ||
+            // Very small dimension patterns in filename
+            filename.match(/^\d+x\d+\./)) {
           return false;
         }
         
-        // Check if image is in header, nav, or footer elements
+        // Check if image is in header, nav, or footer elements (but be lenient)
         if (element) {
-          const parent = element.closest('header, nav, footer, [class*="header"], [class*="nav"], [class*="footer"], [class*="logo"], [class*="brand"]');
+          const parent = element.closest('header, nav, footer');
           if (parent) {
-            return false;
+            // Only exclude if it's actually a header/nav/footer, not just a container
+            const tagName = parent.tagName?.toLowerCase();
+            if (tagName === 'header' || tagName === 'nav' || tagName === 'footer') {
+              return false;
+            }
           }
           
-          // Check class names for logo/brand indicators
+          // Only exclude if element itself has logo/brand/icon class
           const classList = Array.from(element.classList || []);
-          const hasLogoClass = classList.some(cls => 
-            cls.toLowerCase().includes('logo') || 
-            cls.toLowerCase().includes('brand') ||
-            cls.toLowerCase().includes('icon')
-          );
+          const hasLogoClass = classList.some(cls => {
+            const lowerCls = cls.toLowerCase();
+            return lowerCls === 'logo' || lowerCls === 'brand' || lowerCls === 'icon' ||
+                   lowerCls.includes('logo-') || lowerCls.includes('brand-') || lowerCls.includes('-icon');
+          });
           if (hasLogoClass) {
             return false;
           }
         }
         
-        // Check for image file extensions (but be more lenient)
+        // Must have image file extension or be from image-related path
         if (!url.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?|$|&)/i)) {
-          // If no extension, check if it looks like an image URL (has image-related paths)
-          if (!url.match(/\/(images?|photos?|media|img|pics?|pictures?)\//i)) {
+          // If no extension, check if it looks like an image URL
+          if (!url.match(/\/(images?|photos?|media|img|pics?|pictures?|uploads?|assets?)\//i)) {
             return false;
           }
         }
         
-        // Exclude SVG files only if they're clearly logos (in logo/brand paths)
+        // Exclude SVG files only if clearly a logo (in filename or logo path)
         if (url.match(/\.svg(\?|$|&)/i)) {
-          if (lowerUrl.includes('logo') || lowerUrl.includes('icon') || lowerUrl.includes('brand')) {
+          if (filename.includes('logo') || filename.includes('icon') || lastPathSegment.includes('logo')) {
             return false;
           }
         }
         
-        // Must be a reasonable length (not too short) - reduced from 30 to 20
-        if (url.length < 20) {
+        // Must be a reasonable length
+        if (url.length < 15) {
           return false;
         }
         
@@ -642,31 +650,21 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       const wellnessFriendly = /wellness|yoga|spa|meditation|healing/i.test(bodyText);
 
       // Filter and sort images - prefer larger/higher quality images
+      // Be very lenient - only exclude obvious logos
       const imageArray = Array.from(allImages).filter(img => {
-        if (!img || img.length < 20) return false;
+        if (!img || img.length < 15) return false;
         
-        // Additional filtering: exclude brand/logo patterns (but only if clearly a logo)
         const lowerImg = img.toLowerCase();
+        const urlParts = lowerImg.split('/');
+        const filename = urlParts[urlParts.length - 1]?.split('?')[0] || ''; // Remove query params
         
-        // Exclude if URL contains brand names
-        if (lowerImg.includes('landland') || lowerImg.includes('lanclanc')) {
+        // Only exclude if brand name is in filename (not in full URL path)
+        if (filename.includes('landland') || filename.includes('lanclanc')) {
           return false;
         }
         
-        // Only exclude if logo/brand is in the filename or path, not just anywhere
-        const urlParts = lowerImg.split('/');
-        const filename = urlParts[urlParts.length - 1] || '';
-        const pathParts = lowerImg.split('/').slice(-3); // Last 3 path segments
-        
-        // Check if logo/brand is in filename or last path segments
-        const hasLogoInPath = pathParts.some(part => 
-          part.includes('logo') || 
-          part.includes('brand') || 
-          part.includes('header') ||
-          part.includes('nav')
-        );
-        
-        if (hasLogoInPath || filename.includes('logo') || filename.includes('brand')) {
+        // Only exclude if logo/brand is clearly in the filename
+        if (filename.includes('logo.') || filename.includes('brand.') || filename.includes('icon.')) {
           return false;
         }
         
