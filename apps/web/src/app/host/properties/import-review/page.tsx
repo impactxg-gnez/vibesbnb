@@ -77,6 +77,42 @@ export default function ImportReviewPage() {
     }
   }, [user, loading, router]);
 
+  // Normalize image URLs to ensure they're absolute and valid
+  const normalizeImageUrl = (url: string, baseUrl?: string): string | null => {
+    if (!url || typeof url !== 'string') return null;
+    
+    // If it's already a data URL, return as-is
+    if (url.startsWith('data:')) return url;
+    
+    // If it's already a valid absolute URL, return as-is
+    try {
+      const urlObj = new URL(url);
+      // Ensure HTTPS if possible
+      if (urlObj.protocol === 'http:' && urlObj.hostname !== 'localhost') {
+        urlObj.protocol = 'https:';
+      }
+      return urlObj.href;
+    } catch (e) {
+      // Not a valid absolute URL, try to make it absolute
+      if (baseUrl) {
+        try {
+          const base = new URL(baseUrl);
+          const absoluteUrl = new URL(url, base.href);
+          if (absoluteUrl.protocol === 'http:' && absoluteUrl.hostname !== 'localhost') {
+            absoluteUrl.protocol = 'https:';
+          }
+          return absoluteUrl.href;
+        } catch (e2) {
+          console.warn('[Import Review] Failed to normalize image URL:', url, e2);
+          return null;
+        }
+      }
+      // If no base URL and can't parse, return null
+      console.warn('[Import Review] Invalid image URL (no base URL):', url);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Load imported data from sessionStorage
     const importedData = sessionStorage.getItem('importedPropertyData');
@@ -85,8 +121,14 @@ export default function ImportReviewPage() {
         const data = JSON.parse(importedData);
         setFormData(data);
         
-        // Initialize rooms with all imported images
-        const importedImages = data.images || [];
+        // Normalize and filter imported images
+        const importedImages = (data.images || []).map((url: string) => {
+          // Try to get the original URL from sessionStorage if available
+          const originalUrl = sessionStorage.getItem('importedPropertyUrl') || '';
+          return normalizeImageUrl(url, originalUrl);
+        }).filter((url: string | null): url is string => url !== null);
+        
+        console.log('[Import Review] Loaded images:', importedImages.length, 'valid images');
         
         setRooms([
           {
@@ -646,6 +688,12 @@ export default function ImportReviewPage() {
                             src={preview}
                             alt={`${room.name} - Image ${index + 1}`}
                             className="w-full h-32 object-cover rounded-lg"
+                            onError={(e) => {
+                              // Replace broken image with placeholder
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://via.placeholder.com/400x300/1a1a1a/ffffff?text=Image+Failed+to+Load';
+                              target.onerror = null; // Prevent infinite loop
+                            }}
                           />
                           <button
                             type="button"

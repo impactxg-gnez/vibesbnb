@@ -230,8 +230,47 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
   const page = await browser.newPage();
   
   try {
+    // Set viewport
+    await page.setViewport({ width: 1920, height: 1080 });
+    
+    // Set realistic user agent
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+
+    console.log('[Puppeteer Esca] Navigating to:', url);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-    await page.waitForTimeout(2000); // Wait for any lazy-loaded content
+    await page.waitForTimeout(2000); // Wait for initial content
+    
+    // Scroll to load lazy images
+    console.log('[Puppeteer Esca] Scrolling to load images...');
+    await autoScroll(page);
+    
+    // Try to click "Show more photos" or similar buttons
+    try {
+      const buttons = await page.$$('button, [role="button"], a[class*="button"]');
+      for (const button of buttons) {
+        try {
+          const text = await page.evaluate(el => el.textContent?.toLowerCase() || '', button);
+          if (text.includes('show more') || 
+              text.includes('view all') || 
+              text.includes('see more') ||
+              text.includes('more photos') ||
+              text.includes('all photos')) {
+            await button.click();
+            await page.waitForTimeout(2000);
+            await autoScroll(page); // Scroll again after clicking
+            break;
+          }
+        } catch (e) {
+          // Continue to next button
+        }
+      }
+    } catch (e) {
+      // Button might not exist, continue
+    }
+    
+    console.log('[Puppeteer Esca] Extracting data...');
     
     const data = await page.evaluate(() => {
       const getTextContent = (selector: string): string => {
@@ -323,40 +362,77 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         }
       });
 
-      // Extract images
+      // Extract images - comprehensive approach
       const allImages = new Set<string>();
       const isValidPropertyImage = (url: string): boolean => {
         if (!url || !url.startsWith('http')) return false;
-        if (url.includes('icon') || url.includes('logo') || url.includes('avatar') || url.includes('profile')) {
+        // Skip icons, logos, avatars, small images
+        if (url.includes('icon') || 
+            url.includes('logo') || 
+            url.includes('avatar') || 
+            url.includes('profile') ||
+            url.includes('sprite') ||
+            url.match(/\/\d+x\d+\//)) { // Small dimension images like /16x16/
           return false;
         }
-        return true;
+        // Prefer images with common extensions or from known image hosts
+        if (url.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?|$|&)/i) ||
+            url.includes('cdn') ||
+            url.includes('images') ||
+            url.includes('photos') ||
+            url.includes('media')) {
+          return true;
+        }
+        // Also accept any URL that looks like an image
+        return url.length > 20; // Reasonable minimum length
       };
 
-      // From img tags
+      // 1. From img tags - check all possible attributes
       Array.from(document.querySelectorAll('img')).forEach(img => {
         const sources = [
           img.getAttribute('data-original-uri'),
           img.getAttribute('data-original'),
           img.getAttribute('data-src'),
           img.getAttribute('data-lazy-src'),
+          img.getAttribute('data-lazy'),
+          img.getAttribute('data-url'),
+          img.getAttribute('srcset')?.split(',').map(s => s.trim().split(' ')[0]),
           img.src,
-          img.currentSrc
-        ].filter(Boolean) as string[];
+          img.currentSrc,
+          (img as any).complete ? img.src : null, // Only if image is loaded
+        ].flat().filter(Boolean) as string[];
         
         sources.forEach(src => {
-          if (isValidPropertyImage(src)) {
+          if (src && isValidPropertyImage(src)) {
             try {
               const absoluteUrl = new URL(src, window.location.href).href;
               allImages.add(absoluteUrl);
             } catch (e) {
-              // Invalid URL
+              // Invalid URL, skip
             }
           }
         });
       });
 
-      // From background images
+      // 2. From picture elements and source tags
+      Array.from(document.querySelectorAll('picture source, source[srcset]')).forEach(source => {
+        const srcset = source.getAttribute('srcset');
+        if (srcset) {
+          srcset.split(',').forEach(src => {
+            const url = src.trim().split(' ')[0];
+            if (isValidPropertyImage(url)) {
+              try {
+                const absoluteUrl = new URL(url, window.location.href).href;
+                allImages.add(absoluteUrl);
+              } catch (e) {
+                // Invalid URL, skip
+              }
+            }
+          });
+        }
+      });
+
+      // 3. From background images in style attributes
       Array.from(document.querySelectorAll('[style*="background-image"]')).forEach(el => {
         const style = el.getAttribute('style') || '';
         const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
@@ -367,17 +443,73 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
               const absoluteUrl = new URL(url, window.location.href).href;
               allImages.add(absoluteUrl);
             } catch (e) {
-              // Invalid URL
+              // Invalid URL, skip
             }
           }
         }
       });
 
-      // From meta tags
-      Array.from(document.querySelectorAll('meta[property="og:image"]')).forEach(meta => {
+      // 4. From computed background images (for lazy-loaded images)
+      Array.from(document.querySelectorAll('[class*="image"], [class*="photo"], [class*="gallery"], [class*="carousel"]')).forEach(el => {
+        const htmlEl = el as HTMLElement;
+        const computedStyle = window.getComputedStyle(htmlEl);
+        const bgImage = computedStyle.backgroundImage;
+        if (bgImage && bgImage !== 'none') {
+          const match = bgImage.match(/url\(['"]?([^'")]+)['"]?\)/);
+          if (match && match[1]) {
+            const url = match[1].trim();
+            if (isValidPropertyImage(url)) {
+              try {
+                const absoluteUrl = new URL(url, window.location.href).href;
+                allImages.add(absoluteUrl);
+              } catch (e) {
+                // Invalid URL, skip
+              }
+            }
+          }
+        }
+      });
+
+      // 5. From meta tags
+      Array.from(document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')).forEach(meta => {
         const src = meta.getAttribute('content');
         if (src && isValidPropertyImage(src)) {
           allImages.add(src);
+        }
+      });
+
+      // 6. From data attributes on any element
+      Array.from(document.querySelectorAll('[data-image], [data-photo], [data-img], [data-src]')).forEach(el => {
+        const sources = [
+          el.getAttribute('data-image'),
+          el.getAttribute('data-photo'),
+          el.getAttribute('data-img'),
+          el.getAttribute('data-src'),
+          el.getAttribute('data-url'),
+        ].filter(Boolean) as string[];
+        
+        sources.forEach(src => {
+          if (isValidPropertyImage(src)) {
+            try {
+              const absoluteUrl = new URL(src, window.location.href).href;
+              allImages.add(absoluteUrl);
+            } catch (e) {
+              // Invalid URL, skip
+            }
+          }
+        });
+      });
+
+      // 7. From link tags with rel="image_src" or similar
+      Array.from(document.querySelectorAll('link[rel*="image"]')).forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && isValidPropertyImage(href)) {
+          try {
+            const absoluteUrl = new URL(href, window.location.href).href;
+            allImages.add(absoluteUrl);
+          } catch (e) {
+            // Invalid URL, skip
+          }
         }
       });
 
@@ -416,6 +548,24 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       // Check for wellness-friendly
       const wellnessFriendly = /wellness|yoga|spa|meditation|healing/i.test(bodyText);
 
+      // Filter and sort images - prefer larger/higher quality images
+      const imageArray = Array.from(allImages).filter(img => {
+        // Remove duplicates and very small images
+        return img && img.length > 20;
+      }).sort((a, b) => {
+        // Prefer images with larger dimensions in URL or higher quality indicators
+        const aHasSize = a.match(/\d+x\d+/);
+        const bHasSize = b.match(/\d+x\d+/);
+        if (aHasSize && !bHasSize) return -1;
+        if (!aHasSize && bHasSize) return 1;
+        // Prefer images from CDN or image hosts
+        if (a.includes('cdn') && !b.includes('cdn')) return -1;
+        if (!a.includes('cdn') && b.includes('cdn')) return 1;
+        return 0;
+      });
+
+      console.log(`[Puppeteer Esca] Found ${imageArray.length} images`);
+
       return {
         name,
         description,
@@ -426,14 +576,24 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         guests,
         price,
         amenities: Array.from(amenitiesSet),
-        images: Array.from(allImages),
+        images: imageArray.length > 0 ? imageArray : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'],
         wellnessFriendly,
         googleMapsUrl,
         coordinates: coordinates || undefined,
       };
     });
 
-    return data as ScrapedPropertyData;
+    const result = data as ScrapedPropertyData;
+    
+    // Ensure we have at least one image
+    if (result.images.length === 0) {
+      console.warn(`[Puppeteer Esca] No images found for ${url}, adding placeholder`);
+      result.images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
+    }
+    
+    console.log(`[Puppeteer Esca] Extracted: ${result.images.length} images, ${result.amenities.length} amenities`);
+    
+    return result;
   } finally {
     await page.close();
   }

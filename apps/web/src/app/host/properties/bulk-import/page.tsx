@@ -111,10 +111,47 @@ export default function BulkImportPage() {
           }
         }
 
+        // Normalize and validate image URLs
+        const normalizeImageUrl = (imgUrl: string): string | null => {
+          if (!imgUrl || typeof imgUrl !== 'string') return null;
+          
+          // If it's already a data URL or placeholder, return as-is
+          if (imgUrl.startsWith('data:') || imgUrl.startsWith('https://via.placeholder.com')) {
+            return imgUrl;
+          }
+          
+          // Try to make it an absolute URL
+          try {
+            const urlObj = new URL(imgUrl);
+            // Prefer HTTPS
+            if (urlObj.protocol === 'http:' && urlObj.hostname !== 'localhost') {
+              urlObj.protocol = 'https:';
+            }
+            return urlObj.href;
+          } catch (e) {
+            // Not absolute, try to make it absolute using the source URL
+            try {
+              const baseUrl = new URL(url);
+              const absoluteUrl = new URL(imgUrl, baseUrl.href);
+              if (absoluteUrl.protocol === 'http:' && absoluteUrl.hostname !== 'localhost') {
+                absoluteUrl.protocol = 'https:';
+              }
+              return absoluteUrl.href;
+            } catch (e2) {
+              console.warn(`[Bulk Import] Failed to normalize image URL: ${imgUrl}`, e2);
+              return null;
+            }
+          }
+        };
+
+        // Normalize all image URLs
+        let images = (scrapedData.images || [])
+          .map(normalizeImageUrl)
+          .filter((url: string | null): url is string => url !== null);
+        
         // Ensure we have at least one image - add placeholder if none found
-        let images = scrapedData.images || [];
         if (images.length === 0) {
-          console.warn(`[Bulk Import] No images found for ${scrapedData.name || url}, adding placeholder`);
+          console.warn(`[Bulk Import] No valid images found for ${scrapedData.name || url}, adding placeholder`);
           images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
         }
 

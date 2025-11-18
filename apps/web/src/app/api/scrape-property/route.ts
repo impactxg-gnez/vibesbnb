@@ -99,9 +99,9 @@ export async function POST(request: NextRequest) {
 
     let propertyData: ScrapedPropertyData;
 
-    // Use Puppeteer by default for Airbnb (better results, more images)
+    // Use Puppeteer for Airbnb and Esca Management (better results, more images, handles lazy loading)
     // Can be overridden with usePuppeteer: false
-    const shouldUsePuppeteer = usePuppeteer !== false && isAirbnb;
+    const shouldUsePuppeteer = usePuppeteer !== false && (isAirbnb || isEscaManagement);
 
     if (shouldUsePuppeteer) {
       console.log('[Scraper] Using Puppeteer (browser automation)');
@@ -143,8 +143,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Normalize all image URLs to ensure they're absolute
+    const normalizedImages = propertyData.images.map((imgUrl: string) => {
+      if (!imgUrl || typeof imgUrl !== 'string') return null;
+      
+      // If it's already a data URL or placeholder, return as-is
+      if (imgUrl.startsWith('data:') || imgUrl.startsWith('https://via.placeholder.com')) {
+        return imgUrl;
+      }
+      
+      // Try to make it an absolute URL
+      try {
+        // If it's already absolute, validate and return
+        const urlObj = new URL(imgUrl);
+        // Prefer HTTPS
+        if (urlObj.protocol === 'http:' && urlObj.hostname !== 'localhost') {
+          urlObj.protocol = 'https:';
+        }
+        return urlObj.href;
+      } catch (e) {
+        // Not absolute, try to make it absolute using the source URL
+        try {
+          const baseUrl = new URL(url);
+          const absoluteUrl = new URL(imgUrl, baseUrl.href);
+          if (absoluteUrl.protocol === 'http:' && absoluteUrl.hostname !== 'localhost') {
+            absoluteUrl.protocol = 'https:';
+          }
+          return absoluteUrl.href;
+        } catch (e2) {
+          console.warn(`[Scraper] Failed to normalize image URL: ${imgUrl}`, e2);
+          return null;
+        }
+      }
+    }).filter((url: string | null): url is string => url !== null);
+
+    propertyData.images = normalizedImages;
+
     const duration = Date.now() - startTime;
-    console.log(`[Scraper] Completed in ${duration}ms - Images: ${propertyData.images.length}, Location: ${propertyData.location || 'NOT FOUND'}, Amenities: ${propertyData.amenities.length}`);
+    console.log(`[Scraper] Completed in ${duration}ms - Images: ${propertyData.images.length} (${normalizedImages.length} normalized), Location: ${propertyData.location || 'NOT FOUND'}, Amenities: ${propertyData.amenities.length}`);
 
     return NextResponse.json({ 
       success: true, 

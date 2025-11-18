@@ -482,6 +482,8 @@ export default function HostPropertiesPage() {
 
       // Store imported data in sessionStorage for the review page
       sessionStorage.setItem('importedPropertyData', JSON.stringify(importedPropertyData));
+      // Also store the original URL for image URL normalization
+      sessionStorage.setItem('importedPropertyUrl', importUrl);
       
       // Enhanced success message with more details
       const details = [];
