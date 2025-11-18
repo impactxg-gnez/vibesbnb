@@ -18,6 +18,13 @@ interface Property {
   host_id?: string;
 }
 
+interface PriceBreakdown {
+  nights: number;
+  basePrice: number;
+  serviceFee: number;
+  total: number;
+}
+
 export default function NewBookingPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -89,14 +96,14 @@ export default function NewBookingPage() {
     }
   };
 
-  const calculateTotal = () => {
-    if (!property || !formData.checkIn || !formData.checkOut) return 0;
+  const calculateTotal = (): PriceBreakdown | null => {
+    if (!property || !formData.checkIn || !formData.checkOut) return null;
     
     const checkInDate = new Date(formData.checkIn);
     const checkOutDate = new Date(formData.checkOut);
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (nights <= 0) return 0;
+    if (nights <= 0) return null;
     
     const basePrice = property.price * nights;
     const serviceFee = basePrice * 0.1; // 10% service fee
@@ -136,9 +143,14 @@ export default function NewBookingPage() {
       return;
     }
 
+    const priceBreakdown = calculateTotal();
+    if (!priceBreakdown) {
+      toast.error('Please select valid dates to calculate the total price');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const priceBreakdown = calculateTotal();
       const supabase = createClient();
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
@@ -339,7 +351,7 @@ export default function NewBookingPage() {
 
               <button
                 type="submit"
-                disabled={submitting || !priceBreakdown.total}
+                disabled={submitting || !priceBreakdown}
                 className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold text-lg"
               >
                 {submitting ? (
@@ -359,7 +371,7 @@ export default function NewBookingPage() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <h3 className="text-xl font-bold text-white mb-6">Price Summary</h3>
               
-              {priceBreakdown.total > 0 ? (
+              {priceBreakdown ? (
                 <>
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between text-sm">
