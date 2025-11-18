@@ -637,7 +637,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       // Check for wellness-friendly
       const wellnessFriendly = /wellness|yoga|spa|meditation|healing/i.test(bodyText);
 
-      // Filter and sort images - be VERY lenient, only exclude obvious logos
+      // Filter and sort images - exclude logos and human/profile images
       console.log(`[Browser] Before filtering: ${allImages.size} images`);
       const imageArray = Array.from(allImages).filter(img => {
         if (!img || img.length < 10) return false;
@@ -645,17 +645,39 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         const lowerImg = img.toLowerCase();
         const urlParts = lowerImg.split('/');
         const filename = urlParts[urlParts.length - 1]?.split('?')[0] || ''; // Remove query params
+        const fullPath = lowerImg;
         
-        // Only exclude if brand name is clearly in the filename (not just anywhere)
+        // Exclude brand names in filename
         if (filename.includes('landland.') || filename.includes('lanclanc.')) {
           return false;
         }
         
-        // Only exclude if logo/brand/icon is clearly in the filename with extension
+        // Exclude logo/brand/icon files
         if (filename.match(/logo\.(jpg|jpeg|png|gif|svg|webp)/i) ||
             filename.match(/brand\.(jpg|jpeg|png|gif|svg|webp)/i) ||
             filename.match(/icon\.(jpg|jpeg|png|gif|svg|webp)/i) ||
             filename.match(/favicon\.(jpg|jpeg|png|gif|svg|webp|ico)/i)) {
+          return false;
+        }
+        
+        // Exclude human/profile/avatar/team images - check both filename and path
+        const humanImagePatterns = [
+          'avatar', 'profile', 'user', 'team', 'person', 'people', 'staff', 
+          'member', 'employee', 'headshot', 'portrait', 'face'
+        ];
+        
+        // Check filename
+        const hasHumanInFilename = humanImagePatterns.some(pattern => 
+          filename.includes(pattern) && filename.match(/\.(jpg|jpeg|png|gif|webp)/i)
+        );
+        
+        // Check path segments (but not the domain)
+        const pathSegments = urlParts.slice(3); // Skip http://domain.com
+        const hasHumanInPath = pathSegments.some(segment => 
+          humanImagePatterns.some(pattern => segment.includes(pattern))
+        );
+        
+        if (hasHumanInFilename || hasHumanInPath) {
           return false;
         }
         
