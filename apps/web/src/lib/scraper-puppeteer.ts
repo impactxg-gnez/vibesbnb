@@ -364,31 +364,86 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
 
       // Extract images - comprehensive approach
       const allImages = new Set<string>();
-      const isValidPropertyImage = (url: string): boolean => {
+      const isValidPropertyImage = (url: string, element?: Element): boolean => {
         if (!url || !url.startsWith('http')) return false;
-        // Skip icons, logos, avatars, small images
-        if (url.includes('icon') || 
-            url.includes('logo') || 
-            url.includes('avatar') || 
-            url.includes('profile') ||
-            url.includes('sprite') ||
+        
+        // Skip icons, logos, avatars, small images, brand images
+        const lowerUrl = url.toLowerCase();
+        if (lowerUrl.includes('icon') || 
+            lowerUrl.includes('logo') || 
+            lowerUrl.includes('avatar') || 
+            lowerUrl.includes('profile') ||
+            lowerUrl.includes('sprite') ||
+            lowerUrl.includes('favicon') ||
+            lowerUrl.includes('brand') ||
+            lowerUrl.includes('header') ||
+            lowerUrl.includes('nav') ||
+            lowerUrl.includes('footer') ||
+            lowerUrl.includes('button') ||
+            lowerUrl.includes('badge') ||
+            lowerUrl.includes('landland') || // Brand name filter
+            lowerUrl.includes('lanclanc') || // Brand name filter
             url.match(/\/\d+x\d+\//)) { // Small dimension images like /16x16/
           return false;
         }
-        // Prefer images with common extensions or from known image hosts
-        if (url.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?|$|&)/i) ||
-            url.includes('cdn') ||
-            url.includes('images') ||
-            url.includes('photos') ||
-            url.includes('media')) {
-          return true;
+        
+        // Check if image is in header, nav, or footer elements
+        if (element) {
+          const parent = element.closest('header, nav, footer, [class*="header"], [class*="nav"], [class*="footer"], [class*="logo"], [class*="brand"]');
+          if (parent) {
+            return false;
+          }
+          
+          // Check class names for logo/brand indicators
+          const classList = Array.from(element.classList || []);
+          const hasLogoClass = classList.some(cls => 
+            cls.toLowerCase().includes('logo') || 
+            cls.toLowerCase().includes('brand') ||
+            cls.toLowerCase().includes('icon')
+          );
+          if (hasLogoClass) {
+            return false;
+          }
         }
-        // Also accept any URL that looks like an image
-        return url.length > 20; // Reasonable minimum length
+        
+        // Check for image file extensions
+        if (!url.match(/\.(jpg|jpeg|png|webp|gif)(\?|$|&)/i)) {
+          return false; // Must have image extension
+        }
+        
+        // Exclude SVG files (often logos/icons)
+        if (url.match(/\.svg(\?|$|&)/i)) {
+          return false;
+        }
+        
+        // Must be a reasonable length (not too short)
+        if (url.length < 30) {
+          return false;
+        }
+        
+        return true;
       };
 
       // 1. From img tags - check all possible attributes
+      // Exclude images in header, nav, footer, and logo areas
+      const excludedSelectors = 'header img, nav img, footer img, [class*="header"] img, [class*="nav"] img, [class*="footer"] img, [class*="logo"] img, [class*="brand"] img, [class*="navbar"] img';
+      const excludedImages = new Set(Array.from(document.querySelectorAll(excludedSelectors)));
+      
       Array.from(document.querySelectorAll('img')).forEach(img => {
+        // Skip if in excluded areas
+        if (excludedImages.has(img)) {
+          return;
+        }
+        
+        // Check image dimensions if available
+        const width = img.naturalWidth || img.width || 0;
+        const height = img.naturalHeight || img.height || 0;
+        
+        // Skip very small images (likely icons)
+        if (width > 0 && height > 0 && (width < 100 || height < 100)) {
+          return;
+        }
+        
         const sources = [
           img.getAttribute('data-original-uri'),
           img.getAttribute('data-original'),
@@ -403,7 +458,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         ].flat().filter(Boolean) as string[];
         
         sources.forEach(src => {
-          if (src && isValidPropertyImage(src)) {
+          if (src && isValidPropertyImage(src, img)) {
             try {
               const absoluteUrl = new URL(src, window.location.href).href;
               allImages.add(absoluteUrl);
@@ -432,13 +487,18 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         }
       });
 
-      // 3. From background images in style attributes
+      // 3. From background images in style attributes (exclude header/nav/footer)
       Array.from(document.querySelectorAll('[style*="background-image"]')).forEach(el => {
+        // Skip if in header, nav, or footer
+        if (el.closest('header, nav, footer, [class*="header"], [class*="nav"], [class*="footer"], [class*="logo"], [class*="brand"]')) {
+          return;
+        }
+        
         const style = el.getAttribute('style') || '';
         const match = style.match(/url\(['"]?([^'")]+)['"]?\)/);
         if (match && match[1]) {
           const url = match[1].trim();
-          if (isValidPropertyImage(url)) {
+          if (isValidPropertyImage(url, el)) {
             try {
               const absoluteUrl = new URL(url, window.location.href).href;
               allImages.add(absoluteUrl);
@@ -450,7 +510,13 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       });
 
       // 4. From computed background images (for lazy-loaded images)
+      // Exclude header, nav, footer areas
       Array.from(document.querySelectorAll('[class*="image"], [class*="photo"], [class*="gallery"], [class*="carousel"]')).forEach(el => {
+        // Skip if in header, nav, or footer
+        if (el.closest('header, nav, footer, [class*="header"], [class*="nav"], [class*="footer"], [class*="logo"], [class*="brand"]')) {
+          return;
+        }
+        
         const htmlEl = el as HTMLElement;
         const computedStyle = window.getComputedStyle(htmlEl);
         const bgImage = computedStyle.backgroundImage;
@@ -458,7 +524,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
           const match = bgImage.match(/url\(['"]?([^'")]+)['"]?\)/);
           if (match && match[1]) {
             const url = match[1].trim();
-            if (isValidPropertyImage(url)) {
+            if (isValidPropertyImage(url, el)) {
               try {
                 const absoluteUrl = new URL(url, window.location.href).href;
                 allImages.add(absoluteUrl);
@@ -470,16 +536,28 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         }
       });
 
-      // 5. From meta tags
+      // 5. From meta tags (only if not brand/logo)
       Array.from(document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')).forEach(meta => {
         const src = meta.getAttribute('content');
         if (src && isValidPropertyImage(src)) {
-          allImages.add(src);
+          // Additional check for brand images in meta tags
+          const lowerSrc = src.toLowerCase();
+          if (!lowerSrc.includes('landland') && 
+              !lowerSrc.includes('lanclanc') &&
+              !lowerSrc.includes('logo') &&
+              !lowerSrc.includes('brand')) {
+            allImages.add(src);
+          }
         }
       });
 
-      // 6. From data attributes on any element
+      // 6. From data attributes on any element (exclude header/nav/footer)
       Array.from(document.querySelectorAll('[data-image], [data-photo], [data-img], [data-src]')).forEach(el => {
+        // Skip if in header, nav, or footer
+        if (el.closest('header, nav, footer, [class*="header"], [class*="nav"], [class*="footer"], [class*="logo"], [class*="brand"]')) {
+          return;
+        }
+        
         const sources = [
           el.getAttribute('data-image'),
           el.getAttribute('data-photo'),
@@ -489,7 +567,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
         ].filter(Boolean) as string[];
         
         sources.forEach(src => {
-          if (isValidPropertyImage(src)) {
+          if (isValidPropertyImage(src, el)) {
             try {
               const absoluteUrl = new URL(src, window.location.href).href;
               allImages.add(absoluteUrl);
@@ -550,8 +628,20 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
 
       // Filter and sort images - prefer larger/higher quality images
       const imageArray = Array.from(allImages).filter(img => {
-        // Remove duplicates and very small images
-        return img && img.length > 20;
+        if (!img || img.length < 30) return false;
+        
+        // Additional filtering: exclude brand/logo patterns
+        const lowerImg = img.toLowerCase();
+        if (lowerImg.includes('landland') || 
+            lowerImg.includes('lanclanc') ||
+            lowerImg.includes('brand') ||
+            lowerImg.includes('header') ||
+            lowerImg.includes('nav') ||
+            lowerImg.includes('logo')) {
+          return false;
+        }
+        
+        return true;
       }).sort((a, b) => {
         // Prefer images with larger dimensions in URL or higher quality indicators
         const aHasSize = a.match(/\d+x\d+/);
