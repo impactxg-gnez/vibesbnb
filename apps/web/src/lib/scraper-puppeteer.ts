@@ -406,18 +406,23 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
           }
         }
         
-        // Check for image file extensions
-        if (!url.match(/\.(jpg|jpeg|png|webp|gif)(\?|$|&)/i)) {
-          return false; // Must have image extension
+        // Check for image file extensions (but be more lenient)
+        if (!url.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?|$|&)/i)) {
+          // If no extension, check if it looks like an image URL (has image-related paths)
+          if (!url.match(/\/(images?|photos?|media|img|pics?|pictures?)\//i)) {
+            return false;
+          }
         }
         
-        // Exclude SVG files (often logos/icons)
+        // Exclude SVG files only if they're clearly logos (in logo/brand paths)
         if (url.match(/\.svg(\?|$|&)/i)) {
-          return false;
+          if (lowerUrl.includes('logo') || lowerUrl.includes('icon') || lowerUrl.includes('brand')) {
+            return false;
+          }
         }
         
-        // Must be a reasonable length (not too short)
-        if (url.length < 30) {
+        // Must be a reasonable length (not too short) - reduced from 30 to 20
+        if (url.length < 20) {
           return false;
         }
         
@@ -425,22 +430,32 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       };
 
       // 1. From img tags - check all possible attributes
-      // Exclude images in header, nav, footer, and logo areas
-      const excludedSelectors = 'header img, nav img, footer img, [class*="header"] img, [class*="nav"] img, [class*="footer"] img, [class*="logo"] img, [class*="brand"] img, [class*="navbar"] img';
+      // Exclude images in header, nav, footer, and logo areas (but be less aggressive)
+      const excludedSelectors = 'header img, nav img, footer img';
       const excludedImages = new Set(Array.from(document.querySelectorAll(excludedSelectors)));
       
       Array.from(document.querySelectorAll('img')).forEach(img => {
-        // Skip if in excluded areas
+        // Skip if in header, nav, or footer (but allow images in content areas even if they have header/nav classes)
         if (excludedImages.has(img)) {
           return;
         }
         
-        // Check image dimensions if available
+        // Check if parent has logo/brand classes (more specific check)
+        const parent = img.closest('[class*="logo"], [class*="brand"], [class*="navbar"]');
+        if (parent) {
+          // Only skip if it's actually a logo/brand element, not just a container
+          const parentClasses = Array.from(parent.classList || []).join(' ').toLowerCase();
+          if (parentClasses.includes('logo') || parentClasses.includes('brand') || parentClasses.includes('navbar')) {
+            return;
+          }
+        }
+        
+        // Check image dimensions if available (but don't exclude if dimensions aren't loaded yet)
         const width = img.naturalWidth || img.width || 0;
         const height = img.naturalHeight || img.height || 0;
         
-        // Skip very small images (likely icons)
-        if (width > 0 && height > 0 && (width < 100 || height < 100)) {
+        // Only skip very small images if we have actual dimensions (not 0)
+        if (width > 0 && height > 0 && (width < 50 || height < 50)) {
           return;
         }
         
@@ -628,16 +643,30 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
 
       // Filter and sort images - prefer larger/higher quality images
       const imageArray = Array.from(allImages).filter(img => {
-        if (!img || img.length < 30) return false;
+        if (!img || img.length < 20) return false;
         
-        // Additional filtering: exclude brand/logo patterns
+        // Additional filtering: exclude brand/logo patterns (but only if clearly a logo)
         const lowerImg = img.toLowerCase();
-        if (lowerImg.includes('landland') || 
-            lowerImg.includes('lanclanc') ||
-            lowerImg.includes('brand') ||
-            lowerImg.includes('header') ||
-            lowerImg.includes('nav') ||
-            lowerImg.includes('logo')) {
+        
+        // Exclude if URL contains brand names
+        if (lowerImg.includes('landland') || lowerImg.includes('lanclanc')) {
+          return false;
+        }
+        
+        // Only exclude if logo/brand is in the filename or path, not just anywhere
+        const urlParts = lowerImg.split('/');
+        const filename = urlParts[urlParts.length - 1] || '';
+        const pathParts = lowerImg.split('/').slice(-3); // Last 3 path segments
+        
+        // Check if logo/brand is in filename or last path segments
+        const hasLogoInPath = pathParts.some(part => 
+          part.includes('logo') || 
+          part.includes('brand') || 
+          part.includes('header') ||
+          part.includes('nav')
+        );
+        
+        if (hasLogoInPath || filename.includes('logo') || filename.includes('brand')) {
           return false;
         }
         
