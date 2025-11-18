@@ -19,11 +19,13 @@ export async function GET(request: Request) {
       }
       
       // Redirect based on user role
-      if (user?.user_metadata?.role === 'host') {
+      // Only redirect hosts to host dashboard, all others (including travellers) go to landing page
+      const userRole = user?.user_metadata?.role;
+      if (userRole === 'host') {
         return NextResponse.redirect(`${origin}/host/properties`);
       }
       
-      // Default to home page
+      // For travellers or any other role (or no role), redirect to landing page
       return NextResponse.redirect(`${origin}/`);
     }
   }

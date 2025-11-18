@@ -64,14 +64,58 @@ export default function ListingDetailPage() {
       setLoading(true);
       try {
         const supabase = createClient();
-        const { data: propertyData, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('id', params.id as string)
-          .eq('status', 'active')
-          .single();
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const isSupabaseConfigured = supabaseUrl && 
+                                      supabaseUrl !== '' &&
+                                      supabaseUrl !== 'https://placeholder.supabase.co';
+        
+        let propertyData: any = null;
 
-        if (error || !propertyData) {
+        // Try to load from Supabase if configured
+        if (isSupabaseConfigured) {
+          const { data, error } = await supabase
+            .from('properties')
+            .select('*')
+            .eq('id', params.id as string)
+            .eq('status', 'active')
+            .single();
+
+          if (!error && data) {
+            propertyData = data;
+          }
+        }
+
+        // Fallback to localStorage if Supabase is not configured or query failed
+        if (!propertyData) {
+          console.log('[Listing Detail] Loading property from localStorage fallback');
+          const allProperties: any[] = [];
+          
+          // Check all localStorage keys for properties
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.startsWith('properties_')) {
+              try {
+                const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
+                // Include active properties or properties without status
+                const activeProperties = userProperties.filter((p: any) => 
+                  p.status === 'active' || !p.status
+                );
+                allProperties.push(...activeProperties);
+              } catch (e) {
+                console.error('[Listing Detail] Error parsing localStorage properties:', e);
+              }
+            }
+          });
+          
+          // Find the property by ID
+          propertyData = allProperties.find((p: any) => p.id === params.id);
+          
+          if (propertyData) {
+            console.log('[Listing Detail] Found property in localStorage:', propertyData.id);
+          }
+        }
+
+        if (!propertyData) {
           setProperty(null);
           setLoading(false);
           return;
@@ -100,7 +144,7 @@ export default function ListingDetailPage() {
           guests: propertyData.guests || 0,
           images: propertyData.images || [],
           amenities: propertyData.amenities || [],
-          wellnessFriendly: propertyData.wellness_friendly || false,
+          wellnessFriendly: propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
           rating: propertyData.rating ? Number(propertyData.rating) : 4.5,
           reviews: 0, // TODO: Get from reviews table
           hostName,
@@ -158,8 +202,8 @@ export default function ListingDetailPage() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white mb-4">Property not found</h2>
-          <Link href="/search" className="text-emerald-500 hover:text-emerald-400">
-            Back to search
+          <Link href="/" className="text-emerald-500 hover:text-emerald-400">
+            Back to home
           </Link>
         </div>
       </div>
