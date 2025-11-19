@@ -184,3 +184,4 @@ CREATE TRIGGER trigger_notify_guest_on_rejection
 
 
 
+

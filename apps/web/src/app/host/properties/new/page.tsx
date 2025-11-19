@@ -171,9 +171,9 @@ export default function NewPropertyPage() {
       
       if (isSupabaseConfigured) {
         while (retries < maxRetries && !supabaseUser) {
-          const { data: { user: userData, session }, error: authError } = await supabase.auth.getUser();
+          const { data: { user: userData }, error: authError } = await supabase.auth.getUser();
           
-          if (userData && session) {
+          if (userData) {
             supabaseUser = userData;
             console.log('[New Property] Session loaded successfully, user ID:', supabaseUser.id);
             break;
