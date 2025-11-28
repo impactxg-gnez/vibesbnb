@@ -9,6 +9,11 @@ const nextConfig = {
       'i.pravatar.cc',
       'cdn.vibesbnb.com',
       'vibesbnb-media.s3.amazonaws.com',
+      'esca-management.com',
+      'www.esca-management.com',
+      'a0.muscache.com',
+      'a1.muscache.com',
+      'a2.muscache.com',
     ],
   },
   env: {

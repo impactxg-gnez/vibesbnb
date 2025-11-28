@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import PropertyChatButton from '@/components/chat/PropertyChatButton';
 
 interface Property {
   id: string;
@@ -384,6 +385,11 @@ export default function ListingDetailPage() {
                 <Calendar size={20} className="inline mr-2" />
                 Book Now
               </button>
+
+              <PropertyChatButton
+                propertyId={property.id}
+                propertyName={property.name}
+              />
 
               <div className="text-center text-sm text-gray-400">
                 You won't be charged yet

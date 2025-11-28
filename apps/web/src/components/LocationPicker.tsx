@@ -28,6 +28,39 @@ export default function LocationPicker({
   const autocompleteRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+
+  // Sync location prop changes
+  useEffect(() => {
+    if (initialLocation && initialLocation !== location) {
+      setLocation(initialLocation);
+    } else if (!initialLocation && location) {
+      setLocation('');
+    }
+  }, [initialLocation]);
+
+  // Sync coordinate prop changes
+  useEffect(() => {
+    if (initialCoordinates) {
+      const sameCoords =
+        coordinates &&
+        coordinates.lat === initialCoordinates.lat &&
+        coordinates.lng === initialCoordinates.lng;
+      if (!sameCoords) {
+        setCoordinates(initialCoordinates);
+        setManualLat(initialCoordinates.lat?.toString() || '');
+        setManualLng(initialCoordinates.lng?.toString() || '');
+        if (mapLoaded) {
+          updateMarker(initialCoordinates);
+        }
+      }
+    } else if (coordinates) {
+      setCoordinates(undefined);
+      setManualLat('');
+      setManualLng('');
+    }
+  }, [initialCoordinates, mapLoaded]);
+
   // Initialize Google Maps
   useEffect(() => {
     if (typeof window === 'undefined' || !window.google?.maps) {
@@ -88,6 +121,32 @@ export default function LocationPicker({
       }
     }
   }, [mapLoaded, location, onLocationChange]);
+
+  // Geocode address if we have location but no coordinates
+  useEffect(() => {
+    if (
+      mapLoaded &&
+      location &&
+      (!coordinates || isNaN(coordinates.lat) || isNaN(coordinates.lng)) &&
+      window.google?.maps
+    ) {
+      if (!geocoderRef.current) {
+        geocoderRef.current = new window.google.maps.Geocoder();
+      }
+      geocoderRef.current.geocode({ address: location }, (results, status) => {
+        if (status === 'OK' && results && results[0]?.geometry) {
+          const lat = results[0].geometry.location.lat();
+          const lng = results[0].geometry.location.lng();
+          const newCoords = { lat, lng };
+          setCoordinates(newCoords);
+          setManualLat(lat.toString());
+          setManualLng(lng.toString());
+          updateMarker(newCoords);
+          onLocationChange(results[0].formatted_address || location, newCoords);
+        }
+      });
+    }
+  }, [mapLoaded, location, coordinates, onLocationChange]);
 
   // Update map when coordinates change
   useEffect(() => {
@@ -278,8 +337,8 @@ export default function LocationPicker({
           </div>
         ) : (
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            <p>Latitude: {coordinates?.lat.toFixed(6) || 'N/A'}</p>
-            <p>Longitude: {coordinates?.lng.toFixed(6) || 'N/A'}</p>
+            <p>Latitude: {coordinates?.lat !== undefined ? coordinates.lat.toFixed(6) : 'N/A'}</p>
+            <p>Longitude: {coordinates?.lng !== undefined ? coordinates.lng.toFixed(6) : 'N/A'}</p>
           </div>
         )}
       </div>

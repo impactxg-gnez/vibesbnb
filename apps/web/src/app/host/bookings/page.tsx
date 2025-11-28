@@ -38,6 +38,8 @@ export default function HostBookingsPage() {
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'cancelled'>('all');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -52,6 +54,23 @@ export default function HostBookingsPage() {
     if (user && user.user_metadata?.role === 'host') {
       loadBookings();
       loadNotifications();
+
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`host-bookings-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'bookings', filter: `host_id=eq.${user.id}` },
+          () => {
+            loadBookings();
+            loadNotifications();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 
@@ -90,17 +109,31 @@ export default function HostBookingsPage() {
 
       if (!supabaseUser) return;
 
+      setLoadingNotifications(true);
       const { data, error } = await supabase
         .from('notifications')
-        .select('id')
+        .select('id, title, message, type, created_at, read')
         .eq('user_id', supabaseUser.id)
-        .eq('read', false);
+        .order('created_at', { ascending: false })
+        .limit(10);
 
       if (!error && data) {
-        setUnreadNotifications(data.length);
+        setNotifications(data);
+        setUnreadNotifications(data.filter((n) => !n.read).length);
       }
     } catch (error) {
       console.error('Error loading notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const markNotificationsRead = async () => {
+    try {
+      await fetch('/api/notifications/mark-read', { method: 'POST' });
+      loadNotifications();
+    } catch (error) {
+      console.error('Failed to mark notifications read:', error);
     }
   };
 
@@ -206,10 +239,48 @@ export default function HostBookingsPage() {
             <h1 className="text-4xl font-bold text-white mb-2">Bookings</h1>
             <p className="text-gray-400">Manage your property bookings</p>
           </div>
-          {unreadNotifications > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg">
-              <Bell size={20} />
-              <span>{unreadNotifications} new notification{unreadNotifications !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg">
+            <Bell size={20} />
+            <span>{unreadNotifications} unread</span>
+            <button
+              onClick={markNotificationsRead}
+              className="text-xs underline text-emerald-300"
+              disabled={loadingNotifications || unreadNotifications === 0}
+            >
+              Mark read
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">Recent Notifications</h2>
+            <button
+              onClick={loadNotifications}
+              className="text-sm text-gray-400 hover:text-white"
+              disabled={loadingNotifications}
+            >
+              {loadingNotifications ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+          {notifications.length === 0 ? (
+            <p className="text-gray-500 text-sm">No notifications yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-lg border ${
+                    notification.read ? 'border-gray-800' : 'border-emerald-600'
+                  }`}
+                >
+                  <p className="text-sm text-gray-400">
+                    {new Date(notification.created_at).toLocaleString()}
+                  </p>
+                  <p className="text-white font-semibold">{notification.title}</p>
+                  <p className="text-gray-300 text-sm">{notification.message}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -310,7 +381,7 @@ export default function HostBookingsPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 ml-4">
-                    {booking.status === 'pending_approval' && (
+                    {(booking.status === 'pending_approval' || (booking.status as string) === 'pending') && (
                       <>
                         <button
                           onClick={() => handleAcceptBooking(booking.id)}
@@ -361,6 +432,9 @@ export default function HostBookingsPage() {
     </div>
   );
 }
+
+
+
 
 
 

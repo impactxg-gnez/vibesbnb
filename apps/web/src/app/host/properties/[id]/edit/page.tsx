@@ -8,6 +8,7 @@ import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power } from 'lucide-react'
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
+import AvailabilityEditor from '@/components/properties/AvailabilityEditor';
 
 interface Room {
   id: string;
@@ -766,6 +767,10 @@ export default function EditPropertyPage() {
               ))}
             </div>
           </div>
+
+          {formData.id && (
+            <AvailabilityEditor propertyId={formData.id} />
+          )}
 
           {/* Submit Buttons */}
           <div className="flex gap-4">

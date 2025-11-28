@@ -5,8 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Calendar, Search, Filter, Eye, Edit, Check, X } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 interface Reservation {
@@ -78,16 +78,12 @@ export default function ManageReservationsPage() {
   const loadReservations = async () => {
     setLoadingReservations(true);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Transform bookings to reservations with user info
-      const reservationsData: Reservation[] = (data || []).map((booking: any) => ({
+      const response = await fetch('/api/admin/bookings');
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load bookings');
+      }
+      const reservationsData: Reservation[] = (data.bookings || []).map((booking: any) => ({
         id: booking.id,
         user_id: booking.user_id,
         user_name: booking.guest_name || `User ${booking.user_id.substring(0, 8)}`,
@@ -107,12 +103,11 @@ export default function ManageReservationsPage() {
         rating: booking.rating,
         created_at: booking.created_at,
       }));
-
       setReservations(reservationsData);
       setFilteredReservations(reservationsData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading reservations:', error);
-      toast.error('Failed to load reservations');
+      toast.error(error.message || 'Failed to load reservations');
     } finally {
       setLoadingReservations(false);
     }

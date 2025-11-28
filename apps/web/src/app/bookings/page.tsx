@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Calendar, MapPin, Users, Star, ChevronRight, CreditCard, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Users, Star, ChevronRight, CreditCard, AlertCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
@@ -32,6 +32,7 @@ export default function BookingsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
+  const [tab, setTab] = useState<'upcoming' | 'cancelled'>('upcoming');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -120,6 +121,25 @@ export default function BookingsPage() {
     }
   };
 
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      const response = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel booking');
+      }
+      toast.success('Booking cancelled');
+      loadBookings();
+    } catch (error: any) {
+      console.error('Error cancelling booking:', error);
+      toast.error(error.message || 'Failed to cancel booking');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -164,11 +184,35 @@ export default function BookingsPage() {
           <h1 className="text-4xl font-bold mb-2">My Bookings</h1>
           <p className="text-gray-400 mb-8">Manage your upcoming and past stays</p>
 
-          {bookings.length === 0 ? (
+          <div className="flex gap-3 mb-6">
+            {(['upcoming', 'cancelled'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-4 py-2 rounded-xl border transition ${
+                  tab === t
+                    ? 'bg-emerald-600 border-emerald-500 text-white'
+                    : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                {t === 'upcoming' ? 'Upcoming & Active' : 'Cancelled'}
+              </button>
+            ))}
+          </div>
+
+          {bookings.filter((booking) =>
+            tab === 'cancelled' ? booking.status === 'cancelled' : booking.status !== 'cancelled'
+          ).length === 0 ? (
             <div className="bg-gray-900 rounded-2xl p-12 text-center border border-gray-800">
               <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-semibold mb-2">No bookings yet</h2>
-              <p className="text-gray-400 mb-6">Start exploring properties and book your first stay!</p>
+              <h2 className="text-2xl font-semibold mb-2">
+                {tab === 'upcoming' ? 'No upcoming bookings' : 'No cancelled bookings'}
+              </h2>
+              <p className="text-gray-400 mb-6">
+                {tab === 'upcoming'
+                  ? 'Start exploring properties and book your first stay!'
+                  : 'You have not cancelled any trips.'}
+              </p>
               <Link
                 href="/search"
                 className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition"
@@ -179,7 +223,11 @@ export default function BookingsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {bookings.map((booking) => (
+              {bookings
+                .filter((booking) =>
+                  tab === 'cancelled' ? booking.status === 'cancelled' : booking.status !== 'cancelled'
+                )
+                .map((booking) => (
                 <Link
                   key={booking.id}
                   href={`/listings/${booking.propertyId}`}
@@ -213,13 +261,36 @@ export default function BookingsPage() {
                             )}
                           </div>
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
-                            booking.status
-                          )}`}
-                        >
-                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
+                              booking.status
+                            )}`}
+                          >
+                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                          </span>
+                          {!['cancelled', 'rejected'].includes(booking.status) && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (
+                                  confirm(
+                                    booking.status === 'pending_approval'
+                                      ? 'Cancel this booking request?'
+                                      : 'Cancel this booking?'
+                                  )
+                                ) {
+                                  handleCancelBooking(booking.id);
+                                }
+                              }}
+                              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 border border-red-500/40 px-3 py-1 rounded-full"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -288,6 +359,11 @@ export default function BookingsPage() {
                       {booking.status === 'rejected' && (
                         <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                           <p className="text-red-400 text-sm">❌ This booking was declined by the host</p>
+                        </div>
+                      )}
+                      {booking.status === 'cancelled' && tab === 'cancelled' && (
+                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                          <p className="text-red-400 text-sm">🛑 You cancelled this booking.</p>
                         </div>
                       )}
                     </div>

@@ -1,10 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2 } from 'lucide-react';
+
+interface BookingSummaryItem {
+  id: string;
+  status: string;
+  total_price?: number;
+  check_in?: string;
+  check_out?: string;
+  guest_name?: string;
+  property_name?: string;
+  created_at?: string;
+}
 import PropertiesMap from '@/components/PropertiesMap';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -38,6 +49,7 @@ export default function HostPropertiesPage() {
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
   const [loadingProperties, setLoadingProperties] = useState(true);
+  const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [stats, setStats] = useState({
     totalProperties: 0,
     activeListings: 0,
@@ -45,6 +57,27 @@ export default function HostPropertiesPage() {
     totalBookings: 0,
     newBookings: 0,
   });
+  const [bookingSummary, setBookingSummary] = useState({
+    new: 0,
+    upcoming: 0,
+    previous: 0,
+  });
+const [bookingBuckets, setBookingBuckets] = useState<{
+  new: BookingSummaryItem[];
+  upcoming: BookingSummaryItem[];
+  previous: BookingSummaryItem[];
+}>({
+  new: [],
+  upcoming: [],
+  previous: [],
+});
+  const [bookingDetails, setBookingDetails] = useState<{
+    type: 'new' | 'upcoming' | 'previous';
+    title: string;
+    description: string;
+    bookings: BookingSummaryItem[];
+  } | null>(null);
+  const [bookingActionLoading, setBookingActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -96,13 +129,7 @@ export default function HostPropertiesPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user && properties.length >= 0) {
-      loadStats();
-    }
-  }, [user, properties.length]);
-
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     if (!user) return;
     
     setLoadingProperties(true);
@@ -344,7 +371,8 @@ export default function HostPropertiesPage() {
     } finally {
       setLoadingProperties(false);
     }
-  };
+  }, [user]);
+
 
   const loadFromLocalStorage = () => {
     const savedProperties = localStorage.getItem(`properties_${user?.id}`);
@@ -364,6 +392,7 @@ export default function HostPropertiesPage() {
           totalBookings: 0,
           newBookings: 0,
         });
+        setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
       }
     } else {
       setProperties([]);
@@ -374,20 +403,25 @@ export default function HostPropertiesPage() {
         totalBookings: 0,
         newBookings: 0,
       });
+      setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
     }
   };
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (!user) return;
 
     try {
       const supabase = createClient();
       
-      // Wait for session to be available
-      const { data: { user: supabaseUser, session } } = await supabase.auth.getUser();
+      // Wait for user to be available
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
       
-      if (!supabaseUser || !session) {
-        console.log('[Stats] No Supabase session available, skipping stats load');
+      if (authError) {
+        console.log('[Stats] Auth error while getting user:', authError.message);
+      }
+      
+      if (!supabaseUser) {
+        console.log('[Stats] No Supabase user available, skipping stats load');
         return;
       }
 
@@ -408,28 +442,73 @@ export default function HostPropertiesPage() {
         let newBookings = 0;
 
         if (propertyIds.length > 0) {
-          // Get bookings for this month
           const now = new Date();
           const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
           
           const { data: bookingsData } = await supabase
             .from('bookings')
-            .select('*')
-            .in('property_id', propertyIds)
-            .eq('status', 'confirmed');
+            .select('id,status,total_price,created_at,check_in,check_out,guest_name,property_name,property_id')
+            .in('property_id', propertyIds);
 
           if (bookingsData) {
-            totalBookings = bookingsData.length;
+            const confirmedBookings = bookingsData.filter(b => b.status === 'confirmed');
+            totalBookings = confirmedBookings.length;
             
-            // Calculate this month's revenue
-            const thisMonthBookings = bookingsData.filter(b => {
+            const thisMonthBookings = confirmedBookings.filter(b => {
               const bookingDate = new Date(b.created_at);
               return bookingDate >= firstDayOfMonth;
             });
             
             thisMonthRevenue = thisMonthBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
             newBookings = thisMonthBookings.length;
+
+            const newPending = bookingsData.filter(b => b.status === 'pending_approval');
+            const upcomingBookings = bookingsData.filter(b => {
+              if (!b.check_in) return false;
+              const checkIn = new Date(b.check_in);
+              return ['accepted', 'confirmed'].includes(b.status) && checkIn >= today;
+            });
+            const previousBookings = bookingsData.filter(b => {
+              if (!b.check_out) return false;
+              const checkOut = new Date(b.check_out);
+              return ['accepted', 'confirmed'].includes(b.status) && checkOut < today;
+            });
+
+            setBookingBuckets({
+              new: newPending,
+              upcoming: upcomingBookings,
+              previous: previousBookings,
+            });
+            setBookingSummary({
+              new: newPending.length,
+              upcoming: upcomingBookings.length,
+              previous: previousBookings.length,
+            });
+
+            setBookingDetails((current) =>
+              current
+                ? {
+                    ...current,
+                    bookings:
+                      current.type === 'new'
+                        ? newPending
+                        : current.type === 'upcoming'
+                        ? upcomingBookings
+                        : previousBookings,
+                  }
+                : null
+            );
+          } else {
+            setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
+            setBookingBuckets({ new: [], upcoming: [], previous: [] });
+            setBookingDetails(null);
           }
+        } else {
+          setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
+          setBookingBuckets({ new: [], upcoming: [], previous: [] });
+          setBookingDetails(null);
         }
 
         setStats({
@@ -442,15 +521,180 @@ export default function HostPropertiesPage() {
       }
     } catch (error) {
       console.error('Error loading stats:', error);
-      // Set default stats based on current properties state
-      const currentProperties = properties.length > 0 ? properties : [];
-      setStats({
-        totalProperties: currentProperties.length,
-        activeListings: currentProperties.filter(p => p.status === 'active').length,
-        thisMonthRevenue: 0,
-        totalBookings: 0,
-        newBookings: 0,
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && properties.length >= 0) {
+      loadStats();
+    }
+    // Remove selections for properties that no longer exist
+    setSelectedProperties((prev) => prev.filter((id) => properties.some((p) => p.id === id)));
+  }, [user, properties.length, loadStats]);
+
+  const togglePropertySelection = (propertyId: string) => {
+    setSelectedProperties((prev) =>
+      prev.includes(propertyId) ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
+    );
+  };
+
+  const openBookingPanel = (type: 'new' | 'upcoming' | 'previous') => {
+    const meta = {
+      new: {
+        title: 'New Booking Requests',
+        description: 'Bookings awaiting approval',
+      },
+      upcoming: {
+        title: 'Upcoming Bookings',
+        description: 'Accepted bookings with future stays',
+      },
+      previous: {
+        title: 'Previous Bookings',
+        description: 'Completed stays',
+      },
+    }[type];
+
+    setBookingDetails({
+      type,
+      title: meta.title,
+      description: meta.description,
+      bookings: bookingBuckets[type] || [],
+    });
+  };
+
+  const formatDate = (date?: string) => {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString();
+  };
+
+  const handleBookingAction = async (bookingId: string, action: 'accept' | 'reject') => {
+    try {
+      let reason: string | undefined;
+      if (action === 'reject') {
+        reason = window.prompt('Please provide a reason for rejecting this booking:') || '';
+        if (!reason.trim()) {
+          toast.error('Rejection reason is required.');
+          return;
+        }
+      }
+
+      setBookingActionLoading(`${action}-${bookingId}`);
+
+      const response = await fetch(`/api/bookings/${action === 'accept' ? 'accept' : 'reject'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId,
+          ...(action === 'reject' ? { reason } : {}),
+        }),
       });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to ${action} booking`);
+      }
+
+      toast.success(
+        action === 'accept' ? 'Booking approved and guest notified.' : 'Booking rejected and guest notified.'
+      );
+      await loadStats();
+    } catch (error: any) {
+      console.error('Booking action error:', error);
+      toast.error(error.message || `Unable to ${action} booking.`);
+    } finally {
+      setBookingActionLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    setBookingDetails((current) =>
+      current
+        ? {
+            ...current,
+            bookings: bookingBuckets[current.type] || [],
+          }
+        : null
+    );
+  }, [bookingBuckets]);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`host-summary-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings', filter: `host_id=eq.${user.id}` },
+        () => {
+          loadStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const clearSelectedProperties = () => setSelectedProperties([]);
+
+  const selectAllProperties = () => {
+    if (properties.length === 0) return;
+    if (selectedProperties.length === properties.length) {
+      setSelectedProperties([]);
+    } else {
+      setSelectedProperties(properties.map((p) => p.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProperties.length === 0) return;
+    const idsToDelete = [...selectedProperties];
+    if (
+      !confirm(
+        `Are you sure you want to delete ${idsToDelete.length} propert${idsToDelete.length === 1 ? 'y' : 'ies'}?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.log('[Bulk Delete] Auth error:', authError.message);
+      }
+
+      if (supabaseUser) {
+        const { error } = await supabase
+          .from('properties')
+          .delete()
+          .in('id', idsToDelete)
+          .eq('host_id', supabaseUser.id);
+
+        if (error) {
+          throw error;
+        }
+      } else {
+        console.log('[Bulk Delete] No Supabase user available, using localStorage fallback');
+      }
+
+      const updatedProperties = properties.filter((p) => !idsToDelete.includes(p.id));
+      setProperties(updatedProperties);
+
+      if (user) {
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+      }
+
+      setSelectedProperties([]);
+      loadStats();
+      toast.success(
+        `Deleted ${idsToDelete.length} propert${idsToDelete.length === 1 ? 'y' : 'ies'} successfully`
+      );
+    } catch (error: any) {
+      console.error('Error deleting properties:', error);
+      toast.error(error.message || 'Failed to delete selected properties');
     }
   };
 
@@ -577,39 +821,33 @@ export default function HostPropertiesPage() {
   };
 
   const handleTogglePublish = async (id: string, currentStatus: string) => {
-    // If trying to publish, check for coordinates
-    if (currentStatus !== 'active') {
-      const property = properties.find(p => p.id === id);
-      if (property && !property.coordinates) {
-        toast.error('Map coordinates are required to publish a property. Please edit the property and add location coordinates.');
-        return;
-      }
+    const newStatus = currentStatus === 'active' ? 'draft' : 'active';
+    const property = properties.find((p) => p.id === id);
+
+    if (!property) {
+      toast.error('Property not found');
+      return;
     }
 
-    const newStatus = currentStatus === 'active' ? 'draft' : 'active';
+    if (
+      newStatus === 'active' &&
+      (!property.coordinates ||
+        typeof property.coordinates.lat !== 'number' ||
+        typeof property.coordinates.lng !== 'number')
+    ) {
+      toast.error('Map coordinates are required to publish this property. Please edit the property and set the location on the map.');
+      return;
+    }
     
     try {
       const supabase = createClient();
-      
-      // Wait for session to be available
-      const { data: { user: supabaseUser, session } } = await supabase.auth.getUser();
-      
-      if (!supabaseUser || !session) {
-        console.log('[Toggle Publish] No Supabase session available');
-        // Fallback to localStorage
-        const updatedProperties = properties.map(p => 
-          p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
-        );
-        setProperties(updatedProperties);
-        if (user) {
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        }
-        toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
-        return;
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.log('[Toggle Publish] Auth error:', authError.message);
       }
 
       if (supabaseUser) {
-        // Update in Supabase
         const { error } = await supabase
           .from('properties')
           .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -619,36 +857,22 @@ export default function HostPropertiesPage() {
         if (error) {
           throw error;
         }
-
-        // Update local state
-        const updatedProperties = properties.map(p => 
-          p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
-        );
-        setProperties(updatedProperties);
-        
-        // Also update localStorage as backup
-        if (user) {
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-          console.log('[Toggle Publish] Property status updated in localStorage as backup');
-        }
-
-        // Reload stats
-        loadStats();
-        
-        toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
       } else {
-        // Fallback to localStorage
-        const updatedProperties = properties.map(p => 
-          p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
-        );
-        setProperties(updatedProperties);
-        
-        if (user) {
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        }
-        
-        toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
+        console.log('[Toggle Publish] No Supabase user available, using localStorage fallback');
       }
+
+      const updatedProperties = properties.map(p => 
+        p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
+      );
+      setProperties(updatedProperties);
+
+      if (user) {
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        console.log('[Toggle Publish] Property status synced to localStorage');
+      }
+
+      loadStats();
+      toast.success(newStatus === 'active' ? 'Property published!' : 'Property unpublished');
     } catch (error: any) {
       console.error('Error toggling publish status:', error);
       toast.error(error.message || 'Failed to update property status');
@@ -660,25 +884,13 @@ export default function HostPropertiesPage() {
 
     try {
       const supabase = createClient();
-      
-      // Wait for session to be available
-      const { data: { user: supabaseUser, session } } = await supabase.auth.getUser();
-      
-      if (!supabaseUser || !session) {
-        console.log('[Delete] No Supabase session available, using localStorage fallback');
-        // Fallback to localStorage
-        const updatedProperties = properties.filter(p => p.id !== id);
-        setProperties(updatedProperties);
-        if (user) {
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        }
-        toast.success('Property deleted');
-        loadStats();
-        return;
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.log('[Delete] Auth error:', authError.message);
       }
 
       if (supabaseUser) {
-        // Delete from Supabase
         const { error } = await supabase
           .from('properties')
           .delete()
@@ -688,36 +900,27 @@ export default function HostPropertiesPage() {
         if (error) {
           throw error;
         }
-
-        // Update local state
-        const updatedProperties = properties.filter(p => p.id !== id);
-        setProperties(updatedProperties);
-        
-        // Also update localStorage as fallback
-        if (user) {
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        }
-
-        // Reload stats
-        loadStats();
-        
-        toast.success('Property deleted');
       } else {
-        // Fallback to localStorage
-        const updatedProperties = properties.filter(p => p.id !== id);
-        setProperties(updatedProperties);
-        
-        if (user) {
-          localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
-        }
-        
-        toast.success('Property deleted');
+        console.log('[Delete] No Supabase user available, using localStorage fallback');
       }
+
+      const updatedProperties = properties.filter(p => p.id !== id);
+      setProperties(updatedProperties);
+      
+      if (user) {
+        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+      }
+      
+      loadStats();
+      toast.success('Property deleted');
     } catch (error: any) {
       console.error('Error deleting property:', error);
       toast.error(error.message || 'Failed to delete property');
     }
   };
+
+  const selectedCount = selectedProperties.length;
+  const isAllSelected = properties.length > 0 && selectedCount === properties.length;
 
   if (loading || loadingProperties) {
     return (
@@ -766,14 +969,138 @@ export default function HostPropertiesPage() {
           </div>
         </div>
 
-        {/* Properties Map */}
-        {properties.filter(p => p.coordinates).length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-              <Map size={24} />
-              Properties Map
-            </h2>
-            <PropertiesMap properties={properties} height="500px" />
+        {/* Booking Snapshot */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <button
+            onClick={() => openBookingPanel('new')}
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
+              bookingDetails?.type === 'new'
+                ? 'border-blue-500 shadow-lg shadow-blue-500/30'
+                : 'border-gray-800 hover:border-blue-500'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-gray-400 text-sm font-medium">New Requests</h3>
+                <p className="text-white text-2xl font-bold">{bookingSummary.new}</p>
+              </div>
+              <CalendarClock size={24} className="text-blue-400" />
+            </div>
+            <p className="text-xs text-gray-500">Bookings awaiting approval</p>
+          </button>
+          <button
+            onClick={() => openBookingPanel('upcoming')}
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
+              bookingDetails?.type === 'upcoming'
+                ? 'border-emerald-500 shadow-lg shadow-emerald-500/30'
+                : 'border-gray-800 hover:border-emerald-500'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-gray-400 text-sm font-medium">Upcoming</h3>
+                <p className="text-white text-2xl font-bold">{bookingSummary.upcoming}</p>
+              </div>
+              <CalendarCheck size={24} className="text-emerald-400" />
+            </div>
+            <p className="text-xs text-gray-500">Accepted bookings with future stays</p>
+          </button>
+          <button
+            onClick={() => openBookingPanel('previous')}
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
+              bookingDetails?.type === 'previous'
+                ? 'border-purple-500 shadow-lg shadow-purple-500/30'
+                : 'border-gray-800 hover:border-purple-500'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-gray-400 text-sm font-medium">Previous</h3>
+                <p className="text-white text-2xl font-bold">{bookingSummary.previous}</p>
+              </div>
+              <History size={24} className="text-purple-400" />
+            </div>
+            <p className="text-xs text-gray-500">Completed stays</p>
+          </button>
+        </div>
+        {bookingDetails && (
+          <div className="mb-8 bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-white text-xl font-semibold">{bookingDetails.title}</h3>
+                <p className="text-gray-400 text-sm">{bookingDetails.description}</p>
+              </div>
+              <button
+                onClick={() => setBookingDetails(null)}
+                className="text-gray-400 hover:text-white flex items-center gap-1"
+              >
+                <X size={16} />
+                Close
+              </button>
+            </div>
+            {bookingDetails.bookings.length === 0 ? (
+              <p className="text-gray-500 text-sm">No bookings in this category yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {bookingDetails.bookings.map((booking) => {
+                  const isPending =
+                    typeof booking.status === 'string' && booking.status.includes('pending');
+                  const acceptLoading = bookingActionLoading === `accept-${booking.id}`;
+                  const rejectLoading = bookingActionLoading === `reject-${booking.id}`;
+
+                  return (
+                    <div
+                      key={booking.id}
+                      className="bg-gray-950 border border-gray-800 rounded-xl p-4 space-y-4"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          <p className="text-white font-semibold">{booking.property_name || 'Property'}</p>
+                          <p className="text-gray-400 text-sm">{booking.guest_name || 'Guest'}</p>
+                        </div>
+                        <div className="flex flex-col md:flex-row md:items-center gap-4 text-sm text-gray-300">
+                          <div>
+                            <p className="text-gray-500 text-xs">Check-In</p>
+                            <p className="font-medium">{formatDate(booking.check_in)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 text-xs">Check-Out</p>
+                            <p className="font-medium">{formatDate(booking.check_out)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 text-xs">Value</p>
+                            <p className="font-medium">
+                              ${Number(booking.total_price || 0).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {isPending && (
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            disabled={acceptLoading}
+                            onClick={() => handleBookingAction(booking.id, 'accept')}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-60"
+                          >
+                            {acceptLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Approve
+                          </button>
+                          <button
+                            disabled={rejectLoading}
+                            onClick={() => handleBookingAction(booking.id, 'reject')}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-500 disabled:opacity-60"
+                          >
+                            {rejectLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -815,7 +1142,54 @@ export default function HostPropertiesPage() {
           </div>
         </div>
 
+        {/* Properties Map */}
+        {properties.filter(p => p.coordinates).length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
+              <Map size={24} />
+              Properties Map
+            </h2>
+            <PropertiesMap properties={properties} height="500px" />
+          </div>
+        )}
+
         {/* Properties List */}
+        {properties.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3 text-sm text-gray-300">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={selectAllProperties}
+                  className="w-4 h-4 text-emerald-500 bg-gray-800 border-gray-700 rounded focus:ring-emerald-500"
+                />
+                Select All
+              </label>
+              {selectedCount > 0 && (
+                <span className="text-gray-400">{selectedCount} selected</span>
+              )}
+            </div>
+            {selectedCount > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={clearSelectedProperties}
+                  className="px-3 py-2 text-sm text-gray-400 hover:text-white transition"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  Delete Selected
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {properties.length === 0 ? (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
             <Home size={64} className="mx-auto text-gray-700 mb-4" />
@@ -842,13 +1216,24 @@ export default function HostPropertiesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {properties.map((property) => (
+            {properties.map((property) => {
+              const isSelected = selectedProperties.includes(property.id);
+              return (
               <div
                 key={property.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-emerald-600 transition group"
+                className={`bg-gray-900 border ${isSelected ? 'border-emerald-500 ring-1 ring-emerald-500/40' : 'border-gray-800'} rounded-xl overflow-hidden hover:border-emerald-600 transition group`}
               >
                 {/* Image */}
                 <div className="relative h-48 bg-gray-800">
+                  <div className="absolute bottom-3 left-3 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => togglePropertySelection(property.id)}
+                      className="w-4 h-4 text-emerald-500 bg-gray-900/70 border-gray-600 rounded focus:ring-emerald-500"
+                      aria-label={`Select ${property.name}`}
+                    />
+                  </div>
                   {property.images[0] && (
                     <img
                       src={property.images[0]}
@@ -953,11 +1338,12 @@ export default function HostPropertiesPage() {
                     </Link>
                     <button
                       onClick={() => handleTogglePublish(property.id, property.status)}
+                      disabled={!property.coordinates && property.status !== 'active'}
                       className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
                         property.status === 'active'
                           ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      } ${!property.coordinates && property.status !== 'active' ? 'opacity-75' : ''}`}
+                      } ${!property.coordinates && property.status !== 'active' ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title={
                         property.status === 'active' 
                           ? 'Unpublish' 
@@ -988,7 +1374,8 @@ export default function HostPropertiesPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

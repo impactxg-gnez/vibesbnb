@@ -34,6 +34,7 @@ export default function NewBookingPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [availability, setAvailability] = useState<Record<string, 'blocked' | 'booked'>>({});
   
   const [formData, setFormData] = useState({
     checkIn: '',
@@ -87,12 +88,31 @@ export default function NewBookingPage() {
         ...prev,
         guests: propertyData.guests || 1,
       }));
+
+      await loadAvailability(propertyData.id);
     } catch (error) {
       console.error('Error loading property:', error);
       toast.error('Failed to load property');
       router.push('/search');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAvailability = async (id: string) => {
+    try {
+      const response = await fetch(`/api/properties/${id}/availability`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const map: Record<string, 'blocked' | 'booked'> = {};
+      (data.availability || []).forEach((entry: { day: string; status: string }) => {
+        if (entry.status === 'blocked' || entry.status === 'booked') {
+          map[entry.day] = entry.status;
+        }
+      });
+      setAvailability(map);
+    } catch (error) {
+      console.warn('Failed to load availability', error);
     }
   };
 
@@ -140,6 +160,27 @@ export default function NewBookingPage() {
 
     if (formData.guests > property.guests) {
       toast.error(`This property can only accommodate ${property.guests} guests`);
+      return;
+    }
+
+    const isRangeAvailable = () => {
+      const start = new Date(formData.checkIn);
+      const end = new Date(formData.checkOut);
+      for (
+        let cursor = new Date(start);
+        cursor < end;
+        cursor.setDate(cursor.getDate() + 1)
+      ) {
+        const key = cursor.toISOString().split('T')[0];
+        if (availability[key]) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    if (!isRangeAvailable()) {
+      toast.error('Selected dates include blocked or already booked nights.');
       return;
     }
 
@@ -294,6 +335,11 @@ export default function NewBookingPage() {
                   />
                 </div>
               </div>
+              {Object.keys(availability).length > 0 && (
+                <p className="text-xs text-red-400">
+                  Note: Some dates are unavailable. If a selected range overlaps with blocked or booked nights, you'll be asked to choose new dates.
+                </p>
+              )}
 
               {/* Guests */}
               <div>

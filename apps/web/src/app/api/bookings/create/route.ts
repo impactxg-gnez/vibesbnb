@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,10 +42,12 @@ export async function POST(request: NextRequest) {
 
     const userId = user.id;
 
+    const serviceSupabase = createServiceClient();
+
     // Get property to find host_id
-    const { data: property, error: propertyError } = await supabase
+    const { data: property, error: propertyError } = await serviceSupabase
       .from('properties')
-      .select('host_id')
+      .select('host_id, name, images')
       .eq('id', property_id)
       .single();
 
@@ -65,25 +68,27 @@ export async function POST(request: NextRequest) {
 
     // Get host contact information
     // We'll use service role key to access host user metadata
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     let hostEmail = '';
     let hostWhatsApp = '';
+    let hostName = 'Host';
+    let hostAvatar = '';
 
-    if (supabaseServiceKey && supabaseUrl) {
-      try {
-        const { createClient: createServiceClient } = await import('@supabase/supabase-js');
-        const serviceSupabase = createServiceClient(supabaseUrl, supabaseServiceKey, {
-          auth: { autoRefreshToken: false, persistSession: false },
-        });
-        const { data: hostUser } = await serviceSupabase.auth.admin.getUserById(hostId);
-        if (hostUser?.user) {
-          hostEmail = hostUser.user.user_metadata?.host_email || hostUser.user.email || '';
-          hostWhatsApp = hostUser.user.user_metadata?.whatsapp || '';
-        }
-      } catch (e) {
-        console.warn('Could not fetch host info with service role:', e);
+    try {
+      const { data: hostUser } = await serviceSupabase.auth.admin.getUserById(hostId);
+      if (hostUser?.user) {
+        hostEmail = hostUser.user.user_metadata?.host_email || hostUser.user.email || '';
+        hostWhatsApp = hostUser.user.user_metadata?.whatsapp || '';
+        hostName =
+          hostUser.user.user_metadata?.full_name ||
+          hostUser.user.user_metadata?.display_name ||
+          hostUser.user.email ||
+          'Host';
+        hostAvatar =
+          hostUser.user.user_metadata?.avatar_url ||
+          `https://api.dicebear.com/7.x/initials/svg?seed=${hostName}`;
       }
+    } catch (e) {
+      console.warn('Could not fetch host info with service role:', e);
     }
 
     // Create booking
@@ -121,10 +126,105 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Mark booked dates in availability table
+    try {
+      const daysToBlock: { day: string; status: 'booked'; property_id: string; host_id: string }[] = [];
+      const start = new Date(check_in);
+      const end = new Date(check_out);
+      for (
+        let cursor = new Date(start);
+        cursor < end;
+        cursor.setDate(cursor.getDate() + 1)
+      ) {
+        const dateKey = cursor.toISOString().split('T')[0];
+        daysToBlock.push({
+          day: dateKey,
+          status: 'booked',
+          property_id,
+          host_id: hostId,
+        });
+      }
+
+      if (daysToBlock.length > 0) {
+        await supabase
+          .from('property_availability')
+          .upsert(daysToBlock, { onConflict: 'property_id,day' });
+      }
+    } catch (availabilityError) {
+      console.warn('Failed to mark booked days:', availabilityError);
+    }
+
+    // Ensure conversation exists between traveller and host
+    let conversationId: string | null = null;
+    try {
+      const { data: existingConversation } = await supabase
+        .from('conversations')
+        .select('id, host_name, traveller_name')
+        .eq('property_id', property_id)
+        .eq('traveller_id', userId)
+        .single();
+
+      if (existingConversation?.id) {
+        conversationId = existingConversation.id;
+        if (!existingConversation.host_name || !existingConversation.traveller_name) {
+          const travellerName =
+            user.user_metadata?.full_name || user.user_metadata?.display_name || user.email || 'Traveller';
+          const travellerAvatar =
+            user.user_metadata?.avatar_url ||
+            `https://api.dicebear.com/7.x/initials/svg?seed=${travellerName}`;
+
+          const updatePayload: Record<string, string> = {};
+          if (!existingConversation.host_name) {
+            updatePayload.host_name = hostName;
+            updatePayload.host_avatar = hostAvatar;
+          }
+          if (!existingConversation.traveller_name) {
+            updatePayload.traveller_name = travellerName;
+            updatePayload.traveller_avatar = travellerAvatar;
+          }
+
+          if (Object.keys(updatePayload).length > 0) {
+            await supabase.from('conversations').update(updatePayload).eq('id', existingConversation.id);
+          }
+        }
+      } else {
+        const travellerName =
+          user.user_metadata?.full_name || user.user_metadata?.display_name || user.email || 'Traveller';
+        const travellerAvatar =
+          user.user_metadata?.avatar_url ||
+          `https://api.dicebear.com/7.x/initials/svg?seed=${travellerName}`;
+
+        const { data: newConversation, error: conversationError } = await supabase
+          .from('conversations')
+          .insert({
+            property_id,
+            host_id: hostId,
+            traveller_id: userId,
+            booking_id: booking.id,
+            last_message: 'Booking request created',
+            last_message_at: new Date().toISOString(),
+            host_name: hostName,
+            host_avatar: hostAvatar,
+            traveller_name: travellerName,
+            traveller_avatar: travellerAvatar,
+          })
+          .select()
+          .single();
+
+        if (conversationError) {
+          throw conversationError;
+        }
+
+        conversationId = newConversation?.id ?? null;
+      }
+    } catch (conversationError) {
+      console.warn('Failed to ensure conversation:', conversationError);
+    }
+
     // Send notifications to host
     try {
       // 1. Create in-app notification (trigger will handle this, but we'll also create one explicitly)
-      await supabase
+      await serviceSupabase
         .from('notifications')
         .insert({
           user_id: hostId,

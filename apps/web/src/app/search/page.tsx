@@ -52,6 +52,7 @@ export default function SearchPage() {
                                       supabaseKey !== 'placeholder-key';
         
         let propertiesData: any[] = [];
+        let supabaseErrorOccurred = false;
         
         if (isSupabaseConfigured) {
           // Fetch active properties from Supabase
@@ -64,14 +65,14 @@ export default function SearchPage() {
 
           if (error) {
             console.error('[Search] Error loading properties from Supabase:', error);
-            // Fall through to localStorage fallback
+            supabaseErrorOccurred = true;
           } else {
             propertiesData = data || [];
           }
         }
         
         // Fallback to localStorage if Supabase is not configured or query failed
-        if (!isSupabaseConfigured || propertiesData.length === 0) {
+        if (!isSupabaseConfigured || supabaseErrorOccurred) {
           console.log('[Search] Loading properties from localStorage fallback');
           const allProperties: any[] = [];
           

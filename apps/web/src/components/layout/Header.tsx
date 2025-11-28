@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
+import { MessageCircle } from 'lucide-react';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   
   const userRole = user?.user_metadata?.role || 'traveller';
   const isHost = userRole === 'host';
@@ -56,6 +58,31 @@ export function Header() {
   
   const hasHostRole = userRoles.includes('host') || isHost;
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    const fetchUnreadMessages = async () => {
+      try {
+        const response = await fetch('/api/chat/unread-count');
+        if (!response.ok) return;
+        const data = await response.json();
+        setUnreadMessages(data.count || 0);
+      } catch (error) {
+        console.error('Failed to load unread message count', error);
+      }
+    };
+
+    if (user) {
+      fetchUnreadMessages();
+      interval = setInterval(fetchUnreadMessages, 20000);
+    } else {
+      setUnreadMessages(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [user]);
+
   const switchToTraveler = () => {
     router.push('/search');
     setShowUserMenu(false);
@@ -89,10 +116,24 @@ export function Header() {
               <>
                 {user ? (
                   <>
+                    {/* Messages Shortcut */}
+                    <Link
+                      href="/messages"
+                      className="relative p-2 text-gray-400 hover:text-white transition rounded-full border border-transparent hover:border-emerald-500"
+                      title="Messages"
+                    >
+                      <MessageCircle size={22} />
+                      {unreadMessages > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold rounded-full px-1.5 py-0.5 min-w-[16px] text-center">
+                          {unreadMessages > 99 ? '99+' : unreadMessages}
+                        </span>
+                      )}
+                    </Link>
+
                     {/* Notifications */}
                     <button className="p-2 text-gray-400 hover:text-white transition">
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159 c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                       </svg>
                     </button>
 
@@ -121,6 +162,13 @@ export function Header() {
                             onClick={() => setShowUserMenu(false)}
                           >
                             Profile
+                          </Link>
+                          <Link
+                            href="/messages"
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            Messages
                           </Link>
                           {/* My Bookings - always visible for travellers */}
                           {isTraveller && (
