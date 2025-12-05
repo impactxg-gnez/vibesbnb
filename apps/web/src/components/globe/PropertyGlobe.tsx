@@ -13,7 +13,7 @@ const Globe = dynamic(() => import('react-globe.gl'), {
     loading: () => (
         <div className="flex items-center justify-center h-screen bg-gray-950 text-white">
             <div className="animate-pulse flex flex-col items-center">
-                <div className="h-12 w-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+                <div className="h-12 w-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4" />
                 <p className="text-lg font-light tracking-widest">LOADING WORLD...</p>
             </div>
         </div>
@@ -32,12 +32,12 @@ interface Property {
 }
 
 export function PropertyGlobe() {
-    // Check for WebGL support; if unavailable, render a fallback message
+    // WebGL support check
     const isWebGLSupported = typeof window !== 'undefined' && !!(window.WebGLRenderingContext || (window as any).WebGL2RenderingContext);
     const router = useRouter();
     const globeEl = useRef<any>(undefined);
     const [properties, setProperties] = useState<Property[]>([]);
-    const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+    const [selectedProperties, setSelectedProperties] = useState<Property[]>([]);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [loading, setLoading] = useState(true);
 
@@ -49,25 +49,12 @@ export function PropertyGlobe() {
         );
     }
 
-
     // Initial load
     useEffect(() => {
-        // Set dimensions
-        setDimensions({
-            width: window.innerWidth,
-            height: window.innerHeight
-        });
-
-        const handleResize = () => {
-            setDimensions({
-                width: window.innerWidth,
-                height: window.innerHeight
-            });
-        };
-
+        setDimensions({ width: window.innerWidth, height: window.innerHeight });
+        const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
         window.addEventListener('resize', handleResize);
 
-        // Fetch properties
         const fetchProperties = async () => {
             try {
                 const supabase = createClient();
@@ -75,12 +62,9 @@ export function PropertyGlobe() {
                     .from('properties')
                     .select('id, name, price, description, images, latitude, longitude, location')
                     .eq('status', 'active');
-
                 if (error) throw error;
-
-                // Map and validate data
                 const validProperties = (data || [])
-                    .filter(p => p.latitude && p.longitude) // Ensure valid coordinates
+                    .filter(p => p.latitude && p.longitude)
                     .map(p => ({
                         id: p.id,
                         name: p.name,
@@ -89,9 +73,8 @@ export function PropertyGlobe() {
                         location: p.location || 'Unknown Location',
                         latitude: Number(p.latitude),
                         longitude: Number(p.longitude),
-                        image: p.images?.[0] || 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop'
+                        image: p.images?.[0] || 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
                     }));
-
                 setProperties(validProperties);
             } catch (err) {
                 console.error('Error fetching properties for globe:', err);
@@ -99,13 +82,11 @@ export function PropertyGlobe() {
                 setLoading(false);
             }
         };
-
         fetchProperties();
-
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Auto-rotate
+    // Auto‑rotate
     useEffect(() => {
         if (globeEl.current) {
             globeEl.current.controls().autoRotate = true;
@@ -114,48 +95,52 @@ export function PropertyGlobe() {
         }
     }, [loading]);
 
-    const handlePointClick = (point: object) => {
-        const property = point as Property;
-        setSelectedProperty(property);
+    // Simple distance helper (degrees)
+    const distance = (a: Property, b: Property) => {
+        const dLat = a.latitude - b.latitude;
+        const dLng = a.longitude - b.longitude;
+        return Math.sqrt(dLat * dLat + dLng * dLng);
+    };
 
-        // Stop rotation when interacting
+    const handlePointClick = (point: any) => {
+        const clicked = point as Property;
+        // Find properties within a small radius (≈0.1°) of the clicked point
+        const nearby = properties.filter(p => distance(p, clicked) < 0.1);
+        setSelectedProperties(nearby);
         if (globeEl.current) {
             globeEl.current.controls().autoRotate = false;
-
-            // Fly to location
-            globeEl.current.pointOfView({
-                lat: property.latitude,
-                lng: property.longitude,
-                altitude: 1.5
-            }, 1000);
+            globeEl.current.pointOfView({ lat: clicked.latitude, lng: clicked.longitude, altitude: 1.5 }, 1000);
         }
     };
 
-    const handleSearchClick = () => {
-        router.push('/search');
-    };
+    const handleSearchClick = () => router.push('/search');
 
-    const ringData = useMemo(() => {
-        return properties.map(p => ({
+    const ringData = useMemo(() =>
+        properties.map(p => ({
             lat: p.latitude,
             lng: p.longitude,
             maxR: 2,
             propagationSpeed: 2,
-            repeatPeriod: 1000
-        }));
-    }, [properties]);
+            repeatPeriod: 1000,
+        })),
+        [properties]
+    );
 
     return (
         <div className="relative w-full h-screen bg-gray-950 overflow-hidden">
+            {/* Header */}
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-40">
+                <h2 className="text-3xl font-bold text-white">Where to?</h2>
+                <p className="text-sm text-gray-300">Book wellness‑friendly properties</p>
+            </div>
+
             {/* Top Navigation */}
-            <div className="absolute top-0 left-0 w-full z-50 p-6 flex justify-between items-start pointer-events-none">
+            <div className="absolute top-0 left-0 w-full z-30 p-6 flex justify-between items-start pointer-events-none">
                 <div className="pointer-events-auto">
-                    {/* Logo placeholder or simple text */}
                     <h1 className="text-2xl font-bold text-white tracking-tighter">
                         Vibes<span className="text-emerald-500">BNB</span>
                     </h1>
                 </div>
-
                 <button
                     onClick={handleSearchClick}
                     className="pointer-events-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-6 py-2.5 rounded-full font-medium transition-all duration-300 hover:scale-105 group flex items-center gap-2"
@@ -175,27 +160,21 @@ export function PropertyGlobe() {
                     height={dimensions.height}
                     globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
                     bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-                    backgroundColor="#030712" // gray-950
-                    atmosphereColor="#10b981" // emerald-500
+                    backgroundColor="#030712"
+                    atmosphereColor="#10b981"
                     atmosphereAltitude={0.15}
-
-                    // Points (Hotspots)
                     pointsData={properties}
                     pointLat="latitude"
                     pointLng="longitude"
-                    pointColor={() => '#10b981'} // Emerald green
+                    pointColor={() => '#10b981'}
                     pointAltitude={0.05}
                     pointRadius={0.5}
-                    pointsMerge={true} // Performance optimization
-
-                    // Rings (Pulse effect)
+                    pointsMerge={true}
                     ringsData={ringData}
                     ringColor={() => '#34d399'}
                     ringMaxRadius={3}
                     ringPropagationSpeed={2}
                     ringRepeatPeriod={800}
-
-                    // Interaction
                     onPointClick={handlePointClick}
                     pointLabel={(p: any) => `
             <div class="bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm">
@@ -206,66 +185,49 @@ export function PropertyGlobe() {
                 />
             </div>
 
-            {/* Property Modal */}
+            {/* Glassmorphism Modal */}
             <AnimatePresence>
-                {selectedProperty && (
+                {selectedProperties.length > 0 && (
                     <div className="absolute inset-0 z-40 flex items-center justify-center p-4 pointer-events-none">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-3xl overflow-hidden shadow-2xl max-w-sm w-full pointer-events-auto"
+                            className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl overflow-hidden shadow-2xl max-w-3xl w-full pointer-events-auto"
                         >
-                            <div className="relative h-48 w-full">
-                                <Image
-                                    src={selectedProperty.image}
-                                    alt={selectedProperty.name}
-                                    fill
-                                    className="object-cover"
-                                />
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedProperty(null);
-                                        if (globeEl.current) {
-                                            globeEl.current.controls().autoRotate = true;
-                                        }
-                                    }}
-                                    className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                                <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
-                                    <span className="text-emerald-400 font-bold">${selectedProperty.price}</span>
-                                    <span className="text-white/80 text-xs"> / night</span>
-                                </div>
+                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[80vh] overflow-y-auto">
+                                {selectedProperties.map(prop => (
+                                    <div key={prop.id} className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg overflow-hidden border border-white/15">
+                                        <div className="relative h-48 w-full">
+                                            <Image src={prop.image} alt={prop.name} fill className="object-cover" />
+                                        </div>
+                                        <div className="p-3 text-white">
+                                            <h3 className="text-lg font-bold mb-1 line-clamp-1">{prop.name}</h3>
+                                            <p className="text-sm text-gray-300 mb-2 line-clamp-2">{prop.description}</p>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-emerald-400 font-medium">${prop.price}</span>
+                                                <button
+                                                    onClick={() => router.push(`/listings/${prop.id}`)}
+                                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded"
+                                                >
+                                                    View
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-
-                            <div className="p-5">
-                                <h3 className="text-xl font-bold text-white mb-1 line-clamp-1">{selectedProperty.name}</h3>
-                                <div className="flex items-center text-gray-400 text-sm mb-3">
-                                    <svg className="w-4 h-4 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                    </svg>
-                                    <span className="line-clamp-1">{selectedProperty.location}</span>
-                                </div>
-
-                                <p className="text-gray-300 text-sm mb-5 line-clamp-2 leading-relaxed">
-                                    {selectedProperty.description || "Experience a unique stay at this verified 420-friendly property. Enjoy comfort, privacy, and good vibes."}
-                                </p>
-
-                                <button
-                                    onClick={() => router.push(`/listings/${selectedProperty.id}`)}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl transition-colors duration-300 flex items-center justify-center gap-2"
-                                >
-                                    View Full Listing
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                    </svg>
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => {
+                                    setSelectedProperties([]);
+                                    if (globeEl.current) globeEl.current.controls().autoRotate = true;
+                                }}
+                                className="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
                         </motion.div>
                     </div>
                 )}
