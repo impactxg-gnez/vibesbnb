@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['react-globe.gl', 'globe.gl', 'three-globe'],
+  transpilePackages: ['react-globe.gl', 'globe.gl', 'three-globe', 'undici', 'cheerio'],
   images: {
     domains: [
       'source.unsplash.com',
