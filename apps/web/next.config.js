@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['react-globe.gl', 'globe.gl', 'three-globe', 'undici', 'cheerio'],
+  transpilePackages: ['react-globe.gl', 'globe.gl', 'three-globe'],
   images: {
     domains: [
       'source.unsplash.com',
@@ -22,6 +22,9 @@ const nextConfig = {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
   },
+  experimental: {
+    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium', 'cheerio', 'undici'],
+  },
   webpack: (config, { isServer }) => {
     // Force single instance of three
     const path = require('path');
@@ -29,17 +32,6 @@ const nextConfig = {
       ...config.resolve.alias,
       'three': path.resolve(__dirname, 'node_modules/three'),
     };
-
-    // Externalize packages for server-side to avoid webpack bundling issues
-    if (isServer) {
-      config.externals = [
-        ...(config.externals || []),
-        'cheerio',
-        '@sparticuz/chromium',
-        'puppeteer-core',
-        'puppeteer',
-      ];
-    }
 
     return config;
   },
