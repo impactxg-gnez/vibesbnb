@@ -167,11 +167,12 @@ export function PropertyGlobe() {
         const targetProp = properties.find(p => p.location === location);
         if (targetProp && globeEl.current) {
             globeEl.current.controls().autoRotate = false;
+            // Fly to location smoothly
             globeEl.current.pointOfView({
                 lat: targetProp.latitude,
                 lng: targetProp.longitude,
                 altitude: 1.5
-            }, 1000);
+            }, 2000); // Increased duration to 2s for smoother rotation effect
         }
     };
 
