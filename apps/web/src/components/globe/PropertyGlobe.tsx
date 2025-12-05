@@ -303,6 +303,14 @@ export function PropertyGlobe() {
                     ringMaxRadius={3}
                     ringPropagationSpeed={2}
                     ringRepeatPeriod={800}
+                    labelsData={properties}
+                    labelLat="latitude"
+                    labelLng="longitude"
+                    labelText="location"
+                    labelColor={() => 'rgba(255, 255, 255, 0.75)'}
+                    labelSize={1.5}
+                    labelDotRadius={0.5}
+                    labelAltitude={0.01}
                     onPointClick={handlePointClick}
                     pointLabel={(p: any) => `
             <div class=\"bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm\">
