@@ -131,9 +131,12 @@ export function PropertyGlobe() {
     return (
         <div className="relative w-full min-h-screen bg-gray-950 flex flex-col">
             {/* Header */}
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-50 pointer-events-none">
-                <h2 className="text-3xl font-bold text-white">Where to?</h2>
-                <p className="text-sm text-gray-300">Book wellness‑friendly properties</p>
+            {/* Header */}
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 text-center z-50 pointer-events-none">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 px-8 py-4 rounded-3xl shadow-lg">
+                    <h2 className="text-3xl font-bold text-white mb-1">Where to?</h2>
+                    <p className="text-sm text-gray-200 font-medium">Book wellness‑friendly properties</p>
+                </div>
             </div>
 
             {/* Top Navigation */}
@@ -170,8 +173,8 @@ export function PropertyGlobe() {
                     pointLng="longitude"
                     pointColor={() => '#10b981'}
                     pointAltitude={0.05}
-                    pointRadius={1.5}
-                    pointsMerge={true}
+                    pointRadius={1.0}
+                    pointsMerge={false}
                     ringsData={ringData}
                     ringColor={() => '#34d399'}
                     ringMaxRadius={3}
@@ -239,6 +242,11 @@ export function PropertyGlobe() {
             {/* Instructional Hint */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/50 text-sm font-light tracking-widest pointer-events-none animate-pulse">
                 DRAG TO EXPLORE • CLICK PINS
+            </div>
+
+            {/* Version Debug */}
+            <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono pointer-events-none">
+                v1.2.0-debug (pointsMerge: false)
             </div>
         </div>
     );
