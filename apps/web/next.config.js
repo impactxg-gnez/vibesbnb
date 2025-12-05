@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['react-globe.gl', 'globe.gl', 'three-globe'],
   images: {
     domains: [
       'source.unsplash.com',
@@ -25,14 +26,14 @@ const nextConfig = {
     // Externalize packages for server-side to avoid webpack bundling issues
     if (isServer) {
       config.externals = [
-        ...(config.externals || []), 
+        ...(config.externals || []),
         'cheerio',
         '@sparticuz/chromium',
         'puppeteer-core',
         'puppeteer',
       ];
     }
-    
+
     return config;
   },
 };

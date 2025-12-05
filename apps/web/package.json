@@ -37,6 +37,8 @@
     "react-hot-toast": "^2.4.1",
     "recharts": "^2.10.3",
     "socket.io-client": "^4.6.0",
+    "react-globe.gl": "^2.37.0",
+    "three": "^0.171.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
