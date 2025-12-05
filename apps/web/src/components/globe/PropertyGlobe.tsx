@@ -32,12 +32,23 @@ interface Property {
 }
 
 export function PropertyGlobe() {
+    // Check for WebGL support; if unavailable, render a fallback message
+    const isWebGLSupported = typeof window !== 'undefined' && !!(window.WebGLRenderingContext || (window as any).WebGL2RenderingContext);
     const router = useRouter();
     const globeEl = useRef<any>(undefined);
     const [properties, setProperties] = useState<Property[]>([]);
     const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [loading, setLoading] = useState(true);
+
+    if (!isWebGLSupported) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-950 text-white">
+                WebGL is not supported in this browser. Please use a compatible browser.
+            </div>
+        );
+    }
+
 
     // Initial load
     useEffect(() => {
