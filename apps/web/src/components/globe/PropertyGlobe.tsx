@@ -62,22 +62,22 @@ export function PropertyGlobe() {
                 const supabase = createClient();
                 const { data, error } = await supabase
                     .from('properties')
-                    .select('id, name, price, description, images, location_lat, location_lng, location')
+                    .select('id, name, price, description, images, latitude, longitude, location')
                     .eq('status', 'active');
 
                 if (error) throw error;
 
                 // Map and validate data
                 const validProperties = (data || [])
-                    .filter(p => p.location_lat && p.location_lng) // Ensure valid coordinates
+                    .filter(p => p.latitude && p.longitude) // Ensure valid coordinates
                     .map(p => ({
                         id: p.id,
                         name: p.name,
                         price: p.price,
                         description: p.description || '',
                         location: p.location || 'Unknown Location',
-                        latitude: Number(p.location_lat),
-                        longitude: Number(p.location_lng),
+                        latitude: Number(p.latitude),
+                        longitude: Number(p.longitude),
                         image: p.images?.[0] || 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop'
                     }));
 

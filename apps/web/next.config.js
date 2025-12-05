@@ -23,6 +23,13 @@ const nextConfig = {
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
   },
   webpack: (config, { isServer }) => {
+    // Force single instance of three
+    const path = require('path');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'three': path.resolve(__dirname, 'node_modules/three'),
+    };
+
     // Externalize packages for server-side to avoid webpack bundling issues
     if (isServer) {
       config.externals = [
@@ -37,7 +44,5 @@ const nextConfig = {
     return config;
   },
 };
-
-module.exports = nextConfig;
 
 
