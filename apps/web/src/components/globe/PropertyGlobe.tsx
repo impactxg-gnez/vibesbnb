@@ -12,14 +12,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Globe = dynamic(() => import('react-globe.gl'), {
     ssr: false,
     loading: () => (
-        <div className="flex items-center justify-center h-screen bg-gray-950 text-white">
-            <div className="animate-pulse flex flex-col items-center">
-                <div className="h-12 w-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4" />
-                <p className="text-lg font-light tracking-widest">LOADING WORLD...</p>
+        <div className="flex items-center justify-center h-screen bg-cosmic-charcoal text-mist-white">
+            <div className="animate-pulse flex flex-col items-center gap-4">
+                <div className="h-16 w-16 rounded-full border-t-2 border-r-2 border-solar-gold animate-spin" />
+                <p className="text-xl font-light tracking-[0.3em] font-serif italic text-sage-smoke">LOADING VIBES...</p>
             </div>
         </div>
     ),
 });
+
+// Fonts
+import { Cormorant_Garamond, Inter } from 'next/font/google';
+const serifFont = Cormorant_Garamond({ subsets: ['latin'], weight: ['300', '400', '600', '700'], style: ['normal', 'italic'] });
+const sansFont = Inter({ subsets: ['latin'], weight: ['300', '400', '500'] });
 
 interface Property {
     id: string;
@@ -43,6 +48,9 @@ export function PropertyGlobe() {
     const [searchLocation, setSearchLocation] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const [isLocating, setIsLocating] = useState(true);
+    const [muted, setMuted] = useState(true);
+
+    const whisperWords = ["Unwind", "Restore", "Flow", "Breathe", "Reset", "Explore", "Elevate", "Vibe"];
 
     if (!isWebGLSupported) {
         return (
@@ -301,48 +309,86 @@ export function PropertyGlobe() {
     );
 
     return (
-        <div className="relative w-full min-h-screen bg-gray-950 flex flex-col">
+        <div className={`relative w-full min-h-screen bg-cosmic-charcoal flex flex-col overflow-hidden ${sansFont.className}`}>
             {/* Header */}
+            {/* Atmosphere: Gradient & Glow */}
+            <div className="absolute inset-0 z-0 bg-radial-gradient from-velvet-green/20 via-cosmic-charcoal/80 to-cosmic-charcoal pointer-events-none" />
+            <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amethyst-aura/10 via-transparent to-transparent opacity-60 pointer-events-none mix-blend-screen" />
+
+            {/* Floating Whisper Words */}
+            <div className={`absolute inset-0 z-0 overflow-hidden pointer-events-none ${serifFont.className}`}>
+                {whisperWords.map((word, i) => (
+                    <motion.div
+                        key={word}
+                        initial={{ opacity: 0, x: Math.random() * 100 - 50, y: Math.random() * 100 - 50 }}
+                        animate={{
+                            opacity: [0, 0.4, 0],
+                            x: [0, Math.random() * 200 - 100],
+                            y: [0, Math.random() * 200 - 100]
+                        }}
+                        transition={{
+                            duration: 15 + Math.random() * 10,
+                            repeat: Infinity,
+                            delay: i * 3,
+                            ease: "easeInOut"
+                        }}
+                        className="absolute text-mist-white/10 text-4xl italic font-light tracking-widest select-none"
+                        style={{
+                            left: `${10 + Math.random() * 80}%`,
+                            top: `${10 + Math.random() * 80}%`
+                        }}
+                    >
+                        {word}
+                    </motion.div>
+                ))}
+            </div>
+
             {/* Header & Search */}
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-4 z-50 pointer-events-none w-full max-w-md px-4">
+            <div className={`absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 transition-all duration-1000 ${serifFont.className}`}>
                 {/* Title Card */}
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 px-8 py-4 rounded-3xl shadow-lg text-center">
-                    <h2 className="text-3xl font-bold text-white mb-1">Where to?</h2>
-                    <p className="text-sm text-gray-200 font-medium">Book wellness‑friendly properties</p>
+                <div className="text-center group">
+                    <h2 className="text-5xl md:text-6xl font-medium text-mist-white mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(239,203,115,0.3)]">
+                        Travel for the soul.
+                    </h2>
+                    <div className="h-px w-24 bg-gradient-to-r from-transparent via-solar-gold/50 to-transparent mx-auto mb-3" />
+                    <p className={`text-sm text-sage-smoke font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
+                        Curated spaces for deep rest
+                    </p>
                 </div>
 
                 {/* Search Card */}
-                <div className="relative w-full pointer-events-auto">
+                <div className={`relative w-full pointer-events-auto ${sansFont.className}`}>
                     <div className="relative">
                         <button
                             onClick={() => setShowDropdown(!showDropdown)}
-                            className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl flex items-center gap-3 px-4 py-3 text-left hover:bg-white/20 transition-all group"
+                            className="w-full bg-velvet-green/30 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4 px-6 py-4 text-left hover:bg-velvet-green/50 hover:border-solar-gold/30 transition-all duration-500 group shadow-lg shadow-black/20"
                         >
-                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            <svg className="w-5 h-5 text-solar-gold opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
-                            <span className={`flex-1 ${searchLocation ? 'text-white' : 'text-gray-400'}`}>
-                                {searchLocation || 'Search destinations...'}
+                            <span className={`flex-1 text-sm tracking-wide ${searchLocation ? 'text-mist-white' : 'text-sage-smoke/80'}`}>
+                                {searchLocation || 'Find your next vibe...'}
                             </span>
-                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            <div className="w-px h-4 bg-white/10 mx-2" />
+                            <svg className={`w-4 h-4 text-sage-smoke transition-transform duration-500 ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
 
                         {showDropdown && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
-                                <div className="p-2">
+                            <div className="absolute top-full left-0 right-0 mt-4 bg-cosmic-charcoal/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scrollbar p-2">
+                                <div className="p-1">
                                     <input
                                         type="text"
                                         placeholder="Type to filter..."
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500 mb-2"
+                                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-mist-white text-sm placeholder-sage-smoke/50 focus:outline-none focus:border-solar-gold/30 focus:bg-white/10 transition-all mb-2 font-light"
                                         value={searchLocation}
                                         onChange={(e) => setSearchLocation(e.target.value)}
                                         onClick={(e) => e.stopPropagation()}
                                         autoFocus
                                         onFocus={() => {
                                             if (uniqueLocations.includes(searchLocation)) {
-                                                setSearchLocation(''); // Auto-clear on focus if a location was selected, to show all options again
+                                                setSearchLocation('');
                                             }
                                         }}
                                     />
@@ -351,13 +397,14 @@ export function PropertyGlobe() {
                                             <button
                                                 key={loc}
                                                 onClick={() => handleLocationSelect(loc)}
-                                                className="w-full text-left px-3 py-2 text-gray-200 hover:bg-emerald-500/20 hover:text-emerald-400 rounded-lg transition-colors text-sm"
+                                                className="w-full text-left px-4 py-3 text-sage-smoke hover:bg-velvet-green/40 hover:text-mist-white rounded-xl transition-all duration-300 text-sm font-light tracking-wide flex items-center justify-between group"
                                             >
-                                                {loc}
+                                                <span>{loc}</span>
+                                                <span className="opacity-0 group-hover:opacity-100 text-solar-gold text-xs transition-opacity">Fly to</span>
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="px-3 py-2 text-gray-500 text-sm text-center">No locations found</div>
+                                        <div className="px-4 py-3 text-sage-smoke/50 text-sm text-center italic">No vibes found here...</div>
                                     )}
                                 </div>
                             </div>
@@ -367,47 +414,61 @@ export function PropertyGlobe() {
             </div>
 
             {/* Top Navigation */}
-            <div className="absolute top-0 left-0 w-full z-30 p-6 flex justify-between items-start pointer-events-none">
+            <div className="absolute top-0 left-0 w-full z-30 p-8 flex justify-between items-start pointer-events-none">
                 <div className="pointer-events-auto">
-                    <h1 className="text-2xl font-bold text-white tracking-tighter">
-                        Vibes<span className="text-emerald-500">BNB</span>
-                    </h1>
+                    {/* Minimal Brand - maybe hidden or very subtle since globe is focus */}
                 </div>
-                <button
-                    onClick={handleSearchClick}
-                    className="pointer-events-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-6 py-2.5 rounded-full font-medium transition-all duration-300 hover:scale-105 group flex items-center gap-2"
-                >
-                    Enter Website
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </button>
+                <div className="flex items-center gap-4">
+                    {/* Audio Toggle */}
+                    <button
+                        onClick={() => setMuted(!muted)}
+                        className="pointer-events-auto w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-sage-smoke transition-all hover:scale-105 hover:text-solar-gold"
+                    >
+                        {muted ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={handleSearchClick}
+                        className={`pointer-events-auto bg-solar-gold text-cosmic-charcoal px-8 py-3 rounded-full text-sm font-medium tracking-widest uppercase transition-all duration-300 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(239,203,115,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center gap-2 ${sansFont.className}`}
+                    >
+                        Enter Website
+                    </button>
+                </div>
             </div>
 
             {/* Globe */}
-            <div className="flex-1 cursor-move relative z-40 pointer-events-auto">
+            <div className="flex-1 cursor-move relative z-10 pointer-events-auto">
                 <Globe
                     ref={globeEl}
                     width={dimensions.width}
                     height={dimensions.height}
+                    // Darker, seamless dark map
                     globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
                     bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-                    backgroundColor="#030712"
-                    atmosphereColor="#10b981"
-                    atmosphereAltitude={0.15}
+                    // Colors
+                    backgroundColor="rgba(0,0,0,0)" // Transparent for gradient bg
+                    atmosphereColor="#6E4FB7" // Amethyst
+                    atmosphereAltitude={0.25} // More glow
+
                     pointsData={properties}
                     pointLat="latitude"
                     pointLng="longitude"
-                    pointColor={() => 'transparent'} // Hide default points, using HTML markers
+                    pointColor={() => 'transparent'}
                     pointAltitude={0}
-                    pointRadius={0.1} // Keep hit area
+                    pointRadius={0.1}
                     pointResolution={12}
                     pointsMerge={false}
+
                     ringsData={ringData}
-                    ringColor={() => '#34d399'}
+                    ringColor={() => '#EFCB73'} // Solar Gold
                     ringMaxRadius={3}
                     ringPropagationSpeed={2}
                     ringRepeatPeriod={800}
+
                     htmlElementsData={properties}
                     htmlLat="latitude"
                     htmlLng="longitude"
@@ -415,30 +476,26 @@ export function PropertyGlobe() {
                         const el = document.createElement('div');
                         el.innerHTML = `
                             <div class="relative flex items-center justify-center group cursor-pointer">
-                                <div class="absolute w-8 h-8 bg-emerald-500/30 rounded-full animate-ping"></div>
-                                <div class="relative w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)] transition-transform duration-300 group-hover:scale-150"></div>
+                                <div class="absolute w-8 h-8 bg-solar-gold/20 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
+                                <div class="absolute w-12 h-12 bg-solar-gold/10 rounded-full animate-[ping_4s_ease-in-out_infinite_delay-1000]"></div>
+                                <div class="relative w-2 h-2 bg-solar-gold border border-white/80 rounded-full shadow-[0_0_15px_rgba(239,203,115,0.8)] transition-transform duration-500 group-hover:scale-150"></div>
                             </div>
                         `;
-                        // Forward click event
                         el.onclick = () => handlePointClick(d);
                         return el;
                     }}
+
                     labelsData={dynamicLabels}
                     labelLat="latitude"
                     labelLng="longitude"
                     labelText="text"
-                    labelColor={(d: any) => d.color}
+                    labelColor={(d: any) => 'rgba(245, 245, 243, 0.85)'} // mist-white
                     labelSize={(d: any) => d.size}
                     labelDotRadius={0.2}
                     labelAltitude={0.02}
+                    labelTypeFace={serifFont.style.fontFamily} // Attempt to use custom font if supported, else fallback
+
                     onPointClick={handlePointClick}
-                    pointLabel={(p: any) => `
-            <div class="bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm">
-              <div class="font-bold text-emerald-400">$${p.price}</div>
-              <div class="text-xs text-gray-300">${p.name}</div>
-              <div class="text-xs text-gray-200">${p.location}</div>
-            </div>
-          `}
                 />
             </div>
 
@@ -500,13 +557,18 @@ export function PropertyGlobe() {
             </AnimatePresence>
 
             {/* Instructional Hint */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/50 text-sm font-light tracking-widest pointer-events-none animate-pulse">
-                DRAG TO EXPLORE • CLICK PINS
-            </div>
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1, duration: 1 }}
+                className={`absolute bottom-12 left-1/2 -translate-x-1/2 text-sage-smoke text-xs tracking-[0.3em] font-light pointer-events-none uppercase ${sansFont.className}`}
+            >
+                Rotate to explore
+            </motion.div>
 
             {/* Version Debug */}
-            <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono pointer-events-none">
-                v1.6.0 (html markers + fixed zoom)
+            <div className="absolute bottom-2 right-2 text-white/5 text-[10px] font-mono pointer-events-none">
+                v2.0.0 (premium-ui-overhaul)
             </div>
         </div>
     );

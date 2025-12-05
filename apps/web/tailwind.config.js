@@ -9,6 +9,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // VibesBNB Premium Dark Palette
+        'cosmic-charcoal': '#0E0F11',
+        'velvet-green': '#253226',
+        'ember-rust': '#C96E45',
+        'solar-gold': '#EFCB73',
+        'mist-white': '#F5F5F3',
+        'sage-smoke': '#A5ADA0',
+        'amethyst-aura': '#6E4FB7',
         primary: {
           50: '#f0fdf4',
           100: '#dcfce7',
