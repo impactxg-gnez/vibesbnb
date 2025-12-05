@@ -127,9 +127,9 @@ export function PropertyGlobe() {
     );
 
     return (
-        <div className="relative w-full h-screen bg-gray-950 overflow-hidden">
+        <div className="relative w-full h-screen bg-gray-950 overflow-hidden pt-24">
             {/* Header */}
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-40">
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-50">
                 <h2 className="text-3xl font-bold text-white">Where to?</h2>
                 <p className="text-sm text-gray-300">Book wellness‑friendly properties</p>
             </div>
