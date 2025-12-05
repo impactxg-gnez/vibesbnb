@@ -188,7 +188,7 @@ export function PropertyGlobe() {
                 lat: targetProp.latitude,
                 lng: targetProp.longitude,
                 altitude: 1.5
-            }, 2000); // Increased duration to 2s for smoother rotation effect
+            }, 4000); // Smoother 4s transition
         }
     };
 
@@ -237,17 +237,17 @@ export function PropertyGlobe() {
     const dynamicLabels = useMemo(() => {
         if (properties.length === 0) return [];
 
-        // Level 1: Country (High Altitude > 1.2)
+        // Level 1: Country (High Altitude > 1.0)
         // Showing "USA" at average center
-        if (currentAltitude > 1.2) {
+        if (currentAltitude > 1.0) {
             const latSum = properties.reduce((sum, p) => sum + p.latitude, 0);
             const lngSum = properties.reduce((sum, p) => sum + p.longitude, 0);
             return [{
                 text: "USA",
                 latitude: latSum / properties.length,
                 longitude: lngSum / properties.length,
-                size: 2.5,
-                color: 'rgba(255, 255, 255, 0.9)'
+                size: 3.5,
+                color: 'rgba(239, 203, 115, 0.9)' // Solar Gold
             }];
         }
 
@@ -416,28 +416,32 @@ export function PropertyGlobe() {
             {/* Top Navigation */}
             <div className="absolute top-0 left-0 w-full z-30 p-8 flex justify-between items-start pointer-events-none">
                 <div className="pointer-events-auto">
-                    {/* Minimal Brand - maybe hidden or very subtle since globe is focus */}
+                    {/* Minimal Brand */}
                 </div>
-                <div className="flex items-center gap-4">
-                    {/* Audio Toggle */}
-                    <button
-                        onClick={() => setMuted(!muted)}
-                        className="pointer-events-auto w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-sage-smoke transition-all hover:scale-105 hover:text-solar-gold"
-                    >
-                        {muted ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
-                        )}
-                    </button>
+            </div>
 
-                    <button
-                        onClick={handleSearchClick}
-                        className={`pointer-events-auto bg-solar-gold text-cosmic-charcoal px-8 py-3 rounded-full text-sm font-medium tracking-widest uppercase transition-all duration-300 hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(239,203,115,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center gap-2 ${sansFont.className}`}
-                    >
-                        Enter Website
-                    </button>
-                </div>
+            {/* Bottom Controls (Right) */}
+            <div className="absolute bottom-12 right-8 z-40 flex flex-col items-end gap-6 pointer-events-none">
+                {/* Audio Toggle */}
+                <button
+                    onClick={() => setMuted(!muted)}
+                    className="pointer-events-auto w-12 h-12 rounded-full border border-white/10 bg-cosmic-charcoal/50 backdrop-blur-md hover:bg-velvet-green/50 flex items-center justify-center text-sage-smoke transition-all hover:scale-110 hover:text-solar-gold hover:border-solar-gold/30 shadow-lg group"
+                >
+                    {muted ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                    ) : (
+                        <div className="relative">
+                            <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                        </div>
+                    )}
+                </button>
+
+                <button
+                    onClick={handleSearchClick}
+                    className={`pointer-events-auto bg-solar-gold text-cosmic-charcoal px-8 py-4 rounded-full text-base font-medium tracking-widest uppercase transition-all duration-300 hover:bg-mist-white hover:scale-105 shadow-[0_0_20px_rgba(239,203,115,0.4)] hover:shadow-[0_0_40px_rgba(255,255,255,0.6)] flex items-center gap-2 ${sansFont.className}`}
+                >
+                    Enter Website
+                </button>
             </div>
 
             {/* Globe */}
@@ -493,9 +497,17 @@ export function PropertyGlobe() {
                     labelSize={(d: any) => d.size}
                     labelDotRadius={0.2}
                     labelAltitude={0.02}
-                    labelTypeFace={serifFont.style.fontFamily} // Attempt to use custom font if supported, else fallback
+                    // labelTypeFace removed to avoid font loading blanking issues, fallback to default font
+
 
                     onPointClick={handlePointClick}
+                    pointLabel={(p: any) => `
+                        <div class="bg-cosmic-charcoal/95 border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px]">
+                          <div class="text-sm text-solar-gold tracking-widest font-bold uppercase mb-1">${p.location}</div>
+                          <div class="text-xs text-sage-smoke line-clamp-1 mb-1 font-light">${p.name}</div>
+                          <div class="text-sm text-mist-white font-medium">$${p.price} <span class="text-xs text-white/40">/ night</span></div>
+                        </div>
+                    `}
                 />
             </div>
 
