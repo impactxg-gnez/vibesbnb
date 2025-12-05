@@ -76,7 +76,7 @@ export function PropertyGlobe() {
                         location: p.location || 'Unknown Location',
                         latitude: Number(p.latitude),
                         longitude: Number(p.longitude),
-                        image: p.images?.[0] || 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
+                        image: (p.images && p.images.length > 0 && p.images[0]) ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
                     }));
                 setProperties(validProperties);
 
@@ -158,11 +158,19 @@ export function PropertyGlobe() {
     }, [properties]);
 
     const filteredLocations = uniqueLocations.filter(loc =>
-        loc.toLowerCase().includes(searchLocation.toLowerCase())
+        searchLocation === '' ||
+        loc.toLowerCase().includes(searchLocation.toLowerCase()) ||
+        (uniqueLocations.includes(searchLocation) && loc !== searchLocation) // Keep other suggestions if match found
     );
 
     const handleLocationSelect = (location: string) => {
         setSearchLocation(location);
+        // Do not close dropdown immediately if user wants to switch, or maybe better UX? 
+        // User request: "other suggestions disappear unless selected location is removed"
+        // Solution: Keep dropdown open but update value? Or clearer functionality.
+        // Actually, simpler fix for user request: Don't filter list by strict match if it's an exact match?
+        // Let's implement clearing on focus or keep showing all if exact match.
+
         setShowDropdown(false);
         const targetProp = properties.find(p => p.location === location);
         if (targetProp && globeEl.current) {
@@ -227,6 +235,11 @@ export function PropertyGlobe() {
                                         onChange={(e) => setSearchLocation(e.target.value)}
                                         onClick={(e) => e.stopPropagation()}
                                         autoFocus
+                                        onFocus={() => {
+                                            if (uniqueLocations.includes(searchLocation)) {
+                                                setSearchLocation(''); // Auto-clear on focus if a location was selected, to show all options again
+                                            }
+                                        }}
                                     />
                                     {filteredLocations.length > 0 ? (
                                         filteredLocations.map(loc => (
@@ -314,8 +327,17 @@ export function PropertyGlobe() {
                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[80vh] overflow-y-auto">
                                 {selectedProperties.map(prop => (
                                     <div key={prop.id} className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg overflow-hidden border border-white/15">
-                                        <div className="relative h-48 w-full">
-                                            <Image src={prop.image} alt={prop.name} fill className="object-cover" />
+                                        <div className="relative h-48 w-full bg-gray-800">
+                                            <Image
+                                                src={prop.image}
+                                                alt={prop.name}
+                                                fill
+                                                className="object-cover"
+                                                onError={(e: any) => {
+                                                    e.target.src = 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
+                                                }}
+                                                unoptimized // Temporary: bypass optimization if domain issues persist
+                                            />
                                         </div>
                                         <div className="p-3 text-white">
                                             <h3 className="text-lg font-bold mb-1 line-clamp-1">{prop.name}</h3>
