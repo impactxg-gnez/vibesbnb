@@ -186,19 +186,44 @@ export function PropertyGlobe() {
 
     const [currentAltitude, setCurrentAltitude] = useState(2.5);
 
-    // Track zoom level
+    // Track zoom level reliability
     useEffect(() => {
-        if (!globeEl.current) return;
+        let checkInterval: NodeJS.Timeout;
 
-        const controls = globeEl.current.controls();
-        const onChange = () => {
-            const pov = globeEl.current.pointOfView();
-            setCurrentAltitude(pov.altitude);
+        const initControlsListener = () => {
+            if (globeEl.current) {
+                const controls = globeEl.current.controls();
+                if (controls) {
+                    const onChange = () => {
+                        const pov = globeEl.current.pointOfView();
+                        setCurrentAltitude(pov.altitude);
+                    };
+                    controls.addEventListener('change', onChange);
+
+                    // Cleanup
+                    return () => controls.removeEventListener('change', onChange);
+                }
+            }
+            return undefined;
         };
 
-        controls.addEventListener('change', onChange);
-        return () => controls.removeEventListener('change', onChange);
-    }, [globeEl.current]); // Add dependency on ref current if consistent, or empty [] if stable
+        const cleanup = initControlsListener();
+
+        // If not ready yet, poll for it
+        if (!cleanup) {
+            checkInterval = setInterval(() => {
+                const retryCleanup = initControlsListener();
+                if (retryCleanup) {
+                    clearInterval(checkInterval);
+                }
+            }, 500);
+        }
+
+        return () => {
+            if (cleanup) cleanup();
+            if (checkInterval) clearInterval(checkInterval);
+        };
+    }, []);
 
     // Aggregate Labels Logic
     const dynamicLabels = useMemo(() => {
@@ -373,16 +398,31 @@ export function PropertyGlobe() {
                     pointsData={properties}
                     pointLat="latitude"
                     pointLng="longitude"
-                    pointColor={() => '#34d399'}
-                    pointAltitude={0.7}
-                    pointRadius={0.05}
-                    pointResolution={8}
+                    pointColor={() => 'transparent'} // Hide default points, using HTML markers
+                    pointAltitude={0}
+                    pointRadius={0.1} // Keep hit area
+                    pointResolution={12}
                     pointsMerge={false}
                     ringsData={ringData}
                     ringColor={() => '#34d399'}
                     ringMaxRadius={3}
                     ringPropagationSpeed={2}
                     ringRepeatPeriod={800}
+                    htmlElementsData={properties}
+                    htmlLat="latitude"
+                    htmlLng="longitude"
+                    htmlElement={(d: any) => {
+                        const el = document.createElement('div');
+                        el.innerHTML = `
+                            <div class="relative flex items-center justify-center group cursor-pointer">
+                                <div class="absolute w-8 h-8 bg-emerald-500/30 rounded-full animate-ping"></div>
+                                <div class="relative w-3 h-3 bg-emerald-400 border-2 border-white rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)] transition-transform duration-300 group-hover:scale-150"></div>
+                            </div>
+                        `;
+                        // Forward click event
+                        el.onclick = () => handlePointClick(d);
+                        return el;
+                    }}
                     labelsData={dynamicLabels}
                     labelLat="latitude"
                     labelLng="longitude"
@@ -466,7 +506,7 @@ export function PropertyGlobe() {
 
             {/* Version Debug */}
             <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono pointer-events-none">
-                v1.5.0 (semantic zoom: USA/State/City)
+                v1.6.0 (html markers + fixed zoom)
             </div>
         </div>
     );
