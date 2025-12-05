@@ -184,6 +184,86 @@ export function PropertyGlobe() {
         }
     };
 
+    const [currentAltitude, setCurrentAltitude] = useState(2.5);
+
+    // Track zoom level
+    useEffect(() => {
+        if (!globeEl.current) return;
+
+        const controls = globeEl.current.controls();
+        const onChange = () => {
+            const pov = globeEl.current.pointOfView();
+            setCurrentAltitude(pov.altitude);
+        };
+
+        controls.addEventListener('change', onChange);
+        return () => controls.removeEventListener('change', onChange);
+    }, [globeEl.current]); // Add dependency on ref current if consistent, or empty [] if stable
+
+    // Aggregate Labels Logic
+    const dynamicLabels = useMemo(() => {
+        if (properties.length === 0) return [];
+
+        // Level 1: Country (High Altitude > 1.2)
+        // Showing "USA" at average center
+        if (currentAltitude > 1.2) {
+            const latSum = properties.reduce((sum, p) => sum + p.latitude, 0);
+            const lngSum = properties.reduce((sum, p) => sum + p.longitude, 0);
+            return [{
+                text: "USA",
+                latitude: latSum / properties.length,
+                longitude: lngSum / properties.length,
+                size: 2.5,
+                color: 'rgba(255, 255, 255, 0.9)'
+            }];
+        }
+
+        // Level 2: States (Mid Altitude 0.4 - 1.2)
+        // Group by State (e.g., "Joshua Tree, CA" -> "CA")
+        if (currentAltitude > 0.4) {
+            const stateGroups: { [key: string]: { latSum: number, lngSum: number, count: number } } = {};
+
+            properties.forEach(p => {
+                const parts = p.location.split(',');
+                // Assume format "City, State" - take the last part trimmed, or whole if no comma
+                const state = parts.length > 1 ? parts[parts.length - 1].trim() : "Other";
+
+                if (!stateGroups[state]) stateGroups[state] = { latSum: 0, lngSum: 0, count: 0 };
+                stateGroups[state].latSum += p.latitude;
+                stateGroups[state].lngSum += p.longitude;
+                stateGroups[state].count += 1;
+            });
+
+            return Object.keys(stateGroups).map(state => ({
+                text: state,
+                latitude: stateGroups[state].latSum / stateGroups[state].count,
+                longitude: stateGroups[state].lngSum / stateGroups[state].count,
+                size: 1.5,
+                color: 'rgba(52, 211, 153, 0.9)' // Emerald-ish
+            }));
+        }
+
+        // Level 3: Cities (Low Altitude < 0.4)
+        // Group by unique location name
+        const cityGroups: { [key: string]: { latSum: number, lngSum: number, count: number } } = {};
+
+        properties.forEach(p => {
+            if (!cityGroups[p.location]) cityGroups[p.location] = { latSum: 0, lngSum: 0, count: 0 };
+            cityGroups[p.location].latSum += p.latitude;
+            cityGroups[p.location].lngSum += p.longitude;
+            cityGroups[p.location].count += 1;
+        });
+
+        return Object.keys(cityGroups).map(city => ({
+            text: city,
+            latitude: cityGroups[city].latSum / cityGroups[city].count,
+            longitude: cityGroups[city].lngSum / cityGroups[city].count,
+            size: 1.0,
+            color: 'rgba(255, 255, 255, 0.8)'
+        }));
+
+    }, [properties, currentAltitude]);
+
     const ringData = useMemo(() =>
         properties.map(p => ({
             lat: p.latitude,
@@ -303,20 +383,20 @@ export function PropertyGlobe() {
                     ringMaxRadius={3}
                     ringPropagationSpeed={2}
                     ringRepeatPeriod={800}
-                    labelsData={properties}
+                    labelsData={dynamicLabels}
                     labelLat="latitude"
                     labelLng="longitude"
-                    labelText="location"
-                    labelColor={() => 'rgba(255, 255, 255, 0.75)'}
-                    labelSize={1.5}
-                    labelDotRadius={0.5}
-                    labelAltitude={0.01}
+                    labelText="text"
+                    labelColor={(d: any) => d.color}
+                    labelSize={(d: any) => d.size}
+                    labelDotRadius={0.2}
+                    labelAltitude={0.02}
                     onPointClick={handlePointClick}
                     pointLabel={(p: any) => `
-            <div class=\"bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm\">
-              <div class=\"font-bold text-emerald-400\">$${p.price}</div>
-              <div class=\"text-xs text-gray-300\">${p.name}</div>
-              <div class=\"text-xs text-gray-200\">${p.location}</div>
+            <div class="bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm">
+              <div class="font-bold text-emerald-400">$${p.price}</div>
+              <div class="text-xs text-gray-300">${p.name}</div>
+              <div class="text-xs text-gray-200">${p.location}</div>
             </div>
           `}
                 />
@@ -386,7 +466,7 @@ export function PropertyGlobe() {
 
             {/* Version Debug */}
             <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono pointer-events-none">
-                v1.4.0 (beacons)
+                v1.5.0 (semantic zoom: USA/State/City)
             </div>
         </div>
     );
