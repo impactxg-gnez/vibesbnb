@@ -40,7 +40,9 @@ export function PropertyGlobe() {
     const [properties, setProperties] = useState<Property[]>([]);
     const [selectedProperties, setSelectedProperties] = useState<Property[]>([]);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-    const [loading, setLoading] = useState(true);
+    const [searchLocation, setSearchLocation] = useState('');
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [isLocating, setIsLocating] = useState(true);
 
     if (!isWebGLSupported) {
         return (
@@ -77,10 +79,43 @@ export function PropertyGlobe() {
                         image: p.images?.[0] || 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
                     }));
                 setProperties(validProperties);
+
+                // Calculate centroid for fallback
+                if (validProperties.length > 0) {
+                    const latSum = validProperties.reduce((sum, p) => sum + p.latitude, 0);
+                    const lngSum = validProperties.reduce((sum, p) => sum + p.longitude, 0);
+                    const centerLat = latSum / validProperties.length;
+                    const centerLng = lngSum / validProperties.length;
+
+                    // Try to get user location
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            if (globeEl.current) {
+                                globeEl.current.pointOfView({
+                                    lat: position.coords.latitude,
+                                    lng: position.coords.longitude,
+                                    altitude: 2.0
+                                }, 1000);
+                            }
+                            setIsLocating(false);
+                        },
+                        (error) => {
+                            console.log('Geolocation unavailable, using property centroid', error);
+                            if (globeEl.current) {
+                                globeEl.current.pointOfView({
+                                    lat: centerLat,
+                                    lng: centerLng,
+                                    altitude: 2.0
+                                }, 1000);
+                            }
+                            setIsLocating(false);
+                        }
+                    );
+                }
             } catch (err) {
                 console.error('Error fetching properties for globe:', err);
             } finally {
-                setLoading(false);
+                // Done loading
             }
         };
         fetchProperties();
@@ -94,7 +129,7 @@ export function PropertyGlobe() {
             globeEl.current.controls().autoRotateSpeed = 0.5;
             globeEl.current.pointOfView({ altitude: 2.5 });
         }
-    }, [loading]);
+    }, []);
 
     // Simple distance helper (degrees)
     const distance = (a: Property, b: Property) => {
@@ -117,6 +152,29 @@ export function PropertyGlobe() {
 
     const handleSearchClick = () => router.push('/search');
 
+    const uniqueLocations = useMemo(() => {
+        const locations = new Set(properties.map(p => p.location));
+        return Array.from(locations).sort();
+    }, [properties]);
+
+    const filteredLocations = uniqueLocations.filter(loc =>
+        loc.toLowerCase().includes(searchLocation.toLowerCase())
+    );
+
+    const handleLocationSelect = (location: string) => {
+        setSearchLocation(location);
+        setShowDropdown(false);
+        const targetProp = properties.find(p => p.location === location);
+        if (targetProp && globeEl.current) {
+            globeEl.current.controls().autoRotate = false;
+            globeEl.current.pointOfView({
+                lat: targetProp.latitude,
+                lng: targetProp.longitude,
+                altitude: 1.5
+            }, 1000);
+        }
+    };
+
     const ringData = useMemo(() =>
         properties.map(p => ({
             lat: p.latitude,
@@ -131,11 +189,61 @@ export function PropertyGlobe() {
     return (
         <div className="relative w-full min-h-screen bg-gray-950 flex flex-col">
             {/* Header */}
-            {/* Header */}
-            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 text-center z-50 pointer-events-none">
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 px-8 py-4 rounded-3xl shadow-lg">
+            {/* Header & Search */}
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-4 z-50 pointer-events-none w-full max-w-md px-4">
+                {/* Title Card */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 px-8 py-4 rounded-3xl shadow-lg text-center">
                     <h2 className="text-3xl font-bold text-white mb-1">Where to?</h2>
                     <p className="text-sm text-gray-200 font-medium">Book wellness‑friendly properties</p>
+                </div>
+
+                {/* Search Card */}
+                <div className="relative w-full pointer-events-auto">
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowDropdown(!showDropdown)}
+                            className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl flex items-center gap-3 px-4 py-3 text-left hover:bg-white/20 transition-all group"
+                        >
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <span className={`flex-1 ${searchLocation ? 'text-white' : 'text-gray-400'}`}>
+                                {searchLocation || 'Search destinations...'}
+                            </span>
+                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {showDropdown && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
+                                <div className="p-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Type to filter..."
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500 mb-2"
+                                        value={searchLocation}
+                                        onChange={(e) => setSearchLocation(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        autoFocus
+                                    />
+                                    {filteredLocations.length > 0 ? (
+                                        filteredLocations.map(loc => (
+                                            <button
+                                                key={loc}
+                                                onClick={() => handleLocationSelect(loc)}
+                                                className="w-full text-left px-3 py-2 text-gray-200 hover:bg-emerald-500/20 hover:text-emerald-400 rounded-lg transition-colors text-sm"
+                                            >
+                                                {loc}
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-3 py-2 text-gray-500 text-sm text-center">No locations found</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -172,8 +280,9 @@ export function PropertyGlobe() {
                     pointLat="latitude"
                     pointLng="longitude"
                     pointColor={() => '#10b981'}
-                    pointAltitude={0.05}
-                    pointRadius={1.0}
+                    pointAltitude={0.3}
+                    pointRadius={0.3}
+                    pointResolution={12}
                     pointsMerge={false}
                     ringsData={ringData}
                     ringColor={() => '#34d399'}
@@ -246,7 +355,7 @@ export function PropertyGlobe() {
 
             {/* Version Debug */}
             <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono pointer-events-none">
-                v1.2.0-debug (pointsMerge: false)
+                v1.3.0 (spot-lights + geo + search)
             </div>
         </div>
     );
