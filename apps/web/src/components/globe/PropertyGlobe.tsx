@@ -293,10 +293,10 @@ export function PropertyGlobe() {
                     pointsData={properties}
                     pointLat="latitude"
                     pointLng="longitude"
-                    pointColor={() => '#10b981'}
-                    pointAltitude={0.3}
-                    pointRadius={0.3}
-                    pointResolution={12}
+                    pointColor={() => '#34d399'}
+                    pointAltitude={0.7}
+                    pointRadius={0.05}
+                    pointResolution={8}
                     pointsMerge={false}
                     ringsData={ringData}
                     ringColor={() => '#34d399'}
@@ -378,7 +378,7 @@ export function PropertyGlobe() {
 
             {/* Version Debug */}
             <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono pointer-events-none">
-                v1.3.0 (spot-lights + geo + search)
+                v1.4.0 (beacons)
             </div>
         </div>
     );
