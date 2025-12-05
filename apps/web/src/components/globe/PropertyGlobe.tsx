@@ -105,6 +105,7 @@ export function PropertyGlobe() {
     const handlePointClick = (point: any) => {
         const clicked = point as Property;
         // Find properties within a small radius (≈0.1°) of the clicked point
+        // Find nearby properties (within ~0.1°) and open modal
         const nearby = properties.filter(p => distance(p, clicked) < 0.1);
         setSelectedProperties(nearby);
         if (globeEl.current) {
@@ -127,7 +128,7 @@ export function PropertyGlobe() {
     );
 
     return (
-        <div className="relative w-full h-screen bg-gray-950 overflow-hidden pt-24">
+        <div className="relative w-full min-h-screen bg-gray-950 flex flex-col">
             {/* Header */}
             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-50">
                 <h2 className="text-3xl font-bold text-white">Where to?</h2>
@@ -153,7 +154,7 @@ export function PropertyGlobe() {
             </div>
 
             {/* Globe */}
-            <div className="cursor-move">
+            <div className="flex-1 cursor-move">
                 <Globe
                     ref={globeEl}
                     width={dimensions.width}
@@ -177,9 +178,10 @@ export function PropertyGlobe() {
                     ringRepeatPeriod={800}
                     onPointClick={handlePointClick}
                     pointLabel={(p: any) => `
-            <div class="bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm">
-              <div class="font-bold text-emerald-400">$${p.price}</div>
-              <div class="text-xs text-gray-300">${p.name}</div>
+            <div class=\"bg-gray-900/90 text-white px-3 py-1.5 rounded border border-gray-700 shadow-xl backdrop-blur-sm text-sm\">
+              <div class=\"font-bold text-emerald-400\">$${p.price}</div>
+              <div class=\"text-xs text-gray-300\">${p.name}</div>
+              <div class=\"text-xs text-gray-200\">${p.location}</div>
             </div>
           `}
                 />
