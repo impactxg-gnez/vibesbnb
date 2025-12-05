@@ -1,4 +1,5 @@
 'use client';
+// trigger redeploy
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
@@ -103,9 +104,9 @@ export function PropertyGlobe() {
     };
 
     const handlePointClick = (point: any) => {
+        console.log('Globe point clicked:', point);
         const clicked = point as Property;
         // Find properties within a small radius (≈0.1°) of the clicked point
-        // Find nearby properties (within ~0.1°) and open modal
         const nearby = properties.filter(p => distance(p, clicked) < 0.1);
         setSelectedProperties(nearby);
         if (globeEl.current) {
@@ -130,7 +131,7 @@ export function PropertyGlobe() {
     return (
         <div className="relative w-full min-h-screen bg-gray-950 flex flex-col">
             {/* Header */}
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-50">
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-center z-50 pointer-events-none">
                 <h2 className="text-3xl font-bold text-white">Where to?</h2>
                 <p className="text-sm text-gray-300">Book wellness‑friendly properties</p>
             </div>
@@ -154,7 +155,7 @@ export function PropertyGlobe() {
             </div>
 
             {/* Globe */}
-            <div className="flex-1 cursor-move">
+            <div className="flex-1 cursor-move relative z-40 pointer-events-auto">
                 <Globe
                     ref={globeEl}
                     width={dimensions.width}
@@ -169,7 +170,7 @@ export function PropertyGlobe() {
                     pointLng="longitude"
                     pointColor={() => '#10b981'}
                     pointAltitude={0.05}
-                    pointRadius={0.5}
+                    pointRadius={1.5}
                     pointsMerge={true}
                     ringsData={ringData}
                     ringColor={() => '#34d399'}
