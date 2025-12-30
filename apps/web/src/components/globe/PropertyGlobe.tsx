@@ -332,7 +332,7 @@ export function PropertyGlobe() {
                             delay: i * 3,
                             ease: "easeInOut"
                         }}
-                        className="absolute text-mist-white/10 text-4xl italic font-light tracking-widest select-none"
+                        className="absolute text-mist-100/10 text-4xl italic font-light tracking-widest select-none"
                         style={{
                             left: `${10 + Math.random() * 80}%`,
                             top: `${10 + Math.random() * 80}%`
