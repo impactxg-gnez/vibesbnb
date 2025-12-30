@@ -208,7 +208,7 @@ Check browser console for full details and property data.`;
           <div className="flex gap-3">
             <button
               onClick={handleDebugProperties}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+              className="px-4 py-2 bg-charcoal-600 text-white rounded-lg hover:bg-charcoal-700 transition flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
               Debug Properties

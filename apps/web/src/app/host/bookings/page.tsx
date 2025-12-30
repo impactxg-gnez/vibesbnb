@@ -225,21 +225,21 @@ export default function HostBookingsPage() {
 
   if (loading || loadingBookings) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 py-8">
+    <div className="min-h-screen bg-charcoal-950 py-8">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">Bookings</h1>
-            <p className="text-gray-400">Manage your property bookings</p>
+            <p className="text-mist-400">Manage your property bookings</p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg">
+          <div className="flex items-center gap-2 px-4 py-2 bg-charcoal-800 text-white rounded-lg">
             <Bell size={20} />
             <span>{unreadNotifications} unread</span>
             <button
@@ -252,33 +252,33 @@ export default function HostBookingsPage() {
           </div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+        <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-white">Recent Notifications</h2>
             <button
               onClick={loadNotifications}
-              className="text-sm text-gray-400 hover:text-white"
+              className="text-sm text-mist-400 hover:text-white"
               disabled={loadingNotifications}
             >
               {loadingNotifications ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
           {notifications.length === 0 ? (
-            <p className="text-gray-500 text-sm">No notifications yet.</p>
+            <p className="text-mist-500 text-sm">No notifications yet.</p>
           ) : (
             <div className="space-y-3">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`p-3 rounded-lg border ${
-                    notification.read ? 'border-gray-800' : 'border-emerald-600'
+                    notification.read ? 'border-charcoal-800' : 'border-emerald-600'
                   }`}
                 >
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-mist-400">
                     {new Date(notification.created_at).toLocaleString()}
                   </p>
                   <p className="text-white font-semibold">{notification.title}</p>
-                  <p className="text-gray-300 text-sm">{notification.message}</p>
+                  <p className="text-mist-300 text-sm">{notification.message}</p>
                 </div>
               ))}
             </div>
@@ -293,8 +293,8 @@ export default function HostBookingsPage() {
               onClick={() => setFilter(status)}
               className={`px-4 py-2 rounded-lg transition ${
                 filter === status
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-earth-600 text-white'
+                  : 'bg-charcoal-800 text-mist-300 hover:bg-charcoal-700'
               }`}
             >
               {status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -304,15 +304,15 @@ export default function HostBookingsPage() {
 
         {/* Bookings List */}
         {filteredBookings.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
-            <p className="text-gray-400 text-lg">No bookings found</p>
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-12 text-center">
+            <p className="text-mist-400 text-lg">No bookings found</p>
           </div>
         ) : (
           <div className="space-y-4">
             {filteredBookings.map((booking) => (
               <div
                 key={booking.id}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition"
+                className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6 hover:border-charcoal-700 transition"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -330,8 +330,8 @@ export default function HostBookingsPage() {
                       )}
                       <div className="flex-1">
                         <h3 className="text-xl font-bold text-white mb-1">{booking.property_name}</h3>
-                        <p className="text-gray-400 text-sm mb-2">{booking.location}</p>
-                        <div className="flex items-center gap-4 text-sm text-gray-300">
+                        <p className="text-mist-400 text-sm mb-2">{booking.location}</p>
+                        <div className="flex items-center gap-4 text-sm text-mist-300">
                           <div className="flex items-center gap-1">
                             <Calendar size={16} />
                             <span>
@@ -350,22 +350,22 @@ export default function HostBookingsPage() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                       <div>
-                        <p className="text-sm text-gray-400 mb-1">Guest</p>
+                        <p className="text-sm text-mist-400 mb-1">Guest</p>
                         <p className="text-white font-medium">{booking.guest_name}</p>
-                        <p className="text-gray-400 text-sm">{booking.guest_email}</p>
+                        <p className="text-mist-400 text-sm">{booking.guest_email}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400 mb-1">Total Price</p>
+                        <p className="text-sm text-mist-400 mb-1">Total Price</p>
                         <p className="text-white font-bold text-lg">${Number(booking.total_price).toFixed(2)}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400 mb-1">Status</p>
+                        <p className="text-sm text-mist-400 mb-1">Status</p>
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking.status)}`}>
                           {booking.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400 mb-1">Payment</p>
+                        <p className="text-sm text-mist-400 mb-1">Payment</p>
                         <span className={`px-2 py-1 text-xs rounded-full ${getPaymentStatusColor(booking.payment_status)}`}>
                           {booking.payment_status.replace(/\b\w/g, l => l.toUpperCase())}
                         </span>
@@ -373,8 +373,8 @@ export default function HostBookingsPage() {
                     </div>
 
                     {booking.special_requests && (
-                      <div className="mb-4 p-3 bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-400 mb-1">Special Requests</p>
+                      <div className="mb-4 p-3 bg-charcoal-800 rounded-lg">
+                        <p className="text-sm text-mist-400 mb-1">Special Requests</p>
                         <p className="text-white text-sm">{booking.special_requests}</p>
                       </div>
                     )}
@@ -385,7 +385,7 @@ export default function HostBookingsPage() {
                       <>
                         <button
                           onClick={() => handleAcceptBooking(booking.id)}
-                          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+                          className="px-4 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition flex items-center gap-2"
                         >
                           <Check size={18} />
                           Accept
@@ -417,7 +417,7 @@ export default function HostBookingsPage() {
                     <Link
                       href={`/listings/${booking.property_id}`}
                       target="_blank"
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+                      className="px-4 py-2 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition flex items-center gap-2"
                     >
                       <Eye size={18} />
                       View Property

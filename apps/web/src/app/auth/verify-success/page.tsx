@@ -45,13 +45,13 @@ export default function VerifySuccessPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full text-center">
-        <div className="bg-gray-900 shadow-lg rounded-xl p-8 border border-gray-800">
+        <div className="bg-charcoal-900 shadow-lg rounded-xl p-8 border border-charcoal-800">
           {/* Success Icon */}
           <div className="flex justify-center mb-6">
-            <div className="rounded-full bg-emerald-500/20 p-4">
-              <CheckCircle2 className="w-16 h-16 text-emerald-500" />
+            <div className="rounded-full bg-earth-500/20 p-4">
+              <CheckCircle2 className="w-16 h-16 text-earth-500" />
             </div>
           </div>
 
@@ -59,14 +59,14 @@ export default function VerifySuccessPage() {
           <h1 className="text-3xl font-bold text-white mb-4">
             Email Verified!
           </h1>
-          <p className="text-gray-400 mb-6">
+          <p className="text-mist-400 mb-6">
             Your email address has been successfully verified. You can now access all features of your account.
           </p>
 
           {/* User Info */}
           {user && (
-            <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-              <p className="text-sm text-gray-500 mb-1">Signed in as</p>
+            <div className="mb-6 p-4 bg-charcoal-800/50 rounded-lg border border-charcoal-700">
+              <p className="text-sm text-mist-500 mb-1">Signed in as</p>
               <p className="text-white font-medium">{user.email}</p>
             </div>
           )}
@@ -77,12 +77,12 @@ export default function VerifySuccessPage() {
               <>
                 <button
                   onClick={handleContinue}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition"
+                  className="w-full bg-earth-600 text-white py-3 rounded-lg font-semibold hover:bg-earth-700 transition"
                 >
                   Continue to Dashboard
                 </button>
                 {countdown > 0 && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-mist-500">
                     Redirecting automatically in {countdown} second{countdown !== 1 ? 's' : ''}...
                   </p>
                 )}
@@ -90,7 +90,7 @@ export default function VerifySuccessPage() {
             ) : (
               <Link
                 href="/login"
-                className="block w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition text-center"
+                className="block w-full bg-earth-600 text-white py-3 rounded-lg font-semibold hover:bg-earth-700 transition text-center"
               >
                 Sign In
               </Link>
@@ -98,9 +98,9 @@ export default function VerifySuccessPage() {
           </div>
 
           {/* Help Text */}
-          <p className="mt-6 text-sm text-gray-500">
+          <p className="mt-6 text-sm text-mist-500">
             Need help?{' '}
-            <Link href="/contact" className="text-emerald-500 hover:text-emerald-400">
+            <Link href="/contact" className="text-earth-500 hover:text-earth-400">
               Contact Support
             </Link>
           </p>

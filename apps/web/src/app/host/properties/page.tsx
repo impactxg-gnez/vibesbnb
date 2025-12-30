@@ -924,9 +924,9 @@ const [bookingBuckets, setBookingBuckets] = useState<{
 
   if (loading || loadingProperties) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-earth-500 mx-auto mb-4"></div>
           <p className="text-white">Loading properties...</p>
         </div>
       </div>
@@ -934,13 +934,13 @@ const [bookingBuckets, setBookingBuckets] = useState<{
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 py-12">
+    <div className="min-h-screen bg-charcoal-950 py-12">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">My Properties</h1>
-            <p className="text-gray-400">
+            <p className="text-mist-400">
               Manage your listings and earnings
             </p>
           </div>
@@ -961,7 +961,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
             </Link>
             <Link
               href="/host/properties/new"
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+              className="px-4 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition flex items-center gap-2"
             >
               <Plus size={20} />
               Add Property
@@ -973,73 +973,73 @@ const [bookingBuckets, setBookingBuckets] = useState<{
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <button
             onClick={() => openBookingPanel('new')}
-            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
+            className={`bg-charcoal-900 border rounded-xl p-6 text-left transition ${
               bookingDetails?.type === 'new'
                 ? 'border-blue-500 shadow-lg shadow-blue-500/30'
-                : 'border-gray-800 hover:border-blue-500'
+                : 'border-charcoal-800 hover:border-blue-500'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-gray-400 text-sm font-medium">New Requests</h3>
+                <h3 className="text-mist-400 text-sm font-medium">New Requests</h3>
                 <p className="text-white text-2xl font-bold">{bookingSummary.new}</p>
               </div>
               <CalendarClock size={24} className="text-blue-400" />
             </div>
-            <p className="text-xs text-gray-500">Bookings awaiting approval</p>
+            <p className="text-xs text-mist-500">Bookings awaiting approval</p>
           </button>
           <button
             onClick={() => openBookingPanel('upcoming')}
-            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
+            className={`bg-charcoal-900 border rounded-xl p-6 text-left transition ${
               bookingDetails?.type === 'upcoming'
-                ? 'border-emerald-500 shadow-lg shadow-emerald-500/30'
-                : 'border-gray-800 hover:border-emerald-500'
+                ? 'border-earth-500 shadow-lg shadow-emerald-500/30'
+                : 'border-charcoal-800 hover:border-earth-500'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-gray-400 text-sm font-medium">Upcoming</h3>
+                <h3 className="text-mist-400 text-sm font-medium">Upcoming</h3>
                 <p className="text-white text-2xl font-bold">{bookingSummary.upcoming}</p>
               </div>
-              <CalendarCheck size={24} className="text-emerald-400" />
+              <CalendarCheck size={24} className="text-earth-400" />
             </div>
-            <p className="text-xs text-gray-500">Accepted bookings with future stays</p>
+            <p className="text-xs text-mist-500">Accepted bookings with future stays</p>
           </button>
           <button
             onClick={() => openBookingPanel('previous')}
-            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
+            className={`bg-charcoal-900 border rounded-xl p-6 text-left transition ${
               bookingDetails?.type === 'previous'
                 ? 'border-purple-500 shadow-lg shadow-purple-500/30'
-                : 'border-gray-800 hover:border-purple-500'
+                : 'border-charcoal-800 hover:border-purple-500'
             }`}
           >
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-gray-400 text-sm font-medium">Previous</h3>
+                <h3 className="text-mist-400 text-sm font-medium">Previous</h3>
                 <p className="text-white text-2xl font-bold">{bookingSummary.previous}</p>
               </div>
               <History size={24} className="text-purple-400" />
             </div>
-            <p className="text-xs text-gray-500">Completed stays</p>
+            <p className="text-xs text-mist-500">Completed stays</p>
           </button>
         </div>
         {bookingDetails && (
-          <div className="mb-8 bg-gray-900 border border-gray-800 rounded-2xl p-6">
+          <div className="mb-8 bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-white text-xl font-semibold">{bookingDetails.title}</h3>
-                <p className="text-gray-400 text-sm">{bookingDetails.description}</p>
+                <p className="text-mist-400 text-sm">{bookingDetails.description}</p>
               </div>
               <button
                 onClick={() => setBookingDetails(null)}
-                className="text-gray-400 hover:text-white flex items-center gap-1"
+                className="text-mist-400 hover:text-white flex items-center gap-1"
               >
                 <X size={16} />
                 Close
               </button>
             </div>
             {bookingDetails.bookings.length === 0 ? (
-              <p className="text-gray-500 text-sm">No bookings in this category yet.</p>
+              <p className="text-mist-500 text-sm">No bookings in this category yet.</p>
             ) : (
               <div className="space-y-4">
                 {bookingDetails.bookings.map((booking) => {
@@ -1051,24 +1051,24 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   return (
                     <div
                       key={booking.id}
-                      className="bg-gray-950 border border-gray-800 rounded-xl p-4 space-y-4"
+                      className="bg-charcoal-950 border border-charcoal-800 rounded-xl p-4 space-y-4"
                     >
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                           <p className="text-white font-semibold">{booking.property_name || 'Property'}</p>
-                          <p className="text-gray-400 text-sm">{booking.guest_name || 'Guest'}</p>
+                          <p className="text-mist-400 text-sm">{booking.guest_name || 'Guest'}</p>
                         </div>
-                        <div className="flex flex-col md:flex-row md:items-center gap-4 text-sm text-gray-300">
+                        <div className="flex flex-col md:flex-row md:items-center gap-4 text-sm text-mist-300">
                           <div>
-                            <p className="text-gray-500 text-xs">Check-In</p>
+                            <p className="text-mist-500 text-xs">Check-In</p>
                             <p className="font-medium">{formatDate(booking.check_in)}</p>
                           </div>
                           <div>
-                            <p className="text-gray-500 text-xs">Check-Out</p>
+                            <p className="text-mist-500 text-xs">Check-Out</p>
                             <p className="font-medium">{formatDate(booking.check_out)}</p>
                           </div>
                           <div>
-                            <p className="text-gray-500 text-xs">Value</p>
+                            <p className="text-mist-500 text-xs">Value</p>
                             <p className="font-medium">
                               ${Number(booking.total_price || 0).toLocaleString()}
                             </p>
@@ -1081,7 +1081,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                           <button
                             disabled={acceptLoading}
                             onClick={() => handleBookingAction(booking.id, 'accept')}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-earth-600 text-white text-sm font-semibold hover:bg-earth-500 disabled:opacity-60"
                           >
                             {acceptLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                             Approve
@@ -1106,34 +1106,34 @@ const [bookingBuckets, setBookingBuckets] = useState<{
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-400 text-sm font-medium">Total Properties</h3>
-              <Home size={20} className="text-emerald-500" />
+              <h3 className="text-mist-400 text-sm font-medium">Total Properties</h3>
+              <Home size={20} className="text-earth-500" />
             </div>
             <p className="text-3xl font-bold text-white">{stats.totalProperties}</p>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-400 text-sm font-medium">Active Listings</h3>
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <h3 className="text-mist-400 text-sm font-medium">Active Listings</h3>
+              <div className="w-2 h-2 bg-earth-500 rounded-full"></div>
             </div>
             <p className="text-3xl font-bold text-white">{stats.activeListings}</p>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-400 text-sm font-medium">This Month</h3>
+              <h3 className="text-mist-400 text-sm font-medium">This Month</h3>
               {stats.newBookings > 0 && (
-                <span className="text-emerald-500 text-sm">+{stats.newBookings}</span>
+                <span className="text-earth-500 text-sm">+{stats.newBookings}</span>
               )}
             </div>
             <p className="text-3xl font-bold text-white">
               ${stats.thisMonthRevenue.toLocaleString()}
             </p>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-400 text-sm font-medium">Total Bookings</h3>
+              <h3 className="text-mist-400 text-sm font-medium">Total Bookings</h3>
               {stats.newBookings > 0 && (
                 <span className="text-blue-500 text-sm">{stats.newBookings}</span>
               )}
@@ -1156,25 +1156,25 @@ const [bookingBuckets, setBookingBuckets] = useState<{
         {/* Properties List */}
         {properties.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3 text-sm text-gray-300">
+            <div className="flex items-center gap-3 text-sm text-mist-300">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
                   onChange={selectAllProperties}
-                  className="w-4 h-4 text-emerald-500 bg-gray-800 border-gray-700 rounded focus:ring-emerald-500"
+                  className="w-4 h-4 text-earth-500 bg-charcoal-800 border-charcoal-700 rounded focus:ring-earth-500"
                 />
                 Select All
               </label>
               {selectedCount > 0 && (
-                <span className="text-gray-400">{selectedCount} selected</span>
+                <span className="text-mist-400">{selectedCount} selected</span>
               )}
             </div>
             {selectedCount > 0 && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={clearSelectedProperties}
-                  className="px-3 py-2 text-sm text-gray-400 hover:text-white transition"
+                  className="px-3 py-2 text-sm text-mist-400 hover:text-white transition"
                 >
                   Clear
                 </button>
@@ -1191,10 +1191,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
         )}
 
         {properties.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-12 text-center">
             <Home size={64} className="mx-auto text-gray-700 mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">No properties yet</h3>
-            <p className="text-gray-400 mb-6">
+            <p className="text-mist-400 mb-6">
               Get started by adding your first property or importing from an existing listing
             </p>
             <div className="flex gap-3 justify-center">
@@ -1207,7 +1207,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
               </button>
               <Link
                 href="/host/properties/new"
-                className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+                className="px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition flex items-center gap-2"
               >
                 <Plus size={20} />
                 Add Property
@@ -1221,16 +1221,16 @@ const [bookingBuckets, setBookingBuckets] = useState<{
               return (
               <div
                 key={property.id}
-                className={`bg-gray-900 border ${isSelected ? 'border-emerald-500 ring-1 ring-emerald-500/40' : 'border-gray-800'} rounded-xl overflow-hidden hover:border-emerald-600 transition group`}
+                className={`bg-charcoal-900 border ${isSelected ? 'border-earth-500 ring-1 ring-earth-500/40' : 'border-charcoal-800'} rounded-xl overflow-hidden hover:border-earth-600 transition group`}
               >
                 {/* Image */}
-                <div className="relative h-48 bg-gray-800">
+                <div className="relative h-48 bg-charcoal-800">
                   <div className="absolute bottom-3 left-3 z-10">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => togglePropertySelection(property.id)}
-                      className="w-4 h-4 text-emerald-500 bg-gray-900/70 border-gray-600 rounded focus:ring-emerald-500"
+                      className="w-4 h-4 text-earth-500 bg-charcoal-900/70 border-charcoal-600 rounded focus:ring-earth-500"
                       aria-label={`Select ${property.name}`}
                     />
                   </div>
@@ -1245,10 +1245,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         property.status === 'active'
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-earth-600 text-white'
                           : property.status === 'draft'
                           ? 'bg-yellow-600 text-white'
-                          : 'bg-gray-600 text-white'
+                          : 'bg-charcoal-600 text-white'
                       }`}
                     >
                       {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
@@ -1263,11 +1263,11 @@ const [bookingBuckets, setBookingBuckets] = useState<{
 
                 {/* Content */}
                 <div className="p-6">
-                  <h3 className="text-xl font-semibold text-white mb-1 group-hover:text-emerald-500 transition">
+                  <h3 className="text-xl font-semibold text-white mb-1 group-hover:text-earth-500 transition">
                     {property.name}
                   </h3>
                   <div className="flex items-center gap-2 mb-3">
-                    <p className="text-gray-400 text-sm">{property.location}</p>
+                    <p className="text-mist-400 text-sm">{property.location}</p>
                     {property.googleMapsUrl && (
                       <a 
                         href={property.googleMapsUrl} 
@@ -1282,15 +1282,15 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   
                   {/* Property Details */}
                   <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
-                    <span className="text-gray-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
+                    <span className="text-mist-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
                     {property.bathrooms && (
-                      <span className="text-gray-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
+                      <span className="text-mist-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
                     )}
                     {property.beds && (
-                      <span className="text-gray-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
+                      <span className="text-mist-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
                     )}
                     {property.guests && (
-                      <span className="text-gray-400">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
+                      <span className="text-mist-400">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
                     )}
                   </div>
 
@@ -1299,12 +1299,12 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     <div className="mb-3">
                       <div className="flex flex-wrap gap-1">
                         {property.amenities.slice(0, 3).map((amenity, idx) => (
-                          <span key={idx} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+                          <span key={idx} className="text-xs bg-charcoal-800 text-mist-300 px-2 py-1 rounded">
                             {amenity}
                           </span>
                         ))}
                         {property.amenities.length > 3 && (
-                          <span className="text-xs text-gray-500 px-2 py-1">
+                          <span className="text-xs text-mist-500 px-2 py-1">
                             +{property.amenities.length - 3} more
                           </span>
                         )}
@@ -1313,15 +1313,15 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   )}
 
                   {/* Price & Image Count */}
-                  <div className="flex items-center justify-between mb-4 pt-3 border-t border-gray-800">
+                  <div className="flex items-center justify-between mb-4 pt-3 border-t border-charcoal-800">
                     <div className="flex items-center gap-2">
                       <span className="text-white font-bold text-lg">
                         ${property.price}
-                        <span className="text-gray-400 text-sm font-normal">/night</span>
+                        <span className="text-mist-400 text-sm font-normal">/night</span>
                       </span>
                     </div>
                     {property.images.length > 0 && (
-                      <span className="text-gray-500 text-xs">
+                      <span className="text-mist-500 text-xs">
                         📷 {property.images.length} photo{property.images.length !== 1 ? 's' : ''}
                       </span>
                     )}
@@ -1331,7 +1331,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   <div className="flex gap-2">
                     <Link
                       href={`/host/properties/${property.id}/edit`}
-                      className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-2 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition flex items-center justify-center gap-2"
                     >
                       <Edit size={16} />
                       Edit
@@ -1342,7 +1342,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                       className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
                         property.status === 'active'
                           ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-earth-600 hover:bg-earth-700 text-white'
                       } ${!property.coordinates && property.status !== 'active' ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title={
                         property.status === 'active' 
@@ -1360,7 +1360,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     </button>
                     <Link
                       href={`/listings/${property.id}`}
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"
+                      className="px-4 py-2 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition flex items-center justify-center"
                       target="_blank"
                     >
                       <ExternalLink size={16} />
@@ -1383,16 +1383,16 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full p-6">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl max-w-2xl w-full p-6">
             <h2 className="text-2xl font-bold text-white mb-4">Import Property from URL</h2>
-            <p className="text-gray-400 mb-6">
+            <p className="text-mist-400 mb-6">
               Paste your Airbnb or other vacation rental listing URL.
               We'll automatically extract all the important details for you!
             </p>
 
             {/* URL Input */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-mist-300 mb-2">
                 Property URL
               </label>
               <input
@@ -1400,9 +1400,9 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
                 placeholder="https://www.airbnb.com/rooms/12345678"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
+                className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-mist-500 mt-2">
                 🎯 Best results with Airbnb URLs. Also supports Booking.com, VRBO, and other platforms.
               </p>
             </div>
@@ -1436,7 +1436,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   setShowImportModal(false);
                   setImportUrl('');
                 }}
-                className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+                className="flex-1 px-4 py-3 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition"
                 disabled={importing}
               >
                 Cancel

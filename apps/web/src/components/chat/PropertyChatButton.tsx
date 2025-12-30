@@ -84,19 +84,19 @@ export default function PropertyChatButton({
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <div className="bg-charcoal-950 border border-charcoal-800 rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-charcoal-800">
               <div>
                 <h3 className="text-xl font-semibold text-white">
                   Chat about {propertyName}
                 </h3>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-mist-400">
                   Ask the host anything before booking.
                 </p>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-mist-400 hover:text-white"
               >
                 Close
               </button>
@@ -119,7 +119,7 @@ export default function PropertyChatButton({
                   onMessagesRead={() => loadConversationDetails(conversationId)}
                 />
               ) : (
-                <div className="text-gray-400 h-full flex items-center justify-center">
+                <div className="text-mist-400 h-full flex items-center justify-center">
                   {loading ? 'Starting chat...' : 'Unable to load conversation'}
                 </div>
               )}

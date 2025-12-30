@@ -4,7 +4,7 @@ import { PropertyGlobe } from '@/components/globe/PropertyGlobe';
 
 export default function GlobePage() {
     return (
-        <main className="min-h-screen bg-gray-950">
+        <main className="min-h-screen bg-charcoal-950">
             <PropertyGlobe />
         </main>
     );

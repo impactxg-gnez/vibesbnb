@@ -71,7 +71,7 @@ export default function ChangePasswordPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Change Password</h1>
-          <p className="text-gray-500 mt-1">Update your admin account password</p>
+          <p className="text-mist-500 mt-1">Update your admin account password</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl">
@@ -90,11 +90,11 @@ export default function ChangePasswordPage() {
                   placeholder="Enter current password"
                   required
                 />
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-mist-400 hover:text-gray-600"
                 >
                   {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -114,16 +114,16 @@ export default function ChangePasswordPage() {
                   required
                   minLength={8}
                 />
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-mist-400 hover:text-gray-600"
                 >
                   {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters</p>
+              <p className="text-xs text-mist-500 mt-1">Must be at least 8 characters</p>
             </div>
 
             {/* Confirm Password */}
@@ -139,11 +139,11 @@ export default function ChangePasswordPage() {
                   required
                   minLength={8}
                 />
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-mist-400 hover:text-gray-600"
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>

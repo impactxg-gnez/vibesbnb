@@ -271,7 +271,7 @@ export default function LocationPicker({
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-2">
           Location Address
         </label>
         <input
@@ -283,16 +283,16 @@ export default function LocationPicker({
             onLocationChange(e.target.value, coordinates);
           }}
           placeholder="Search for an address or enter manually"
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+          className="w-full px-4 py-2 border border-gray-300 dark:border-charcoal-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-charcoal-800 dark:text-white"
         />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-xs text-mist-500 dark:text-mist-400">
           Start typing to search for an address, or enter manually
         </p>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-mist-300">
             Coordinates
           </label>
           <button
@@ -307,7 +307,7 @@ export default function LocationPicker({
         {useManualCoords ? (
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+              <label className="block text-xs text-gray-600 dark:text-mist-400 mb-1">
                 Latitude
               </label>
               <input
@@ -317,11 +317,11 @@ export default function LocationPicker({
                 onChange={(e) => setManualLat(e.target.value)}
                 onBlur={handleManualCoordsUpdate}
                 placeholder="e.g., 37.7749"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-charcoal-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-charcoal-800 dark:text-white text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+              <label className="block text-xs text-gray-600 dark:text-mist-400 mb-1">
                 Longitude
               </label>
               <input
@@ -331,12 +331,12 @@ export default function LocationPicker({
                 onChange={(e) => setManualLng(e.target.value)}
                 onBlur={handleManualCoordsUpdate}
                 placeholder="e.g., -122.4194"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-charcoal-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-charcoal-800 dark:text-white text-sm"
               />
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-gray-600 dark:text-mist-400">
             <p>Latitude: {coordinates?.lat !== undefined ? coordinates.lat.toFixed(6) : 'N/A'}</p>
             <p>Longitude: {coordinates?.lng !== undefined ? coordinates.lng.toFixed(6) : 'N/A'}</p>
           </div>
@@ -344,15 +344,15 @@ export default function LocationPicker({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-2">
           Map (Click or drag pin to adjust location)
         </label>
         <div
           ref={mapRef}
-          className="w-full h-64 rounded-lg border border-gray-300 dark:border-gray-600"
+          className="w-full h-64 rounded-lg border border-gray-300 dark:border-charcoal-600"
           style={{ minHeight: '256px' }}
         />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-xs text-mist-500 dark:text-mist-400">
           Click on the map or drag the pin to set the exact location
         </p>
       </div>

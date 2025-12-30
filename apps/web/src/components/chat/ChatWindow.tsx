@@ -126,8 +126,8 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 border border-gray-800 rounded-xl">
-      <div className="px-4 py-3 border-b border-gray-800">
+    <div className="flex flex-col h-full bg-charcoal-900 border border-charcoal-800 rounded-xl">
+      <div className="px-4 py-3 border-b border-charcoal-800">
         <div className="flex items-center gap-3">
           {counterpartAvatar && (
             <img
@@ -139,16 +139,16 @@ export default function ChatWindow({
           <div>
             <h3 className="text-lg font-semibold text-white">{title}</h3>
             {counterpartName && (
-              <p className="text-sm text-gray-400">{counterpartName}</p>
+              <p className="text-sm text-mist-400">{counterpartName}</p>
             )}
           </div>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
-          <div className="text-gray-400 text-center">Loading messages...</div>
+          <div className="text-mist-400 text-center">Loading messages...</div>
         ) : messages.length === 0 ? (
-          <p className="text-gray-400 text-center text-sm">
+          <p className="text-mist-400 text-center text-sm">
             No messages yet. Start the conversation!
           </p>
         ) : (
@@ -164,8 +164,8 @@ export default function ChatWindow({
                 <div
                   className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm ${
                     isOwn
-                      ? 'bg-emerald-600 text-white rounded-br-none'
-                      : 'bg-gray-800 text-gray-100 rounded-bl-none'
+                      ? 'bg-earth-600 text-white rounded-br-none'
+                      : 'bg-charcoal-800 text-mist-100 rounded-bl-none'
                   }`}
                 >
                   {!isOwn && message.sender_profile && (
@@ -186,25 +186,25 @@ export default function ChatWindow({
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="border-t border-gray-800 p-4">
+      <div className="border-t border-charcoal-800 p-4">
         <textarea
           rows={3}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about availability, amenities, or anything else..."
-          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+          className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
         />
         <div className="flex justify-end mt-3">
           <button
             type="button"
             onClick={handleSend}
             disabled={sending || !input.trim()}
-            className="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sending ? 'Sending...' : 'Send Message'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-mist-500 mt-2">
           For safety, please keep all communication on VibesBNB. Sharing phone
           numbers, emails, or external links is not permitted.
         </p>

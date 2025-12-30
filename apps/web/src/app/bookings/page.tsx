@@ -148,7 +148,7 @@ export default function BookingsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+        return 'bg-earth-500/20 text-earth-400 border-earth-500/30';
       case 'accepted':
         return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       case 'pending_approval':
@@ -158,18 +158,18 @@ export default function BookingsPage() {
       case 'cancelled':
         return 'bg-red-500/20 text-red-400 border-red-500/30';
       default:
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+        return 'bg-gray-500/20 text-mist-400 border-gray-500/30';
     }
   };
 
   if (loading || loadingBookings) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white">
+      <div className="min-h-screen bg-charcoal-950 text-white">
         <div className="container mx-auto px-4 py-16">
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-              <p className="text-gray-400">Loading bookings...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-earth-500 mx-auto mb-4"></div>
+              <p className="text-mist-400">Loading bookings...</p>
             </div>
           </div>
         </div>
@@ -178,11 +178,11 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-charcoal-950 text-white">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-4xl font-bold mb-2">My Bookings</h1>
-          <p className="text-gray-400 mb-8">Manage your upcoming and past stays</p>
+          <p className="text-mist-400 mb-8">Manage your upcoming and past stays</p>
 
           <div className="flex gap-3 mb-6">
             {(['upcoming', 'cancelled'] as const).map((t) => (
@@ -191,8 +191,8 @@ export default function BookingsPage() {
                 onClick={() => setTab(t)}
                 className={`px-4 py-2 rounded-xl border transition ${
                   tab === t
-                    ? 'bg-emerald-600 border-emerald-500 text-white'
-                    : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'
+                    ? 'bg-earth-600 border-earth-500 text-white'
+                    : 'bg-charcoal-900 border-charcoal-800 text-mist-400 hover:text-white'
                 }`}
               >
                 {t === 'upcoming' ? 'Upcoming & Active' : 'Cancelled'}
@@ -203,19 +203,19 @@ export default function BookingsPage() {
           {bookings.filter((booking) =>
             tab === 'cancelled' ? booking.status === 'cancelled' : booking.status !== 'cancelled'
           ).length === 0 ? (
-            <div className="bg-gray-900 rounded-2xl p-12 text-center border border-gray-800">
+            <div className="bg-charcoal-900 rounded-2xl p-12 text-center border border-charcoal-800">
               <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <h2 className="text-2xl font-semibold mb-2">
                 {tab === 'upcoming' ? 'No upcoming bookings' : 'No cancelled bookings'}
               </h2>
-              <p className="text-gray-400 mb-6">
+              <p className="text-mist-400 mb-6">
                 {tab === 'upcoming'
                   ? 'Start exploring properties and book your first stay!'
                   : 'You have not cancelled any trips.'}
               </p>
               <Link
                 href="/search"
-                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition"
+                className="inline-flex items-center gap-2 bg-earth-500 hover:bg-earth-600 text-white px-6 py-3 rounded-xl font-semibold transition"
               >
                 Browse Properties
                 <ChevronRight className="w-5 h-5" />
@@ -231,7 +231,7 @@ export default function BookingsPage() {
                 <Link
                   key={booking.id}
                   href={`/listings/${booking.propertyId}`}
-                  className="block bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-emerald-500/50 transition group"
+                  className="block bg-charcoal-900 rounded-2xl overflow-hidden border border-charcoal-800 hover:border-earth-500/50 transition group"
                 >
                   <div className="flex flex-col md:flex-row">
                     <div className="relative w-full md:w-64 h-48 md:h-auto">
@@ -245,10 +245,10 @@ export default function BookingsPage() {
                     <div className="flex-1 p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="text-xl font-semibold mb-2 group-hover:text-emerald-400 transition">
+                          <h3 className="text-xl font-semibold mb-2 group-hover:text-earth-400 transition">
                             {booking.propertyName}
                           </h3>
-                          <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <div className="flex items-center gap-4 text-sm text-mist-400">
                             <div className="flex items-center gap-1">
                               <MapPin className="w-4 h-4" />
                               {booking.location}
@@ -295,23 +295,23 @@ export default function BookingsPage() {
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <Calendar className="w-4 h-4 text-mist-400" />
                           <div>
-                            <p className="text-gray-400 text-xs">Check In</p>
+                            <p className="text-mist-400 text-xs">Check In</p>
                             <p className="font-medium">{formatDate(booking.checkIn)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <Calendar className="w-4 h-4 text-mist-400" />
                           <div>
-                            <p className="text-gray-400 text-xs">Check Out</p>
+                            <p className="text-mist-400 text-xs">Check Out</p>
                             <p className="font-medium">{formatDate(booking.checkOut)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
-                          <Users className="w-4 h-4 text-gray-400" />
+                          <Users className="w-4 h-4 text-mist-400" />
                           <div>
-                            <p className="text-gray-400 text-xs">Guests</p>
+                            <p className="text-mist-400 text-xs">Guests</p>
                             <p className="font-medium">
                               {booking.guests}
                               {booking.kids ? ` + ${booking.kids} kids` : ''}
@@ -320,8 +320,8 @@ export default function BookingsPage() {
                           </div>
                         </div>
                         <div className="text-sm">
-                          <p className="text-gray-400 text-xs">Total Price</p>
-                          <p className="font-semibold text-lg text-emerald-400">${booking.totalPrice}</p>
+                          <p className="text-mist-400 text-xs">Total Price</p>
+                          <p className="font-semibold text-lg text-earth-400">${booking.totalPrice}</p>
                         </div>
                       </div>
 
@@ -342,7 +342,7 @@ export default function BookingsPage() {
                               // TODO: Integrate with payment gateway (Stripe, etc.)
                               toast.success('Payment integration coming soon!');
                             }}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+                            className="px-4 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition flex items-center gap-2"
                           >
                             <CreditCard size={18} />
                             Pay Now

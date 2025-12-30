@@ -156,7 +156,7 @@ export default function ManageListingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Search listings..."
@@ -203,8 +203,8 @@ export default function ManageListingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProperties.length === 0 ? (
             <div className="col-span-full text-center py-12">
-              <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No listings found</p>
+              <Home className="w-16 h-16 text-mist-400 mx-auto mb-4" />
+              <p className="text-mist-500">No listings found</p>
             </div>
           ) : (
             filteredProperties.map((property) => (
@@ -222,7 +222,7 @@ export default function ManageListingsPage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Home className="w-12 h-12 text-gray-400" />
+                      <Home className="w-12 h-12 text-mist-400" />
                     </div>
                   )}
                   <div className="absolute top-2 right-2">
@@ -243,7 +243,7 @@ export default function ManageListingsPage() {
                 {/* Content */}
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900 mb-1 truncate">{property.name || property.title}</h3>
-                  <div className="flex items-center text-sm text-gray-500 mb-2">
+                  <div className="flex items-center text-sm text-mist-500 mb-2">
                     <MapPin className="w-4 h-4 mr-1" />
                     <span className="truncate">{property.location}</span>
                   </div>
@@ -265,13 +265,13 @@ export default function ManageListingsPage() {
                     )}
                     <div className="text-lg font-bold text-gray-900">
                       ${property.price}
-                      <span className="text-sm font-normal text-gray-500">/night</span>
+                      <span className="text-sm font-normal text-mist-500">/night</span>
                     </div>
                   </div>
 
                   {/* Host Info */}
                   {property.host_name && (
-                    <div className="text-xs text-gray-500 mb-3">
+                    <div className="text-xs text-mist-500 mb-3">
                       Host: {property.host_name} ({property.host_email})
                     </div>
                   )}

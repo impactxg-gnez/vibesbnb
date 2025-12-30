@@ -177,20 +177,20 @@ export default function SearchPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      <div className="bg-emerald-600 py-8">
+    <div className="min-h-screen bg-charcoal-950">
+      <div className="bg-earth-600 py-8">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-white mb-6">Find Your Perfect Stay</h1>
+          <h1 className="text-3xl font-bold text-mist-100 mb-6">Find Your Perfect Stay</h1>
           <SearchBar />
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <p className="text-gray-300">
+          <p className="text-mist-300">
             {loading ? 'Searching...' : `${listings.length} properties found`}
           </p>
-          <select className="px-4 py-2 bg-gray-900 border border-gray-800 text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+          <select className="px-4 py-2 bg-charcoal-900 border border-charcoal-800 text-mist-100 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent">
             <option>Price: Low to High</option>
             <option>Price: High to Low</option>
             <option>Rating: High to Low</option>
@@ -202,22 +202,22 @@ export default function SearchPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <div key={n} className="animate-pulse">
-                <div className="bg-gray-800 h-64 rounded-xl mb-3"></div>
-                <div className="bg-gray-800 h-4 rounded w-3/4 mb-2"></div>
-                <div className="bg-gray-800 h-4 rounded w-1/2"></div>
+                <div className="bg-charcoal-800 h-64 rounded-xl mb-3"></div>
+                <div className="bg-charcoal-800 h-4 rounded w-3/4 mb-2"></div>
+                <div className="bg-charcoal-800 h-4 rounded w-1/2"></div>
               </div>
             ))}
           </div>
         ) : listings.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-12 text-center">
             <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-2xl font-semibold text-white mb-2">No properties found</h3>
-            <p className="text-gray-400 mb-6">
+            <h3 className="text-2xl font-semibold text-mist-100 mb-2">No properties found</h3>
+            <p className="text-mist-400 mb-6">
               Try adjusting your search criteria or browse all available properties
             </p>
             <Link
               href="/search"
-              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition"
+              className="inline-flex items-center gap-2 bg-earth-500 hover:bg-earth-600 text-white px-6 py-3 rounded-xl font-semibold transition"
             >
               Browse All Properties
             </Link>
@@ -228,9 +228,9 @@ export default function SearchPage() {
               <Link
                 key={listing.id}
                 href={`/listings/${listing.id}`}
-                className="group bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:shadow-xl hover:border-emerald-500/50 transition"
+                className="group bg-charcoal-900 rounded-xl overflow-hidden shadow-lg border border-charcoal-800 hover:shadow-xl hover:border-earth-500/50 transition"
               >
-                <div className="relative h-64 bg-gray-800">
+                <div className="relative h-64 bg-charcoal-800">
                   {listing.images && listing.images[0] ? (
                     <img
                       src={listing.images[0]}
@@ -243,40 +243,40 @@ export default function SearchPage() {
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    <div className="w-full h-full flex items-center justify-center text-mist-500">
                       <span>No Image</span>
                     </div>
                   )}
-                  <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                  <div className="absolute top-3 right-3 bg-earth-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
                     Wellness-Friendly
                   </div>
                 </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-white text-lg group-hover:text-emerald-500">
+                    <h3 className="font-semibold text-mist-100 text-lg group-hover:text-earth-500">
                       {listing.title}
                     </h3>
                     <div className="flex items-center gap-1">
                       <span className="text-yellow-500">★</span>
-                      <span className="text-sm font-medium text-gray-100">{listing.rating?.toFixed(1) || '4.5'}</span>
+                      <span className="text-sm font-medium text-mist-100">{listing.rating?.toFixed(1) || '4.5'}</span>
                     </div>
                   </div>
-                  <p className="text-gray-400 text-sm mb-3">{listing.location}</p>
+                  <p className="text-mist-400 text-sm mb-3">{listing.location}</p>
                   {listing.guests && (
-                    <p className="text-gray-500 text-xs mb-2">Up to {listing.guests} guests</p>
+                    <p className="text-mist-500 text-xs mb-2">Up to {listing.guests} guests</p>
                   )}
                   <div className="flex flex-wrap gap-2 mb-3">
                     {(listing.amenities || []).slice(0, 3).map((amenity) => (
                       <span
                         key={amenity}
-                        className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs"
+                        className="bg-charcoal-800 text-mist-300 px-2 py-1 rounded text-xs"
                       >
                         {amenity}
                       </span>
                     ))}
                   </div>
-                  <p className="text-white font-bold text-lg">
-                    ${listing.price} <span className="font-normal text-gray-400 text-sm">/ night</span>
+                  <p className="text-mist-100 font-bold text-lg">
+                    ${listing.price} <span className="font-normal text-mist-400 text-sm">/ night</span>
                   </p>
                 </div>
               </Link>

@@ -120,7 +120,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     );
@@ -136,16 +136,16 @@ export default function ProfilePage() {
     : 'Recently';
 
   return (
-    <div className="min-h-screen bg-gray-950 py-12">
+    <div className="min-h-screen bg-charcoal-950 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">My Profile</h1>
-          <p className="text-gray-400">Manage your account information</p>
+          <p className="text-mist-400">Manage your account information</p>
         </div>
 
         {/* Profile Card */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl overflow-hidden">
           {/* Header Section */}
           <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 p-8">
             <div className="flex items-start justify-between">
@@ -188,7 +188,7 @@ export default function ProfilePage() {
             <div className="space-y-6">
               {/* Full Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-mist-400 mb-2">
                   Full Name
                 </label>
                 {editing ? (
@@ -196,11 +196,11 @@ export default function ProfilePage() {
                     type="text"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
                   />
                 ) : (
                   <div className="flex items-center gap-3 text-white">
-                    <User size={20} className="text-gray-500" />
+                    <User size={20} className="text-mist-500" />
                     <span>{formData.fullName || 'Not set'}</span>
                   </div>
                 )}
@@ -208,14 +208,14 @@ export default function ProfilePage() {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-mist-400 mb-2">
                   Email Address
                 </label>
                 <div className="flex items-center gap-3 text-white">
-                  <Mail size={20} className="text-gray-500" />
+                  <Mail size={20} className="text-mist-500" />
                   <span>{formData.email}</span>
                   {!editing && (
-                    <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">
+                    <span className="text-xs bg-charcoal-800 text-mist-400 px-2 py-1 rounded">
                       Cannot be changed
                     </span>
                   )}
@@ -224,7 +224,7 @@ export default function ProfilePage() {
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-mist-400 mb-2">
                   Phone Number
                 </label>
                 {editing ? (
@@ -233,11 +233,11 @@ export default function ProfilePage() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+1 (555) 000-0000"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
                   />
                 ) : (
                   <div className="flex items-center gap-3 text-white">
-                    <Phone size={20} className="text-gray-500" />
+                    <Phone size={20} className="text-mist-500" />
                     <span>{formData.phone || 'Not set'}</span>
                   </div>
                 )}
@@ -245,7 +245,7 @@ export default function ProfilePage() {
 
               {/* Location */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-mist-400 mb-2">
                   Location
                 </label>
                 {editing ? (
@@ -254,11 +254,11 @@ export default function ProfilePage() {
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     placeholder="City, Country"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
                   />
                 ) : (
                   <div className="flex items-center gap-3 text-white">
-                    <MapPin size={20} className="text-gray-500" />
+                    <MapPin size={20} className="text-mist-500" />
                     <span>{formData.location || 'Not set'}</span>
                   </div>
                 )}
@@ -266,7 +266,7 @@ export default function ProfilePage() {
 
               {/* Bio */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-mist-400 mb-2">
                   Bio
                 </label>
                 {editing ? (
@@ -275,7 +275,7 @@ export default function ProfilePage() {
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     rows={4}
                     placeholder="Tell us about yourself..."
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
                   />
                 ) : (
                   <div className="text-white">
@@ -287,17 +287,17 @@ export default function ProfilePage() {
               {/* Host Contact Information (only for hosts) */}
               {userRole === 'host' && (
                 <>
-                  <div className="pt-6 border-t border-gray-800">
+                  <div className="pt-6 border-t border-charcoal-800">
                     <h3 className="text-lg font-semibold text-white mb-4">Contact Information for Bookings</h3>
-                    <p className="text-sm text-gray-400 mb-4">
+                    <p className="text-sm text-mist-400 mb-4">
                       At least one contact method (WhatsApp or Email) is required to receive booking notifications.
                     </p>
                   </div>
 
                   {/* WhatsApp */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      WhatsApp Number <span className="text-gray-500">(optional)</span>
+                    <label className="block text-sm font-medium text-mist-400 mb-2">
+                      WhatsApp Number <span className="text-mist-500">(optional)</span>
                     </label>
                     {editing ? (
                       <input
@@ -305,11 +305,11 @@ export default function ProfilePage() {
                         value={formData.whatsapp}
                         onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                         placeholder="+1 (555) 123-4567"
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                        className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
                       />
                     ) : (
                       <div className="flex items-center gap-3 text-white">
-                        <MessageCircle size={20} className="text-gray-500" />
+                        <MessageCircle size={20} className="text-mist-500" />
                         <span>{formData.whatsapp || 'Not set'}</span>
                       </div>
                     )}
@@ -317,8 +317,8 @@ export default function ProfilePage() {
 
                   {/* Host Email */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Booking Email Address <span className="text-gray-500">(optional)</span>
+                    <label className="block text-sm font-medium text-mist-400 mb-2">
+                      Booking Email Address <span className="text-mist-500">(optional)</span>
                     </label>
                     {editing ? (
                       <input
@@ -326,16 +326,16 @@ export default function ProfilePage() {
                         value={formData.hostEmail}
                         onChange={(e) => setFormData({ ...formData, hostEmail: e.target.value })}
                         placeholder="bookings@example.com"
-                        className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                        className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
                       />
                     ) : (
                       <div className="flex items-center gap-3 text-white">
-                        <Mail size={20} className="text-gray-500" />
+                        <Mail size={20} className="text-mist-500" />
                         <span>{formData.hostEmail || formData.email || 'Not set'}</span>
                       </div>
                     )}
                     {!editing && !formData.hostEmail && formData.email && (
-                      <p className="text-xs text-gray-500 mt-1">Using account email as fallback</p>
+                      <p className="text-xs text-mist-500 mt-1">Using account email as fallback</p>
                     )}
                   </div>
                 </>
@@ -344,11 +344,11 @@ export default function ProfilePage() {
 
             {/* Action Buttons (when editing) */}
             {editing && (
-              <div className="flex gap-4 mt-8 pt-6 border-t border-gray-800">
+              <div className="flex gap-4 mt-8 pt-6 border-t border-charcoal-800">
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Save size={18} />
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleCancel}
                   disabled={saving}
-                  className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <X size={18} />
                   Cancel
@@ -369,16 +369,16 @@ export default function ProfilePage() {
         {/* Stats Section (for hosts) */}
         {userRole === 'host' && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 className="text-gray-400 text-sm font-medium mb-2">Total Properties</h3>
+            <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+              <h3 className="text-mist-400 text-sm font-medium mb-2">Total Properties</h3>
               <p className="text-3xl font-bold text-white">2</p>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 className="text-gray-400 text-sm font-medium mb-2">Total Bookings</h3>
+            <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+              <h3 className="text-mist-400 text-sm font-medium mb-2">Total Bookings</h3>
               <p className="text-3xl font-bold text-white">156</p>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 className="text-gray-400 text-sm font-medium mb-2">Total Earnings</h3>
+            <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+              <h3 className="text-mist-400 text-sm font-medium mb-2">Total Earnings</h3>
               <p className="text-3xl font-bold text-white">$24,580</p>
             </div>
           </div>

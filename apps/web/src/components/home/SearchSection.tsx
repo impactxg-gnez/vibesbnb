@@ -319,7 +319,7 @@ export function SearchSection() {
                         <button
                           type="button"
                           onClick={() => handleGuestChange(1)}
-                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 transition flex items-center justify-center"
                         >
                           +
                         </button>
@@ -348,7 +348,7 @@ export function SearchSection() {
                         <button
                           type="button"
                           onClick={() => handleKidsChange(1)}
-                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 transition flex items-center justify-center"
                         >
                           +
                         </button>
@@ -377,7 +377,7 @@ export function SearchSection() {
                         <button
                           type="button"
                           onClick={() => handlePetsChange(1)}
-                          className="w-8 h-8 rounded-full border-2 border-gray-600 text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition flex items-center justify-center"
+                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 transition flex items-center justify-center"
                         >
                           +
                         </button>

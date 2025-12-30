@@ -288,7 +288,7 @@ export default function EarlyAccessPage() {
           {/* Back Button */}
           <Link
             href="/coming-soon"
-            className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-8 group"
+            className="inline-flex items-center text-mist-400 hover:text-white transition-colors mb-8 group"
           >
             <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -304,7 +304,7 @@ export default function EarlyAccessPage() {
               <h1 className={`text-3xl font-bold mb-2 bg-gradient-to-r ${info.color} bg-clip-text text-transparent`}>
                 {info.title} Early Access
               </h1>
-              <p className="text-gray-400 text-sm">
+              <p className="text-mist-400 text-sm">
                 {info.description}
               </p>
             </div>
@@ -313,7 +313,7 @@ export default function EarlyAccessPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Basic Info */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-mist-300 mb-2">
                   Full Name *
                 </label>
                 <input
@@ -327,7 +327,7 @@ export default function EarlyAccessPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-mist-300 mb-2">
                   Email Address *
                 </label>
                 <input
@@ -341,7 +341,7 @@ export default function EarlyAccessPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-mist-300 mb-2">
                   Phone Number *
                 </label>
                 <input
@@ -367,7 +367,7 @@ export default function EarlyAccessPage() {
 
                   {/* Toggle between Google and Manual */}
                   <div className="flex items-center justify-between mb-4 bg-white/5 rounded-xl p-3">
-                    <span className="text-sm text-gray-300">
+                    <span className="text-sm text-mist-300">
                       {useManualLocation ? 'Manual Entry' : 'Google Search'}
                     </span>
                     <button
@@ -384,7 +384,7 @@ export default function EarlyAccessPage() {
 
                   {!useManualLocation ? (
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label className="block text-sm font-medium text-mist-300 mb-2">
                         Search for your location *
                       </label>
                       <input
@@ -403,14 +403,14 @@ export default function EarlyAccessPage() {
                           </p>
                         </div>
                       )}
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-mist-500 mt-2">
                         Powered by Google Places. If you can't find your location, switch to manual entry.
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-mist-300 mb-2">
                           Address (Optional)
                         </label>
                         <input
@@ -423,7 +423,7 @@ export default function EarlyAccessPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                          <label className="block text-sm font-medium text-mist-300 mb-2">
                             Latitude *
                           </label>
                           <input
@@ -437,7 +437,7 @@ export default function EarlyAccessPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                          <label className="block text-sm font-medium text-mist-300 mb-2">
                             Longitude *
                           </label>
                           <input
@@ -451,7 +451,7 @@ export default function EarlyAccessPage() {
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-mist-500">
                         You can find coordinates using <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:underline">Google Maps</a> (right-click on location)
                       </p>
                     </div>
@@ -476,13 +476,13 @@ export default function EarlyAccessPage() {
                         className={`px-4 py-2 rounded-lg font-medium transition-all ${
                           hasAirbnb
                             ? 'bg-pink-500 text-white'
-                            : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                            : 'bg-white/10 text-mist-400 hover:bg-white/20'
                         }`}
                       >
                         {hasAirbnb ? 'Yes' : 'No'}
                       </button>
                     </div>
-                    <p className="text-sm text-gray-400 mb-4">
+                    <p className="text-sm text-mist-400 mb-4">
                       Import your property details from Airbnb to save time. We'll help you migrate your listing when we launch!
                     </p>
                   </div>
@@ -490,7 +490,7 @@ export default function EarlyAccessPage() {
                   {hasAirbnb && (
                     <div className="space-y-4 bg-pink-500/5 border border-pink-500/20 rounded-xl p-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-sm font-medium text-mist-300 mb-2">
                           Airbnb Listing URL *
                         </label>
                         <input
@@ -501,7 +501,7 @@ export default function EarlyAccessPage() {
                           className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent placeholder-gray-500 transition-all"
                           placeholder="https://www.airbnb.com/rooms/..."
                         />
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-mist-500 mt-2">
                           Paste your Airbnb listing URL. We'll use this to help migrate your property.
                         </p>
                       </div>
@@ -509,7 +509,7 @@ export default function EarlyAccessPage() {
                       {/* Optional: Quick property info */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">
+                          <label className="block text-xs text-mist-400 mb-1">
                             Property Name (optional)
                           </label>
                           <input
@@ -521,7 +521,7 @@ export default function EarlyAccessPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">
+                          <label className="block text-xs text-mist-400 mb-1">
                             Property Type (optional)
                           </label>
                           <input
@@ -536,7 +536,7 @@ export default function EarlyAccessPage() {
 
                       <div className="grid grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">
+                          <label className="block text-xs text-mist-400 mb-1">
                             Bedrooms
                           </label>
                           <input
@@ -549,7 +549,7 @@ export default function EarlyAccessPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">
+                          <label className="block text-xs text-mist-400 mb-1">
                             Bathrooms
                           </label>
                           <input
@@ -563,7 +563,7 @@ export default function EarlyAccessPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">
+                          <label className="block text-xs text-mist-400 mb-1">
                             Guests
                           </label>
                           <input
@@ -755,7 +755,7 @@ export default function EarlyAccessPage() {
               </button>
 
               {/* Privacy Note */}
-              <p className="text-xs text-gray-500 text-center mt-4">
+              <p className="text-xs text-mist-500 text-center mt-4">
                 By signing up, you agree to receive updates about VibesBNB's launch.
                 We respect your privacy and won't spam you.
               </p>
@@ -764,7 +764,7 @@ export default function EarlyAccessPage() {
 
           {/* Additional Info */}
           <div className="mt-8 text-center">
-            <p className="text-gray-400 text-sm">
+            <p className="text-mist-400 text-sm">
               Launching April 20, 2026 at 12:00 PM PST
             </p>
           </div>

@@ -54,7 +54,7 @@ export function PropertyGlobe() {
 
     if (!isWebGLSupported) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-950 text-white">
+            <div className="flex items-center justify-center h-screen bg-charcoal-950 text-white">
                 WebGL is not supported in this browser. Please use a compatible browser.
             </div>
         );
@@ -524,7 +524,7 @@ export function PropertyGlobe() {
                             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[80vh] overflow-y-auto">
                                 {selectedProperties.map(prop => (
                                     <div key={prop.id} className="flex flex-col bg-white/5 backdrop-blur-sm rounded-lg overflow-hidden border border-white/15">
-                                        <div className="relative h-48 w-full bg-gray-800">
+                                        <div className="relative h-48 w-full bg-charcoal-800">
                                             <Image
                                                 src={prop.image}
                                                 alt={prop.name}
@@ -538,12 +538,12 @@ export function PropertyGlobe() {
                                         </div>
                                         <div className="p-3 text-white">
                                             <h3 className="text-lg font-bold mb-1 line-clamp-1">{prop.name}</h3>
-                                            <p className="text-sm text-gray-300 mb-2 line-clamp-2">{prop.description}</p>
+                                            <p className="text-sm text-mist-300 mb-2 line-clamp-2">{prop.description}</p>
                                             <div className="flex items-center justify-between text-sm">
-                                                <span className="text-emerald-400 font-medium">${prop.price}</span>
+                                                <span className="text-earth-400 font-medium">${prop.price}</span>
                                                 <button
                                                     onClick={() => router.push(`/listings/${prop.id}`)}
-                                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded"
+                                                    className="bg-earth-600 hover:bg-earth-500 text-white px-3 py-1 rounded"
                                                 >
                                                     View
                                                 </button>

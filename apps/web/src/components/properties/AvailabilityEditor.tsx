@@ -189,9 +189,9 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
 
     const colors: Record<AvailabilityStatus, string> = {
       available:
-        'bg-gray-900 hover:bg-gray-800 text-white border border-gray-800',
+        'bg-charcoal-900 hover:bg-charcoal-800 text-white border border-charcoal-800',
       blocked: 'bg-red-900/60 border border-red-500 text-red-100',
-      booked: 'bg-emerald-900/60 border border-emerald-500 text-emerald-100',
+      booked: 'bg-emerald-900/60 border border-earth-500 text-emerald-100',
     };
 
     const isPast =
@@ -215,11 +215,11 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6 mt-8">
+    <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6 space-y-6 mt-8">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Availability</h2>
-          <p className="text-gray-400 text-sm">
+          <p className="text-mist-400 text-sm">
             Click on a day to toggle between available and blocked. Booked days
             are locked.
           </p>
@@ -228,7 +228,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           <button
             type="button"
             onClick={() => changeMonth(-1)}
-            className="px-3 py-2 bg-gray-800 rounded-lg text-white hover:bg-gray-700"
+            className="px-3 py-2 bg-charcoal-800 rounded-lg text-white hover:bg-charcoal-700"
           >
             ‹
           </button>
@@ -241,7 +241,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           <button
             type="button"
             onClick={() => changeMonth(1)}
-            className="px-3 py-2 bg-gray-800 rounded-lg text-white hover:bg-gray-700"
+            className="px-3 py-2 bg-charcoal-800 rounded-lg text-white hover:bg-charcoal-700"
           >
             ›
           </button>
@@ -249,10 +249,10 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
       </div>
 
       {loading ? (
-        <div className="text-gray-400">Loading availability...</div>
+        <div className="text-mist-400">Loading availability...</div>
       ) : (
         <>
-          <div className="grid grid-cols-7 gap-2 text-center text-gray-400 text-xs uppercase tracking-wide">
+          <div className="grid grid-cols-7 gap-2 text-center text-mist-400 text-xs uppercase tracking-wide">
             {dayLabels.map((label) => (
               <div key={label}>{label}</div>
             ))}
@@ -263,9 +263,9 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
         </>
       )}
 
-      <div className="flex items-center gap-6 text-sm text-gray-300">
+      <div className="flex items-center gap-6 text-sm text-mist-300">
         <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded bg-gray-800 border border-gray-700" />
+          <span className="w-4 h-4 rounded bg-charcoal-800 border border-charcoal-700" />
           Available
         </div>
         <div className="flex items-center gap-2">
@@ -273,7 +273,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           Blocked
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded bg-emerald-900/60 border border-emerald-500" />
+          <span className="w-4 h-4 rounded bg-emerald-900/60 border border-earth-500" />
           Booked
         </div>
       </div>
@@ -283,7 +283,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Saving...' : 'Save Availability'}
         </button>

@@ -155,7 +155,7 @@ export function FeaturedListings() {
         >
           <Link
             href="/search"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-charcoal-900 text-white rounded-xl font-semibold hover:bg-charcoal-800 transition-all hover:scale-105"
           >
             View All Properties
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

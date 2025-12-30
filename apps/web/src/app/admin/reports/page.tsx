@@ -161,7 +161,7 @@ export default function ReportManagementPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500">Total Income</h3>
+                  <h3 className="text-sm font-medium text-mist-500">Total Income</h3>
                   <TrendingUp className="w-5 h-5 text-green-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
@@ -170,7 +170,7 @@ export default function ReportManagementPage() {
               </div>
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500">Total Refunds</h3>
+                  <h3 className="text-sm font-medium text-mist-500">Total Refunds</h3>
                   <TrendingDown className="w-5 h-5 text-red-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
@@ -179,7 +179,7 @@ export default function ReportManagementPage() {
               </div>
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500">Net Income</h3>
+                  <h3 className="text-sm font-medium text-mist-500">Net Income</h3>
                   <DollarSign className="w-5 h-5 text-purple-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
@@ -188,7 +188,7 @@ export default function ReportManagementPage() {
               </div>
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-500">Total Bookings</h3>
+                  <h3 className="text-sm font-medium text-mist-500">Total Bookings</h3>
                   <Calendar className="w-5 h-5 text-blue-500" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">{reportData.bookings_count}</p>
@@ -204,19 +204,19 @@ export default function ReportManagementPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
                         Income
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
                         Refunds
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
                         Net
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
                         Bookings
                       </th>
                     </tr>
@@ -224,7 +224,7 @@ export default function ReportManagementPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {reportData.breakdown.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan={5} className="px-6 py-8 text-center text-mist-500">
                           No data available for this period
                         </td>
                       </tr>
@@ -256,8 +256,8 @@ export default function ReportManagementPage() {
           </>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-            <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">No report data available</p>
+            <Calendar className="w-16 h-16 text-mist-400 mx-auto mb-4" />
+            <p className="text-mist-500">No report data available</p>
           </div>
         )}
       </div>

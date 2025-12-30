@@ -35,7 +35,7 @@ export function HowItWorks() {
   const isInView = useInView(ref, { once: true, margin: "-100px" });
 
   return (
-    <div className="bg-gray-900 py-20 relative overflow-hidden">
+    <div className="bg-charcoal-900 py-20 relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
@@ -53,7 +53,7 @@ export function HowItWorks() {
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             How It Works
           </h2>
-          <p className="text-xl text-gray-400">
+          <p className="text-xl text-mist-400">
             Your wellness-friendly getaway in 4 simple steps
           </p>
         </motion.div>
@@ -77,7 +77,7 @@ export function HowItWorks() {
                   <h3 className="text-2xl font-bold text-white">{step.title}</h3>
                 </div>
                 
-                <p className="text-gray-400">{step.description}</p>
+                <p className="text-mist-400">{step.description}</p>
               </div>
 
               {/* Connector Line */}

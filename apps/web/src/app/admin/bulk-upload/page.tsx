@@ -371,31 +371,31 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
         <div className="mb-8">
           <Link
             href="/admin"
-            className="text-emerald-500 hover:text-emerald-400 mb-4 inline-flex items-center"
+            className="text-earth-500 hover:text-earth-400 mb-4 inline-flex items-center"
           >
             ← Back to Admin Dashboard
           </Link>
           <h1 className="text-4xl font-bold text-white mb-2">Bulk Upload Properties</h1>
-          <p className="text-gray-400">
+          <p className="text-mist-400">
             Upload multiple properties at once. Add as many as you need!
           </p>
         </div>
 
         {/* Bulk Import Section */}
-        <div className="mb-8 bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div className="mb-8 bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold text-white mb-1">
                 📦 Bulk Import Properties
               </h3>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-mist-400">
                 Upload CSV with URLs or ZIP with images - your choice!
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowCsvUpload(!showCsvUpload)}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+              className="px-4 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition"
             >
               {showCsvUpload ? 'Hide' : 'Show'} Bulk Import
             </button>
@@ -404,14 +404,14 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
           {showCsvUpload && (
             <div className="space-y-4">
               {/* Upload Mode Selector */}
-              <div className="flex gap-3 p-1 bg-gray-800 rounded-lg w-fit">
+              <div className="flex gap-3 p-1 bg-charcoal-800 rounded-lg w-fit">
                 <button
                   type="button"
                   onClick={() => setUploadMode('csv')}
                   className={`px-4 py-2 rounded-md font-medium transition ${
                     uploadMode === 'csv'
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-earth-600 text-white'
+                      : 'text-mist-400 hover:text-white'
                   }`}
                 >
                   📄 CSV Only (with URLs)
@@ -421,8 +421,8 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
                   onClick={() => setUploadMode('zip')}
                   className={`px-4 py-2 rounded-md font-medium transition ${
                     uploadMode === 'zip'
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-gray-400 hover:text-white'
+                      ? 'bg-earth-600 text-white'
+                      : 'text-mist-400 hover:text-white'
                   }`}
                 >
                   📦 ZIP (with Images)
@@ -430,15 +430,15 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
               </div>
 
               <div className="flex gap-4">
-                <label className="flex-1 flex items-center justify-center border-2 border-dashed border-gray-700 rounded-lg p-6 cursor-pointer hover:border-emerald-500 transition">
+                <label className="flex-1 flex items-center justify-center border-2 border-dashed border-charcoal-700 rounded-lg p-6 cursor-pointer hover:border-earth-500 transition">
                   <div className="text-center">
-                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="mx-auto h-12 w-12 text-mist-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p className="text-sm font-medium text-white">
                       {uploadMode === 'csv' ? 'Click to upload CSV' : 'Click to upload ZIP'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-mist-500 mt-1">
                       or drag and drop your file here
                     </p>
                   </div>
@@ -453,7 +453,7 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
                 <button
                   type="button"
                   onClick={downloadCsvTemplate}
-                  className="px-6 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+                  className="px-6 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition flex items-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -464,31 +464,31 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
 
               {/* Instructions based on mode */}
               {uploadMode === 'csv' ? (
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                <div className="bg-charcoal-800/50 border border-charcoal-700 rounded-lg p-4">
                   <p className="text-sm font-medium text-white mb-2">📄 CSV Format (with image URLs):</p>
-                  <ul className="text-xs text-gray-400 space-y-1">
-                    <li>• <strong className="text-gray-300">name</strong>: Property name (required)</li>
-                    <li>• <strong className="text-gray-300">bedrooms</strong>: Number of bedrooms (required)</li>
-                    <li>• <strong className="text-gray-300">amenities</strong>: Pipe-separated list (e.g., WiFi|Kitchen|Pool)</li>
-                    <li>• <strong className="text-gray-300">wellness_friendly</strong>: yes/no or true/false</li>
-                    <li>• <strong className="text-gray-300">image_urls</strong>: Pipe-separated image URLs</li>
-                    <li className="text-emerald-400 mt-2">✅ Use direct image URLs from Unsplash, Imgur, or your hosting</li>
+                  <ul className="text-xs text-mist-400 space-y-1">
+                    <li>• <strong className="text-mist-300">name</strong>: Property name (required)</li>
+                    <li>• <strong className="text-mist-300">bedrooms</strong>: Number of bedrooms (required)</li>
+                    <li>• <strong className="text-mist-300">amenities</strong>: Pipe-separated list (e.g., WiFi|Kitchen|Pool)</li>
+                    <li>• <strong className="text-mist-300">wellness_friendly</strong>: yes/no or true/false</li>
+                    <li>• <strong className="text-mist-300">image_urls</strong>: Pipe-separated image URLs</li>
+                    <li className="text-earth-400 mt-2">✅ Use direct image URLs from Unsplash, Imgur, or your hosting</li>
                   </ul>
                 </div>
               ) : (
                 <div className="bg-blue-900/30 border border-blue-600/50 rounded-lg p-4">
                   <p className="text-sm font-medium text-white mb-2">📦 ZIP Format (with actual images):</p>
-                  <ul className="text-xs text-gray-400 space-y-1">
+                  <ul className="text-xs text-mist-400 space-y-1">
                     <li>• Create a ZIP file containing:</li>
-                    <li className="ml-4">1. A CSV file (same format but use <strong className="text-gray-300">image_files</strong> column)</li>
-                    <li className="ml-4">2. An <strong className="text-gray-300">images/</strong> folder with your photos</li>
-                    <li>• In CSV, reference images like: <code className="text-gray-300">image1.jpg|image2.jpg</code></li>
+                    <li className="ml-4">1. A CSV file (same format but use <strong className="text-mist-300">image_files</strong> column)</li>
+                    <li className="ml-4">2. An <strong className="text-mist-300">images/</strong> folder with your photos</li>
+                    <li>• In CSV, reference images like: <code className="text-mist-300">image1.jpg|image2.jpg</code></li>
                     <li>• Supported formats: JPG, PNG, GIF, WebP</li>
                     <li className="text-blue-400 mt-2">🎉 Images will be automatically uploaded to hosting!</li>
                   </ul>
-                  <div className="mt-3 text-xs text-gray-400">
+                  <div className="mt-3 text-xs text-mist-400">
                     <strong className="text-white">Example ZIP structure:</strong>
-                    <pre className="mt-1 text-gray-500">
+                    <pre className="mt-1 text-mist-500">
 my-properties.zip
 ├── properties.csv
 └── images/
@@ -508,7 +508,7 @@ my-properties.zip
           {properties.map((property, index) => (
             <div
               key={property.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-6"
+              className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6"
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold text-white">
@@ -528,7 +528,7 @@ my-properties.zip
               <div className="space-y-6">
                 {/* Property Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-mist-300 mb-2">
                     Property Name *
                   </label>
                   <input
@@ -538,14 +538,14 @@ my-properties.zip
                     onChange={(e) =>
                       updateProperty(property.id, 'name', e.target.value)
                     }
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-earth-500 focus:border-transparent"
                     placeholder="e.g., Cozy Mountain Cabin"
                   />
                 </div>
 
                 {/* Bedrooms */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-mist-300 mb-2">
                     Number of Bedrooms *
                   </label>
                   <input
@@ -560,7 +560,7 @@ my-properties.zip
                         parseInt(e.target.value) || 0
                       )
                     }
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-earth-500 focus:border-transparent"
                   />
                 </div>
 
@@ -573,11 +573,11 @@ my-properties.zip
                     onChange={(e) =>
                       updateProperty(property.id, 'smokeFriendly', e.target.checked)
                     }
-                    className="w-5 h-5 text-emerald-600 bg-gray-800 border-gray-700 rounded focus:ring-emerald-500"
+                    className="w-5 h-5 text-emerald-600 bg-charcoal-800 border-charcoal-700 rounded focus:ring-earth-500"
                   />
                   <label
                     htmlFor={`smoke-${property.id}`}
-                    className="text-gray-300 font-medium"
+                    className="text-mist-300 font-medium"
                   >
                     🧘 Wellness-Friendly Property
                   </label>
@@ -585,7 +585,7 @@ my-properties.zip
 
                 {/* Amenities */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                  <label className="block text-sm font-medium text-mist-300 mb-3">
                     Amenities
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -596,8 +596,8 @@ my-properties.zip
                         onClick={() => toggleAmenity(property.id, amenity)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
                           property.amenities.includes(amenity)
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                            ? 'bg-earth-600 text-white'
+                            : 'bg-charcoal-800 text-mist-300 hover:bg-charcoal-700'
                         }`}
                       >
                         {amenity}
@@ -608,7 +608,7 @@ my-properties.zip
 
                 {/* Image Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                  <label className="block text-sm font-medium text-mist-300 mb-3">
                     Property Images * (Click to upload multiple)
                   </label>
                   
@@ -637,15 +637,15 @@ my-properties.zip
                   )}
 
                   {/* Upload Button */}
-                  <label className="flex items-center justify-center w-full h-32 px-4 border-2 border-gray-700 border-dashed rounded-lg cursor-pointer hover:border-emerald-500 transition">
+                  <label className="flex items-center justify-center w-full h-32 px-4 border-2 border-charcoal-700 border-dashed rounded-lg cursor-pointer hover:border-earth-500 transition">
                     <div className="text-center">
-                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="mx-auto h-12 w-12 text-mist-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      <p className="mt-2 text-sm text-gray-400">
+                      <p className="mt-2 text-sm text-mist-400">
                         Click to upload images
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-mist-500">
                         PNG, JPG up to 10MB each
                       </p>
                     </div>
@@ -666,7 +666,7 @@ my-properties.zip
           <button
             type="button"
             onClick={addProperty}
-            className="w-full py-4 border-2 border-dashed border-gray-700 rounded-xl text-gray-400 hover:border-emerald-500 hover:text-emerald-500 transition"
+            className="w-full py-4 border-2 border-dashed border-charcoal-700 rounded-xl text-mist-400 hover:border-earth-500 hover:text-earth-500 transition"
           >
             + Add Another Property
           </button>
@@ -676,14 +676,14 @@ my-properties.zip
             <button
               type="submit"
               disabled={uploading}
-              className="flex-1 bg-emerald-600 text-white py-4 rounded-xl font-semibold hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-earth-600 text-white py-4 rounded-xl font-semibold hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? 'Uploading...' : `Upload ${properties.length} ${properties.length === 1 ? 'Property' : 'Properties'}`}
             </button>
             <button
               type="button"
               onClick={() => router.push('/admin')}
-              className="px-8 bg-gray-800 text-white py-4 rounded-xl font-semibold hover:bg-gray-700 transition"
+              className="px-8 bg-charcoal-800 text-white py-4 rounded-xl font-semibold hover:bg-charcoal-700 transition"
             >
               Cancel
             </button>
