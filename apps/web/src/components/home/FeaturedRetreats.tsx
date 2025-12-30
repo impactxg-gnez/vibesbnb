@@ -124,36 +124,35 @@ export function FeaturedRetreats() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
           >
-            <Link href={`/listings/${retreat.id}`} className="group block">
-              <div className="bg-charcoal-900 rounded-3xl overflow-hidden border border-charcoal-800 hover:border-earth-500 transition">
-                <div className="relative h-48 bg-charcoal-800">
+            <Link href={`/listings/${retreat.id}`} className="group block h-full">
+              <div className="property-card-3d h-full flex flex-col">
+                {/* Image Section */}
+                <div className="relative h-48 bg-charcoal-800 flex-shrink-0">
                   {imageErrors.has(retreat.id) ? (
                     <div className="w-full h-full flex items-center justify-center bg-charcoal-800">
                       <div className="text-center">
-                        <svg className="w-12 h-12 text-mist-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-12 h-12 text-white/50 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <p className="text-mist-500 text-xs">Image unavailable</p>
+                        <p className="text-white/50 text-xs">Image unavailable</p>
                       </div>
                     </div>
                   ) : retreat.isDataUrl ? (
-                    // Use regular img tag for data URLs
                     <img
                       src={retreat.image}
                       alt={retreat.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      className="w-full h-full object-cover"
                       onError={() => {
                         console.error('[FeaturedRetreats] Failed to load data URL image for:', retreat.id);
                         setImageErrors(prev => new Set(prev).add(retreat.id));
                       }}
                     />
                   ) : (
-                    // Use Next.js Image for regular URLs, but with unoptimized for external domains
                     <Image
                       src={retreat.image}
                       alt={retreat.name}
                       fill
-                      className="object-cover group-hover:scale-105 transition duration-500"
+                      className="object-cover"
                       onError={(e) => {
                         console.error('[FeaturedRetreats] Failed to load image:', retreat.image, 'for property:', retreat.id);
                         setImageErrors(prev => new Set(prev).add(retreat.id));
@@ -161,20 +160,21 @@ export function FeaturedRetreats() {
                       unoptimized={true}
                     />
                   )}
-                  <div className="absolute top-3 left-3">
-                    <span className="bg-charcoal-900/90 backdrop-blur-sm text-mist-100 text-xs font-medium px-3 py-1.5 rounded-full border border-charcoal-700">
+                  <div className="absolute top-3 left-3 z-10">
+                    <span className="bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/20">
                       {retreat.badge}
                     </span>
                   </div>
                 </div>
                 
-                <div className="p-4">
+                {/* Content Section */}
+                <div className="property-card-content flex-1">
                   <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="text-mist-100 font-semibold text-lg mb-1">
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold text-lg mb-1 drop-shadow-lg">
                         {retreat.name}
                       </h3>
-                      <div className="flex items-center gap-1 text-mist-400 text-sm">
+                      <div className="flex items-center gap-1 text-white/80 text-sm">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         </svg>
@@ -183,16 +183,17 @@ export function FeaturedRetreats() {
                         <span>{retreat.rating} ({retreat.reviews})</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-mist-100 font-semibold">${retreat.price}/night</div>
+                    <div className="text-right ml-2">
+                      <div className="text-white font-bold text-lg">${retreat.price}</div>
+                      <div className="text-white/70 text-xs">/night</div>
                     </div>
                   </div>
                   
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-auto flex-wrap">
                     {retreat.amenities.map((amenity) => (
                       <span
                         key={amenity}
-                        className="bg-charcoal-800 text-mist-300 text-xs px-3 py-1 rounded-full"
+                        className="bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full border border-white/30"
                       >
                         {amenity}
                       </span>
