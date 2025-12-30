@@ -2,6 +2,7 @@
 
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { AnimatedBackground } from '@/components/layout/AnimatedBackground';
 
 interface LayoutContentProps {
   children: React.ReactNode;
@@ -9,9 +10,10 @@ interface LayoutContentProps {
 
 export function LayoutContent({ children }: LayoutContentProps) {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen relative">
+      <AnimatedBackground />
       <Header />
-      <main className="flex-grow">
+      <main className="flex-grow relative z-10">
         {children}
       </main>
       <Footer />
