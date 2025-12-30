@@ -9,13 +9,13 @@
 }
 
 @layer components {
-  /* Pure Glassmorphism Primary Button */
+  /* Glassmorphism Primary Button with Green Tint */
   .btn-primary {
     position: relative;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(74, 124, 74, 0.2);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(74, 124, 74, 0.4);
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 0.75rem;
@@ -37,7 +37,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(255, 255, 255, 0.1),
+      rgba(74, 124, 74, 0.3),
       transparent
     );
     transition: left 0.5s ease;
@@ -48,11 +48,11 @@
   }
 
   .btn-primary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(74, 124, 74, 0.3);
+    border-color: rgba(74, 124, 74, 0.5);
     transform: translateY(-2px);
     box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.15),
+      0 12px 40px rgba(74, 124, 74, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
 
@@ -136,7 +136,7 @@
     @apply bg-charcoal-900/50 backdrop-blur-sm border border-charcoal-800/50 rounded-lg shadow-sm hover:shadow-md transition-shadow;
   }
 
-  /* Pure Glassmorphism Property Card Effect */
+  /* Glassmorphism Property Card with Green Tint */
   .property-card-glass {
     position: relative;
     width: 100%;
@@ -148,10 +148,10 @@
     align-items: stretch;
     justify-content: flex-start;
 
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(74, 124, 74, 0.12);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(74, 124, 74, 0.25);
 
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.1),
@@ -163,54 +163,94 @@
 
   .property-card-glass:hover {
     transform: translateY(-8px);
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(74, 124, 74, 0.18);
+    border-color: rgba(74, 124, 74, 0.4);
     box-shadow:
-      0 20px 60px rgba(0, 0, 0, 0.2),
+      0 20px 60px rgba(74, 124, 74, 0.15),
       inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
-  /* Inner Glass Panel */
+  /* Inner Glass Panel with Green Tint */
   .property-card-bg {
     position: absolute;
     inset: 6px;
-    background: rgba(255, 255, 255, 0.03);
+    background: linear-gradient(
+      145deg,
+      rgba(14, 15, 17, 0.9),
+      rgba(20, 25, 20, 0.7),
+      rgba(14, 15, 17, 0.9)
+    );
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(74, 124, 74, 0.15);
     z-index: 2;
     pointer-events: none;
   }
 
-  /* Subtle Light Reflection */
+  /* Animated Green Aurora Blob */
   .property-card-aurora {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    filter: blur(35px);
+    z-index: 1;
+    pointer-events: none;
+
+    background: radial-gradient(
+      circle,
+      rgba(74, 124, 74, 0.4),
+      rgba(86, 150, 86, 0.25),
+      rgba(61, 101, 61, 0.15),
+      transparent
+    );
+
+    animation: property-aurora-move 8s infinite ease-in-out;
+    opacity: 0.6;
+  }
+
+  /* Green Glow Effect on Hover */
+  .property-card-glass::after {
+    content: '';
     position: absolute;
     top: -50%;
     left: -50%;
     width: 200%;
     height: 200%;
     background: radial-gradient(
-      circle at 30% 30%,
-      rgba(255, 255, 255, 0.1) 0%,
-      transparent 50%
+      circle,
+      rgba(74, 124, 74, 0.1) 0%,
+      transparent 70%
     );
-    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
     pointer-events: none;
-    opacity: 0.3;
-    animation: property-aurora-move 10s infinite ease-in-out;
+    z-index: 0;
   }
 
-  /* Light Reflection Animation */
+  .property-card-glass:hover::after {
+    opacity: 1;
+  }
+
+  /* Aurora Animation */
   @keyframes property-aurora-move {
     0% {
-      transform: translate(-50%, -50%) rotate(0deg);
+      transform: translate(-60%, -60%) scale(1);
     }
-    50% {
-      transform: translate(-40%, -40%) rotate(180deg);
+    30% {
+      transform: translate(10%, -40%) scale(1.15);
+    }
+    60% {
+      transform: translate(20%, 20%) scale(1.05);
+    }
+    80% {
+      transform: translate(-40%, 10%) scale(1.2);
     }
     100% {
-      transform: translate(-50%, -50%) rotate(360deg);
+      transform: translate(-60%, -60%) scale(1);
     }
   }
 
