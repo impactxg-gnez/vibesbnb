@@ -9,20 +9,21 @@
 }
 
 @layer components {
-  /* Glassmorphism Primary Button */
+  /* Pure Glassmorphism Primary Button */
   .btn-primary {
     position: relative;
-    background: rgba(74, 124, 74, 0.2);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(74, 124, 74, 0.4);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 0.75rem;
     font-weight: 500;
     transition: all 0.3s ease;
     box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
     overflow: hidden;
   }
 
@@ -36,7 +37,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(74, 124, 74, 0.3),
+      rgba(255, 255, 255, 0.1),
       transparent
     );
     transition: left 0.5s ease;
@@ -47,12 +48,12 @@
   }
 
   .btn-primary:hover {
-    background: rgba(74, 124, 74, 0.3);
-    border-color: rgba(74, 124, 74, 0.5);
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
     transform: translateY(-2px);
     box-shadow:
-      0 6px 20px rgba(74, 124, 74, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      0 12px 40px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
 
   .btn-primary:active {
@@ -65,11 +66,12 @@
     transform: none;
   }
 
-  /* Glassmorphism Secondary Button */
+  /* Pure Glassmorphism Secondary Button */
   .btn-secondary {
     position: relative;
-    background: rgba(44, 45, 50, 0.3);
-    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(245, 245, 243, 1);
     padding: 0.75rem 1.5rem;
@@ -77,46 +79,47 @@
     font-weight: 500;
     transition: all 0.3s ease;
     box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   .btn-secondary:hover {
-    background: rgba(44, 45, 50, 0.4);
+    background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
     transform: translateY(-2px);
     box-shadow:
-      0 6px 20px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 12px 40px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
   }
 
   .btn-secondary:active {
     transform: translateY(0);
   }
 
-  /* Glassmorphism Rust Button */
+  /* Pure Glassmorphism Rust Button */
   .btn-rust {
     position: relative;
-    background: rgba(201, 110, 69, 0.2);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(201, 110, 69, 0.4);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 0.75rem;
     font-weight: 500;
     transition: all 0.3s ease;
     box-shadow:
-      0 4px 15px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
   .btn-rust:hover {
-    background: rgba(201, 110, 69, 0.3);
-    border-color: rgba(201, 110, 69, 0.5);
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
     transform: translateY(-2px);
     box-shadow:
-      0 6px 20px rgba(201, 110, 69, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      0 12px 40px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
 
   .btn-rust:disabled {
@@ -133,7 +136,7 @@
     @apply bg-charcoal-900/50 backdrop-blur-sm border border-charcoal-800/50 rounded-lg shadow-sm hover:shadow-md transition-shadow;
   }
 
-  /* Enhanced Glassmorphism Property Card Effect */
+  /* Pure Glassmorphism Property Card Effect */
   .property-card-glass {
     position: relative;
     width: 100%;
@@ -145,14 +148,14 @@
     align-items: stretch;
     justify-content: flex-start;
 
-    background: rgba(74, 124, 74, 0.12);
-    backdrop-filter: blur(30px);
-    border: 1px solid rgba(74, 124, 74, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
 
     box-shadow:
-      25px 25px 60px rgba(0, 0, 0, 0.15),
-      -20px -20px 50px rgba(74, 124, 74, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
@@ -160,93 +163,54 @@
 
   .property-card-glass:hover {
     transform: translateY(-8px);
-    border-color: rgba(74, 124, 74, 0.4);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
     box-shadow:
-      30px 40px 80px rgba(0, 0, 0, 0.25),
-      -25px -25px 60px rgba(74, 124, 74, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 20px 60px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
-  /* Inner Glow Panel with Subtle Green Tint */
+  /* Inner Glass Panel */
   .property-card-bg {
     position: absolute;
     inset: 6px;
-    background: linear-gradient(
-      145deg,
-      rgba(14, 15, 17, 0.9),
-      rgba(20, 25, 20, 0.7),
-      rgba(14, 15, 17, 0.9)
-    );
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-radius: 1rem;
-    backdrop-filter: blur(30px);
-    border: 1px solid rgba(74, 124, 74, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 2;
     pointer-events: none;
   }
 
-  /* Enhanced Animated Aurora Blob with Soothing Green */
+  /* Subtle Light Reflection */
   .property-card-aurora {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    filter: blur(35px);
-    z-index: 1;
-    pointer-events: none;
-
-    background: radial-gradient(
-      circle,
-      rgba(74, 124, 74, 0.4),
-      rgba(86, 150, 86, 0.25),
-      rgba(61, 101, 61, 0.15),
-      transparent
-    );
-
-    animation: property-aurora-move 8s infinite ease-in-out;
-    opacity: 0.6;
-  }
-
-  /* Subtle Green Glow Effect */
-  .property-card-glass::after {
-    content: '';
     position: absolute;
     top: -50%;
     left: -50%;
     width: 200%;
     height: 200%;
     background: radial-gradient(
-      circle,
-      rgba(74, 124, 74, 0.1) 0%,
-      transparent 70%
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.1) 0%,
+      transparent 50%
     );
-    opacity: 0;
-    transition: opacity 0.4s ease;
+    z-index: 1;
     pointer-events: none;
-    z-index: 0;
+    opacity: 0.3;
+    animation: property-aurora-move 10s infinite ease-in-out;
   }
 
-  .property-card-glass:hover::after {
-    opacity: 1;
-  }
-
-  /* Aurora Animation */
+  /* Light Reflection Animation */
   @keyframes property-aurora-move {
     0% {
-      transform: translate(-60%, -60%) scale(1);
+      transform: translate(-50%, -50%) rotate(0deg);
     }
-    30% {
-      transform: translate(10%, -40%) scale(1.15);
-    }
-    60% {
-      transform: translate(20%, 20%) scale(1.05);
-    }
-    80% {
-      transform: translate(-40%, 10%) scale(1.2);
+    50% {
+      transform: translate(-40%, -40%) rotate(180deg);
     }
     100% {
-      transform: translate(-60%, -60%) scale(1);
+      transform: translate(-50%, -50%) rotate(360deg);
     }
   }
 
