@@ -19,7 +19,7 @@ export function Hero() {
           console.error('Background image failed to load:', backgroundImageUrl);
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/60 via-gray-950/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-charcoal-950/60 via-charcoal-950/20 to-transparent" />
       
       <div className="relative container mx-auto px-4 h-full flex items-center">
         <motion.div
@@ -28,11 +28,11 @@ export function Hero() {
           transition={{ duration: 0.6 }}
           className="max-w-2xl"
         >
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-2xl" style={{ textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(0, 0, 0, 0.6)' }}>
-            Find your wellness-friendly sanctuary
+          <h1 className="text-4xl md:text-5xl font-bold text-mist-100 mb-4 drop-shadow-2xl" style={{ textShadow: '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(0, 0, 0, 0.6)' }}>
+            Find Your Elevated Sanctuary
           </h1>
-          <p className="text-lg md:text-xl text-white drop-shadow-2xl" style={{ textShadow: '1px 1px 6px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.6)' }}>
-            Discover serene stays with spas, yoga decks, and curated wellness amenities.
+          <p className="text-lg md:text-xl text-mist-200 drop-shadow-2xl" style={{ textShadow: '1px 1px 6px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.6)' }}>
+            Curated retreats for holistic healing & mindful exploration.
           </p>
         </motion.div>
       </div>

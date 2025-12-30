@@ -99,15 +99,15 @@ export function Header() {
   };
 
   return (
-    <header className="bg-gray-950 border-b border-gray-800 sticky top-0 z-50">
+    <header className="bg-charcoal-950 border-b border-charcoal-800 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href={isHost ? "/host/properties" : "/"} className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-earth-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xl">V</span>
             </div>
-            <span className="text-xl font-semibold text-white">VibesBNB</span>
+            <span className="text-xl font-semibold text-mist-100">VibesBNB</span>
           </Link>
 
           {/* Right Side */}
@@ -119,7 +119,7 @@ export function Header() {
                     {/* Messages Shortcut */}
                     <Link
                       href="/messages"
-                      className="relative p-2 text-gray-400 hover:text-white transition rounded-full border border-transparent hover:border-emerald-500"
+                      className="relative p-2 text-mist-400 hover:text-mist-100 transition rounded-full border border-transparent hover:border-earth-500"
                       title="Messages"
                     >
                       <MessageCircle size={22} />
@@ -131,7 +131,7 @@ export function Header() {
                     </Link>
 
                     {/* Notifications */}
-                    <button className="p-2 text-gray-400 hover:text-white transition">
+                    <button className="p-2 text-mist-400 hover:text-mist-100 transition">
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159 c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                       </svg>
@@ -141,9 +141,9 @@ export function Header() {
                     <div className="relative">
                       <button 
                         onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="flex items-center space-x-2 p-2 text-gray-400 hover:text-white transition"
+                        className="flex items-center space-x-2 p-2 text-mist-400 hover:text-mist-100 transition"
                       >
-                        <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 bg-earth-600 rounded-full flex items-center justify-center">
                           <span className="text-white text-sm font-semibold">
                             {user.email?.[0].toUpperCase()}
                           </span>
@@ -152,20 +152,20 @@ export function Header() {
 
                       {/* Dropdown Menu */}
                       {showUserMenu && (
-                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-800 rounded-lg shadow-lg py-2">
-                          <div className="px-4 py-2 border-b border-gray-800">
-                            <p className="text-sm font-medium text-white truncate">{user.email}</p>
+                        <div className="absolute right-0 mt-2 w-48 bg-charcoal-900 border border-charcoal-800 rounded-lg shadow-lg py-2">
+                          <div className="px-4 py-2 border-b border-charcoal-800">
+                            <p className="text-sm font-medium text-mist-100 truncate">{user.email}</p>
                           </div>
                           <Link
                             href="/profile"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                            className="block px-4 py-2 text-sm text-mist-300 hover:bg-charcoal-800 hover:text-mist-100"
                             onClick={() => setShowUserMenu(false)}
                           >
                             Profile
                           </Link>
                           <Link
                             href="/messages"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                            className="block px-4 py-2 text-sm text-mist-300 hover:bg-charcoal-800 hover:text-mist-100"
                             onClick={() => setShowUserMenu(false)}
                           >
                             Messages
@@ -174,7 +174,7 @@ export function Header() {
                           {isTraveller && (
                             <Link
                               href="/bookings"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-mist-300 hover:bg-charcoal-800 hover:text-mist-100"
                               onClick={() => setShowUserMenu(false)}
                             >
                               My Bookings
@@ -184,7 +184,7 @@ export function Header() {
                           {isHost && (
                             <Link
                               href="/host/properties"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-mist-300 hover:bg-charcoal-800 hover:text-mist-100"
                               onClick={() => setShowUserMenu(false)}
                             >
                               My Properties
@@ -194,7 +194,7 @@ export function Header() {
                           {isTraveller && (
                             <Link
                               href="/favorites"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-mist-300 hover:bg-charcoal-800 hover:text-mist-100"
                               onClick={() => setShowUserMenu(false)}
                             >
                               Favorite Properties
@@ -204,27 +204,27 @@ export function Header() {
                           {isAdmin && (
                             <Link
                               href="/admin"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-mist-300 hover:bg-charcoal-800 hover:text-mist-100"
                               onClick={() => setShowUserMenu(false)}
                             >
                               Admin Panel
                             </Link>
                           )}
-                          <div className="border-t border-gray-800 my-1"></div>
+                          <div className="border-t border-charcoal-800 my-1"></div>
                           {/* Role switching - only show for travellers */}
                           {isTraveller && (
                             <>
                               {hasHostRole ? (
                                 <button
                                   onClick={switchToHost}
-                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                                  className="block w-full text-left px-4 py-2 text-sm text-earth-400 hover:bg-charcoal-800"
                                 >
                                   🏠 Switch to Host
                                 </button>
                               ) : (
                                 <button
                                   onClick={registerAsHost}
-                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                                  className="block w-full text-left px-4 py-2 text-sm text-earth-400 hover:bg-charcoal-800"
                                 >
                                   🏠 Register as a Host
                                 </button>
@@ -235,18 +235,18 @@ export function Header() {
                           {isHost && (
                             <button
                               onClick={switchToTraveler}
-                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                              className="block w-full text-left px-4 py-2 text-sm text-earth-400 hover:bg-charcoal-800"
                             >
                               🌍 Switch to Traveler Mode
                             </button>
                           )}
-                          <div className="border-t border-gray-800 my-1"></div>
+                          <div className="border-t border-charcoal-800 my-1"></div>
                           <button
                             onClick={() => {
                               signOut();
                               setShowUserMenu(false);
                             }}
-                            className="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800"
+                            className="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-charcoal-800"
                           >
                             Sign Out
                           </button>
@@ -258,13 +258,13 @@ export function Header() {
                   <>
                     <Link 
                       href="/login" 
-                      className="text-gray-300 hover:text-white transition"
+                      className="text-mist-300 hover:text-mist-100 transition"
                     >
                       Log In
                     </Link>
                     <Link 
                       href="/signup" 
-                      className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
+                      className="bg-earth-500 text-white px-4 py-2 rounded-lg hover:bg-earth-600 transition"
                     >
                       Sign Up
                     </Link>

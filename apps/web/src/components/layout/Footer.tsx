@@ -15,7 +15,7 @@ export function Footer() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 z-50 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-charcoal-950 border-t border-charcoal-800 z-50 md:hidden">
       <div className="flex items-center justify-around px-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -24,7 +24,7 @@ export function Footer() {
               key={item.id}
               href={item.href}
               className={`flex flex-col items-center py-3 px-4 transition ${
-                isActive ? 'text-emerald-500' : 'text-gray-400 hover:text-gray-300'
+                isActive ? 'text-earth-500' : 'text-mist-400 hover:text-mist-300'
               }`}
             >
               <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -30,7 +30,7 @@ const vibes = [
 export function BrowseByVibe() {
   return (
     <div className="container mx-auto px-4 pb-12">
-      <h2 className="text-2xl font-bold text-white mb-6">Browse by vibe</h2>
+      <h2 className="text-2xl font-bold text-mist-100 mb-6">Browse by vibe</h2>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {vibes.map((vibe, index) => (
@@ -53,7 +53,7 @@ export function BrowseByVibe() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
               <div className="absolute bottom-4 left-4">
-                <h3 className="text-white font-semibold text-lg">{vibe.name}</h3>
+                <h3 className="text-mist-100 font-semibold text-lg">{vibe.name}</h3>
               </div>
             </Link>
           </motion.div>

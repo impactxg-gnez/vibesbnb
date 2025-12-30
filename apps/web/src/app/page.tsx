@@ -28,14 +28,14 @@ export default function HomePage() {
     // Show loading state while checking auth
     if (loading) {
         return (
-            <div className="bg-gray-950 min-h-screen flex items-center justify-center">
-                <div className="text-white">Loading...</div>
+            <div className="bg-charcoal-950 min-h-screen flex items-center justify-center">
+                <div className="text-mist-100">Loading...</div>
             </div>
         );
     }
 
     return (
-        <div className="bg-gray-950 min-h-screen">
+        <div className="bg-charcoal-950 min-h-screen">
             <Hero />
             <SearchSection />
             <FeaturedRetreats />

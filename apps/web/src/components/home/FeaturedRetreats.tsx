@@ -75,7 +75,7 @@ export function FeaturedRetreats() {
 
   return (
     <div className="container mx-auto px-4 pb-12">
-      <h2 className="text-2xl font-bold text-white mb-6">Featured retreats</h2>
+      <h2 className="text-2xl font-bold text-mist-100 mb-6">Featured Retreats</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {retreats.map((retreat, index) => (
@@ -87,7 +87,7 @@ export function FeaturedRetreats() {
             transition={{ duration: 0.5, delay: index * 0.1 }}
           >
             <Link href={`/listings/${retreat.id}`} className="group block">
-              <div className="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800 hover:border-emerald-500 transition">
+              <div className="bg-charcoal-900 rounded-3xl overflow-hidden border border-charcoal-800 hover:border-earth-500 transition">
                 <div className="relative h-48">
                   <Image
                     src={retreat.image}
@@ -96,7 +96,7 @@ export function FeaturedRetreats() {
                     className="object-cover group-hover:scale-105 transition duration-500"
                   />
                   <div className="absolute top-3 left-3">
-                    <span className="bg-gray-900/90 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full border border-gray-700">
+                    <span className="bg-charcoal-900/90 backdrop-blur-sm text-mist-100 text-xs font-medium px-3 py-1.5 rounded-full border border-charcoal-700">
                       {retreat.badge}
                     </span>
                   </div>
@@ -105,10 +105,10 @@ export function FeaturedRetreats() {
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h3 className="text-white font-semibold text-lg mb-1">
+                      <h3 className="text-mist-100 font-semibold text-lg mb-1">
                         {retreat.name}
                       </h3>
-                      <div className="flex items-center gap-1 text-gray-400 text-sm">
+                      <div className="flex items-center gap-1 text-mist-400 text-sm">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         </svg>
@@ -118,7 +118,7 @@ export function FeaturedRetreats() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-white font-semibold">${retreat.price}/night</div>
+                      <div className="text-mist-100 font-semibold">${retreat.price}/night</div>
                     </div>
                   </div>
                   
@@ -126,7 +126,7 @@ export function FeaturedRetreats() {
                     {retreat.amenities.map((amenity) => (
                       <span
                         key={amenity}
-                        className="bg-gray-800 text-gray-300 text-xs px-3 py-1 rounded-full"
+                        className="bg-charcoal-800 text-mist-300 text-xs px-3 py-1 rounded-full"
                       >
                         {amenity}
                       </span>
