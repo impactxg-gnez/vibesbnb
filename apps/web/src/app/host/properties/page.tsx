@@ -1319,15 +1319,15 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   )}
 
                   {/* Price & Image Count */}
-                  <div className="flex items-center justify-between mb-4 pt-3 border-t border-charcoal-800">
+                  <div className="flex items-center justify-between mb-4 pt-3 border-t border-white/20">
                     <div className="flex items-center gap-2">
                       <span className="text-white font-bold text-lg">
                         ${property.price}
-                        <span className="text-mist-400 text-sm font-normal">/night</span>
+                        <span className="text-white/70 text-sm font-normal">/night</span>
                       </span>
                     </div>
                     {property.images.length > 0 && (
-                      <span className="text-mist-500 text-xs">
+                      <span className="text-white/70 text-xs">
                         📷 {property.images.length} photo{property.images.length !== 1 ? 's' : ''}
                       </span>
                     )}
@@ -1337,7 +1337,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   <div className="flex gap-2">
                     <Link
                       href={`/host/properties/${property.id}/edit`}
-                      className="flex-1 px-4 py-2 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition flex items-center justify-center gap-2 border border-white/30"
                     >
                       <Edit size={16} />
                       Edit
@@ -1345,10 +1345,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     <button
                       onClick={() => handleTogglePublish(property.id, property.status)}
                       disabled={!property.coordinates && property.status !== 'active'}
-                      className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
+                      className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 border backdrop-blur-sm ${
                         property.status === 'active'
-                          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                          : 'bg-earth-600 hover:bg-earth-700 text-white'
+                          ? 'bg-yellow-600/90 hover:bg-yellow-700/90 text-white border-yellow-500/30'
+                          : 'bg-earth-600/90 hover:bg-earth-700/90 text-white border-earth-500/30'
                       } ${!property.coordinates && property.status !== 'active' ? 'opacity-60 cursor-not-allowed' : ''}`}
                       title={
                         property.status === 'active' 
