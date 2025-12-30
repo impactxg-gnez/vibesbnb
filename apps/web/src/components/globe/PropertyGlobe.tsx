@@ -12,10 +12,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Globe = dynamic(() => import('react-globe.gl'), {
     ssr: false,
     loading: () => (
-        <div className="flex items-center justify-center h-screen bg-cosmic-charcoal text-mist-white">
+        <div className="flex items-center justify-center h-screen bg-charcoal-950 text-mist-100">
             <div className="animate-pulse flex flex-col items-center gap-4">
-                <div className="h-16 w-16 rounded-full border-t-2 border-r-2 border-solar-gold animate-spin" />
-                <p className="text-xl font-light tracking-[0.3em] font-serif italic text-sage-smoke">LOADING VIBES...</p>
+                <div className="h-16 w-16 rounded-full border-t-2 border-r-2 border-earth-500 animate-spin" />
+                <p className="text-xl font-light tracking-[0.3em] font-serif italic text-mist-400">LOADING VIBES...</p>
             </div>
         </div>
     ),
@@ -242,12 +242,12 @@ export function PropertyGlobe() {
         if (currentAltitude > 1.0) {
             const latSum = properties.reduce((sum, p) => sum + p.latitude, 0);
             const lngSum = properties.reduce((sum, p) => sum + p.longitude, 0);
-            return [{
+                return [{
                 text: "USA",
                 latitude: latSum / properties.length,
                 longitude: lngSum / properties.length,
                 size: 3.5,
-                color: 'rgba(239, 203, 115, 0.9)' // Solar Gold
+                color: 'rgba(74, 124, 74, 0.9)' // Earth Green
             }];
         }
 
@@ -272,7 +272,7 @@ export function PropertyGlobe() {
                 latitude: stateGroups[state].latSum / stateGroups[state].count,
                 longitude: stateGroups[state].lngSum / stateGroups[state].count,
                 size: 1.5,
-                color: 'rgba(52, 211, 153, 0.9)' // Emerald-ish
+                color: 'rgba(74, 124, 74, 0.9)' // Earth Green
             }));
         }
 
@@ -309,11 +309,11 @@ export function PropertyGlobe() {
     );
 
     return (
-        <div className={`relative w-full min-h-screen bg-cosmic-charcoal flex flex-col overflow-hidden ${sansFont.className}`}>
+        <div className={`relative w-full min-h-screen bg-charcoal-950 flex flex-col overflow-hidden ${sansFont.className}`}>
             {/* Header */}
             {/* Atmosphere: Gradient & Glow */}
-            <div className="absolute inset-0 z-0 bg-radial-gradient from-velvet-green/20 via-cosmic-charcoal/80 to-cosmic-charcoal pointer-events-none" />
-            <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amethyst-aura/10 via-transparent to-transparent opacity-60 pointer-events-none mix-blend-screen" />
+            <div className="absolute inset-0 z-0 bg-radial-gradient from-earth-500/20 via-charcoal-950/80 to-charcoal-950 pointer-events-none" />
+            <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-earth-500/10 via-transparent to-transparent opacity-60 pointer-events-none mix-blend-screen" />
 
             {/* Floating Whisper Words */}
             <div className={`absolute inset-0 z-0 overflow-hidden pointer-events-none ${serifFont.className}`}>
@@ -347,11 +347,11 @@ export function PropertyGlobe() {
             <div className={`absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 transition-all duration-1000 ${serifFont.className}`}>
                 {/* Title Card */}
                 <div className="text-center group">
-                    <h2 className="text-5xl md:text-6xl font-medium text-mist-white mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(239,203,115,0.3)]">
+                    <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)]">
                         Travel for the soul.
                     </h2>
-                    <div className="h-px w-24 bg-gradient-to-r from-transparent via-solar-gold/50 to-transparent mx-auto mb-3" />
-                    <p className={`text-sm text-sage-smoke font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
+                    <div className="h-px w-24 bg-gradient-to-r from-transparent via-earth-500/50 to-transparent mx-auto mb-3" />
+                    <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
                         Curated spaces for deep rest
                     </p>
                 </div>
@@ -361,27 +361,27 @@ export function PropertyGlobe() {
                     <div className="relative">
                         <button
                             onClick={() => setShowDropdown(!showDropdown)}
-                            className="w-full bg-velvet-green/30 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4 px-6 py-4 text-left hover:bg-velvet-green/50 hover:border-solar-gold/30 transition-all duration-500 group shadow-lg shadow-black/20"
+                            className="w-full bg-earth-500/30 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4 px-6 py-4 text-left hover:bg-earth-500/50 hover:border-earth-500/30 transition-all duration-500 group shadow-lg shadow-black/20"
                         >
-                            <svg className="w-5 h-5 text-solar-gold opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-earth-500 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
-                            <span className={`flex-1 text-sm tracking-wide ${searchLocation ? 'text-mist-white' : 'text-sage-smoke/80'}`}>
+                            <span className={`flex-1 text-sm tracking-wide ${searchLocation ? 'text-mist-100' : 'text-mist-400/80'}`}>
                                 {searchLocation || 'Find your next vibe...'}
                             </span>
                             <div className="w-px h-4 bg-white/10 mx-2" />
-                            <svg className={`w-4 h-4 text-sage-smoke transition-transform duration-500 ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className={`w-4 h-4 text-mist-400 transition-transform duration-500 ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
 
                         {showDropdown && (
-                            <div className="absolute top-full left-0 right-0 mt-4 bg-cosmic-charcoal/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scrollbar p-2">
+                            <div className="absolute top-full left-0 right-0 mt-4 bg-charcoal-950/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto custom-scrollbar p-2">
                                 <div className="p-1">
                                     <input
                                         type="text"
                                         placeholder="Type to filter..."
-                                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-mist-white text-sm placeholder-sage-smoke/50 focus:outline-none focus:border-solar-gold/30 focus:bg-white/10 transition-all mb-2 font-light"
+                                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-mist-100 text-sm placeholder-mist-400/50 focus:outline-none focus:border-earth-500/30 focus:bg-white/10 transition-all mb-2 font-light"
                                         value={searchLocation}
                                         onChange={(e) => setSearchLocation(e.target.value)}
                                         onClick={(e) => e.stopPropagation()}
@@ -397,14 +397,14 @@ export function PropertyGlobe() {
                                             <button
                                                 key={loc}
                                                 onClick={() => handleLocationSelect(loc)}
-                                                className="w-full text-left px-4 py-3 text-sage-smoke hover:bg-velvet-green/40 hover:text-mist-white rounded-xl transition-all duration-300 text-sm font-light tracking-wide flex items-center justify-between group"
+                                                className="w-full text-left px-4 py-3 text-mist-400 hover:bg-earth-500/40 hover:text-mist-100 rounded-xl transition-all duration-300 text-sm font-light tracking-wide flex items-center justify-between group"
                                             >
                                                 <span>{loc}</span>
-                                                <span className="opacity-0 group-hover:opacity-100 text-solar-gold text-xs transition-opacity">Fly to</span>
+                                                <span className="opacity-0 group-hover:opacity-100 text-earth-500 text-xs transition-opacity">Fly to</span>
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="px-4 py-3 text-sage-smoke/50 text-sm text-center italic">No vibes found here...</div>
+                                        <div className="px-4 py-3 text-mist-400/50 text-sm text-center italic">No vibes found here...</div>
                                     )}
                                 </div>
                             </div>
@@ -425,7 +425,7 @@ export function PropertyGlobe() {
                 {/* Audio Toggle */}
                 <button
                     onClick={() => setMuted(!muted)}
-                    className="pointer-events-auto w-12 h-12 rounded-full border border-white/10 bg-cosmic-charcoal/50 backdrop-blur-md hover:bg-velvet-green/50 flex items-center justify-center text-sage-smoke transition-all hover:scale-110 hover:text-solar-gold hover:border-solar-gold/30 shadow-lg group"
+                    className="pointer-events-auto w-12 h-12 rounded-full border border-white/10 bg-charcoal-950/50 backdrop-blur-md hover:bg-earth-500/50 flex items-center justify-center text-mist-400 transition-all hover:scale-110 hover:text-earth-500 hover:border-earth-500/30 shadow-lg group"
                 >
                     {muted ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
@@ -438,7 +438,7 @@ export function PropertyGlobe() {
 
                 <button
                     onClick={handleSearchClick}
-                    className={`pointer-events-auto bg-solar-gold text-cosmic-charcoal px-8 py-4 rounded-full text-base font-medium tracking-widest uppercase transition-all duration-300 hover:bg-mist-white hover:scale-105 shadow-[0_0_20px_rgba(239,203,115,0.4)] hover:shadow-[0_0_40px_rgba(255,255,255,0.6)] flex items-center gap-2 ${sansFont.className}`}
+                    className={`pointer-events-auto bg-earth-500 text-white px-8 py-4 rounded-full text-base font-medium tracking-widest uppercase transition-all duration-300 hover:bg-earth-600 hover:scale-105 shadow-[0_0_20px_rgba(74,124,74,0.4)] hover:shadow-[0_0_40px_rgba(74,124,74,0.6)] flex items-center gap-2 ${sansFont.className}`}
                 >
                     Enter Website
                 </button>
@@ -455,7 +455,7 @@ export function PropertyGlobe() {
                     bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
                     // Colors
                     backgroundColor="rgba(0,0,0,0)" // Transparent for gradient bg
-                    atmosphereColor="#6E4FB7" // Amethyst
+                    atmosphereColor="#4A7C4A" // Earth Green
                     atmosphereAltitude={0.25} // More glow
 
                     pointsData={properties}
@@ -468,7 +468,7 @@ export function PropertyGlobe() {
                     pointsMerge={false}
 
                     ringsData={ringData}
-                    ringColor={() => '#EFCB73'} // Solar Gold
+                    ringColor={() => '#4A7C4A'} // Earth Green
                     ringMaxRadius={3}
                     ringPropagationSpeed={2}
                     ringRepeatPeriod={800}
@@ -480,9 +480,9 @@ export function PropertyGlobe() {
                         const el = document.createElement('div');
                         el.innerHTML = `
                             <div class="relative flex items-center justify-center group cursor-pointer">
-                                <div class="absolute w-8 h-8 bg-solar-gold/20 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
-                                <div class="absolute w-12 h-12 bg-solar-gold/10 rounded-full animate-[ping_4s_ease-in-out_infinite_delay-1000]"></div>
-                                <div class="relative w-2 h-2 bg-solar-gold border border-white/80 rounded-full shadow-[0_0_15px_rgba(239,203,115,0.8)] transition-transform duration-500 group-hover:scale-150"></div>
+                                <div class="absolute w-8 h-8 bg-[#4A7C4A]/20 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
+                                <div class="absolute w-12 h-12 bg-[#4A7C4A]/10 rounded-full animate-[ping_4s_ease-in-out_infinite_delay-1000]"></div>
+                                <div class="relative w-2 h-2 bg-[#4A7C4A] border border-white/80 rounded-full shadow-[0_0_15px_rgba(74,124,74,0.8)] transition-transform duration-500 group-hover:scale-150"></div>
                             </div>
                         `;
                         el.onclick = () => handlePointClick(d);
@@ -502,10 +502,10 @@ export function PropertyGlobe() {
 
                     onPointClick={handlePointClick}
                     pointLabel={(p: any) => `
-                        <div class="bg-cosmic-charcoal/95 border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px]">
-                          <div class="text-sm text-solar-gold tracking-widest font-bold uppercase mb-1">${p.location}</div>
-                          <div class="text-xs text-sage-smoke line-clamp-1 mb-1 font-light">${p.name}</div>
-                          <div class="text-sm text-mist-white font-medium">$${p.price} <span class="text-xs text-white/40">/ night</span></div>
+                        <div class="bg-charcoal-950/95 border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px]">
+                          <div class="text-sm text-[#4A7C4A] tracking-widest font-bold uppercase mb-1">${p.location}</div>
+                          <div class="text-xs text-mist-400 line-clamp-1 mb-1 font-light">${p.name}</div>
+                          <div class="text-sm text-mist-100 font-medium">$${p.price} <span class="text-xs text-white/40">/ night</span></div>
                         </div>
                     `}
                 />
@@ -573,7 +573,7 @@ export function PropertyGlobe() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1, duration: 1 }}
-                className={`absolute bottom-12 left-1/2 -translate-x-1/2 text-sage-smoke text-xs tracking-[0.3em] font-light pointer-events-none uppercase ${sansFont.className}`}
+                        className={`absolute bottom-12 left-1/2 -translate-x-1/2 text-mist-400 text-xs tracking-[0.3em] font-light pointer-events-none uppercase ${sansFont.className}`}
             >
                 Rotate to explore
             </motion.div>
