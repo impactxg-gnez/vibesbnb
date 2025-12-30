@@ -21,6 +21,7 @@ interface Retreat {
 export function FeaturedRetreats() {
   const [retreats, setRetreats] = useState<Retreat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadFeaturedRetreats = async () => {
@@ -41,17 +42,36 @@ export function FeaturedRetreats() {
           return;
         }
 
-        const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => ({
-          id: p.id,
-          name: p.name || p.title || 'Property',
-          location: p.location || '',
-          rating: p.rating ? Number(p.rating) : 4.5,
-          reviews: 0, // TODO: Get from reviews table
-          price: p.price ? Number(p.price) : 0,
-          image: p.images && p.images.length > 0 ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
-          amenities: (p.amenities || []).slice(0, 2),
-          badge: 'Wellness-friendly',
-        }));
+        const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => {
+          // Validate and get first valid image
+          let imageUrl = 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
+          
+          if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+            const firstImage = p.images[0];
+            // Check if it's a valid URL
+            if (typeof firstImage === 'string' && firstImage.length > 0) {
+              try {
+                // Validate URL format
+                new URL(firstImage);
+                imageUrl = firstImage;
+              } catch (e) {
+                console.warn('[FeaturedRetreats] Invalid image URL:', firstImage);
+              }
+            }
+          }
+          
+          return {
+            id: p.id,
+            name: p.name || p.title || 'Property',
+            location: p.location || '',
+            rating: p.rating ? Number(p.rating) : 4.5,
+            reviews: 0, // TODO: Get from reviews table
+            price: p.price ? Number(p.price) : 0,
+            image: imageUrl,
+            amenities: (p.amenities || []).slice(0, 2),
+            badge: 'Wellness-friendly',
+          };
+        });
 
         setRetreats(featuredRetreats);
       } catch (error) {
@@ -88,13 +108,28 @@ export function FeaturedRetreats() {
           >
             <Link href={`/listings/${retreat.id}`} className="group block">
               <div className="bg-charcoal-900 rounded-3xl overflow-hidden border border-charcoal-800 hover:border-earth-500 transition">
-                <div className="relative h-48">
-                  <Image
-                    src={retreat.image}
-                    alt={retreat.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition duration-500"
-                  />
+                <div className="relative h-48 bg-charcoal-800">
+                  {imageErrors.has(retreat.id) ? (
+                    <div className="w-full h-full flex items-center justify-center bg-charcoal-800">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 text-mist-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-mist-500 text-xs">Image unavailable</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Image
+                      src={retreat.image}
+                      alt={retreat.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition duration-500"
+                      onError={() => {
+                        setImageErrors(prev => new Set(prev).add(retreat.id));
+                      }}
+                      unoptimized={retreat.image.includes('unsplash.com') || retreat.image.includes('muscache.com')}
+                    />
+                  )}
                   <div className="absolute top-3 left-3">
                     <span className="bg-charcoal-900/90 backdrop-blur-sm text-mist-100 text-xs font-medium px-3 py-1.5 rounded-full border border-charcoal-700">
                       {retreat.badge}
