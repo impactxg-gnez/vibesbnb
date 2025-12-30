@@ -344,11 +344,11 @@ export default function ProfilePage() {
 
             {/* Action Buttons (when editing) */}
             {editing && (
-              <div className="flex gap-4 mt-8 pt-6 border-t border-charcoal-800">
+              <div className="flex gap-4 mt-8 pt-6 border-t border-white/20">
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="btn-primary flex-1 flex items-center justify-center gap-2"
                 >
                   <Save size={18} />
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleCancel}
                   disabled={saving}
-                  className="flex-1 px-6 py-3 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="btn-secondary flex-1 flex items-center justify-center gap-2"
                 >
                   <X size={18} />
                   Cancel

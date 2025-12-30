@@ -776,7 +776,7 @@ export default function EditPropertyPage() {
           <div className="flex gap-4">
             <Link
               href="/host/properties"
-              className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-center"
+              className="btn-secondary text-center"
             >
               Cancel
             </Link>
@@ -784,7 +784,7 @@ export default function EditPropertyPage() {
               type="button"
               onClick={(e) => handleSubmit(e, false)}
               disabled={saving}
-              className="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save as Draft'}
             </button>
@@ -792,7 +792,7 @@ export default function EditPropertyPage() {
               type="submit"
               onClick={(e) => handleSubmit(e, true)}
               disabled={saving}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {saving ? 'Saving...' : (
                 <>

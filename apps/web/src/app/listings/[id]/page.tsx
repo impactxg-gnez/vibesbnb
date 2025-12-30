@@ -380,9 +380,9 @@ export default function ListingDetailPage() {
 
               <button
                 onClick={handleBooking}
-                className="w-full px-6 py-4 bg-earth-600 text-mist-100 rounded-lg hover:bg-earth-700 transition font-semibold text-lg mb-4"
+                className="btn-primary w-full py-4 text-lg mb-4 flex items-center justify-center gap-2"
               >
-                <Calendar size={20} className="inline mr-2" />
+                <Calendar size={20} />
                 Book Now
               </button>
 

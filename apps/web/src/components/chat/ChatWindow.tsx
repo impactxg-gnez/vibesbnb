@@ -199,7 +199,7 @@ export default function ChatWindow({
             type="button"
             onClick={handleSend}
             disabled={sending || !input.trim()}
-            className="px-5 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {sending ? 'Sending...' : 'Send Message'}
           </button>

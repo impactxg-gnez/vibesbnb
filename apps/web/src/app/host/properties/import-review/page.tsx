@@ -847,7 +847,7 @@ export default function ImportReviewPage() {
               type="button"
               onClick={() => saveProperty('draft')}
               disabled={saving || publishing}
-              className="px-6 py-3 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save as Draft'}
             </button>
@@ -855,7 +855,7 @@ export default function ImportReviewPage() {
               type="button"
               onClick={() => saveProperty('active')}
               disabled={saving || publishing}
-              className="px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {publishing ? (
                 'Publishing...'

@@ -268,7 +268,7 @@ export function SearchSection() {
                   <button
                     type="button"
                     onClick={() => setShowDatePicker(false)}
-                    className="mt-4 w-full px-4 py-2 bg-earth-500 hover:bg-earth-600 text-white rounded-xl transition"
+                    className="btn-primary mt-4 w-full"
                   >
                     Done
                   </button>
@@ -420,7 +420,7 @@ export function SearchSection() {
         <button
           type="button"
           onClick={handleSearch}
-          className="w-full bg-earth-500 hover:bg-earth-600 text-white font-semibold py-4 rounded-2xl transition"
+          className="btn-primary w-full py-4 text-lg font-semibold"
         >
           Search stays
         </button>
