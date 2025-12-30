@@ -1221,16 +1221,22 @@ const [bookingBuckets, setBookingBuckets] = useState<{
               return (
               <div
                 key={property.id}
-                className={`bg-charcoal-900 border ${isSelected ? 'border-earth-500 ring-1 ring-earth-500/40' : 'border-charcoal-800'} rounded-xl overflow-hidden hover:border-earth-600 transition group`}
+                className={`property-card-glass ${isSelected ? 'ring-2 ring-earth-500 ring-offset-2 ring-offset-charcoal-950' : ''}`}
               >
+                {/* Animated Aurora Blob */}
+                <div className="property-card-aurora" />
+                
+                {/* Inner Glow Panel */}
+                <div className="property-card-bg" />
+                
                 {/* Image */}
-                <div className="relative h-48 bg-charcoal-800">
-                  <div className="absolute bottom-3 left-3 z-10">
+                <div className="relative h-48 bg-charcoal-800 flex-shrink-0 z-10">
+                  <div className="absolute bottom-3 left-3 z-20">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => togglePropertySelection(property.id)}
-                      className="w-4 h-4 text-earth-500 bg-charcoal-900/70 border-charcoal-600 rounded focus:ring-earth-500"
+                      className="w-4 h-4 text-earth-500 bg-white/20 backdrop-blur-sm border-white/30 rounded focus:ring-earth-500"
                       aria-label={`Select ${property.name}`}
                     />
                   </div>
@@ -1241,39 +1247,39 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                       className="w-full h-full object-cover"
                     />
                   )}
-                  <div className="absolute top-3 right-3">
+                  <div className="absolute top-3 right-3 z-20">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm border border-white/20 ${
                         property.status === 'active'
-                          ? 'bg-earth-600 text-white'
+                          ? 'bg-earth-600/90 text-white'
                           : property.status === 'draft'
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-charcoal-600 text-white'
+                          ? 'bg-yellow-600/90 text-white'
+                          : 'bg-charcoal-600/90 text-white'
                       }`}
                     >
                       {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
                     </span>
                   </div>
                   {property.wellnessFriendly && (
-                    <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
+                    <div className="absolute top-3 left-3 z-20 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
                       <span className="text-white text-xs font-medium">🧘 Wellness-Friendly</span>
                     </div>
                   )}
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-white mb-1 group-hover:text-earth-500 transition">
+                <div className="property-card-content">
+                  <h3 className="text-xl font-semibold text-white mb-1 drop-shadow-lg">
                     {property.name}
                   </h3>
                   <div className="flex items-center gap-2 mb-3">
-                    <p className="text-mist-400 text-sm">{property.location}</p>
+                    <p className="text-white/80 text-sm">{property.location}</p>
                     {property.googleMapsUrl && (
                       <a 
                         href={property.googleMapsUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-400 text-xs"
+                        className="text-blue-400 hover:text-blue-300 text-xs"
                       >
                         📍 Map
                       </a>
@@ -1282,15 +1288,15 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   
                   {/* Property Details */}
                   <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
-                    <span className="text-mist-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
+                    <span className="text-white/80">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
                     {property.bathrooms && (
-                      <span className="text-mist-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
+                      <span className="text-white/80">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
                     )}
                     {property.beds && (
-                      <span className="text-mist-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
+                      <span className="text-white/80">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
                     )}
                     {property.guests && (
-                      <span className="text-mist-400">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
+                      <span className="text-white/80">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
                     )}
                   </div>
 
@@ -1299,12 +1305,12 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     <div className="mb-3">
                       <div className="flex flex-wrap gap-1">
                         {property.amenities.slice(0, 3).map((amenity, idx) => (
-                          <span key={idx} className="text-xs bg-charcoal-800 text-mist-300 px-2 py-1 rounded">
+                          <span key={idx} className="text-xs bg-white/20 backdrop-blur-sm text-white px-2 py-1 rounded-full border border-white/30">
                             {amenity}
                           </span>
                         ))}
                         {property.amenities.length > 3 && (
-                          <span className="text-xs text-mist-500 px-2 py-1">
+                          <span className="text-xs text-white/70 px-2 py-1">
                             +{property.amenities.length - 3} more
                           </span>
                         )}

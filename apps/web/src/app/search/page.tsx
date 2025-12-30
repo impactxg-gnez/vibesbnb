@@ -228,56 +228,67 @@ export default function SearchPage() {
               <Link
                 key={listing.id}
                 href={`/listings/${listing.id}`}
-                className="group bg-charcoal-900 rounded-xl overflow-hidden shadow-lg border border-charcoal-800 hover:shadow-xl hover:border-earth-500/50 transition"
+                className="group block h-full"
               >
-                <div className="relative h-64 bg-charcoal-800">
-                  {listing.images && listing.images[0] ? (
-                    <img
-                      src={listing.images[0]}
-                      alt={listing.title || 'Property'}
-                      className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=Image+Failed+to+Load';
-                        target.onerror = null; // Prevent infinite loop
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-mist-500">
-                      <span>No Image</span>
-                    </div>
-                  )}
-                  <div className="absolute top-3 right-3 bg-earth-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    Wellness-Friendly
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-mist-100 text-lg group-hover:text-earth-500">
-                      {listing.title}
-                    </h3>
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500">★</span>
-                      <span className="text-sm font-medium text-mist-100">{listing.rating?.toFixed(1) || '4.5'}</span>
+                <div className="property-card-glass h-full">
+                  {/* Animated Aurora Blob */}
+                  <div className="property-card-aurora" />
+                  
+                  {/* Inner Glow Panel */}
+                  <div className="property-card-bg" />
+                  
+                  {/* Image Section */}
+                  <div className="relative h-64 bg-charcoal-800 flex-shrink-0 z-10">
+                    {listing.images && listing.images[0] ? (
+                      <img
+                        src={listing.images[0]}
+                        alt={listing.title || 'Property'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=Image+Failed+to+Load';
+                          target.onerror = null; // Prevent infinite loop
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/50">
+                        <span>No Image</span>
+                      </div>
+                    )}
+                    <div className="absolute top-3 right-3 z-20 bg-earth-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-semibold border border-white/20">
+                      Wellness-Friendly
                     </div>
                   </div>
-                  <p className="text-mist-400 text-sm mb-3">{listing.location}</p>
-                  {listing.guests && (
-                    <p className="text-mist-500 text-xs mb-2">Up to {listing.guests} guests</p>
-                  )}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(listing.amenities || []).slice(0, 3).map((amenity) => (
-                      <span
-                        key={amenity}
-                        className="bg-charcoal-800 text-mist-300 px-2 py-1 rounded text-xs"
-                      >
-                        {amenity}
-                      </span>
-                    ))}
+                  
+                  {/* Content Section */}
+                  <div className="property-card-content">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-white text-lg drop-shadow-lg flex-1">
+                        {listing.title}
+                      </h3>
+                      <div className="flex items-center gap-1 ml-2">
+                        <span className="text-yellow-400">★</span>
+                        <span className="text-sm font-medium text-white">{listing.rating?.toFixed(1) || '4.5'}</span>
+                      </div>
+                    </div>
+                    <p className="text-white/80 text-sm mb-3">{listing.location}</p>
+                    {listing.guests && (
+                      <p className="text-white/70 text-xs mb-2">Up to {listing.guests} guests</p>
+                    )}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(listing.amenities || []).slice(0, 3).map((amenity) => (
+                        <span
+                          key={amenity}
+                          className="bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full border border-white/30"
+                        >
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-white font-bold text-lg mt-auto">
+                      ${listing.price} <span className="font-normal text-white/70 text-sm">/ night</span>
+                    </p>
                   </div>
-                  <p className="text-mist-100 font-bold text-lg">
-                    ${listing.price} <span className="font-normal text-mist-400 text-sm">/ night</span>
-                  </p>
                 </div>
               </Link>
             ))}

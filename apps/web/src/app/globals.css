@@ -29,64 +29,99 @@
     @apply bg-charcoal-900 border border-charcoal-800 rounded-lg shadow-sm hover:shadow-md transition-shadow;
   }
 
-  /* 3D Property Card Effect */
-  .property-card-3d {
+  /* Glassmorphism Property Card Effect */
+  .property-card-glass {
+    position: relative;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #4A7C4A 0%, #3D653D 46%, #2D4A2D 100%);
-    border-radius: 1rem;
-    color: white;
+    border-radius: 1.25rem;
     overflow: hidden;
-    position: relative;
-    transform-style: preserve-3d;
-    perspective: 1000px;
-    transition: all 0.5s cubic-bezier(0.23, 1, 0.320, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+
+    background: rgba(74, 124, 74, 0.15);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(74, 124, 74, 0.3);
+
+    box-shadow:
+      25px 25px 60px rgba(0, 0, 0, 0.12),
+      -20px -20px 50px rgba(74, 124, 74, 0.1);
+
+    transition: 0.4s ease;
     cursor: pointer;
   }
 
-  .property-card-3d:hover {
-    transform: rotateY(10deg) rotateX(10deg) scale(1.05);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  .property-card-glass:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      25px 35px 65px rgba(0, 0, 0, 0.22),
+      -20px -20px 50px rgba(74, 124, 74, 0.15);
   }
 
-  .property-card-3d::before {
-    content: "";
+  /* Inner Glow Panel */
+  .property-card-bg {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.1));
-    transition: transform 0.5s cubic-bezier(0.23, 1, 0.320, 1);
-    z-index: 1;
+    inset: 6px;
+    background: linear-gradient(
+      145deg,
+      rgba(14, 15, 17, 0.85),
+      rgba(26, 26, 24, 0.6)
+    );
+    border-radius: 1rem;
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(74, 124, 74, 0.2);
+    z-index: 2;
     pointer-events: none;
   }
 
-  .property-card-3d:hover::before {
-    transform: translateX(-100%);
-  }
-
-  .property-card-3d::after {
-    content: "";
+  /* Animated Aurora Blob */
+  .property-card-aurora {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.1));
-    transition: transform 0.5s cubic-bezier(0.23, 1, 0.320, 1);
+    top: 50%;
+    left: 50%;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    filter: blur(28px);
     z-index: 1;
     pointer-events: none;
+
+    background: radial-gradient(
+      circle,
+      rgba(74, 124, 74, 0.6),
+      rgba(61, 101, 61, 0.3),
+      transparent
+    );
+
+    animation: property-aurora-move 6.5s infinite ease-in-out;
+    opacity: 0.7;
   }
 
-  .property-card-3d:hover::after {
-    transform: translateX(100%);
+  /* Aurora Animation */
+  @keyframes property-aurora-move {
+    0% {
+      transform: translate(-60%, -60%) scale(1);
+    }
+    30% {
+      transform: translate(10%, -40%) scale(1.15);
+    }
+    60% {
+      transform: translate(20%, 20%) scale(1.05);
+    }
+    80% {
+      transform: translate(-40%, 10%) scale(1.2);
+    }
+    100% {
+      transform: translate(-60%, -60%) scale(1);
+    }
   }
 
   .property-card-content {
     padding: 1.25rem;
     position: relative;
-    z-index: 2;
+    z-index: 3;
     display: flex;
     flex-direction: column;
     gap: 0.625rem;

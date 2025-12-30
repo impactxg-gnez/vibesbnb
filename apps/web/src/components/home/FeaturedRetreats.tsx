@@ -125,9 +125,15 @@ export function FeaturedRetreats() {
             transition={{ duration: 0.5, delay: index * 0.1 }}
           >
             <Link href={`/listings/${retreat.id}`} className="group block h-full">
-              <div className="property-card-3d h-full flex flex-col">
+              <div className="property-card-glass h-full">
+                {/* Animated Aurora Blob */}
+                <div className="property-card-aurora" />
+                
+                {/* Inner Glow Panel */}
+                <div className="property-card-bg" />
+                
                 {/* Image Section */}
-                <div className="relative h-48 bg-charcoal-800 flex-shrink-0">
+                <div className="relative h-48 bg-charcoal-800 flex-shrink-0 z-10">
                   {imageErrors.has(retreat.id) ? (
                     <div className="w-full h-full flex items-center justify-center bg-charcoal-800">
                       <div className="text-center">
@@ -160,7 +166,7 @@ export function FeaturedRetreats() {
                       unoptimized={true}
                     />
                   )}
-                  <div className="absolute top-3 left-3 z-10">
+                  <div className="absolute top-3 left-3 z-20">
                     <span className="bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/20">
                       {retreat.badge}
                     </span>
