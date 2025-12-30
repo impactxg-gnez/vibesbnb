@@ -14,6 +14,7 @@ interface Retreat {
   reviews: number;
   price: number;
   image: string;
+  isDataUrl?: boolean;
   amenities: string[];
   badge: string;
 }
@@ -45,20 +46,36 @@ export function FeaturedRetreats() {
         const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => {
           // Validate and get first valid image
           let imageUrl = 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
+          let isDataUrl = false;
           
           if (p.images && Array.isArray(p.images) && p.images.length > 0) {
-            const firstImage = p.images[0];
-            // Check if it's a valid URL
-            if (typeof firstImage === 'string' && firstImage.length > 0) {
+            // Find first valid image URL
+            for (const img of p.images) {
+              if (!img || typeof img !== 'string' || img.length === 0) continue;
+              
+              // Check if it's a data URL
+              if (img.startsWith('data:')) {
+                imageUrl = img;
+                isDataUrl = true;
+                break;
+              }
+              
+              // Check if it's a valid HTTP/HTTPS URL
               try {
-                // Validate URL format
-                new URL(firstImage);
-                imageUrl = firstImage;
+                const url = new URL(img);
+                if (url.protocol === 'http:' || url.protocol === 'https:') {
+                  imageUrl = img;
+                  break;
+                }
               } catch (e) {
-                console.warn('[FeaturedRetreats] Invalid image URL:', firstImage);
+                // Not a valid URL, continue to next image
+                console.warn('[FeaturedRetreats] Invalid image URL:', img);
+                continue;
               }
             }
           }
+          
+          console.log('[FeaturedRetreats] Property:', p.name, 'Image URL:', imageUrl.substring(0, 100), 'IsDataUrl:', isDataUrl);
           
           return {
             id: p.id,
@@ -68,6 +85,7 @@ export function FeaturedRetreats() {
             reviews: 0, // TODO: Get from reviews table
             price: p.price ? Number(p.price) : 0,
             image: imageUrl,
+            isDataUrl: isDataUrl,
             amenities: (p.amenities || []).slice(0, 2),
             badge: 'Wellness-friendly',
           };
@@ -118,16 +136,29 @@ export function FeaturedRetreats() {
                         <p className="text-mist-500 text-xs">Image unavailable</p>
                       </div>
                     </div>
+                  ) : retreat.isDataUrl ? (
+                    // Use regular img tag for data URLs
+                    <img
+                      src={retreat.image}
+                      alt={retreat.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                      onError={() => {
+                        console.error('[FeaturedRetreats] Failed to load data URL image for:', retreat.id);
+                        setImageErrors(prev => new Set(prev).add(retreat.id));
+                      }}
+                    />
                   ) : (
+                    // Use Next.js Image for regular URLs, but with unoptimized for external domains
                     <Image
                       src={retreat.image}
                       alt={retreat.name}
                       fill
                       className="object-cover group-hover:scale-105 transition duration-500"
-                      onError={() => {
+                      onError={(e) => {
+                        console.error('[FeaturedRetreats] Failed to load image:', retreat.image, 'for property:', retreat.id);
                         setImageErrors(prev => new Set(prev).add(retreat.id));
                       }}
-                      unoptimized={retreat.image.includes('unsplash.com') || retreat.image.includes('muscache.com')}
+                      unoptimized={true}
                     />
                   )}
                   <div className="absolute top-3 left-3">
