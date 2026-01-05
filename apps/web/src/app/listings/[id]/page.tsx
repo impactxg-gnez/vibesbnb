@@ -220,8 +220,8 @@ export default function ListingDetailPage() {
         <button
           onClick={() => {
             if (fromMap) {
-              // If came from map, go back to home (which shows the globe/map)
-              router.push('/');
+              // If came from map, go back to home with map view
+              router.push('/?view=map');
             } else {
               // Otherwise go to search
               router.push('/search');
