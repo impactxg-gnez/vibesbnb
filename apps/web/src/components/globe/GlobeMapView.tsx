@@ -253,40 +253,38 @@ export function GlobeMapView({
     }, [selectedPropertyId, mapLoaded]);
 
     useEffect(() => {
-        if (mapLoaded && mapInstanceRef.current && !selectedPropertyId) {
+        if (mapLoaded && mapInstanceRef.current) {
             try {
                 // Only update markers if no property is selected (property selection effect handles it otherwise)
-                updateMarkers();
-                
-                // Check if center has changed
-                const centerChanged = !prevCenterRef.current || 
-                    Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
-                    Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
-                
-                // Only update center/zoom if center actually changed
-                if (centerChanged && prevCenterRef.current) {
-                    // Smooth pan to new location when center changes (prevents white screen)
-                    mapInstanceRef.current.panTo({
-                        lat: centerCoordinates.lat,
-                        lng: centerCoordinates.lng,
-                    });
-                    // Update previous center reference after pan
-                    prevCenterRef.current = { ...centerCoordinates };
-                } else if (!prevCenterRef.current) {
-                    // First load - set center immediately
-                    mapInstanceRef.current.setCenter(centerCoordinates);
-                    const zoomLevel = selectedProperties.length > 0 
-                        ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
-                        : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
-                    mapInstanceRef.current.setZoom(zoomLevel);
-                    // Update previous center reference
-                    prevCenterRef.current = { ...centerCoordinates };
+                if (!selectedPropertyId) {
+                    updateMarkers();
+                    
+                    // Check if center has changed
+                    const centerChanged = !prevCenterRef.current || 
+                        Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
+                        Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
+                    
+                    // Only update center/zoom if center actually changed
+                    if (centerChanged && prevCenterRef.current) {
+                        // Smooth pan to new location when center changes (prevents white screen)
+                        mapInstanceRef.current.panTo({
+                            lat: centerCoordinates.lat,
+                            lng: centerCoordinates.lng,
+                        });
+                        // Update previous center reference after pan
+                        prevCenterRef.current = { ...centerCoordinates };
+                    } else if (!prevCenterRef.current) {
+                        // First load - set center immediately
+                        mapInstanceRef.current.setCenter(centerCoordinates);
+                        const zoomLevel = selectedProperties.length > 0 
+                            ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
+                            : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
+                        mapInstanceRef.current.setZoom(zoomLevel);
+                        // Update previous center reference
+                        prevCenterRef.current = { ...centerCoordinates };
+                    }
+                    // Don't reset zoom on every update - let user control zoom
                 }
-                // Don't reset zoom on every update - let user control zoom
-            } catch (error) {
-                console.error('Error updating map view:', error);
-            }
-        }
                 
                 // Ensure zoom listener is active (re-add if it was removed)
                 if (!zoomListenerRef.current && mapInstanceRef.current) {
