@@ -122,9 +122,8 @@ export function GlobeMapView({
     useEffect(() => {
         if (mapLoaded && mapInstanceRef.current) {
             try {
-                if (propertiesWithCoords.length > 0) {
-                    updateMarkers();
-                }
+                // Always update markers when properties are available
+                updateMarkers();
                 // Always update center and zoom
                 mapInstanceRef.current.panTo(centerCoordinates);
                 const zoomLevel = selectedProperties.length > 0 
@@ -155,6 +154,8 @@ export function GlobeMapView({
                 zoomControlOptions: {
                     position: window.google.maps.ControlPosition.RIGHT_BOTTOM,
                 },
+                gestureHandling: 'greedy', // Allow scroll/touch zoom without Ctrl key
+                disableDefaultUI: false,
                 styles: [
                     {
                         featureType: 'all',
@@ -223,6 +224,8 @@ export function GlobeMapView({
             zoomControlOptions: {
                 position: window.google.maps.ControlPosition.RIGHT_BOTTOM,
             },
+            gestureHandling: 'greedy', // Allow scroll/touch zoom without Ctrl key
+            disableDefaultUI: false,
             styles: [
                 {
                     featureType: 'all',
@@ -311,12 +314,13 @@ export function GlobeMapView({
                 title: property.name,
                 icon: {
                     path: window.google.maps.SymbolPath.CIRCLE,
-                    scale: isSelected ? 10 : 8,
+                    scale: isSelected ? 12 : 10, // Larger markers for better visibility
                     fillColor: isSelected ? '#4A7C4A' : '#4A7C4A', // earth-500
-                    fillOpacity: isSelected ? 1 : 0.8,
+                    fillOpacity: isSelected ? 1 : 0.9,
                     strokeColor: '#ffffff',
                     strokeWeight: isSelected ? 3 : 2,
                 },
+                animation: window.google.maps.Animation.DROP, // Drop animation for markers
             });
 
             // Create custom styled info window
@@ -353,7 +357,7 @@ export function GlobeMapView({
             });
         });
 
-        // Fit map to show all markers if there are multiple
+        // Fit map to show all markers
         if (selectedProperties.length > 0) {
             // If we have selected properties, fit to those
             const selectedBounds = new window.google.maps.LatLngBounds();
@@ -367,9 +371,19 @@ export function GlobeMapView({
             if (selectedProperties.length > 1) {
                 mapInstanceRef.current.fitBounds(selectedBounds, { padding: 50 });
             }
-        } else if (propertiesWithCoords.length > 1) {
-            // Fit to all properties with padding
-            mapInstanceRef.current.fitBounds(bounds, { padding: 50 });
+        } else if (propertiesWithCoords.length > 0) {
+            // Fit to all properties with padding - show all available properties
+            if (propertiesWithCoords.length > 1) {
+                mapInstanceRef.current.fitBounds(bounds, { padding: 50 });
+            } else {
+                // Single property - center on it with appropriate zoom
+                const singleProp = propertiesWithCoords[0];
+                mapInstanceRef.current.setCenter({
+                    lat: singleProp.coordinates.lat,
+                    lng: singleProp.coordinates.lng,
+                });
+                mapInstanceRef.current.setZoom(15);
+            }
         }
     };
 

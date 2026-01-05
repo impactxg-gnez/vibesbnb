@@ -392,21 +392,29 @@ export function PropertyGlobe() {
                 ))}
             </div>
 
-            {/* Header & Search */}
-            <div className={`absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 transition-all duration-1000 ${serifFont.className}`}>
-                {/* Title Card */}
-                <div className="text-center group">
-                    <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)]">
-                        travel for the vibe
-                    </h2>
-                    <div className="h-px w-24 bg-gradient-to-r from-transparent via-earth-500/50 to-transparent mx-auto mb-3" />
-                    <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
-                        Curated spaces for deep rest
-                    </p>
-                </div>
+            {/* Header & Search - Hide in map view */}
+            <AnimatePresence>
+                {viewMode === 'globe' && (
+                    <motion.div
+                        initial={{ opacity: 1, y: 0 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                        className={`absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 ${serifFont.className}`}
+                    >
+                        {/* Title Card */}
+                        <div className="text-center group">
+                            <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)]">
+                                travel for the vibe
+                            </h2>
+                            <div className="h-px w-24 bg-gradient-to-r from-transparent via-earth-500/50 to-transparent mx-auto mb-3" />
+                            <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
+                                Curated spaces for deep rest
+                            </p>
+                        </div>
 
-                {/* Search Card */}
-                <div className={`relative w-full pointer-events-auto ${sansFont.className}`}>
+                        {/* Search Card */}
+                        <div className={`relative w-full pointer-events-auto ${sansFont.className}`}>
                     <div className="relative">
                         <button
                             onClick={() => setShowDropdown(!showDropdown)}
@@ -460,7 +468,9 @@ export function PropertyGlobe() {
                         )}
                     </div>
                 </div>
-            </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Top Navigation */}
             <div className="absolute top-0 left-0 w-full z-30 p-8 flex justify-between items-start pointer-events-none">
@@ -500,13 +510,6 @@ export function PropertyGlobe() {
                             <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
                         </div>
                     )}
-                </button>
-
-                <button
-                    onClick={handleSearchClick}
-                    className={`pointer-events-auto bg-earth-500 text-white px-8 py-4 rounded-full text-base font-medium tracking-widest uppercase transition-all duration-300 hover:bg-earth-600 hover:scale-105 shadow-[0_0_20px_rgba(74,124,74,0.4)] hover:shadow-[0_0_40px_rgba(74,124,74,0.6)] flex items-center gap-2 ${sansFont.className}`}
-                >
-                    Enter Website
                 </button>
             </div>
 
