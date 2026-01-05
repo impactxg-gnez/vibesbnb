@@ -43,6 +43,7 @@ export function PropertyGlobe() {
     // WebGL support check
     const isWebGLSupported = typeof window !== 'undefined' && !!(window.WebGLRenderingContext || (window as any).WebGL2RenderingContext);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const globeEl = useRef<any>(undefined);
     const [properties, setProperties] = useState<Property[]>([]);
     const [selectedProperties, setSelectedProperties] = useState<Property[]>([]);
@@ -51,7 +52,9 @@ export function PropertyGlobe() {
     const [showDropdown, setShowDropdown] = useState(false);
     const [isLocating, setIsLocating] = useState(true);
     const [muted, setMuted] = useState(true);
-    const [viewMode, setViewMode] = useState<'globe' | 'map'>('globe');
+    // Check URL parameter for initial view mode
+    const initialViewMode = searchParams?.get('view') === 'map' ? 'map' : 'globe';
+    const [viewMode, setViewMode] = useState<'globe' | 'map'>(initialViewMode);
     const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
     const [selectedCountry, setSelectedCountry] = useState<string>('');
 
