@@ -41,33 +41,48 @@ export function GlobeMapView({
     }));
 
     useEffect(() => {
-        if (propertiesWithCoords.length === 0) {
+        // Check if Google Maps is already loaded
+        if (typeof window === 'undefined') {
             return;
         }
 
-        // Check if Google Maps is already loaded
-        if (typeof window === 'undefined' || !window.google?.maps) {
+        const initializeMapWhenReady = () => {
+            if (window.google?.maps && mapRef.current && !mapInstanceRef.current) {
+                try {
+                    initializeMap();
+                    setMapLoaded(true);
+                } catch (error) {
+                    console.error('Error initializing map:', error);
+                }
+            }
+        };
+
+        // Check if already loaded
+        if (window.google?.maps) {
+            // Small delay to ensure DOM is ready
+            setTimeout(initializeMapWhenReady, 100);
+        } else {
             // Wait for Google Maps to load (it should be loaded in layout.tsx)
             const checkGoogleMaps = setInterval(() => {
                 if (window.google?.maps) {
                     clearInterval(checkGoogleMaps);
-                    setMapLoaded(true);
-                    initializeMap();
+                    initializeMapWhenReady();
                 }
             }, 100);
 
             // Timeout after 10 seconds
-            setTimeout(() => {
+            const timeout = setTimeout(() => {
                 clearInterval(checkGoogleMaps);
                 if (!window.google?.maps) {
                     console.error('Google Maps failed to load');
+                    setMapLoaded(false);
                 }
             }, 10000);
 
-            return () => clearInterval(checkGoogleMaps);
-        } else {
-            setMapLoaded(true);
-            initializeMap();
+            return () => {
+                clearInterval(checkGoogleMaps);
+                clearTimeout(timeout);
+            };
         }
 
         return () => {
@@ -88,28 +103,84 @@ export function GlobeMapView({
     }, []);
 
     useEffect(() => {
-        if (mapLoaded && mapInstanceRef.current && propertiesWithCoords.length > 0) {
-            updateMarkers();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mapLoaded, propertiesWithCoords.length]);
-
-    // Handle center coordinates and selected properties changes
-    useEffect(() => {
         if (mapLoaded && mapInstanceRef.current) {
-            // Smooth zoom to center coordinates
-            mapInstanceRef.current.panTo(centerCoordinates);
-            // Calculate appropriate zoom level based on selected properties
-            const zoomLevel = selectedProperties.length > 0 
-                ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
-                : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
-            mapInstanceRef.current.setZoom(zoomLevel);
+            try {
+                if (propertiesWithCoords.length > 0) {
+                    updateMarkers();
+                }
+                // Always update center and zoom
+                mapInstanceRef.current.panTo(centerCoordinates);
+                const zoomLevel = selectedProperties.length > 0 
+                    ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
+                    : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
+                mapInstanceRef.current.setZoom(zoomLevel);
+            } catch (error) {
+                console.error('Error updating map view:', error);
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mapLoaded, centerCoordinates.lat, centerCoordinates.lng, selectedProperties.length]);
+    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length]);
 
     const initializeMap = () => {
-        if (!mapRef.current || !window.google?.maps || propertiesWithCoords.length === 0) {
+        if (!mapRef.current || !window.google?.maps) {
+            return;
+        }
+
+        // If no properties, still show map centered on coordinates
+        if (propertiesWithCoords.length === 0) {
+            mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+                center: centerCoordinates,
+                zoom: 10,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false,
+                zoomControl: true,
+                zoomControlOptions: {
+                    position: window.google.maps.ControlPosition.RIGHT_BOTTOM,
+                },
+                styles: [
+                    {
+                        featureType: 'all',
+                        elementType: 'geometry',
+                        stylers: [{ color: '#1a1a1a' }], // charcoal-900
+                    },
+                    {
+                        featureType: 'all',
+                        elementType: 'labels.text.fill',
+                        stylers: [{ color: '#f5f5f3' }], // mist-100
+                    },
+                    {
+                        featureType: 'all',
+                        elementType: 'labels.text.stroke',
+                        stylers: [{ color: '#000000' }, { visibility: 'on' }],
+                    },
+                    {
+                        featureType: 'all',
+                        elementType: 'labels.icon',
+                        stylers: [{ visibility: 'off' }],
+                    },
+                    {
+                        featureType: 'landscape',
+                        elementType: 'geometry',
+                        stylers: [{ color: '#0f0f0f' }], // charcoal-950
+                    },
+                    {
+                        featureType: 'water',
+                        elementType: 'geometry',
+                        stylers: [{ color: '#0a0a0a' }],
+                    },
+                    {
+                        featureType: 'road',
+                        elementType: 'geometry',
+                        stylers: [{ color: '#1a1a1a' }],
+                    },
+                    {
+                        featureType: 'poi',
+                        elementType: 'geometry',
+                        stylers: [{ color: '#1a1a1a' }],
+                    },
+                ],
+            });
             return;
         }
 
@@ -276,12 +347,22 @@ export function GlobeMapView({
                 });
             });
             // Add padding for better view
-            mapInstanceRef.current.fitBounds(selectedBounds, { padding: 50 });
+            if (selectedProperties.length > 1) {
+                mapInstanceRef.current.fitBounds(selectedBounds, { padding: 50 });
+            }
         } else if (propertiesWithCoords.length > 1) {
             // Fit to all properties with padding
             mapInstanceRef.current.fitBounds(bounds, { padding: 50 });
         }
     };
+
+    if (propertiesWithCoords.length === 0 && mapLoaded) {
+        return (
+            <div className="relative w-full h-full">
+                <div ref={mapRef} className="w-full h-full" />
+            </div>
+        );
+    }
 
     return (
         <div className="relative w-full h-full">

@@ -373,7 +373,7 @@ export function PropertyGlobe() {
                 {/* Title Card */}
                 <div className="text-center group">
                     <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)]">
-                        Travel for the soul.
+                        travel for the vibe
                     </h2>
                     <div className="h-px w-24 bg-gradient-to-r from-transparent via-earth-500/50 to-transparent mx-auto mb-3" />
                     <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
