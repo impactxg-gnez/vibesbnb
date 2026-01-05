@@ -440,22 +440,23 @@ export function PropertyGlobe() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.5, ease: "easeInOut" }}
-                        className={`absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 ${serifFont.className}`}
+                        className="absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full px-4"
+                        style={{ maxWidth: '100%' }}
                     >
                         {/* Title Card */}
-                        <div className="text-center group w-full">
-                            <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)] text-center">
+                        <div className={`text-center w-full max-w-2xl ${serifFont.className}`}>
+                            <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)] text-center mx-auto">
                                 travel for the vibe
                             </h2>
                             <div className="h-px w-24 bg-gradient-to-r from-transparent via-earth-500/50 to-transparent mx-auto mb-3" />
-                            <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase text-center ${sansFont.className}`}>
+                            <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase text-center mx-auto ${sansFont.className}`}>
                                 Curated spaces for deep rest
                             </p>
                         </div>
 
                         {/* Search Card */}
-                        <div className={`relative w-full pointer-events-auto flex justify-center ${sansFont.className}`}>
-                            <div className="relative w-full max-w-md">
+                        <div className={`relative w-full max-w-md pointer-events-auto flex justify-center mx-auto ${sansFont.className}`}>
+                            <div className="relative w-full">
                                 <button
                             onClick={() => setShowDropdown(!showDropdown)}
                             className="w-full bg-earth-500/30 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4 px-6 py-4 text-left hover:bg-earth-500/50 hover:border-earth-500/30 transition-all duration-500 group shadow-lg shadow-black/20"
