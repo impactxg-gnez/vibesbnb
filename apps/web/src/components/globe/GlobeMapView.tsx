@@ -34,6 +34,7 @@ export function GlobeMapView({
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState<string | null>(null);
     const [isInitializing, setIsInitializing] = useState(true);
+    const zoomListenerRef = useRef<any>(null);
     const router = useRouter();
 
     // Convert properties to map format with coordinates, filter out invalid ones
@@ -114,6 +115,11 @@ export function GlobeMapView({
                     infoWindow.close();
                 }
             });
+            // Cleanup zoom listener
+            if (zoomListenerRef.current && window.google?.maps) {
+                window.google.maps.event.removeListener(zoomListenerRef.current);
+                zoomListenerRef.current = null;
+            }
             markersRef.current = [];
             infoWindowsRef.current.clear();
         };
@@ -129,7 +135,29 @@ export function GlobeMapView({
                 const zoomLevel = selectedProperties.length > 0 
                     ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
                     : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
+                
+                // Set zoom level
                 mapInstanceRef.current.setZoom(zoomLevel);
+                
+                // Ensure zoom listener is active (re-add if it was removed)
+                if (!zoomListenerRef.current && mapInstanceRef.current) {
+                    zoomListenerRef.current = mapInstanceRef.current.addListener('zoom_changed', () => {
+                        if (mapInstanceRef.current) {
+                            const currentZoom = mapInstanceRef.current.getZoom();
+                            // If zoomed out to level 6 or below (about 4 zoom outs from typical starting zoom of 10)
+                            // Return to globe view
+                            if (currentZoom <= 6) {
+                                // Remove listener to prevent multiple calls
+                                if (zoomListenerRef.current && window.google?.maps) {
+                                    window.google.maps.event.removeListener(zoomListenerRef.current);
+                                    zoomListenerRef.current = null;
+                                }
+                                // Switch back to globe view
+                                onToggleGlobe();
+                            }
+                        }
+                    });
+                }
             } catch (error) {
                 console.error('Error updating map view:', error);
             }
@@ -275,6 +303,27 @@ export function GlobeMapView({
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.panTo(center);
                 mapInstanceRef.current.setZoom(initialZoom);
+                
+                // Add zoom change listener to return to globe when zoomed out enough
+                // Only add if not already added
+                if (!zoomListenerRef.current) {
+                    zoomListenerRef.current = mapInstanceRef.current.addListener('zoom_changed', () => {
+                        if (mapInstanceRef.current) {
+                            const currentZoom = mapInstanceRef.current.getZoom();
+                            // If zoomed out to level 6 or below (about 4 zoom outs from typical starting zoom of 10)
+                            // Return to globe view
+                            if (currentZoom <= 6) {
+                                // Remove listener to prevent multiple calls
+                                if (zoomListenerRef.current && window.google?.maps) {
+                                    window.google.maps.event.removeListener(zoomListenerRef.current);
+                                    zoomListenerRef.current = null;
+                                }
+                                // Switch back to globe view
+                                onToggleGlobe();
+                            }
+                        }
+                    });
+                }
             }
         }, 100);
 
