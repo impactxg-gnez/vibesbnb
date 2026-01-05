@@ -178,13 +178,14 @@ export function PropertyGlobe() {
                 : clicked.longitude;
             
             // Validate calculated coordinates
-            if (isNaN(centerLat) || isNaN(centerLng)) {
-                console.error('Invalid calculated center coordinates');
+            if (isNaN(centerLat) || isNaN(centerLng) ||
+                centerLat < -90 || centerLat > 90 ||
+                centerLng < -180 || centerLng > 180) {
+                console.error('Invalid calculated center coordinates:', { centerLat, centerLng });
                 return;
             }
             
             setMapCenter({ lat: centerLat, lng: centerLng });
-            
             // Switch to map view instead of showing popup
             setViewMode('map');
             
@@ -587,61 +588,50 @@ export function PropertyGlobe() {
                 ) : (
                     <motion.div
                         key="map"
-                        initial={{ opacity: 0, scale: 1.05 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.05 }}
-                        transition={{ duration: 0.5, ease: "easeInOut" }}
-                        className="flex-1 relative z-10 pointer-events-auto"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="flex-1 relative z-10 pointer-events-auto min-h-screen"
+                        style={{ backgroundColor: '#0f0f0f' }}
                     >
                         {(() => {
-                            try {
-                                // Calculate center coordinates safely
-                                let centerCoords = mapCenter;
-                                if (!centerCoords || isNaN(centerCoords.lat) || isNaN(centerCoords.lng)) {
-                                    if (properties.length === 0) {
-                                        centerCoords = { lat: 37.7749, lng: -122.4194 }; // Default to San Francisco
+                            // Calculate center coordinates safely
+                            let centerCoords = mapCenter;
+                            if (!centerCoords || isNaN(centerCoords.lat) || isNaN(centerCoords.lng) ||
+                                centerCoords.lat < -90 || centerCoords.lat > 90 ||
+                                centerCoords.lng < -180 || centerCoords.lng > 180) {
+                                if (properties.length === 0) {
+                                    centerCoords = { lat: 37.7749, lng: -122.4194 }; // Default to San Francisco
+                                } else {
+                                    const validProps = properties.filter(p => 
+                                        p.latitude != null && p.longitude != null && 
+                                        !isNaN(p.latitude) && !isNaN(p.longitude) &&
+                                        p.latitude >= -90 && p.latitude <= 90 &&
+                                        p.longitude >= -180 && p.longitude <= 180
+                                    );
+                                    if (validProps.length === 0) {
+                                        centerCoords = { lat: 37.7749, lng: -122.4194 };
                                     } else {
-                                        const validProps = properties.filter(p => 
-                                            p.latitude != null && p.longitude != null && 
-                                            !isNaN(p.latitude) && !isNaN(p.longitude)
-                                        );
-                                        if (validProps.length === 0) {
-                                            centerCoords = { lat: 37.7749, lng: -122.4194 };
-                                        } else {
-                                            const latSum = validProps.reduce((sum, p) => sum + (p.latitude || 0), 0);
-                                            const lngSum = validProps.reduce((sum, p) => sum + (p.longitude || 0), 0);
-                                            centerCoords = { 
-                                                lat: latSum / validProps.length, 
-                                                lng: lngSum / validProps.length 
-                                            };
-                                        }
+                                        const latSum = validProps.reduce((sum, p) => sum + (p.latitude || 0), 0);
+                                        const lngSum = validProps.reduce((sum, p) => sum + (p.longitude || 0), 0);
+                                        centerCoords = { 
+                                            lat: latSum / validProps.length, 
+                                            lng: lngSum / validProps.length 
+                                        };
                                     }
                                 }
-                                
-                                return (
-                                    <GlobeMapView
-                                        properties={properties}
-                                        centerCoordinates={centerCoords}
-                                        selectedProperties={selectedProperties}
-                                        onToggleGlobe={handleToggleView}
-                                    />
-                                );
-                            } catch (error) {
-                                console.error('Error rendering map view:', error);
-                                return (
-                                    <div className="flex items-center justify-center h-full bg-charcoal-950">
-                                        <div className="text-center p-8">
-                                            <p className="text-mist-100 text-lg mb-4">Error loading map view</p>
-                                            <button
-                                                onClick={handleToggleView}
-                                                className="bg-earth-500 text-white px-6 py-3 rounded-full hover:bg-earth-600 transition-colors"
-                                            >
-                                                Back to Globe
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
                             }
+                            
+                            return (
+                                <GlobeMapView
+                                    key={`map-${centerCoords.lat}-${centerCoords.lng}`}
+                                    properties={properties}
+                                    centerCoordinates={centerCoords}
+                                    selectedProperties={selectedProperties}
+                                    onToggleGlobe={handleToggleView}
+                                />
+                            );
                         })()}
                     </motion.div>
                 )}

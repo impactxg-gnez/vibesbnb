@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Property {
@@ -33,15 +33,18 @@ export function GlobeMapView({
     const infoWindowsRef = useRef<Map<any, any>>(new Map());
     const [mapLoaded, setMapLoaded] = useState(false);
     const [mapError, setMapError] = useState<string | null>(null);
+    const [isInitializing, setIsInitializing] = useState(true);
     const router = useRouter();
 
     // Convert properties to map format with coordinates, filter out invalid ones
-    const propertiesWithCoords = properties
-        .filter(p => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude))
-        .map(p => ({
-            ...p,
-            coordinates: { lat: p.latitude, lng: p.longitude },
-        }));
+    const propertiesWithCoords = useMemo(() => {
+        return properties
+            .filter(p => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude))
+            .map(p => ({
+                ...p,
+                coordinates: { lat: p.latitude, lng: p.longitude },
+            }));
+    }, [properties]);
 
     useEffect(() => {
         // Check if Google Maps is already loaded
@@ -49,16 +52,21 @@ export function GlobeMapView({
             return;
         }
 
+        setIsInitializing(true);
+        setMapError(null);
+
         const initializeMapWhenReady = () => {
             if (window.google?.maps && mapRef.current && !mapInstanceRef.current) {
                 try {
                     initializeMap();
                     setMapLoaded(true);
                     setMapError(null);
+                    setIsInitializing(false);
                 } catch (error: any) {
                     console.error('Error initializing map:', error);
                     setMapError(error?.message || 'Failed to initialize map');
                     setMapLoaded(false);
+                    setIsInitializing(false);
                 }
             }
         };
@@ -66,29 +74,31 @@ export function GlobeMapView({
         // Check if already loaded
         if (window.google?.maps) {
             // Small delay to ensure DOM is ready
-            setTimeout(initializeMapWhenReady, 100);
+            const timer = setTimeout(() => {
+                initializeMapWhenReady();
+            }, 100);
+            return () => clearTimeout(timer);
         } else {
             // Poll for Google Maps to load
+            let checkCount = 0;
+            const maxChecks = 100; // 10 seconds max (100 * 100ms)
+            
             const checkGoogleMaps = setInterval(() => {
+                checkCount++;
                 if (window.google?.maps) {
                     clearInterval(checkGoogleMaps);
                     initializeMapWhenReady();
+                } else if (checkCount >= maxChecks) {
+                    clearInterval(checkGoogleMaps);
+                    console.error('Google Maps failed to load after timeout');
+                    setMapError('Google Maps failed to load. Please refresh the page.');
+                    setMapLoaded(false);
+                    setIsInitializing(false);
                 }
             }, 100);
 
-            // Timeout after 10 seconds
-            const timeout = setTimeout(() => {
-                clearInterval(checkGoogleMaps);
-                if (!window.google?.maps) {
-                    console.error('Google Maps failed to load');
-                    setMapError('Google Maps failed to load. Please refresh the page.');
-                    setMapLoaded(false);
-                }
-            }, 10000);
-
             return () => {
                 clearInterval(checkGoogleMaps);
-                clearTimeout(timeout);
             };
         }
 
@@ -366,35 +376,38 @@ export function GlobeMapView({
     // Show error state
     if (mapError) {
         return (
-            <div className="relative w-full h-full flex items-center justify-center bg-charcoal-950">
+            <div className="relative w-full h-full flex items-center justify-center bg-charcoal-950 min-h-screen">
                 <div className="text-center p-8">
                     <p className="text-mist-100 text-lg mb-4">{mapError}</p>
                     <button
                         onClick={() => {
                             setMapError(null);
                             setMapLoaded(false);
+                            setIsInitializing(true);
                             mapInstanceRef.current = null;
                             // Retry initialization
                             if (window.google?.maps && mapRef.current) {
                                 try {
                                     initializeMap();
                                     setMapLoaded(true);
+                                    setIsInitializing(false);
                                 } catch (error: any) {
                                     setMapError(error?.message || 'Failed to initialize map');
                                     setMapLoaded(false);
+                                    setIsInitializing(false);
                                 }
                             } else {
                                 // Reload page if Google Maps not available
                                 window.location.reload();
                             }
                         }}
-                        className="bg-earth-500 text-white px-6 py-3 rounded-full hover:bg-earth-600 transition-colors"
+                        className="bg-earth-500 text-white px-6 py-3 rounded-full hover:bg-earth-600 transition-colors mb-4"
                     >
                         Retry
                     </button>
                     <button
                         onClick={onToggleGlobe}
-                        className="mt-4 text-mist-400 hover:text-mist-100 text-sm underline"
+                        className="block w-full text-mist-400 hover:text-mist-100 text-sm underline"
                     >
                         Back to Globe
                     </button>
@@ -404,10 +417,10 @@ export function GlobeMapView({
     }
 
     return (
-        <div className="relative w-full h-full">
-            <div ref={mapRef} className="w-full h-full" />
-            {!mapLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-charcoal-950">
+        <div className="relative w-full h-full min-h-screen bg-charcoal-950">
+            <div ref={mapRef} className="w-full h-full min-h-screen" />
+            {(isInitializing || !mapLoaded) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-charcoal-950 z-50">
                     <div className="text-center">
                         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-r-2 border-earth-500 mx-auto mb-4" />
                         <p className="text-mist-100 text-lg font-light tracking-[0.3em]">Loading map...</p>
