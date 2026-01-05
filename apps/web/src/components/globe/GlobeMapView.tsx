@@ -837,53 +837,91 @@ export function GlobeMapView({
                 </div>
             )}
             
-            {/* Property Selector - Show when map is loaded, fade out when info window is open */}
+            {/* Property Selector and Country Filter - Show when map is loaded */}
             {mapLoaded && showPropertySelector && propertiesWithCoords.length > 0 && (
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ 
-                        opacity: isInfoWindowOpen ? 0.3 : 1,
-                        x: 0
-                    }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="absolute top-4 left-4 z-50 pointer-events-none"
-                >
-                    <div className="w-80 pointer-events-auto">
-                        <div className="bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl p-4 border border-gray-200/50">
-                            <div className="flex items-center justify-between mb-3">
-                                <label htmlFor="property-select" className="block text-sm font-semibold text-gray-900">
-                                    📍 Property
-                                </label>
-                                <button
-                                    onClick={() => setShowPropertySelector(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                                    aria-label="Close property selector"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                <div className="absolute top-4 left-4 z-50 pointer-events-none flex flex-col gap-3">
+                    {/* Country Filter */}
+                    {availableCountries.length > 0 && onCountryChange && (
+                        <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ 
+                                opacity: isInfoWindowOpen || isTransitioningToGlobe ? 0.3 : 1,
+                                x: 0
+                            }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className="pointer-events-auto"
+                        >
+                            <div className="w-80">
+                                <div className="bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl p-4 border border-gray-200/50">
+                                    <label htmlFor="country-filter-map" className="block text-sm font-semibold text-gray-900 mb-2">
+                                        🌍 Filter by Country
+                                    </label>
+                                    <select
+                                        id="country-filter-map"
+                                        value={selectedCountry || ''}
+                                        onChange={(e) => onCountryChange(e.target.value)}
+                                        className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900 text-sm"
+                                        disabled={isInfoWindowOpen || isTransitioningToGlobe}
+                                    >
+                                        <option value="">All Countries</option>
+                                        {availableCountries.map((country) => (
+                                            <option key={country} value={country}>
+                                                {country}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            <select
-                                id="property-select"
-                                value={selectedPropertyId || ''}
-                                onChange={(e) => {
-                                    const propertyId = e.target.value;
-                                    setSelectedPropertyId(propertyId || null);
-                                }}
-                                className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900 text-sm"
-                                disabled={isInfoWindowOpen}
-                            >
-                                <option value="">Select a property...</option>
-                                {propertiesWithCoords.map((property) => (
-                                    <option key={property.id} value={property.id}>
-                                        {property.location} (${property.price}/night)
-                                    </option>
-                                ))}
-                            </select>
+                        </motion.div>
+                    )}
+                    
+                    {/* Property Selector */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ 
+                            opacity: isInfoWindowOpen || isTransitioningToGlobe ? 0.3 : 1,
+                            x: 0
+                        }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="pointer-events-auto"
+                    >
+                        <div className="w-80">
+                            <div className="bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl p-4 border border-gray-200/50">
+                                <div className="flex items-center justify-between mb-3">
+                                    <label htmlFor="property-select" className="block text-sm font-semibold text-gray-900">
+                                        📍 Property
+                                    </label>
+                                    <button
+                                        onClick={() => setShowPropertySelector(false)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                        aria-label="Close property selector"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <select
+                                    id="property-select"
+                                    value={selectedPropertyId || ''}
+                                    onChange={(e) => {
+                                        const propertyId = e.target.value;
+                                        setSelectedPropertyId(propertyId || null);
+                                    }}
+                                    className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900 text-sm"
+                                    disabled={isInfoWindowOpen || isTransitioningToGlobe}
+                                >
+                                    <option value="">Select a property...</option>
+                                    {propertiesWithCoords.map((property) => (
+                                        <option key={property.id} value={property.id}>
+                                            {property.location} (${property.price}/night)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                </motion.div>
+                    </motion.div>
+                </div>
             )}
             
             {/* Show property selector button if hidden */}
