@@ -50,6 +50,7 @@ export function GlobeMapView({
     const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
     const [currentZoom, setCurrentZoom] = useState<number>(10);
     const [isTransitioningToGlobe, setIsTransitioningToGlobe] = useState(false);
+    const isSelectingPropertyRef = useRef<boolean>(false);
     const zoomListenerRef = useRef<any>(null);
     const clusterMarkersRef = useRef<any[]>([]);
     const prevCenterRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -191,6 +192,9 @@ export function GlobeMapView({
             const selectedProperty = propertiesWithCoords.find(p => p.id === selectedPropertyId);
             if (selectedProperty && selectedProperty.coordinates) {
                 try {
+                    // Set flag to prevent centerCoordinates effect from interfering
+                    isSelectingPropertyRef.current = true;
+                    
                     // Update markers first to ensure marker exists
                     updateMarkers();
                     
@@ -206,6 +210,11 @@ export function GlobeMapView({
                     
                     // Update previous center reference to prevent other useEffects from interfering
                     prevCenterRef.current = { ...targetCenter };
+                    
+                    // Reset flag after a delay to allow pan animation to complete
+                    setTimeout(() => {
+                        isSelectingPropertyRef.current = false;
+                    }, 1000);
                     
                     // Open info window for selected property after a brief delay to ensure marker is created
                     setTimeout(() => {
@@ -243,15 +252,18 @@ export function GlobeMapView({
                     }
                 } catch (error) {
                     console.error('Error moving to selected property:', error);
+                    isSelectingPropertyRef.current = false;
                 }
             }
+        } else {
+            isSelectingPropertyRef.current = false;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedPropertyId, mapLoaded]);
 
     // Separate effect to handle center coordinate changes (only when not selecting a property)
     useEffect(() => {
-        if (mapLoaded && mapInstanceRef.current && !selectedPropertyId) {
+        if (mapLoaded && mapInstanceRef.current && !selectedPropertyId && !isSelectingPropertyRef.current) {
             try {
                 // Check if center has changed
                 const centerChanged = !prevCenterRef.current || 
