@@ -36,6 +36,7 @@ interface Property {
     location: string;
     image: string;
     description: string;
+    country?: string;
 }
 
 export function PropertyGlobe() {
@@ -52,6 +53,36 @@ export function PropertyGlobe() {
     const [muted, setMuted] = useState(true);
     const [viewMode, setViewMode] = useState<'globe' | 'map'>('globe');
     const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+    const [selectedCountry, setSelectedCountry] = useState<string>('');
+
+    // Helper function to extract country from location string
+    const extractCountry = (location: string): string => {
+        if (!location) return 'Unknown';
+        const parts = location.split(',').map(p => p.trim());
+        // Country is usually the last part
+        return parts[parts.length - 1] || 'Unknown';
+    };
+
+    // Get unique countries from properties
+    const availableCountries = useMemo(() => {
+        const countries = new Set<string>();
+        properties.forEach(prop => {
+            const country = extractCountry(prop.location);
+            if (country && country !== 'Unknown') {
+                countries.add(country);
+            }
+        });
+        return Array.from(countries).sort();
+    }, [properties]);
+
+    // Filter properties by country
+    const filteredProperties = useMemo(() => {
+        if (!selectedCountry) return properties;
+        return properties.filter(prop => {
+            const country = extractCountry(prop.location);
+            return country === selectedCountry;
+        });
+    }, [properties, selectedCountry]);
 
     const whisperWords = ["Unwind", "Restore", "Flow", "Breathe", "Reset", "Explore", "Elevate", "Vibe"];
 
@@ -79,16 +110,20 @@ export function PropertyGlobe() {
                 if (error) throw error;
                 const validProperties = (data || [])
                     .filter(p => p.latitude && p.longitude)
-                    .map(p => ({
-                        id: p.id,
-                        name: p.name,
-                        price: p.price,
-                        description: p.description || '',
-                        location: p.location || 'Unknown Location',
-                        latitude: Number(p.latitude),
-                        longitude: Number(p.longitude),
-                        image: (p.images && p.images.length > 0 && p.images[0]) ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
-                    }));
+                    .map(p => {
+                        const location = p.location || 'Unknown Location';
+                        return {
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            description: p.description || '',
+                            location: location,
+                            country: extractCountry(location),
+                            latitude: Number(p.latitude),
+                            longitude: Number(p.longitude),
+                            image: (p.images && p.images.length > 0 && p.images[0]) ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
+                        };
+                    });
                 setProperties(validProperties);
 
                 // Calculate centroid for fallback
@@ -162,7 +197,7 @@ export function PropertyGlobe() {
             }
             
             // Find properties within a small radius (≈0.1°) of the clicked point
-            const nearby = properties.filter(p => 
+            const nearby = filteredProperties.filter(p => 
                 p.latitude != null && p.longitude != null && 
                 !isNaN(p.latitude) && !isNaN(p.longitude) &&
                 distance(p, clicked) < 0.1
@@ -538,7 +573,7 @@ export function PropertyGlobe() {
                             atmosphereColor="#4A7C4A" // Earth Green
                             atmosphereAltitude={0.25} // More glow
 
-                            pointsData={properties}
+                            pointsData={filteredProperties}
                             pointLat="latitude"
                             pointLng="longitude"
                             pointColor={() => 'transparent'}
@@ -553,7 +588,7 @@ export function PropertyGlobe() {
                             ringPropagationSpeed={2}
                             ringRepeatPeriod={800}
 
-                            htmlElementsData={properties}
+                            htmlElementsData={filteredProperties}
                             htmlLat="latitude"
                             htmlLng="longitude"
                             htmlElement={(d: any) => {
@@ -631,7 +666,7 @@ export function PropertyGlobe() {
                             return (
                                 <GlobeMapView
                                     key="map-view" // Fixed key to prevent re-mounting on location change
-                                    properties={properties}
+                                    properties={filteredProperties}
                                     centerCoordinates={centerCoords}
                                     selectedProperties={selectedProperties}
                                     onToggleGlobe={handleToggleView}
@@ -640,6 +675,9 @@ export function PropertyGlobe() {
                                         setSelectedProperties([property]);
                                         setMapCenter({ lat: property.latitude, lng: property.longitude });
                                     }}
+                                    selectedCountry={selectedCountry}
+                                    availableCountries={availableCountries}
+                                    onCountryChange={setSelectedCountry}
                                 />
                             );
                         })()}
@@ -673,7 +711,7 @@ export function PropertyGlobe() {
                                             />
                                         </div>
                                         <div className="p-3 text-white">
-                                            <h3 className="text-lg font-bold mb-1 line-clamp-1">{prop.name}</h3>
+                                            <p className="text-sm text-earth-400 font-medium mb-2 uppercase tracking-wide line-clamp-1">{prop.location}</p>
                                             <p className="text-sm text-mist-300 mb-2 line-clamp-2">{prop.description}</p>
                                             <div className="flex items-center justify-between text-sm">
                                                 <span className="text-earth-400 font-medium">${prop.price}</span>

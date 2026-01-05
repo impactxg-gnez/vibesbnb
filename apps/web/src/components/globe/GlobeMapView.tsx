@@ -28,6 +28,9 @@ interface GlobeMapViewProps {
     selectedProperties: Property[];
     onToggleGlobe: () => void;
     onPropertySelect?: (property: Property) => void;
+    selectedCountry?: string;
+    availableCountries?: string[];
+    onCountryChange?: (country: string) => void;
 }
 
 export function GlobeMapView({
@@ -36,6 +39,9 @@ export function GlobeMapView({
     selectedProperties,
     onToggleGlobe,
     onPropertySelect,
+    selectedCountry = '',
+    availableCountries = [],
+    onCountryChange,
 }: GlobeMapViewProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstanceRef = useRef<any>(null);
@@ -714,8 +720,7 @@ export function GlobeMapView({
             const infoWindow = new window.google.maps.InfoWindow({
                 content: `
                     <div style="color: #f5f5f3; min-width: 250px; background: rgba(15, 15, 15, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
-                        <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 18px; color: #f5f5f3;">${property.name}</h3>
-                        <p style="margin: 0 0 8px 0; color: #4A7C4A; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;">${property.location}</p>
+                        <p style="margin: 0 0 8px 0; color: #4A7C4A; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;">${property.location}</p>
                         <p style="margin: 0 0 12px 0; color: #a0a0a0; font-size: 14px; line-height: 1.4;">${property.description ? property.description.substring(0, 100) + '...' : 'No description available'}</p>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                             <p style="margin: 0; font-weight: 700; color: #4A7C4A; font-size: 20px;">$${property.price} <span style="font-weight: 400; font-size: 14px; color: #a0a0a0;">/ night</span></p>
@@ -872,7 +877,7 @@ export function GlobeMapView({
                                 <option value="">Select a property...</option>
                                 {propertiesWithCoords.map((property) => (
                                     <option key={property.id} value={property.id}>
-                                        {property.name} - {property.location} (${property.price}/night)
+                                        {property.location} (${property.price}/night)
                                     </option>
                                 ))}
                             </select>
@@ -971,9 +976,6 @@ export function GlobeMapView({
                                                         </div>
                                                     )}
                                                     <div className="flex-1 min-w-0">
-                                                        <h3 className="text-lg font-semibold text-mist-100 mb-1 truncate group-hover:text-earth-500 transition-colors">
-                                                            {property.name}
-                                                        </h3>
                                                         <p className="text-sm text-earth-500 font-medium mb-2 uppercase tracking-wide">
                                                             {property.location}
                                                         </p>
