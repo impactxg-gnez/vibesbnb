@@ -262,15 +262,17 @@ export function GlobeMapView({
     }, [selectedPropertyId, mapLoaded]);
 
     // Separate effect to handle center coordinate changes (only when not selecting a property)
+    // This effect should only run when centerCoordinates actually changes from external source
+    // NOT when user interacts with the map
     useEffect(() => {
         if (mapLoaded && mapInstanceRef.current && !selectedPropertyId && !isSelectingPropertyRef.current) {
             try {
-                // Check if center has changed
+                // Check if center has changed significantly (from external source, not user interaction)
                 const centerChanged = !prevCenterRef.current || 
-                    Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
-                    Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
+                    Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.001 || 
+                    Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.001;
                 
-                // Only update center/zoom if center actually changed
+                // Only update center/zoom if center actually changed from external source
                 if (centerChanged && prevCenterRef.current) {
                     // Smooth pan to new location when center changes (prevents white screen)
                     mapInstanceRef.current.panTo({
@@ -301,15 +303,10 @@ export function GlobeMapView({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mapLoaded, centerCoordinates.lat, centerCoordinates.lng, selectedPropertyId]);
 
-    // Separate effect for zoom listener and general marker updates
+    // Separate effect for zoom listener setup (only runs once when map loads)
     useEffect(() => {
         if (mapLoaded && mapInstanceRef.current) {
             try {
-                // Only update markers if no property is selected (property selection effect handles it otherwise)
-                if (!selectedPropertyId) {
-                    updateMarkers();
-                }
-                
                 // Ensure zoom listener is active (re-add if it was removed)
                 if (!zoomListenerRef.current && mapInstanceRef.current) {
                     zoomListenerRef.current = mapInstanceRef.current.addListener('zoom_changed', () => {
@@ -352,8 +349,13 @@ export function GlobeMapView({
                                 }
                                 // Update markers when zoom changes to recalculate clusters (but don't reset zoom)
                                 // Only update if not in the middle of a property selection
+                                // Use debounce to prevent too frequent updates
                                 if (!selectedPropertyId && mapInstanceRef.current) {
-                                    updateMarkers();
+                                    setTimeout(() => {
+                                        if (mapInstanceRef.current && !selectedPropertyId) {
+                                            updateMarkers();
+                                        }
+                                    }, 300);
                                 }
                             }
                         }
@@ -457,6 +459,9 @@ export function GlobeMapView({
             },
             gestureHandling: 'greedy', // Allow scroll/touch zoom without Ctrl key
             disableDefaultUI: false,
+            draggable: true, // Ensure map is draggable
+            scrollwheel: true, // Ensure scroll wheel zoom works
+            disableDoubleClickZoom: false, // Allow double-click zoom
             styles: [
                 {
                     featureType: 'all',
@@ -508,6 +513,9 @@ export function GlobeMapView({
                 mapInstanceRef.current.setZoom(initialZoom);
                 // Set initial center reference
                 prevCenterRef.current = { ...center };
+                
+                // Update markers after initial load
+                updateMarkers();
                 
                 // Add zoom change listener to return to globe when zoomed out enough
                 // Only add if not already added
@@ -725,8 +733,9 @@ export function GlobeMapView({
             });
         });
 
-        // Fit map to show all markers
-        if (selectedPropertyId && filteredProperties.length > 0) {
+        // Fit map to show all markers (but don't reset if user is interacting)
+        // Only auto-fit on initial load or when property is explicitly selected
+        if (selectedPropertyId && filteredProperties.length > 0 && !isSelectingPropertyRef.current) {
             // If a specific property is selected, center on it
             const selectedProp = filteredProperties[0];
             mapInstanceRef.current.setCenter({
@@ -822,9 +831,9 @@ export function GlobeMapView({
 
     return (
         <div className="relative w-full h-full min-h-screen bg-charcoal-950">
-            <div ref={mapRef} className="w-full h-full min-h-screen" />
+            <div ref={mapRef} className="w-full h-full min-h-screen" style={{ pointerEvents: mapLoaded ? 'auto' : 'none' }} />
             {(isInitializing || !mapLoaded) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-charcoal-950 z-50">
+                <div className="absolute inset-0 flex items-center justify-center bg-charcoal-950 z-50 pointer-events-none">
                     <div className="text-center">
                         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-r-2 border-earth-500 mx-auto mb-4" />
                         <p className="text-mist-100 text-lg font-light tracking-[0.3em]">Loading map...</p>
