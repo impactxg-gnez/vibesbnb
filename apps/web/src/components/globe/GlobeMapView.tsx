@@ -195,31 +195,31 @@ export function GlobeMapView({
                     updateMarkers();
                     
                     // Pan to selected property with smooth animation
-                    mapInstanceRef.current.panTo({
-                        lat: selectedProperty.coordinates.lat,
-                        lng: selectedProperty.coordinates.lng,
-                    });
-                    // Zoom in to show property clearly
-                    mapInstanceRef.current.setZoom(15);
-                    
-                    // Update previous center reference to prevent other useEffects from interfering
-                    prevCenterRef.current = {
+                    const targetCenter = {
                         lat: selectedProperty.coordinates.lat,
                         lng: selectedProperty.coordinates.lng,
                     };
                     
+                    mapInstanceRef.current.panTo(targetCenter);
+                    // Zoom in to show property clearly
+                    mapInstanceRef.current.setZoom(15);
+                    
+                    // Update previous center reference to prevent other useEffects from interfering
+                    prevCenterRef.current = { ...targetCenter };
+                    
                     // Open info window for selected property after a brief delay to ensure marker is created
                     setTimeout(() => {
                         // Don't open if transitioning to globe
-                        if (isTransitioningToGlobe) return;
+                        if (isTransitioningToGlobe || !mapInstanceRef.current) return;
                         
                         const marker = markersRef.current.find(m => {
+                            if (!m || !m.getPosition) return false;
                             const pos = m.getPosition();
                             return pos && 
                                    Math.abs(pos.lat() - selectedProperty.coordinates.lat) < 0.001 &&
                                    Math.abs(pos.lng() - selectedProperty.coordinates.lng) < 0.001;
                         });
-                        if (marker && !isTransitioningToGlobe) {
+                        if (marker && !isTransitioningToGlobe && mapInstanceRef.current) {
                             const infoWindow = infoWindowsRef.current.get(marker);
                             if (infoWindow) {
                                 // Close all other info windows
@@ -232,7 +232,7 @@ export function GlobeMapView({
                                 setIsInfoWindowOpen(true);
                             }
                         }
-                    }, 200);
+                    }, 300);
                     
                     // Call onPropertySelect callback if provided
                     if (onPropertySelect) {
@@ -245,45 +245,57 @@ export function GlobeMapView({
                     console.error('Error moving to selected property:', error);
                 }
             }
-        } else if (mapLoaded && mapInstanceRef.current && !selectedPropertyId) {
-            // When no property is selected, update markers normally
-            updateMarkers();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedPropertyId, mapLoaded]);
 
+    // Separate effect to handle center coordinate changes (only when not selecting a property)
+    useEffect(() => {
+        if (mapLoaded && mapInstanceRef.current && !selectedPropertyId) {
+            try {
+                // Check if center has changed
+                const centerChanged = !prevCenterRef.current || 
+                    Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
+                    Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
+                
+                // Only update center/zoom if center actually changed
+                if (centerChanged && prevCenterRef.current) {
+                    // Smooth pan to new location when center changes (prevents white screen)
+                    mapInstanceRef.current.panTo({
+                        lat: centerCoordinates.lat,
+                        lng: centerCoordinates.lng,
+                    });
+                    // Update previous center reference after pan
+                    prevCenterRef.current = { ...centerCoordinates };
+                    // Update markers after panning
+                    updateMarkers();
+                } else if (!prevCenterRef.current) {
+                    // First load - set center immediately
+                    mapInstanceRef.current.setCenter(centerCoordinates);
+                    const zoomLevel = selectedProperties.length > 0 
+                        ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
+                        : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
+                    mapInstanceRef.current.setZoom(zoomLevel);
+                    // Update previous center reference
+                    prevCenterRef.current = { ...centerCoordinates };
+                    // Update markers on first load
+                    updateMarkers();
+                }
+                // Don't reset zoom on every update - let user control zoom
+            } catch (error) {
+                console.error('Error updating map center:', error);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mapLoaded, centerCoordinates.lat, centerCoordinates.lng, selectedPropertyId]);
+
+    // Separate effect for zoom listener and general marker updates
     useEffect(() => {
         if (mapLoaded && mapInstanceRef.current) {
             try {
                 // Only update markers if no property is selected (property selection effect handles it otherwise)
                 if (!selectedPropertyId) {
                     updateMarkers();
-                    
-                    // Check if center has changed
-                    const centerChanged = !prevCenterRef.current || 
-                        Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
-                        Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
-                    
-                    // Only update center/zoom if center actually changed
-                    if (centerChanged && prevCenterRef.current) {
-                        // Smooth pan to new location when center changes (prevents white screen)
-                        mapInstanceRef.current.panTo({
-                            lat: centerCoordinates.lat,
-                            lng: centerCoordinates.lng,
-                        });
-                        // Update previous center reference after pan
-                        prevCenterRef.current = { ...centerCoordinates };
-                    } else if (!prevCenterRef.current) {
-                        // First load - set center immediately
-                        mapInstanceRef.current.setCenter(centerCoordinates);
-                        const zoomLevel = selectedProperties.length > 0 
-                            ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
-                            : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
-                        mapInstanceRef.current.setZoom(zoomLevel);
-                        // Update previous center reference
-                        prevCenterRef.current = { ...centerCoordinates };
-                    }
-                    // Don't reset zoom on every update - let user control zoom
                 }
                 
                 // Ensure zoom listener is active (re-add if it was removed)
@@ -326,8 +338,11 @@ export function GlobeMapView({
                                 if (selectedCluster) {
                                     setSelectedCluster(null);
                                 }
-                                // Update markers when zoom changes to recalculate clusters
-                                updateMarkers();
+                                // Update markers when zoom changes to recalculate clusters (but don't reset zoom)
+                                // Only update if not in the middle of a property selection
+                                if (!selectedPropertyId && mapInstanceRef.current) {
+                                    updateMarkers();
+                                }
                             }
                         }
                     });
@@ -337,7 +352,7 @@ export function GlobeMapView({
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length, selectedPropertyId, centerCoordinates.lat, centerCoordinates.lng]);
+    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length, selectedPropertyId]);
 
     const initializeMap = () => {
         if (!mapRef.current || !window.google?.maps) {
