@@ -24,6 +24,7 @@ import {
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
+import { PropertyMap } from '@/components/PropertyMap';
 
 interface Property {
   id: string;
