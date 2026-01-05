@@ -729,7 +729,7 @@ export function GlobeMapView({
                         <p style="margin: 0 0 12px 0; color: #a0a0a0; font-size: 14px; line-height: 1.4;">${property.description ? property.description.substring(0, 100) + '...' : 'No description available'}</p>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                             <p style="margin: 0; font-weight: 700; color: #4A7C4A; font-size: 20px;">$${property.price} <span style="font-weight: 400; font-size: 14px; color: #a0a0a0;">/ night</span></p>
-                            <button onclick="window.open('/listings/${property.id}', '_blank')" style="background: #4A7C4A; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s;" onmouseover="this.style.background='#3a6a3a'" onmouseout="this.style.background='#4A7C4A'">View</button>
+                            <button onclick="window.location.href='/listings/${property.id}?from=map'" style="background: #4A7C4A; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s;" onmouseover="this.style.background='#3a6a3a'" onmouseout="this.style.background='#4A7C4A'">View</button>
                         </div>
                     </div>
                 `,
@@ -1152,7 +1152,7 @@ export function GlobeMapView({
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    router.push(`/listings/${property.id}`);
+                                                                    router.push(`/listings/${property.id}?from=map`);
                                                                 }}
                                                                 className="px-4 py-2 bg-earth-500 text-white rounded-lg hover:bg-earth-600 transition-colors text-sm font-medium"
                                                             >

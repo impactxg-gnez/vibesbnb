@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   MapPin, 
@@ -55,10 +55,12 @@ const amenityIcons: { [key: string]: any } = {
 export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const fromMap = searchParams.get('from') === 'map';
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -215,13 +217,21 @@ export default function ListingDetailPage() {
     <div className="min-h-screen bg-charcoal-950 py-8">
       <div className="container mx-auto px-4">
         {/* Back Button */}
-        <Link
-          href="/search"
+        <button
+          onClick={() => {
+            if (fromMap) {
+              // If came from map, go back to home (which shows the globe/map)
+              router.push('/');
+            } else {
+              // Otherwise go to search
+              router.push('/search');
+            }
+          }}
           className="text-earth-500 hover:text-earth-400 mb-6 inline-flex items-center gap-2"
         >
           <ChevronLeft size={20} />
-          Back to search
-        </Link>
+          {fromMap ? 'Back to map' : 'Back to search'}
+        </button>
 
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
