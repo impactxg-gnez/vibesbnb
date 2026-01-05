@@ -56,6 +56,8 @@ export function GlobeMapView({
     const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
     const [currentZoom, setCurrentZoom] = useState<number>(10);
     const [isTransitioningToGlobe, setIsTransitioningToGlobe] = useState(false);
+    const [clusterSearchQuery, setClusterSearchQuery] = useState<string>('');
+    const [clusterPriceFilter, setClusterPriceFilter] = useState<string>('all');
     const isSelectingPropertyRef = useRef<boolean>(false);
     const zoomListenerRef = useRef<any>(null);
     const clusterMarkersRef = useRef<any[]>([]);
@@ -682,6 +684,9 @@ export function GlobeMapView({
                 if (mapInstanceRef.current) {
                     const zoom = mapInstanceRef.current.getZoom();
                     if (zoom > 6) {
+                        // Reset filters when opening cluster modal
+                        setClusterSearchQuery('');
+                        setClusterPriceFilter('all');
                         setSelectedCluster(cluster);
                     }
                 }
