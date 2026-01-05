@@ -735,7 +735,7 @@ export function GlobeMapView({
             });
             mapInstanceRef.current.setZoom(15);
         } else if (selectedProperties.length > 0) {
-            // If we have selected properties, fit to those
+            // If we have selected properties, fit to those (but don't open info windows automatically)
             const selectedBounds = new window.google.maps.LatLngBounds();
             selectedProperties.forEach(prop => {
                 selectedBounds.extend({
@@ -746,6 +746,14 @@ export function GlobeMapView({
             // Add padding for better view
             if (selectedProperties.length > 1) {
                 mapInstanceRef.current.fitBounds(selectedBounds, { padding: 50 });
+            } else if (selectedProperties.length === 1) {
+                // Single property - center on it with appropriate zoom
+                const singleProp = selectedProperties[0];
+                mapInstanceRef.current.setCenter({
+                    lat: singleProp.latitude,
+                    lng: singleProp.longitude,
+                });
+                mapInstanceRef.current.setZoom(15);
             }
         } else if (filteredIndividual.length > 0 || filteredClusters.length > 0) {
             // Fit to all markers (individual + clusters) with padding
