@@ -633,6 +633,11 @@ export function PropertyGlobe() {
                                     centerCoordinates={centerCoords}
                                     selectedProperties={selectedProperties}
                                     onToggleGlobe={handleToggleView}
+                                    onPropertySelect={(property) => {
+                                        // Update selected properties when a property is selected from map
+                                        setSelectedProperties([property]);
+                                        setMapCenter({ lat: property.latitude, lng: property.longitude });
+                                    }}
                                 />
                             );
                         })()}
