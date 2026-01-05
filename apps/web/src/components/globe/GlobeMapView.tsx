@@ -63,15 +63,24 @@ export function GlobeMapView({
             }
         };
 
+        // Listen for Google Maps loaded event
+        const handleGoogleMapsLoaded = () => {
+            initializeMapWhenReady();
+        };
+
         // Check if already loaded
         if (window.google?.maps) {
             // Small delay to ensure DOM is ready
             setTimeout(initializeMapWhenReady, 100);
         } else {
-            // Wait for Google Maps to load (it should be loaded in layout.tsx)
+            // Listen for the custom event
+            window.addEventListener('google-maps-loaded', handleGoogleMapsLoaded);
+            
+            // Also poll as fallback
             const checkGoogleMaps = setInterval(() => {
                 if (window.google?.maps) {
                     clearInterval(checkGoogleMaps);
+                    window.removeEventListener('google-maps-loaded', handleGoogleMapsLoaded);
                     initializeMapWhenReady();
                 }
             }, 100);
@@ -79,6 +88,7 @@ export function GlobeMapView({
             // Timeout after 10 seconds
             const timeout = setTimeout(() => {
                 clearInterval(checkGoogleMaps);
+                window.removeEventListener('google-maps-loaded', handleGoogleMapsLoaded);
                 if (!window.google?.maps) {
                     console.error('Google Maps failed to load');
                     setMapError('Google Maps failed to load. Please refresh the page.');
@@ -89,6 +99,7 @@ export function GlobeMapView({
             return () => {
                 clearInterval(checkGoogleMaps);
                 clearTimeout(timeout);
+                window.removeEventListener('google-maps-loaded', handleGoogleMapsLoaded);
             };
         }
 
