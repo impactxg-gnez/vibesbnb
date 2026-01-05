@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GlobeMapView } from './GlobeMapView';
 
 // Dynamically import Globe to avoid SSR issues
 const Globe = dynamic(() => import('react-globe.gl'), {
@@ -49,6 +50,8 @@ export function PropertyGlobe() {
     const [showDropdown, setShowDropdown] = useState(false);
     const [isLocating, setIsLocating] = useState(true);
     const [muted, setMuted] = useState(true);
+    const [viewMode, setViewMode] = useState<'globe' | 'map'>('globe');
+    const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
     const whisperWords = ["Unwind", "Restore", "Flow", "Breathe", "Reset", "Explore", "Elevate", "Vibe"];
 
@@ -152,9 +155,31 @@ export function PropertyGlobe() {
         // Find properties within a small radius (≈0.1°) of the clicked point
         const nearby = properties.filter(p => distance(p, clicked) < 0.1);
         setSelectedProperties(nearby);
+        
+        // Calculate center coordinates from nearby properties or use clicked point
+        const centerLat = nearby.length > 0
+            ? nearby.reduce((sum, p) => sum + p.latitude, 0) / nearby.length
+            : clicked.latitude;
+        const centerLng = nearby.length > 0
+            ? nearby.reduce((sum, p) => sum + p.longitude, 0) / nearby.length
+            : clicked.longitude;
+        
+        setMapCenter({ lat: centerLat, lng: centerLng });
+        
+        // Switch to map view instead of showing popup
+        setViewMode('map');
+        
         if (globeEl.current) {
             globeEl.current.controls().autoRotate = false;
             globeEl.current.pointOfView({ lat: clicked.latitude, lng: clicked.longitude, altitude: 1.5 }, 1000);
+        }
+    };
+    
+    const handleToggleView = () => {
+        setViewMode(prev => prev === 'globe' ? 'map' : 'globe');
+        if (viewMode === 'map' && globeEl.current) {
+            // Restore auto-rotate when going back to globe
+            globeEl.current.controls().autoRotate = true;
         }
     };
 
@@ -422,6 +447,23 @@ export function PropertyGlobe() {
 
             {/* Bottom Controls (Right) */}
             <div className="absolute bottom-12 right-8 z-40 flex flex-col items-end gap-6 pointer-events-none">
+                {/* View Toggle Button */}
+                <button
+                    onClick={handleToggleView}
+                    className="pointer-events-auto w-12 h-12 rounded-full border border-white/10 bg-charcoal-950/50 backdrop-blur-md hover:bg-earth-500/50 flex items-center justify-center text-mist-400 transition-all hover:scale-110 hover:text-earth-500 hover:border-earth-500/30 shadow-lg group"
+                    title={viewMode === 'globe' ? 'Switch to Map View' : 'Switch to Globe View'}
+                >
+                    {viewMode === 'globe' ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                    ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    )}
+                </button>
+
                 {/* Audio Toggle */}
                 <button
                     onClick={() => setMuted(!muted)}
@@ -444,76 +486,108 @@ export function PropertyGlobe() {
                 </button>
             </div>
 
-            {/* Globe */}
-            <div className="flex-1 cursor-move relative z-10 pointer-events-auto">
-                <Globe
-                    ref={globeEl}
-                    width={dimensions.width}
-                    height={dimensions.height}
-                    // Darker, seamless dark map
-                    globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
-                    bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-                    // Colors
-                    backgroundColor="rgba(0,0,0,0)" // Transparent for gradient bg
-                    atmosphereColor="#4A7C4A" // Earth Green
-                    atmosphereAltitude={0.25} // More glow
+            {/* Globe or Map View */}
+            <AnimatePresence mode="wait">
+                {viewMode === 'globe' ? (
+                    <motion.div
+                        key="globe"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                        className="flex-1 cursor-move relative z-10 pointer-events-auto"
+                    >
+                        <Globe
+                            ref={globeEl}
+                            width={dimensions.width}
+                            height={dimensions.height}
+                            // Darker, seamless dark map
+                            globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+                            bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
+                            // Colors
+                            backgroundColor="rgba(0,0,0,0)" // Transparent for gradient bg
+                            atmosphereColor="#4A7C4A" // Earth Green
+                            atmosphereAltitude={0.25} // More glow
 
-                    pointsData={properties}
-                    pointLat="latitude"
-                    pointLng="longitude"
-                    pointColor={() => 'transparent'}
-                    pointAltitude={0}
-                    pointRadius={0.1}
-                    pointResolution={12}
-                    pointsMerge={false}
+                            pointsData={properties}
+                            pointLat="latitude"
+                            pointLng="longitude"
+                            pointColor={() => 'transparent'}
+                            pointAltitude={0}
+                            pointRadius={0.1}
+                            pointResolution={12}
+                            pointsMerge={false}
 
-                    ringsData={ringData}
-                    ringColor={() => '#4A7C4A'} // Earth Green
-                    ringMaxRadius={3}
-                    ringPropagationSpeed={2}
-                    ringRepeatPeriod={800}
+                            ringsData={ringData}
+                            ringColor={() => '#4A7C4A'} // Earth Green
+                            ringMaxRadius={3}
+                            ringPropagationSpeed={2}
+                            ringRepeatPeriod={800}
 
-                    htmlElementsData={properties}
-                    htmlLat="latitude"
-                    htmlLng="longitude"
-                    htmlElement={(d: any) => {
-                        const el = document.createElement('div');
-                        el.innerHTML = `
-                            <div class="relative flex items-center justify-center group cursor-pointer">
-                                <div class="absolute w-8 h-8 bg-[#4A7C4A]/20 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
-                                <div class="absolute w-12 h-12 bg-[#4A7C4A]/10 rounded-full animate-[ping_4s_ease-in-out_infinite_delay-1000]"></div>
-                                <div class="relative w-2 h-2 bg-[#4A7C4A] border border-white/80 rounded-full shadow-[0_0_15px_rgba(74,124,74,0.8)] transition-transform duration-500 group-hover:scale-150"></div>
-                            </div>
-                        `;
-                        el.onclick = () => handlePointClick(d);
-                        return el;
-                    }}
+                            htmlElementsData={properties}
+                            htmlLat="latitude"
+                            htmlLng="longitude"
+                            htmlElement={(d: any) => {
+                                const el = document.createElement('div');
+                                el.innerHTML = `
+                                    <div class="relative flex items-center justify-center group cursor-pointer">
+                                        <div class="absolute w-8 h-8 bg-[#4A7C4A]/20 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
+                                        <div class="absolute w-12 h-12 bg-[#4A7C4A]/10 rounded-full animate-[ping_4s_ease-in-out_infinite_delay-1000]"></div>
+                                        <div class="relative w-2 h-2 bg-[#4A7C4A] border border-white/80 rounded-full shadow-[0_0_15px_rgba(74,124,74,0.8)] transition-transform duration-500 group-hover:scale-150"></div>
+                                    </div>
+                                `;
+                                el.onclick = () => handlePointClick(d);
+                                return el;
+                            }}
 
-                    labelsData={dynamicLabels}
-                    labelLat="latitude"
-                    labelLng="longitude"
-                    labelText="text"
-                    labelColor={(d: any) => 'rgba(245, 245, 243, 0.85)'} // mist-white
-                    labelSize={(d: any) => d.size}
-                    labelDotRadius={0.2}
-                    labelAltitude={0.02}
-                    // labelTypeFace removed to avoid font loading blanking issues, fallback to default font
+                            labelsData={dynamicLabels}
+                            labelLat="latitude"
+                            labelLng="longitude"
+                            labelText="text"
+                            labelColor={(d: any) => 'rgba(245, 245, 243, 0.85)'} // mist-white
+                            labelSize={(d: any) => d.size}
+                            labelDotRadius={0.2}
+                            labelAltitude={0.02}
+                            // labelTypeFace removed to avoid font loading blanking issues, fallback to default font
 
 
-                    onPointClick={handlePointClick}
-                    pointLabel={(p: any) => `
-                        <div class="bg-charcoal-950/95 border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px]">
-                          <div class="text-sm text-[#4A7C4A] tracking-widest font-bold uppercase mb-1">${p.location}</div>
-                          <div class="text-xs text-mist-400 line-clamp-1 mb-1 font-light">${p.name}</div>
-                          <div class="text-sm text-mist-100 font-medium">$${p.price} <span class="text-xs text-white/40">/ night</span></div>
-                        </div>
-                    `}
-                />
-            </div>
+                            onPointClick={handlePointClick}
+                            pointLabel={(p: any) => `
+                                <div class="bg-charcoal-950/95 border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px]">
+                                  <div class="text-sm text-[#4A7C4A] tracking-widest font-bold uppercase mb-1">${p.location}</div>
+                                  <div class="text-xs text-mist-400 line-clamp-1 mb-1 font-light">${p.name}</div>
+                                  <div class="text-sm text-mist-100 font-medium">$${p.price} <span class="text-xs text-white/40">/ night</span></div>
+                                </div>
+                            `}
+                        />
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="map"
+                        initial={{ opacity: 0, scale: 1.05 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                        className="flex-1 relative z-10 pointer-events-auto"
+                    >
+                        <GlobeMapView
+                            properties={properties}
+                            centerCoordinates={mapCenter || (() => {
+                                if (properties.length === 0) return { lat: 0, lng: 0 };
+                                const latSum = properties.reduce((sum, p) => sum + p.latitude, 0);
+                                const lngSum = properties.reduce((sum, p) => sum + p.longitude, 0);
+                                return { lat: latSum / properties.length, lng: lngSum / properties.length };
+                            })()}
+                            selectedProperties={selectedProperties}
+                            onToggleGlobe={handleToggleView}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {/* Glassmorphism Modal */}
+            {/* Glassmorphism Modal - Only show in globe view */}
             <AnimatePresence>
-                {selectedProperties.length > 0 && (
+                {selectedProperties.length > 0 && viewMode === 'globe' && (
                     <div className="absolute inset-0 z-40 flex items-center justify-center p-4 pointer-events-none">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -569,14 +643,16 @@ export function PropertyGlobe() {
             </AnimatePresence>
 
             {/* Instructional Hint */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1, duration: 1 }}
-                        className={`absolute bottom-12 left-1/2 -translate-x-1/2 text-mist-400 text-xs tracking-[0.3em] font-light pointer-events-none uppercase ${sansFont.className}`}
-            >
-                Rotate to explore
-            </motion.div>
+            {viewMode === 'globe' && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1, duration: 1 }}
+                    className={`absolute bottom-12 left-1/2 -translate-x-1/2 text-mist-400 text-xs tracking-[0.3em] font-light pointer-events-none uppercase ${sansFont.className}`}
+                >
+                    Rotate to explore
+                </motion.div>
+            )}
 
             {/* Version Debug */}
             <div className="absolute bottom-2 right-2 text-white/5 text-[10px] font-mono pointer-events-none">
