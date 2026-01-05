@@ -75,10 +75,28 @@ export function GlobeMapView({
             }));
     }, [properties]);
 
-    // Clustering function - groups nearby properties
+    // Clustering function - groups nearby properties based on zoom level
+    // At deeper zoom levels, use smaller cluster distance to show individual properties
     const clusterProperties = useMemo(() => {
-        // Distance threshold for clustering (in degrees, roughly 0.01 = ~1km)
-        const clusterDistance = 0.01;
+        // Dynamic distance threshold based on zoom level
+        // At zoom 15+, show individual properties (very small threshold)
+        // At zoom 10-14, use medium threshold
+        // At zoom <10, use larger threshold for clustering
+        let clusterDistance: number;
+        if (currentZoom >= 15) {
+            // Deep zoom: show individual properties (very small threshold, ~50m)
+            clusterDistance = 0.0005;
+        } else if (currentZoom >= 12) {
+            // Medium zoom: small threshold (~200m)
+            clusterDistance = 0.002;
+        } else if (currentZoom >= 10) {
+            // Medium-low zoom: medium threshold (~500m)
+            clusterDistance = 0.005;
+        } else {
+            // Low zoom: larger threshold (~1km)
+            clusterDistance = 0.01;
+        }
+        
         const clusters: Cluster[] = [];
         const usedProperties = new Set<string>();
         
@@ -113,7 +131,7 @@ export function GlobeMapView({
         const individualProperties = propertiesWithCoords.filter(p => !usedProperties.has(p.id));
         
         return { clusters, individualProperties };
-    }, [propertiesWithCoords]);
+    }, [propertiesWithCoords, currentZoom]);
 
     useEffect(() => {
         // Check if Google Maps is already loaded
