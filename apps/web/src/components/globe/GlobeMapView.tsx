@@ -130,49 +130,56 @@ export function GlobeMapView({
         };
     }, []);
 
-    // Handle property selection - move map to selected property
+    // Handle property selection - filter markers and move map to selected property
     useEffect(() => {
-        if (selectedPropertyId && mapLoaded && mapInstanceRef.current) {
-            const selectedProperty = propertiesWithCoords.find(p => p.id === selectedPropertyId);
-            if (selectedProperty && selectedProperty.coordinates) {
-                try {
-                    // Pan to selected property with smooth animation
-                    mapInstanceRef.current.panTo({
-                        lat: selectedProperty.coordinates.lat,
-                        lng: selectedProperty.coordinates.lng,
-                    });
-                    // Zoom in to show property clearly
-                    mapInstanceRef.current.setZoom(15);
-                    
-                    // Open info window for selected property
-                    const marker = markersRef.current.find(m => {
-                        const pos = m.getPosition();
-                        return pos && 
-                               Math.abs(pos.lat() - selectedProperty.coordinates.lat) < 0.001 &&
-                               Math.abs(pos.lng() - selectedProperty.coordinates.lng) < 0.001;
-                    });
-                    if (marker) {
-                        const infoWindow = infoWindowsRef.current.get(marker);
-                        if (infoWindow) {
-                            // Close all other info windows
-                            infoWindowsRef.current.forEach(iw => {
-                                if (iw && iw.close && iw !== infoWindow) {
-                                    iw.close();
-                                }
+        if (mapLoaded && mapInstanceRef.current) {
+            // Update markers to reflect filtering
+            updateMarkers();
+            
+            if (selectedPropertyId) {
+                const selectedProperty = propertiesWithCoords.find(p => p.id === selectedPropertyId);
+                if (selectedProperty && selectedProperty.coordinates) {
+                    try {
+                        // Pan to selected property with smooth animation
+                        mapInstanceRef.current.panTo({
+                            lat: selectedProperty.coordinates.lat,
+                            lng: selectedProperty.coordinates.lng,
+                        });
+                        // Zoom in to show property clearly
+                        mapInstanceRef.current.setZoom(15);
+                        
+                        // Open info window for selected property after a brief delay to ensure marker is created
+                        setTimeout(() => {
+                            const marker = markersRef.current.find(m => {
+                                const pos = m.getPosition();
+                                return pos && 
+                                       Math.abs(pos.lat() - selectedProperty.coordinates.lat) < 0.001 &&
+                                       Math.abs(pos.lng() - selectedProperty.coordinates.lng) < 0.001;
                             });
-                            infoWindow.open(mapInstanceRef.current, marker);
+                            if (marker) {
+                                const infoWindow = infoWindowsRef.current.get(marker);
+                                if (infoWindow) {
+                                    // Close all other info windows
+                                    infoWindowsRef.current.forEach(iw => {
+                                        if (iw && iw.close && iw !== infoWindow) {
+                                            iw.close();
+                                        }
+                                    });
+                                    infoWindow.open(mapInstanceRef.current, marker);
+                                }
+                            }
+                        }, 100);
+                        
+                        // Call onPropertySelect callback if provided
+                        if (onPropertySelect) {
+                            const fullProperty = properties.find(p => p.id === selectedPropertyId);
+                            if (fullProperty) {
+                                onPropertySelect(fullProperty);
+                            }
                         }
+                    } catch (error) {
+                        console.error('Error moving to selected property:', error);
                     }
-                    
-                    // Call onPropertySelect callback if provided
-                    if (onPropertySelect) {
-                        const fullProperty = properties.find(p => p.id === selectedPropertyId);
-                        if (fullProperty) {
-                            onPropertySelect(fullProperty);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error moving to selected property:', error);
                 }
             }
         }
@@ -182,16 +189,19 @@ export function GlobeMapView({
     useEffect(() => {
         if (mapLoaded && mapInstanceRef.current) {
             try {
-                // Always update markers when properties are available
+                // Always update markers when properties are available (this will handle filtering)
                 updateMarkers();
-                // Always update center and zoom
-                mapInstanceRef.current.panTo(centerCoordinates);
-                const zoomLevel = selectedProperties.length > 0 
-                    ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
-                    : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
                 
-                // Set zoom level
-                mapInstanceRef.current.setZoom(zoomLevel);
+                // Only update center/zoom if no specific property is selected
+                if (!selectedPropertyId) {
+                    mapInstanceRef.current.panTo(centerCoordinates);
+                    const zoomLevel = selectedProperties.length > 0 
+                        ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
+                        : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
+                    
+                    // Set zoom level
+                    mapInstanceRef.current.setZoom(zoomLevel);
+                }
                 
                 // Ensure zoom listener is active (re-add if it was removed)
                 if (!zoomListenerRef.current && mapInstanceRef.current) {
@@ -217,7 +227,7 @@ export function GlobeMapView({
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length]);
+    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length, selectedPropertyId]);
 
     const initializeMap = () => {
         if (!mapRef.current || !window.google?.maps) {
@@ -398,15 +408,20 @@ export function GlobeMapView({
         markersRef.current = [];
         infoWindowsRef.current.clear();
 
+        // Filter properties based on selectedPropertyId
+        const filteredProperties = selectedPropertyId
+            ? propertiesWithCoords.filter(p => p.id === selectedPropertyId)
+            : propertiesWithCoords;
+
         // Create bounds to fit all markers
         const bounds = new window.google.maps.LatLngBounds();
 
         // Add markers for each property
-        propertiesWithCoords.forEach((property) => {
+        filteredProperties.forEach((property) => {
             if (!property.coordinates) return;
 
             // Highlight selected properties with different color
-            const isSelected = selectedProperties.some(p => p.id === property.id);
+            const isSelected = selectedProperties.some(p => p.id === property.id) || selectedPropertyId === property.id;
             
             const marker = new window.google.maps.Marker({
                 position: {
@@ -461,7 +476,15 @@ export function GlobeMapView({
         });
 
         // Fit map to show all markers
-        if (selectedProperties.length > 0) {
+        if (selectedPropertyId && filteredProperties.length > 0) {
+            // If a specific property is selected, center on it
+            const selectedProp = filteredProperties[0];
+            mapInstanceRef.current.setCenter({
+                lat: selectedProp.coordinates.lat,
+                lng: selectedProp.coordinates.lng,
+            });
+            mapInstanceRef.current.setZoom(15);
+        } else if (selectedProperties.length > 0) {
             // If we have selected properties, fit to those
             const selectedBounds = new window.google.maps.LatLngBounds();
             selectedProperties.forEach(prop => {
@@ -474,13 +497,13 @@ export function GlobeMapView({
             if (selectedProperties.length > 1) {
                 mapInstanceRef.current.fitBounds(selectedBounds, { padding: 50 });
             }
-        } else if (propertiesWithCoords.length > 0) {
-            // Fit to all properties with padding - show all available properties
-            if (propertiesWithCoords.length > 1) {
+        } else if (filteredProperties.length > 0) {
+            // Fit to all filtered properties with padding
+            if (filteredProperties.length > 1) {
                 mapInstanceRef.current.fitBounds(bounds, { padding: 50 });
             } else {
                 // Single property - center on it with appropriate zoom
-                const singleProp = propertiesWithCoords[0];
+                const singleProp = filteredProperties[0];
                 mapInstanceRef.current.setCenter({
                     lat: singleProp.coordinates.lat,
                     lng: singleProp.coordinates.lng,
@@ -548,48 +571,43 @@ export function GlobeMapView({
             {/* Property Selector - Show when map is loaded */}
             {mapLoaded && showPropertySelector && propertiesWithCoords.length > 0 && (
                 <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5 }}
-                    className="absolute top-4 left-4 right-4 z-50 pointer-events-none"
+                    className="absolute top-4 left-4 z-50 pointer-events-none"
                 >
-                    <div className="max-w-4xl mx-auto pointer-events-auto">
-                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl p-6 border border-gray-200/50">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Select Property</h3>
+                    <div className="w-80 pointer-events-auto">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl p-4 border border-gray-200/50">
+                            <div className="flex items-center justify-between mb-3">
+                                <label htmlFor="property-select" className="block text-sm font-semibold text-gray-900">
+                                    📍 Property
+                                </label>
                                 <button
                                     onClick={() => setShowPropertySelector(false)}
                                     className="text-gray-400 hover:text-gray-600 transition-colors"
                                     aria-label="Close property selector"
                                 >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <label htmlFor="property-select" className="block text-sm font-semibold text-gray-900 mb-2">
-                                        📍 Property
-                                    </label>
-                                    <select
-                                        id="property-select"
-                                        value={selectedPropertyId || ''}
-                                        onChange={(e) => {
-                                            const propertyId = e.target.value;
-                                            setSelectedPropertyId(propertyId || null);
-                                        }}
-                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
-                                    >
-                                        <option value="">Select a property...</option>
-                                        {propertiesWithCoords.map((property) => (
-                                            <option key={property.id} value={property.id}>
-                                                {property.name} - {property.location} (${property.price}/night)
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
+                            <select
+                                id="property-select"
+                                value={selectedPropertyId || ''}
+                                onChange={(e) => {
+                                    const propertyId = e.target.value;
+                                    setSelectedPropertyId(propertyId || null);
+                                }}
+                                className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900 text-sm"
+                            >
+                                <option value="">Select a property...</option>
+                                {propertiesWithCoords.map((property) => (
+                                    <option key={property.id} value={property.id}>
+                                        {property.name} - {property.location} (${property.price}/night)
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </motion.div>
@@ -601,12 +619,12 @@ export function GlobeMapView({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     onClick={() => setShowPropertySelector(true)}
-                    className="absolute top-4 left-4 z-50 bg-charcoal-950/95 backdrop-blur-xl border border-white/10 rounded-xl px-4 py-3 text-mist-100 hover:bg-charcoal-900 transition-all shadow-lg pointer-events-auto flex items-center gap-2"
+                    className="absolute top-4 left-4 z-50 bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-lg px-3 py-2 text-gray-900 hover:bg-gray-50 transition-all shadow-lg pointer-events-auto flex items-center gap-2"
                 >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <span className="text-sm font-medium">Select Property</span>
+                    <span className="text-sm font-medium">Filter</span>
                 </motion.button>
             )}
         </div>
