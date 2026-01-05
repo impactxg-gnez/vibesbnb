@@ -54,6 +54,7 @@ export function GlobeMapView({
     const zoomListenerRef = useRef<any>(null);
     const clusterMarkersRef = useRef<any[]>([]);
     const prevCenterRef = useRef<{ lat: number; lng: number } | null>(null);
+    const zoomUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const router = useRouter();
 
     // Convert properties to map format with coordinates, filter out invalid ones
@@ -314,16 +315,15 @@ export function GlobeMapView({
             try {
                 // Ensure zoom listener is active (re-add if it was removed)
                 if (!zoomListenerRef.current && mapInstanceRef.current) {
-                    let zoomUpdateTimeout: NodeJS.Timeout | null = null;
-                    
                     zoomListenerRef.current = mapInstanceRef.current.addListener('zoom_changed', () => {
                         if (mapInstanceRef.current) {
                             const currentZoom = mapInstanceRef.current.getZoom();
                             setCurrentZoom(currentZoom);
                             
                             // Clear any pending marker updates
-                            if (zoomUpdateTimeout) {
-                                clearTimeout(zoomUpdateTimeout);
+                            if (zoomUpdateTimeoutRef.current) {
+                                clearTimeout(zoomUpdateTimeoutRef.current);
+                                zoomUpdateTimeoutRef.current = null;
                             }
                             
                             // If zoomed out to level 6 or below (about 4 zoom outs from typical starting zoom of 10)
@@ -367,7 +367,7 @@ export function GlobeMapView({
                                 if (!selectedPropertyId && !isSelectingPropertyRef.current && mapInstanceRef.current) {
                                     const zoomAtStart = currentZoom;
                                     // Only update markers if zoom is stable (not actively changing)
-                                    zoomUpdateTimeout = setTimeout(() => {
+                                    zoomUpdateTimeoutRef.current = setTimeout(() => {
                                         if (mapInstanceRef.current && !selectedPropertyId && !isSelectingPropertyRef.current) {
                                             const currentZoomAtUpdate = mapInstanceRef.current.getZoom();
                                             // Only update if zoom hasn't changed significantly (user stopped zooming)
@@ -375,6 +375,7 @@ export function GlobeMapView({
                                                 updateMarkers();
                                             }
                                         }
+                                        zoomUpdateTimeoutRef.current = null;
                                     }, 500); // Longer debounce to avoid interfering with user zoom
                                 }
                             }
@@ -388,6 +389,12 @@ export function GlobeMapView({
         
         // Cleanup function
         return () => {
+            // Clear any pending timeout
+            if (zoomUpdateTimeoutRef.current) {
+                clearTimeout(zoomUpdateTimeoutRef.current);
+                zoomUpdateTimeoutRef.current = null;
+            }
+            // Remove zoom listener
             if (zoomListenerRef.current && window.google?.maps) {
                 window.google.maps.event.removeListener(zoomListenerRef.current);
                 zoomListenerRef.current = null;
