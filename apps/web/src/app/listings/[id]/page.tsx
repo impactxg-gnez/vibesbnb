@@ -41,6 +41,8 @@ interface Property {
   reviews: number;
   hostName: string;
   hostImage: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 const amenityIcons: { [key: string]: any } = {
@@ -270,46 +272,60 @@ export default function ListingDetailPage() {
           </div>
         </div>
 
-        {/* Image Gallery */}
-        <div className="relative h-96 md:h-[500px] mb-8 rounded-xl overflow-hidden">
-          <img
-            src={property.images[currentImageIndex]}
-            alt={`${property.name} - Image ${currentImageIndex + 1}`}
-            className="w-full h-full object-cover"
-          />
-          
-          {property.wellnessFriendly && (
-            <div className="absolute top-4 left-4 bg-earth-600 text-mist-100 px-4 py-2 rounded-full font-semibold">
-              🧘 Wellness-Friendly
-            </div>
-          )}
-
-          {property.images.length > 1 && (
-            <>
-              <button
-                onClick={prevImage}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-mist-100 rounded-full hover:bg-black/70 transition"
-              >
-                <ChevronLeft size={24} />
-              </button>
-              <button
-                onClick={nextImage}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-mist-100 rounded-full hover:bg-black/70 transition"
-              >
-                <ChevronRight size={24} />
-              </button>
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                {property.images.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={`w-2 h-2 rounded-full transition ${
-                      index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
-                    }`}
-                  />
-                ))}
+        {/* Image Gallery and Map Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Image Gallery */}
+          <div className="relative h-96 md:h-[500px] rounded-xl overflow-hidden">
+            <img
+              src={property.images[currentImageIndex]}
+              alt={`${property.name} - Image ${currentImageIndex + 1}`}
+              className="w-full h-full object-cover"
+            />
+            
+            {property.wellnessFriendly && (
+              <div className="absolute top-4 left-4 bg-earth-600 text-mist-100 px-4 py-2 rounded-full font-semibold">
+                🧘 Wellness-Friendly
               </div>
-            </>
+            )}
+
+            {property.images.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-mist-100 rounded-full hover:bg-black/70 transition"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-mist-100 rounded-full hover:bg-black/70 transition"
+                >
+                  <ChevronRight size={24} />
+                </button>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                  {property.images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`w-2 h-2 rounded-full transition ${
+                        index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Map */}
+          {property.latitude && property.longitude && (
+            <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-charcoal-800">
+              <PropertyMap 
+                latitude={property.latitude} 
+                longitude={property.longitude}
+                propertyName={property.name}
+              />
+            </div>
           )}
         </div>
 
@@ -334,13 +350,7 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Description */}
-            <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
-              <h2 className="text-2xl font-bold text-mist-100 mb-4">About this place</h2>
-              <p className="text-mist-300 leading-relaxed">{property.description}</p>
-            </div>
-
-            {/* Amenities */}
+            {/* Amenities - Moved to top */}
             <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
               <h2 className="text-2xl font-bold text-mist-100 mb-6">Amenities</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -354,6 +364,12 @@ export default function ListingDetailPage() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Description - Moved below amenities */}
+            <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+              <h2 className="text-2xl font-bold text-mist-100 mb-4">About this place</h2>
+              <p className="text-mist-300 leading-relaxed">{property.description}</p>
             </div>
 
             {/* Host Info */}
