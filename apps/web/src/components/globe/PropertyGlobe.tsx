@@ -150,28 +150,51 @@ export function PropertyGlobe() {
     };
 
     const handlePointClick = (point: any) => {
-        console.log('Globe point clicked:', point);
-        const clicked = point as Property;
-        // Find properties within a small radius (≈0.1°) of the clicked point
-        const nearby = properties.filter(p => distance(p, clicked) < 0.1);
-        setSelectedProperties(nearby);
-        
-        // Calculate center coordinates from nearby properties or use clicked point
-        const centerLat = nearby.length > 0
-            ? nearby.reduce((sum, p) => sum + p.latitude, 0) / nearby.length
-            : clicked.latitude;
-        const centerLng = nearby.length > 0
-            ? nearby.reduce((sum, p) => sum + p.longitude, 0) / nearby.length
-            : clicked.longitude;
-        
-        setMapCenter({ lat: centerLat, lng: centerLng });
-        
-        // Switch to map view instead of showing popup
-        setViewMode('map');
-        
-        if (globeEl.current) {
-            globeEl.current.controls().autoRotate = false;
-            globeEl.current.pointOfView({ lat: clicked.latitude, lng: clicked.longitude, altitude: 1.5 }, 1000);
+        try {
+            console.log('Globe point clicked:', point);
+            const clicked = point as Property;
+            
+            // Validate clicked point has valid coordinates
+            if (!clicked || typeof clicked.latitude !== 'number' || typeof clicked.longitude !== 'number' || 
+                isNaN(clicked.latitude) || isNaN(clicked.longitude)) {
+                console.error('Invalid point coordinates:', clicked);
+                return;
+            }
+            
+            // Find properties within a small radius (≈0.1°) of the clicked point
+            const nearby = properties.filter(p => 
+                p.latitude != null && p.longitude != null && 
+                !isNaN(p.latitude) && !isNaN(p.longitude) &&
+                distance(p, clicked) < 0.1
+            );
+            setSelectedProperties(nearby);
+            
+            // Calculate center coordinates from nearby properties or use clicked point
+            const centerLat = nearby.length > 0
+                ? nearby.reduce((sum, p) => sum + (p.latitude || 0), 0) / nearby.length
+                : clicked.latitude;
+            const centerLng = nearby.length > 0
+                ? nearby.reduce((sum, p) => sum + (p.longitude || 0), 0) / nearby.length
+                : clicked.longitude;
+            
+            // Validate calculated coordinates
+            if (isNaN(centerLat) || isNaN(centerLng)) {
+                console.error('Invalid calculated center coordinates');
+                return;
+            }
+            
+            setMapCenter({ lat: centerLat, lng: centerLng });
+            
+            // Switch to map view instead of showing popup
+            setViewMode('map');
+            
+            if (globeEl.current) {
+                globeEl.current.controls().autoRotate = false;
+                globeEl.current.pointOfView({ lat: clicked.latitude, lng: clicked.longitude, altitude: 1.5 }, 1000);
+            }
+        } catch (error) {
+            console.error('Error handling point click:', error);
+            // Don't switch to map view if there's an error
         }
     };
     
@@ -570,17 +593,56 @@ export function PropertyGlobe() {
                         transition={{ duration: 0.5, ease: "easeInOut" }}
                         className="flex-1 relative z-10 pointer-events-auto"
                     >
-                        <GlobeMapView
-                            properties={properties}
-                            centerCoordinates={mapCenter || (() => {
-                                if (properties.length === 0) return { lat: 0, lng: 0 };
-                                const latSum = properties.reduce((sum, p) => sum + p.latitude, 0);
-                                const lngSum = properties.reduce((sum, p) => sum + p.longitude, 0);
-                                return { lat: latSum / properties.length, lng: lngSum / properties.length };
-                            })()}
-                            selectedProperties={selectedProperties}
-                            onToggleGlobe={handleToggleView}
-                        />
+                        {(() => {
+                            try {
+                                // Calculate center coordinates safely
+                                let centerCoords = mapCenter;
+                                if (!centerCoords || isNaN(centerCoords.lat) || isNaN(centerCoords.lng)) {
+                                    if (properties.length === 0) {
+                                        centerCoords = { lat: 37.7749, lng: -122.4194 }; // Default to San Francisco
+                                    } else {
+                                        const validProps = properties.filter(p => 
+                                            p.latitude != null && p.longitude != null && 
+                                            !isNaN(p.latitude) && !isNaN(p.longitude)
+                                        );
+                                        if (validProps.length === 0) {
+                                            centerCoords = { lat: 37.7749, lng: -122.4194 };
+                                        } else {
+                                            const latSum = validProps.reduce((sum, p) => sum + (p.latitude || 0), 0);
+                                            const lngSum = validProps.reduce((sum, p) => sum + (p.longitude || 0), 0);
+                                            centerCoords = { 
+                                                lat: latSum / validProps.length, 
+                                                lng: lngSum / validProps.length 
+                                            };
+                                        }
+                                    }
+                                }
+                                
+                                return (
+                                    <GlobeMapView
+                                        properties={properties}
+                                        centerCoordinates={centerCoords}
+                                        selectedProperties={selectedProperties}
+                                        onToggleGlobe={handleToggleView}
+                                    />
+                                );
+                            } catch (error) {
+                                console.error('Error rendering map view:', error);
+                                return (
+                                    <div className="flex items-center justify-center h-full bg-charcoal-950">
+                                        <div className="text-center p-8">
+                                            <p className="text-mist-100 text-lg mb-4">Error loading map view</p>
+                                            <button
+                                                onClick={handleToggleView}
+                                                className="bg-earth-500 text-white px-6 py-3 rounded-full hover:bg-earth-600 transition-colors"
+                                            >
+                                                Back to Globe
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        })()}
                     </motion.div>
                 )}
             </AnimatePresence>
