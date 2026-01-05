@@ -155,6 +155,8 @@ export default function ListingDetailPage() {
           reviews: 0, // TODO: Get from reviews table
           hostName,
           hostImage,
+          latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
+          longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
         };
 
         setProperty(loadedProperty);
