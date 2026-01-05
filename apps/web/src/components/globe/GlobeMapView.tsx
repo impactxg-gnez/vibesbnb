@@ -52,6 +52,7 @@ export function GlobeMapView({
     const [isTransitioningToGlobe, setIsTransitioningToGlobe] = useState(false);
     const zoomListenerRef = useRef<any>(null);
     const clusterMarkersRef = useRef<any[]>([]);
+    const prevCenterRef = useRef<{ lat: number; lng: number } | null>(null);
     const router = useRouter();
 
     // Convert properties to map format with coordinates, filter out invalid ones
@@ -250,15 +251,35 @@ export function GlobeMapView({
                 // Always update markers when properties are available (this will handle filtering)
                 updateMarkers();
                 
+                // Check if center has changed
+                const centerChanged = !prevCenterRef.current || 
+                    Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
+                    Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
+                
                 // Only update center/zoom if no specific property is selected
                 if (!selectedPropertyId) {
-                    mapInstanceRef.current.panTo(centerCoordinates);
+                    if (centerChanged && prevCenterRef.current) {
+                        // Smooth pan to new location when center changes (prevents white screen)
+                        mapInstanceRef.current.panTo({
+                            lat: centerCoordinates.lat,
+                            lng: centerCoordinates.lng,
+                        });
+                    } else if (!prevCenterRef.current) {
+                        // First load - set center immediately
+                        mapInstanceRef.current.setCenter(centerCoordinates);
+                    }
+                    
                     const zoomLevel = selectedProperties.length > 0 
                         ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
                         : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
                     
-                    // Set zoom level
-                    mapInstanceRef.current.setZoom(zoomLevel);
+                    // Set zoom level smoothly
+                    if (centerChanged || !prevCenterRef.current) {
+                        mapInstanceRef.current.setZoom(zoomLevel);
+                    }
+                    
+                    // Update previous center reference
+                    prevCenterRef.current = { ...centerCoordinates };
                 }
                 
                 // Ensure zoom listener is active (re-add if it was removed)
@@ -308,7 +329,7 @@ export function GlobeMapView({
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length, selectedPropertyId]);
+    }, [mapLoaded, propertiesWithCoords.length, selectedProperties.length, selectedPropertyId, centerCoordinates.lat, centerCoordinates.lng]);
 
     const initializeMap = () => {
         if (!mapRef.current || !window.google?.maps) {
@@ -448,8 +469,10 @@ export function GlobeMapView({
         // Smooth zoom animation after a brief delay
         setTimeout(() => {
             if (mapInstanceRef.current) {
-                mapInstanceRef.current.panTo(center);
+                mapInstanceRef.current.setCenter(center);
                 mapInstanceRef.current.setZoom(initialZoom);
+                // Set initial center reference
+                prevCenterRef.current = { ...center };
                 
                 // Add zoom change listener to return to globe when zoomed out enough
                 // Only add if not already added

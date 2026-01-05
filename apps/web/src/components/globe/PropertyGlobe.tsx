@@ -594,7 +594,7 @@ export function PropertyGlobe() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
                         className="flex-1 relative z-10 pointer-events-auto min-h-screen"
                         style={{ backgroundColor: '#0f0f0f' }}
                     >
@@ -628,7 +628,7 @@ export function PropertyGlobe() {
                             
                             return (
                                 <GlobeMapView
-                                    key={`map-${centerCoords.lat}-${centerCoords.lng}`}
+                                    key="map-view" // Fixed key to prevent re-mounting on location change
                                     properties={properties}
                                     centerCoordinates={centerCoords}
                                     selectedProperties={selectedProperties}
