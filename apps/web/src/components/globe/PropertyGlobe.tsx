@@ -716,7 +716,7 @@ export function PropertyGlobe() {
                                             <div className="flex items-center justify-between text-sm">
                                                 <span className="text-earth-400 font-medium">${prop.price}</span>
                                                 <button
-                                                    onClick={() => router.push(`/listings/${prop.id}`)}
+                                                    onClick={() => router.push(`/listings/${prop.id}?from=map`)}
                                                     className="bg-earth-600 hover:bg-earth-500 text-white px-3 py-1 rounded"
                                                 >
                                                     View
