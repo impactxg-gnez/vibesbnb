@@ -36,12 +36,30 @@ export default function SignupPage() {
     const { error } = await signUp(formData.email, formData.password, formData.name, role);
 
     if (error) {
-      toast.error(error.message || 'Failed to sign up');
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Failed to sign up';
+      
+      // Check for common Supabase errors
+      if (error.message?.includes('already registered')) {
+        errorMessage = 'This email is already registered. Please try logging in instead.';
+      } else if (error.message?.includes('email')) {
+        errorMessage = 'There was an issue with the email address. Please check it and try again.';
+      } else if (error.message?.includes('password')) {
+        errorMessage = 'Password does not meet requirements. Please try a different password.';
+      } else if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+        errorMessage = 'Too many signup attempts. Please wait a few minutes and try again.';
+      }
+      
+      toast.error(errorMessage);
+      console.error('[Signup] Signup error details:', error);
     } else {
+      // Store email for verification page
+      localStorage.setItem('pendingVerificationEmail', formData.email);
+      
       if (role === 'host') {
         toast.success('Account created! Please check your email to verify your account. You will be redirected to the host dashboard after verification.');
       } else {
-        toast.success('Account created! Please check your email to verify your account.');
+        toast.success('Account created! Please check your email to verify your account. If you don\'t see it, check your spam folder or use the resend button on the next page.');
       }
     }
 

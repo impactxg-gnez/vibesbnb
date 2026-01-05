@@ -12,6 +12,9 @@ export default function VerifySuccessPage() {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
+    // Clear pending verification email from localStorage
+    localStorage.removeItem('pendingVerificationEmail');
+    
     // Countdown timer to auto-redirect
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);

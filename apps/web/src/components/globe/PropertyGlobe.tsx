@@ -400,7 +400,15 @@ export function PropertyGlobe() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.5, ease: "easeInOut" }}
-                        className={`absolute top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 ${serifFont.className}`}
+                        className={`absolute top-12 left-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none ${serifFont.className}`}
+                        style={{ 
+                            transform: 'translateX(-50%)', 
+                            width: '100%', 
+                            maxWidth: '28rem', 
+                            paddingLeft: '1rem', 
+                            paddingRight: '1rem',
+                            boxSizing: 'border-box'
+                        }}
                     >
                         {/* Title Card */}
                         <div className="text-center group">
