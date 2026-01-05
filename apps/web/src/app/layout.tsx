@@ -23,12 +23,6 @@ export default function RootLayout({
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBMockKeyForDevelopment'}&libraries=places&loading=async`}
           strategy="beforeInteractive"
-          onLoad={() => {
-            // Google Maps loaded
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new Event('google-maps-loaded'));
-            }
-          }}
         />
       </head>
       <body className={inter.className}>
