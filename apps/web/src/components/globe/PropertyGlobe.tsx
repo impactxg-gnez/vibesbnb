@@ -200,6 +200,8 @@ export function PropertyGlobe() {
     };
     
     const handleToggleView = () => {
+        // Clear selected properties when switching views to prevent modals from opening
+        setSelectedProperties([]);
         setViewMode(prev => prev === 'globe' ? 'map' : 'globe');
         if (viewMode === 'map' && globeEl.current) {
             // Restore auto-rotate when going back to globe
