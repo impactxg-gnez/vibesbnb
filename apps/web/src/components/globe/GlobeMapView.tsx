@@ -49,6 +49,7 @@ export function GlobeMapView({
     const [isInfoWindowOpen, setIsInfoWindowOpen] = useState(false);
     const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
     const [currentZoom, setCurrentZoom] = useState<number>(10);
+    const [isTransitioningToGlobe, setIsTransitioningToGlobe] = useState(false);
     const zoomListenerRef = useRef<any>(null);
     const clusterMarkersRef = useRef<any[]>([]);
     const router = useRouter();
@@ -115,6 +116,8 @@ export function GlobeMapView({
         const initializeMapWhenReady = () => {
             if (window.google?.maps && mapRef.current && !mapInstanceRef.current) {
                 try {
+                    // Reset transition flag when map initializes
+                    setIsTransitioningToGlobe(false);
                     initializeMap();
                     setMapLoaded(true);
                     setMapError(null);
@@ -201,13 +204,16 @@ export function GlobeMapView({
                         
                         // Open info window for selected property after a brief delay to ensure marker is created
                         setTimeout(() => {
+                            // Don't open if transitioning to globe
+                            if (isTransitioningToGlobe) return;
+                            
                             const marker = markersRef.current.find(m => {
                                 const pos = m.getPosition();
                                 return pos && 
                                        Math.abs(pos.lat() - selectedProperty.coordinates.lat) < 0.001 &&
                                        Math.abs(pos.lng() - selectedProperty.coordinates.lng) < 0.001;
                             });
-                            if (marker) {
+                            if (marker && !isTransitioningToGlobe) {
                                 const infoWindow = infoWindowsRef.current.get(marker);
                                 if (infoWindow) {
                                     // Close all other info windows
@@ -264,7 +270,14 @@ export function GlobeMapView({
                             // If zoomed out to level 6 or below (about 4 zoom outs from typical starting zoom of 10)
                             // Return to globe view
                             if (currentZoom <= 6) {
-                                // Close any open modals/clusters first
+                                // Close all info windows explicitly
+                                infoWindowsRef.current.forEach(iw => {
+                                    if (iw && iw.close) {
+                                        iw.close();
+                                    }
+                                });
+                                
+                                // Close any open modals/clusters
                                 setSelectedCluster(null);
                                 setIsInfoWindowOpen(false);
                                 
@@ -273,8 +286,12 @@ export function GlobeMapView({
                                     window.google.maps.event.removeListener(zoomListenerRef.current);
                                     zoomListenerRef.current = null;
                                 }
-                                // Switch back to globe view immediately
-                                onToggleGlobe();
+                                
+                                // Small delay to ensure all windows are closed before switching
+                                setTimeout(() => {
+                                    // Switch back to globe view immediately
+                                    onToggleGlobe();
+                                }, 50);
                             } else {
                                 // Close cluster modal if open when zooming (but not info windows)
                                 if (selectedCluster) {
@@ -444,7 +461,17 @@ export function GlobeMapView({
                             // If zoomed out to level 6 or below (about 4 zoom outs from typical starting zoom of 10)
                             // Return to globe view
                             if (currentZoom <= 6) {
-                                // Close any open modals/clusters first
+                                // Set flag to prevent any modals from opening during transition
+                                setIsTransitioningToGlobe(true);
+                                
+                                // Close all info windows explicitly
+                                infoWindowsRef.current.forEach(iw => {
+                                    if (iw && iw.close) {
+                                        iw.close();
+                                    }
+                                });
+                                
+                                // Close any open modals/clusters
                                 setSelectedCluster(null);
                                 setIsInfoWindowOpen(false);
                                 
@@ -453,9 +480,14 @@ export function GlobeMapView({
                                     window.google.maps.event.removeListener(zoomListenerRef.current);
                                     zoomListenerRef.current = null;
                                 }
-                                // Switch back to globe view immediately
+                                
+                                // Switch back to globe view immediately (no delay)
                                 onToggleGlobe();
                             } else {
+                                // Reset transition flag if zooming back in
+                                if (isTransitioningToGlobe) {
+                                    setIsTransitioningToGlobe(false);
+                                }
                                 // Close cluster modal if open when zooming (but not info windows)
                                 if (selectedCluster) {
                                     setSelectedCluster(null);
@@ -537,7 +569,15 @@ export function GlobeMapView({
             });
 
             clusterMarker.addListener('click', () => {
-                setSelectedCluster(cluster);
+                // Prevent opening modal if transitioning to globe or zoom is too low
+                if (isTransitioningToGlobe) return;
+                
+                if (mapInstanceRef.current) {
+                    const zoom = mapInstanceRef.current.getZoom();
+                    if (zoom > 6) {
+                        setSelectedCluster(cluster);
+                    }
+                }
             });
 
             clusterMarkersRef.current.push(clusterMarker);
