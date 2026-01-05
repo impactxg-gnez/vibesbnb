@@ -187,68 +187,75 @@ export function GlobeMapView({
 
     // Handle property selection - filter markers and move map to selected property
     useEffect(() => {
-        if (mapLoaded && mapInstanceRef.current) {
-            // Update markers to reflect filtering
-            updateMarkers();
-            
-            if (selectedPropertyId) {
-                const selectedProperty = propertiesWithCoords.find(p => p.id === selectedPropertyId);
-                if (selectedProperty && selectedProperty.coordinates) {
-                    try {
-                        // Pan to selected property with smooth animation
-                        mapInstanceRef.current.panTo({
-                            lat: selectedProperty.coordinates.lat,
-                            lng: selectedProperty.coordinates.lng,
+        if (mapLoaded && mapInstanceRef.current && selectedPropertyId) {
+            const selectedProperty = propertiesWithCoords.find(p => p.id === selectedPropertyId);
+            if (selectedProperty && selectedProperty.coordinates) {
+                try {
+                    // Update markers first to ensure marker exists
+                    updateMarkers();
+                    
+                    // Pan to selected property with smooth animation
+                    mapInstanceRef.current.panTo({
+                        lat: selectedProperty.coordinates.lat,
+                        lng: selectedProperty.coordinates.lng,
+                    });
+                    // Zoom in to show property clearly
+                    mapInstanceRef.current.setZoom(15);
+                    
+                    // Update previous center reference to prevent other useEffects from interfering
+                    prevCenterRef.current = {
+                        lat: selectedProperty.coordinates.lat,
+                        lng: selectedProperty.coordinates.lng,
+                    };
+                    
+                    // Open info window for selected property after a brief delay to ensure marker is created
+                    setTimeout(() => {
+                        // Don't open if transitioning to globe
+                        if (isTransitioningToGlobe) return;
+                        
+                        const marker = markersRef.current.find(m => {
+                            const pos = m.getPosition();
+                            return pos && 
+                                   Math.abs(pos.lat() - selectedProperty.coordinates.lat) < 0.001 &&
+                                   Math.abs(pos.lng() - selectedProperty.coordinates.lng) < 0.001;
                         });
-                        // Zoom in to show property clearly
-                        mapInstanceRef.current.setZoom(15);
-                        
-                        // Open info window for selected property after a brief delay to ensure marker is created
-                        setTimeout(() => {
-                            // Don't open if transitioning to globe
-                            if (isTransitioningToGlobe) return;
-                            
-                            const marker = markersRef.current.find(m => {
-                                const pos = m.getPosition();
-                                return pos && 
-                                       Math.abs(pos.lat() - selectedProperty.coordinates.lat) < 0.001 &&
-                                       Math.abs(pos.lng() - selectedProperty.coordinates.lng) < 0.001;
-                            });
-                            if (marker && !isTransitioningToGlobe) {
-                                const infoWindow = infoWindowsRef.current.get(marker);
-                                if (infoWindow) {
-                                    // Close all other info windows
-                                    infoWindowsRef.current.forEach(iw => {
-                                        if (iw && iw.close && iw !== infoWindow) {
-                                            iw.close();
-                                        }
-                                    });
-                                    infoWindow.open(mapInstanceRef.current, marker);
-                                    setIsInfoWindowOpen(true);
-                                }
-                            }
-                        }, 100);
-                        
-                        // Call onPropertySelect callback if provided
-                        if (onPropertySelect) {
-                            const fullProperty = properties.find(p => p.id === selectedPropertyId);
-                            if (fullProperty) {
-                                onPropertySelect(fullProperty);
+                        if (marker && !isTransitioningToGlobe) {
+                            const infoWindow = infoWindowsRef.current.get(marker);
+                            if (infoWindow) {
+                                // Close all other info windows
+                                infoWindowsRef.current.forEach(iw => {
+                                    if (iw && iw.close && iw !== infoWindow) {
+                                        iw.close();
+                                    }
+                                });
+                                infoWindow.open(mapInstanceRef.current, marker);
+                                setIsInfoWindowOpen(true);
                             }
                         }
-                    } catch (error) {
-                        console.error('Error moving to selected property:', error);
+                    }, 200);
+                    
+                    // Call onPropertySelect callback if provided
+                    if (onPropertySelect) {
+                        const fullProperty = properties.find(p => p.id === selectedPropertyId);
+                        if (fullProperty) {
+                            onPropertySelect(fullProperty);
+                        }
                     }
+                } catch (error) {
+                    console.error('Error moving to selected property:', error);
                 }
             }
+        } else if (mapLoaded && mapInstanceRef.current && !selectedPropertyId) {
+            // When no property is selected, update markers normally
+            updateMarkers();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedPropertyId, mapLoaded]);
 
     useEffect(() => {
-        if (mapLoaded && mapInstanceRef.current) {
+        if (mapLoaded && mapInstanceRef.current && !selectedPropertyId) {
             try {
-                // Always update markers when properties are available (this will handle filtering)
+                // Only update markers if no property is selected (property selection effect handles it otherwise)
                 updateMarkers();
                 
                 // Check if center has changed
@@ -256,31 +263,30 @@ export function GlobeMapView({
                     Math.abs(prevCenterRef.current.lat - centerCoordinates.lat) > 0.0001 || 
                     Math.abs(prevCenterRef.current.lng - centerCoordinates.lng) > 0.0001;
                 
-                // Only update center/zoom if no specific property is selected
-                if (!selectedPropertyId) {
-                    if (centerChanged && prevCenterRef.current) {
-                        // Smooth pan to new location when center changes (prevents white screen)
-                        mapInstanceRef.current.panTo({
-                            lat: centerCoordinates.lat,
-                            lng: centerCoordinates.lng,
-                        });
-                    } else if (!prevCenterRef.current) {
-                        // First load - set center immediately
-                        mapInstanceRef.current.setCenter(centerCoordinates);
-                    }
-                    
+                // Only update center/zoom if center actually changed
+                if (centerChanged && prevCenterRef.current) {
+                    // Smooth pan to new location when center changes (prevents white screen)
+                    mapInstanceRef.current.panTo({
+                        lat: centerCoordinates.lat,
+                        lng: centerCoordinates.lng,
+                    });
+                    // Update previous center reference after pan
+                    prevCenterRef.current = { ...centerCoordinates };
+                } else if (!prevCenterRef.current) {
+                    // First load - set center immediately
+                    mapInstanceRef.current.setCenter(centerCoordinates);
                     const zoomLevel = selectedProperties.length > 0 
                         ? (selectedProperties.length === 1 ? 15 : selectedProperties.length <= 3 ? 12 : 10)
                         : (propertiesWithCoords.length === 1 ? 15 : propertiesWithCoords.length <= 5 ? 12 : 10);
-                    
-                    // Set zoom level smoothly
-                    if (centerChanged || !prevCenterRef.current) {
-                        mapInstanceRef.current.setZoom(zoomLevel);
-                    }
-                    
+                    mapInstanceRef.current.setZoom(zoomLevel);
                     // Update previous center reference
                     prevCenterRef.current = { ...centerCoordinates };
                 }
+                // Don't reset zoom on every update - let user control zoom
+            } catch (error) {
+                console.error('Error updating map view:', error);
+            }
+        }
                 
                 // Ensure zoom listener is active (re-add if it was removed)
                 if (!zoomListenerRef.current && mapInstanceRef.current) {
@@ -291,6 +297,9 @@ export function GlobeMapView({
                             // If zoomed out to level 6 or below (about 4 zoom outs from typical starting zoom of 10)
                             // Return to globe view
                             if (currentZoom <= 6) {
+                                // Set flag to prevent any modals from opening during transition
+                                setIsTransitioningToGlobe(true);
+                                
                                 // Close all info windows explicitly
                                 infoWindowsRef.current.forEach(iw => {
                                     if (iw && iw.close) {
@@ -308,12 +317,13 @@ export function GlobeMapView({
                                     zoomListenerRef.current = null;
                                 }
                                 
-                                // Small delay to ensure all windows are closed before switching
-                                setTimeout(() => {
-                                    // Switch back to globe view immediately
-                                    onToggleGlobe();
-                                }, 50);
+                                // Switch back to globe view immediately (no delay)
+                                onToggleGlobe();
                             } else {
+                                // Reset transition flag if zooming back in
+                                if (isTransitioningToGlobe) {
+                                    setIsTransitioningToGlobe(false);
+                                }
                                 // Close cluster modal if open when zooming (but not info windows)
                                 if (selectedCluster) {
                                     setSelectedCluster(null);
