@@ -400,31 +400,23 @@ export function PropertyGlobe() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.5, ease: "easeInOut" }}
-                        className={`absolute top-12 left-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none ${serifFont.className}`}
-                        style={{ 
-                            transform: 'translateX(-50%)', 
-                            width: '100%', 
-                            maxWidth: '28rem', 
-                            paddingLeft: '1rem', 
-                            paddingRight: '1rem',
-                            boxSizing: 'border-box'
-                        }}
+                        className={`absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 ${serifFont.className}`}
                     >
                         {/* Title Card */}
-                        <div className="text-center group">
-                            <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)]">
+                        <div className="text-center group w-full">
+                            <h2 className="text-5xl md:text-6xl font-medium text-mist-100 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(74,124,74,0.3)] text-center">
                                 travel for the vibe
                             </h2>
                             <div className="h-px w-24 bg-gradient-to-r from-transparent via-earth-500/50 to-transparent mx-auto mb-3" />
-                            <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase ${sansFont.className}`}>
+                            <p className={`text-sm text-mist-400 font-light tracking-[0.2em] uppercase text-center ${sansFont.className}`}>
                                 Curated spaces for deep rest
                             </p>
                         </div>
 
                         {/* Search Card */}
-                        <div className={`relative w-full pointer-events-auto ${sansFont.className}`}>
-                    <div className="relative">
-                        <button
+                        <div className={`relative w-full pointer-events-auto flex justify-center ${sansFont.className}`}>
+                            <div className="relative w-full max-w-md">
+                                <button
                             onClick={() => setShowDropdown(!showDropdown)}
                             className="w-full bg-earth-500/30 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4 px-6 py-4 text-left hover:bg-earth-500/50 hover:border-earth-500/30 transition-all duration-500 group shadow-lg shadow-black/20"
                         >
@@ -474,8 +466,8 @@ export function PropertyGlobe() {
                                 </div>
                             </div>
                         )}
-                    </div>
-                </div>
+                            </div>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
