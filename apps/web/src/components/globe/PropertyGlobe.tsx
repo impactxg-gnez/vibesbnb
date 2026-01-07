@@ -45,6 +45,7 @@ export function PropertyGlobe() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const globeEl = useRef<any>(undefined);
+    const globeToMapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [properties, setProperties] = useState<Property[]>([]);
     const [selectedProperties, setSelectedProperties] = useState<Property[]>([]);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -96,6 +97,16 @@ export function PropertyGlobe() {
             </div>
         );
     }
+
+    // Cleanup any pending globe → map transition timers
+    useEffect(() => {
+        return () => {
+            if (globeToMapTimeoutRef.current) {
+                clearTimeout(globeToMapTimeoutRef.current);
+                globeToMapTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
     // Initial load
     useEffect(() => {
@@ -271,13 +282,30 @@ export function PropertyGlobe() {
         setShowDropdown(false);
         const targetProp = properties.find(p => p.location === location);
         if (targetProp && globeEl.current) {
+            // Clear any pending transition to avoid double navigation
+            if (globeToMapTimeoutRef.current) {
+                clearTimeout(globeToMapTimeoutRef.current);
+                globeToMapTimeoutRef.current = null;
+            }
+
             globeEl.current.controls().autoRotate = false;
-            // Fly to location smoothly
+
+            // Fly closer to the city/state on the globe
             globeEl.current.pointOfView({
                 lat: targetProp.latitude,
                 lng: targetProp.longitude,
-                altitude: 1.5
-            }, 4000); // Smoother 4s transition
+                altitude: 0.5
+            }, 1800);
+
+            // Prime map center and selection so map view is ready when we switch
+            setMapCenter({ lat: targetProp.latitude, lng: targetProp.longitude });
+            setSelectedProperties([targetProp]);
+
+            // After the globe flight finishes, transition to map view
+            globeToMapTimeoutRef.current = setTimeout(() => {
+                setViewMode('map');
+                globeToMapTimeoutRef.current = null;
+            }, 1900);
         }
     };
 
@@ -322,80 +350,29 @@ export function PropertyGlobe() {
         };
     }, []);
 
-    // Aggregate Labels Logic
+    // City labels only (always show city; remove USA/state)
     const dynamicLabels = useMemo(() => {
         if (properties.length === 0) return [];
 
-        // Level 1: Country (High Altitude > 1.0)
-        // Showing "USA" at average center
-        if (currentAltitude > 1.0) {
-            const latSum = properties.reduce((sum, p) => sum + p.latitude, 0);
-            const lngSum = properties.reduce((sum, p) => sum + p.longitude, 0);
-                return [{
-                text: "USA",
-                latitude: latSum / properties.length,
-                longitude: lngSum / properties.length,
-                size: 3.5,
-                color: 'rgba(74, 124, 74, 0.9)' // Earth Green
-            }];
-        }
-
-        // Level 2: States (Mid Altitude 0.4 - 1.2)
-        // Group by State (e.g., "Joshua Tree, CA" -> "CA")
-        if (currentAltitude > 0.4) {
-            const stateGroups: { [key: string]: { latSum: number, lngSum: number, count: number } } = {};
-
-            properties.forEach(p => {
-                const parts = p.location.split(',');
-                // Assume format "City, State" - take the last part trimmed, or whole if no comma
-                const state = parts.length > 1 ? parts[parts.length - 1].trim() : "Other";
-
-                if (!stateGroups[state]) stateGroups[state] = { latSum: 0, lngSum: 0, count: 0 };
-                stateGroups[state].latSum += p.latitude;
-                stateGroups[state].lngSum += p.longitude;
-                stateGroups[state].count += 1;
-            });
-
-            return Object.keys(stateGroups).map(state => ({
-                text: state,
-                latitude: stateGroups[state].latSum / stateGroups[state].count,
-                longitude: stateGroups[state].lngSum / stateGroups[state].count,
-                size: 1.5,
-                color: 'rgba(74, 124, 74, 0.9)' // Earth Green
-            }));
-        }
-
-        // Level 3: Cities (Low Altitude < 0.4)
-        // Group by unique location name
         const cityGroups: { [key: string]: { latSum: number, lngSum: number, count: number } } = {};
 
         properties.forEach(p => {
-            if (!cityGroups[p.location]) cityGroups[p.location] = { latSum: 0, lngSum: 0, count: 0 };
-            cityGroups[p.location].latSum += p.latitude;
-            cityGroups[p.location].lngSum += p.longitude;
-            cityGroups[p.location].count += 1;
+            const city = (p.location || '').split(',')[0]?.trim() || p.location || 'Unknown';
+            if (!cityGroups[city]) cityGroups[city] = { latSum: 0, lngSum: 0, count: 0 };
+            cityGroups[city].latSum += p.latitude;
+            cityGroups[city].lngSum += p.longitude;
+            cityGroups[city].count += 1;
         });
 
         return Object.keys(cityGroups).map(city => ({
             text: city,
             latitude: cityGroups[city].latSum / cityGroups[city].count,
             longitude: cityGroups[city].lngSum / cityGroups[city].count,
-            size: 1.0,
-            color: 'rgba(255, 255, 255, 0.8)'
+            size: 1.2,
+            color: 'rgba(245, 245, 243, 0.9)'
         }));
 
     }, [properties, currentAltitude]);
-
-    const ringData = useMemo(() =>
-        properties.map(p => ({
-            lat: p.latitude,
-            lng: p.longitude,
-            maxR: 2,
-            propagationSpeed: 2,
-            repeatPeriod: 1000,
-        })),
-        [properties]
-    );
 
     return (
         <div className={`relative w-full min-h-screen bg-charcoal-950 flex flex-col overflow-hidden ${sansFont.className}`}>
@@ -585,32 +562,21 @@ export function PropertyGlobe() {
                             pointResolution={12}
                             pointsMerge={false}
 
-                            ringsData={ringData}
-                            ringColor={() => '#4A7C4A'} // Earth Green
-                            ringMaxRadius={3}
-                            ringPropagationSpeed={2}
-                            ringRepeatPeriod={800}
-
                             htmlElementsData={filteredProperties}
                             htmlLat="latitude"
                             htmlLng="longitude"
                             htmlElement={(d: any) => {
-                                const stateLabel = (() => {
-                                    const parts = (d.location || '').split(',');
-                                    return parts.length > 1 ? parts[parts.length - 1].trim() : (d.location || '—');
-                                })();
+                                const cityLabel = (d.location || '').split(',')[0]?.trim() || d.location || '—';
 
                                 const el = document.createElement('div');
                                 el.innerHTML = `
                                     <div class="flex flex-col items-center gap-1 group cursor-pointer select-none">
                                         <div class="relative flex items-center justify-center">
-                                            <div class="absolute w-14 h-14 rounded-full bg-[radial-gradient(circle,_rgba(74,124,74,0.4)_0%,_rgba(74,124,74,0.05)_60%,_transparent_75%)] blur-[1px]"></div>
-                                            <div class="absolute w-10 h-10 rounded-full border border-white/30 bg-[#16301a]/50 backdrop-blur-sm shadow-[0_0_25px_rgba(74,124,74,0.35)] transition-transform duration-500 group-hover:scale-110"></div>
-                                            <div class="absolute w-6 h-6 rounded-full bg-[#4A7C4A] border border-white/80 shadow-[0_0_20px_rgba(74,124,74,0.8)] transition-transform duration-500 group-hover:scale-125"></div>
-                                            <div class="absolute w-16 h-16 rounded-full border border-[#4A7C4A]/30 animate-ping opacity-60"></div>
+                                            <div class="absolute w-6 h-6 rounded-full bg-[#4A7C4A] shadow-[0_0_18px_rgba(74,124,74,0.85)]"></div>
+                                            <div class="absolute w-8 h-8 rounded-full bg-[radial-gradient(circle,_rgba(74,124,74,0.5)_0%,_rgba(74,124,74,0.05)_60%,_transparent_80%)]"></div>
                                         </div>
-                                        <div class="px-3 py-1 rounded-full bg-black/65 border border-white/15 text-white text-[11px] font-semibold tracking-wide uppercase shadow-[0_4px_12px_rgba(0,0,0,0.35)] backdrop-blur-sm group-hover:border-[#4A7C4A]/50 group-hover:text-[#d7f0d7] transition-colors">
-                                            ${stateLabel}
+                                        <div class="px-2.5 py-1 rounded-full bg-black/70 border border-white/15 text-white text-[11px] font-semibold tracking-wide uppercase shadow-[0_4px_12px_rgba(0,0,0,0.35)] backdrop-blur-sm group-hover:border-[#4A7C4A]/60 group-hover:text-[#d7f0d7] transition-colors">
+                                            ${cityLabel}
                                         </div>
                                     </div>
                                 `;

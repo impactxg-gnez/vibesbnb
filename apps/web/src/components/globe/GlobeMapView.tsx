@@ -78,16 +78,21 @@ export function GlobeMapView({
     // Clustering function - groups nearby properties
     const clusterProperties = useMemo(() => {
         // Dynamically shrink cluster radius as the user zooms in so dense areas split apart
+        // At very close zooms, disable clustering entirely.
         const getClusterDistance = (zoom: number) => {
-            if (zoom >= 16) return 0.0015; // ~150m
-            if (zoom >= 15) return 0.0025; // ~250m
-            if (zoom >= 14) return 0.004;  // ~400m
-            if (zoom >= 13) return 0.006;  // ~600m
-            if (zoom >= 12) return 0.008;  // ~800m
-            return 0.012; // Wider net when zoomed out
+            if (zoom >= 16) return 0;        // no clustering, show every property
+            if (zoom >= 15) return 0.001;    // ~100m
+            if (zoom >= 14) return 0.002;    // ~200m
+            if (zoom >= 13) return 0.004;    // ~400m
+            if (zoom >= 12) return 0.007;    // ~700m
+            return 0.01;                     // wide net when zoomed out
         };
 
         const clusterDistance = getClusterDistance(currentZoom);
+
+        if (clusterDistance <= 0) {
+            return { clusters: [], individualProperties: propertiesWithCoords };
+        }
         const clusters: Cluster[] = [];
         const usedProperties = new Set<string>();
         
