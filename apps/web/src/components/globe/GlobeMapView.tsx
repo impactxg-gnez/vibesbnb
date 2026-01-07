@@ -77,8 +77,17 @@ export function GlobeMapView({
 
     // Clustering function - groups nearby properties
     const clusterProperties = useMemo(() => {
-        // Distance threshold for clustering (in degrees, roughly 0.01 = ~1km)
-        const clusterDistance = 0.01;
+        // Dynamically shrink cluster radius as the user zooms in so dense areas split apart
+        const getClusterDistance = (zoom: number) => {
+            if (zoom >= 16) return 0.0015; // ~150m
+            if (zoom >= 15) return 0.0025; // ~250m
+            if (zoom >= 14) return 0.004;  // ~400m
+            if (zoom >= 13) return 0.006;  // ~600m
+            if (zoom >= 12) return 0.008;  // ~800m
+            return 0.012; // Wider net when zoomed out
+        };
+
+        const clusterDistance = getClusterDistance(currentZoom);
         const clusters: Cluster[] = [];
         const usedProperties = new Set<string>();
         
@@ -113,6 +122,18 @@ export function GlobeMapView({
         const individualProperties = propertiesWithCoords.filter(p => !usedProperties.has(p.id));
         
         return { clusters, individualProperties };
+    }, [propertiesWithCoords, currentZoom]);
+
+    // Build a deduped list of location options (city/state) to avoid overwhelming dropdown
+    const locationOptions = useMemo(() => {
+        const seen = new Map<string, string>();
+        propertiesWithCoords.forEach((p) => {
+            const cityOrState = (p.location || '').split(',')[0]?.trim() || 'Unknown';
+            if (!seen.has(cityOrState)) {
+                seen.set(cityOrState, p.id);
+            }
+        });
+        return Array.from(seen.entries()).map(([label, id]) => ({ label, id }));
     }, [propertiesWithCoords]);
 
     useEffect(() => {
@@ -917,9 +938,9 @@ export function GlobeMapView({
                                     disabled={isInfoWindowOpen || isTransitioningToGlobe}
                                 >
                                     <option value="">Select a property...</option>
-                                    {propertiesWithCoords.map((property) => (
-                                        <option key={property.id} value={property.id}>
-                                            {property.location} (${property.price}/night)
+                                    {locationOptions.map((loc) => (
+                                        <option key={loc.id} value={loc.id}>
+                                            {loc.label}
                                         </option>
                                     ))}
                                 </select>

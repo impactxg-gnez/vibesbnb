@@ -595,12 +595,23 @@ export function PropertyGlobe() {
                             htmlLat="latitude"
                             htmlLng="longitude"
                             htmlElement={(d: any) => {
+                                const stateLabel = (() => {
+                                    const parts = (d.location || '').split(',');
+                                    return parts.length > 1 ? parts[parts.length - 1].trim() : (d.location || '—');
+                                })();
+
                                 const el = document.createElement('div');
                                 el.innerHTML = `
-                                    <div class="relative flex items-center justify-center group cursor-pointer">
-                                        <div class="absolute w-8 h-8 bg-[#4A7C4A]/20 rounded-full animate-[ping_3s_ease-in-out_infinite]"></div>
-                                        <div class="absolute w-12 h-12 bg-[#4A7C4A]/10 rounded-full animate-[ping_4s_ease-in-out_infinite_delay-1000]"></div>
-                                        <div class="relative w-2 h-2 bg-[#4A7C4A] border border-white/80 rounded-full shadow-[0_0_15px_rgba(74,124,74,0.8)] transition-transform duration-500 group-hover:scale-150"></div>
+                                    <div class="flex flex-col items-center gap-1 group cursor-pointer select-none">
+                                        <div class="relative flex items-center justify-center">
+                                            <div class="absolute w-14 h-14 rounded-full bg-[radial-gradient(circle,_rgba(74,124,74,0.4)_0%,_rgba(74,124,74,0.05)_60%,_transparent_75%)] blur-[1px]"></div>
+                                            <div class="absolute w-10 h-10 rounded-full border border-white/30 bg-[#16301a]/50 backdrop-blur-sm shadow-[0_0_25px_rgba(74,124,74,0.35)] transition-transform duration-500 group-hover:scale-110"></div>
+                                            <div class="absolute w-6 h-6 rounded-full bg-[#4A7C4A] border border-white/80 shadow-[0_0_20px_rgba(74,124,74,0.8)] transition-transform duration-500 group-hover:scale-125"></div>
+                                            <div class="absolute w-16 h-16 rounded-full border border-[#4A7C4A]/30 animate-ping opacity-60"></div>
+                                        </div>
+                                        <div class="px-3 py-1 rounded-full bg-black/65 border border-white/15 text-white text-[11px] font-semibold tracking-wide uppercase shadow-[0_4px_12px_rgba(0,0,0,0.35)] backdrop-blur-sm group-hover:border-[#4A7C4A]/50 group-hover:text-[#d7f0d7] transition-colors">
+                                            ${stateLabel}
+                                        </div>
                                     </div>
                                 `;
                                 el.onclick = () => handlePointClick(d);
