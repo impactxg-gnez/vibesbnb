@@ -440,7 +440,7 @@ export function PropertyGlobe() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.5, ease: "easeInOut" }}
-                        className={`absolute top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-md px-4 ${serifFont.className}`}
+                        className={`absolute top-12 inset-x-0 mx-auto flex flex-col items-center gap-6 z-50 pointer-events-none w-full max-w-2xl px-4 ${serifFont.className}`}
                     >
                         {/* Title Card */}
                         <div className="text-center group w-full">
