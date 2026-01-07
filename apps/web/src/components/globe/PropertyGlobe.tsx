@@ -584,16 +584,7 @@ export function PropertyGlobe() {
                                 return el;
                             }}
 
-                            labelsData={dynamicLabels}
-                            labelLat="latitude"
-                            labelLng="longitude"
-                            labelText="text"
-                            labelColor={(d: any) => 'rgba(245, 245, 243, 0.85)'} // mist-white
-                            labelSize={(d: any) => d.size}
-                            labelDotRadius={0.2}
-                            labelAltitude={0.02}
-                            // labelTypeFace removed to avoid font loading blanking issues, fallback to default font
-
+                            labelsData={[]}
 
                             onPointClick={handlePointClick}
                             pointLabel={(p: any) => `
