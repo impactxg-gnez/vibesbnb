@@ -77,15 +77,14 @@ export function GlobeMapView({
 
     // Clustering function - groups nearby properties
     const clusterProperties = useMemo(() => {
-        // Dynamically shrink cluster radius as the user zooms in so dense areas split apart
-        // At very close zooms, disable clustering entirely.
+        // Dynamically shrink cluster radius as the user zooms in so dense areas split apart.
+        // At close zooms, disable clustering entirely so every property shows.
         const getClusterDistance = (zoom: number) => {
-            if (zoom >= 16) return 0;        // no clustering, show every property
-            if (zoom >= 15) return 0.001;    // ~100m
-            if (zoom >= 14) return 0.002;    // ~200m
-            if (zoom >= 13) return 0.004;    // ~400m
-            if (zoom >= 12) return 0.007;    // ~700m
-            return 0.01;                     // wide net when zoomed out
+            if (zoom >= 15) return 0;         // no clustering, show every property
+            if (zoom >= 14) return 0.0008;    // ~80m
+            if (zoom >= 13) return 0.0015;    // ~150m
+            if (zoom >= 12) return 0.003;     // ~300m
+            return 0.007;                     // wider net when zoomed out
         };
 
         const clusterDistance = getClusterDistance(currentZoom);
@@ -580,6 +579,7 @@ export function GlobeMapView({
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.setCenter(center);
                 mapInstanceRef.current.setZoom(initialZoom);
+                setCurrentZoom(initialZoom);
                 // Set initial center reference
                 prevCenterRef.current = { ...center };
                 
@@ -661,6 +661,14 @@ export function GlobeMapView({
         const filteredProperties = selectedPropertyId
             ? propertiesWithCoords.filter(p => p.id === selectedPropertyId)
             : propertiesWithCoords;
+
+        // Sync current zoom before computing clusters to ensure thresholds apply
+        if (mapInstanceRef.current) {
+            const liveZoom = mapInstanceRef.current.getZoom();
+            if (typeof liveZoom === 'number' && liveZoom !== currentZoom) {
+                setCurrentZoom(liveZoom);
+            }
+        }
 
         // Filter clusters to only include filtered properties
         const filteredClusters = clusterProperties.clusters.map(cluster => ({

@@ -281,25 +281,36 @@ export function PropertyGlobe() {
 
         setShowDropdown(false);
         const targetProp = properties.find(p => p.location === location);
-        if (targetProp && globeEl.current) {
+        if (targetProp) {
             // Clear any pending transition to avoid double navigation
             if (globeToMapTimeoutRef.current) {
                 clearTimeout(globeToMapTimeoutRef.current);
                 globeToMapTimeoutRef.current = null;
             }
 
-            globeEl.current.controls().autoRotate = false;
+            const flyToLocation = () => {
+                if (!globeEl.current) return;
+                globeEl.current.controls().autoRotate = false;
 
-            // Fly closer to the city/state on the globe
-            globeEl.current.pointOfView({
-                lat: targetProp.latitude,
-                lng: targetProp.longitude,
-                altitude: 0.5
-            }, 1800);
+                // Fly closer to the city/state on the globe
+                globeEl.current.pointOfView({
+                    lat: targetProp.latitude,
+                    lng: targetProp.longitude,
+                    altitude: 0.5
+                }, 1800);
+            };
 
             // Prime map center and selection so map view is ready when we switch
             setMapCenter({ lat: targetProp.latitude, lng: targetProp.longitude });
             setSelectedProperties([targetProp]);
+
+            // If currently in map view, switch to globe first, then fly
+            if (viewMode === 'map') {
+                setViewMode('globe');
+                setTimeout(flyToLocation, 250); // allow globe to mount
+            } else {
+                flyToLocation();
+            }
 
             // After the globe flight finishes, transition to map view
             globeToMapTimeoutRef.current = setTimeout(() => {
