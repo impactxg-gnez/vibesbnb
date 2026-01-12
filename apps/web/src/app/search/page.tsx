@@ -20,6 +20,7 @@ interface Listing {
   amenities?: string[];
   guests?: number;
   status?: 'active' | 'draft' | 'inactive';
+  coordinates?: { lat: number; lng: number };
   [key: string]: any;
 }
 
