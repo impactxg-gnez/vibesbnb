@@ -15,22 +15,30 @@ export function Footer() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-charcoal-950 border-t border-charcoal-800 z-50 md:hidden">
-      <div className="flex items-center justify-around px-2">
+    <nav className="fixed bottom-0 left-0 right-0 bg-surface-dark/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden pb-safe">
+      <div className="flex items-center justify-around px-2 h-20">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.id}
               href={item.href}
-              className={`flex flex-col items-center py-3 px-4 transition ${
-                isActive ? 'text-earth-500' : 'text-mist-400 hover:text-mist-300'
+              className={`relative flex flex-col items-center justify-center flex-1 h-full transition-all ${
+                isActive ? 'text-primary-500 scale-110' : 'text-muted hover:text-white'
               }`}
             >
-              <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+              {isActive && (
+                <motion.div 
+                  layoutId="activeTab"
+                  className="absolute -top-px left-1/2 -translate-x-1/2 w-12 h-1 bg-primary-500 rounded-full shadow-[0_0_20px_rgba(0,230,118,0.5)]"
+                />
+              )}
+              <svg className={`w-6 h-6 mb-1 transition-transform ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
               </svg>
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest transition-opacity ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+                {item.label}
+              </span>
             </Link>
           );
         })}

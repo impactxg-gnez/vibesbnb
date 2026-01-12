@@ -1,110 +1,27 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import toast from 'react-hot-toast';
-
 export default function VerifyEmailPage() {
-  const { user, resendConfirmationEmail } = useAuth();
-  const [email, setEmail] = useState('');
-  const [isResending, setIsResending] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-
-  useEffect(() => {
-    // Try to get email from user object
-    if (user?.email) {
-      setEmail(user.email);
-    } else {
-      // Try to get from localStorage (if stored during signup)
-      const storedEmail = localStorage.getItem('pendingVerificationEmail');
-      if (storedEmail) {
-        setEmail(storedEmail);
-      }
-    }
-  }, [user]);
-
-  useEffect(() => {
-    // Countdown timer for resend cooldown
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => {
-        setResendCooldown(resendCooldown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCooldown]);
-
-  const handleResend = async () => {
-    if (!email) {
-      toast.error('Please enter your email address');
-      return;
-    }
-
-    if (resendCooldown > 0) {
-      toast.error(`Please wait ${resendCooldown} seconds before requesting another email`);
-      return;
-    }
-
-    setIsResending(true);
-    const { error } = await resendConfirmationEmail(email);
-
-    if (error) {
-      console.error('[VerifyEmail] Error resending email:', error);
-      toast.error(error.message || 'Failed to resend confirmation email. Please check your email address and try again.');
-    } else {
-      toast.success('Confirmation email sent! Please check your inbox and spam folder.');
-      setResendCooldown(60); // 60 second cooldown
-    }
-
-    setIsResending(false);
-  };
-
   return (
-    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full text-center">
-        <div className="bg-charcoal-900 shadow-lg rounded-xl p-8 border border-charcoal-800">
-          <div className="text-6xl mb-6">✉️</div>
-          <h1 className="text-3xl font-bold text-white mb-4">
+    <div className="min-h-screen bg-surface-dark flex items-center justify-center px-6 py-12 relative overflow-hidden">
+      <div className="absolute inset-0 bg-primary-500/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
+      <div className="max-w-md w-full text-center relative">
+        <div className="bg-surface shadow-[0_30px_60px_rgba(0,0,0,0.5)] rounded-[2.5rem] p-12 border border-white/5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/5 blur-3xl rounded-full" />
+          <div className="w-20 h-20 bg-primary-500/10 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-8 border border-primary-500/20">
+            ✉️
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-4 tracking-tight">
             Check Your Email
           </h1>
-          <p className="text-mist-400 mb-6">
-            We've sent you a verification link. Please check your email and click the link to verify your account.
+          <p className="text-muted mb-8 leading-relaxed">
+            We've sent you a verification link. Please check your inbox and click the link to activate your account.
           </p>
-          
-          {/* Email Input (if not available from user) */}
-          {!user?.email && (
-            <div className="mb-6">
-              <label htmlFor="email" className="block text-sm font-medium text-mist-300 mb-2 text-left">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                className="w-full px-4 py-3 border border-charcoal-700 bg-charcoal-800 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-mist-100 placeholder-gray-500"
-              />
-            </div>
-          )}
-
-          {/* Resend Button */}
-          <div className="space-y-4">
-            <button
-              onClick={handleResend}
-              disabled={isResending || resendCooldown > 0}
-              className="w-full px-4 py-3 bg-earth-600 hover:bg-earth-700 disabled:bg-charcoal-700 disabled:cursor-not-allowed text-white font-medium rounded-lg transition"
-            >
-              {isResending
-                ? 'Sending...'
-                : resendCooldown > 0
-                ? `Resend Email (${resendCooldown}s)`
-                : 'Resend Confirmation Email'}
-            </button>
-
-            <p className="text-sm text-mist-500">
-              If you don't see the email, check your spam folder. You can request a new confirmation email above.
+          <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+            <p className="text-sm text-muted">
+              Can't find it? Check your <span className="text-white font-bold">Spam</span> or <span className="text-white font-bold">Promotions</span> folder.
             </p>
           </div>
+          <button className="mt-8 text-primary-500 font-bold hover:text-primary-400 underline decoration-2 underline-offset-4 transition-all hover:scale-105 inline-block">
+            Resend verification link
+          </button>
         </div>
       </div>
     </div>

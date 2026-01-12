@@ -123,7 +123,7 @@ export default function ComingSoonPage() {
             </span>
             {' '}Is Almost Here
           </h2>
-          <p className="text-lg md:text-xl text-mist-300 mb-4">
+          <p className="text-lg md:text-xl text-gray-300 mb-4">
             Sign up for early access and be the first to experience a new way to travel
           </p>
         </div>
@@ -143,7 +143,7 @@ export default function ComingSoonPage() {
                     {String(item.value).padStart(2, '0')}
                   </div>
                 </div>
-                <div className="text-mist-400 text-sm md:text-base mt-2 uppercase tracking-wider">
+                <div className="text-gray-400 text-sm md:text-base mt-2 uppercase tracking-wider">
                   {item.label}
                 </div>
               </div>
@@ -153,7 +153,7 @@ export default function ComingSoonPage() {
 
         {/* Launch Date */}
         <div className="mb-12 text-center animate-fade-in-up delay-400">
-          <p className="text-mist-400 text-lg">
+          <p className="text-gray-400 text-lg">
             Launching on{' '}
             <span className="text-green-400 font-semibold">
               April 20, 2026 at 12:00 PM PST
@@ -166,7 +166,7 @@ export default function ComingSoonPage() {
           <h3 className="text-2xl md:text-3xl font-bold text-center mb-8">
             Get Early Access
           </h3>
-          <p className="text-center text-mist-400 mb-8">
+          <p className="text-center text-gray-400 mb-8">
             Choose your category and be among the first to join when we launch
           </p>
           
@@ -179,7 +179,7 @@ export default function ComingSoonPage() {
               >
                 <div className="text-5xl mb-4">{category.icon}</div>
                 <h4 className="text-xl font-semibold mb-2">{category.title}</h4>
-                <p className="text-mist-400 text-sm mb-4">{category.description}</p>
+                <p className="text-gray-400 text-sm mb-4">{category.description}</p>
                 <div className={`inline-flex items-center text-sm font-semibold bg-gradient-to-r ${category.color} bg-clip-text text-transparent group-hover:gap-2 transition-all`}>
                   <span>Sign up</span>
                   <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
@@ -192,7 +192,7 @@ export default function ComingSoonPage() {
         </div>
 
         {/* Footer */}
-        <div className="text-center text-mist-500 text-sm animate-fade-in-up delay-600">
+        <div className="text-center text-gray-500 text-sm animate-fade-in-up delay-600">
           <p>© 2025 VibesBNB. All rights reserved.</p>
         </div>
       </div>

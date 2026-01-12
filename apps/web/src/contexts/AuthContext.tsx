@@ -14,7 +14,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithGithub: () => Promise<void>;
-  resendConfirmationEmail: (email: string) => Promise<{ error: any }>;
 }
 
 // Demo accounts for testing
@@ -315,7 +314,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Supabase authentication
-    console.log('[Auth] Attempting to sign up user:', email);
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -328,37 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
-    if (error) {
-      console.error('[Auth] Signup error:', error);
-      console.error('[Auth] Error details:', {
-        message: error.message,
-        status: error.status,
-        name: error.name,
-      });
-      return { error };
-    }
-
-    if (data.user) {
-      console.log('[Auth] User created successfully:', data.user.id);
-      console.log('[Auth] Email confirmed:', data.user.email_confirmed_at);
-      console.log('[Auth] Confirmation sent:', data.user.confirmation_sent_at);
-      
-      // Store email in localStorage for resend functionality
-      if (data.user.email) {
-        localStorage.setItem('pendingVerificationEmail', data.user.email);
-      }
-      
-      // Check if email confirmation was sent
-      // Note: Supabase may not always set confirmation_sent_at immediately
-      // but if the user exists and email_confirmed_at is null, we should have sent an email
-      const emailNeedsConfirmation = !data.user.email_confirmed_at;
-      
-      if (emailNeedsConfirmation && !data.user.confirmation_sent_at) {
-        console.warn('[Auth] Warning: User created but confirmation email may not have been sent');
-        // This could indicate an issue with Supabase email configuration
-        // We'll still proceed but log the warning
-      }
-
+    if (!error && data.user) {
       // Sync role to localStorage
       const rolesStr = localStorage.getItem('userRoles');
       const roles = rolesStr ? JSON.parse(rolesStr) : [];
@@ -376,16 +344,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         router.push('/verify-email');
       }
-    } else {
-      console.error('[Auth] Signup succeeded but no user data returned');
-      return { 
-        error: { 
-          message: 'Account creation may have failed. Please try again or contact support.' 
-        } 
-      };
     }
 
-    return { error: null };
+    return { error };
   };
 
   const signOut = async () => {
@@ -428,48 +389,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const resendConfirmationEmail = async (email: string) => {
-    if (!useSupabase) {
-      return { 
-        error: { 
-          message: 'Email resend is only available with Supabase configured.' 
-        } 
-      };
-    }
-
-    console.log('[Auth] Resending confirmation email to:', email);
-    
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
-        },
-      });
-
-      if (error) {
-        console.error('[Auth] Error resending confirmation email:', error);
-        console.error('[Auth] Error details:', {
-          message: error.message,
-          status: error.status,
-          name: error.name,
-        });
-        return { error };
-      }
-
-      console.log('[Auth] Confirmation email resent successfully');
-      return { error: null };
-    } catch (err: any) {
-      console.error('[Auth] Exception while resending confirmation email:', err);
-      return { 
-        error: { 
-          message: err.message || 'Failed to resend confirmation email. Please try again.' 
-        } 
-      };
-    }
-  };
-
   const value = {
     user,
     session,
@@ -479,7 +398,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     signInWithGoogle,
     signInWithGithub,
-    resendConfirmationEmail,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

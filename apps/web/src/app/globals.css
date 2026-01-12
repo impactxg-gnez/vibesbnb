@@ -4,265 +4,29 @@
 
 @layer base {
   body {
-    @apply bg-charcoal-950 text-mist-100 transition-colors;
+    @apply bg-surface-dark text-white transition-colors antialiased;
   }
 }
 
 @layer components {
-  /* Glassmorphism Primary Button with Green Tint */
   .btn-primary {
-    position: relative;
-    background: rgba(74, 124, 74, 0.2);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(74, 124, 74, 0.4);
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    overflow: hidden;
+    @apply bg-primary-500 text-black px-6 py-3 rounded-full font-bold hover:bg-primary-400 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
   }
-
-  .btn-primary::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(74, 124, 74, 0.3),
-      transparent
-    );
-    transition: left 0.5s ease;
-  }
-
-  .btn-primary:hover::before {
-    left: 100%;
-  }
-
-  .btn-primary:hover {
-    background: rgba(74, 124, 74, 0.3);
-    border-color: rgba(74, 124, 74, 0.5);
-    transform: translateY(-2px);
-    box-shadow:
-      0 12px 40px rgba(74, 124, 74, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  }
-
-  .btn-primary:active {
-    transform: translateY(0);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  /* Pure Glassmorphism Secondary Button */
+  
   .btn-secondary {
-    position: relative;
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(245, 245, 243, 1);
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-
-  .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    transform: translateY(-2px);
-    box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  }
-
-  .btn-secondary:active {
-    transform: translateY(0);
-  }
-
-  /* Pure Glassmorphism Rust Button */
-  .btn-rust {
-    position: relative;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-
-  .btn-rust:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.25);
-    transform: translateY(-2px);
-    box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  }
-
-  .btn-rust:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+    @apply bg-surface text-white border border-white/10 px-6 py-3 rounded-full font-medium hover:bg-surface-light transition-all;
   }
   
   .input {
-    @apply w-full px-4 py-2 bg-charcoal-900/50 backdrop-blur-sm border border-charcoal-700/50 text-mist-100 rounded-lg focus:ring-2 focus:ring-earth-500/50 focus:border-earth-500/50 transition-colors;
+    @apply w-full px-4 py-2 bg-surface border border-white/5 rounded-2xl text-white placeholder-muted focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all;
   }
   
   .card {
-    @apply bg-charcoal-900/50 backdrop-blur-sm border border-charcoal-800/50 rounded-lg shadow-sm hover:shadow-md transition-shadow;
+    @apply bg-surface rounded-3xl overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-300;
   }
 
-  /* Glassmorphism Property Card with Green Tint */
-  .property-card-glass {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    border-radius: 1.25rem;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-
-    background: rgba(74, 124, 74, 0.12);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid rgba(74, 124, 74, 0.25);
-
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-  }
-
-  .property-card-glass:hover {
-    transform: translateY(-8px);
-    background: rgba(74, 124, 74, 0.18);
-    border-color: rgba(74, 124, 74, 0.4);
-    box-shadow:
-      0 20px 60px rgba(74, 124, 74, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  }
-
-  /* Inner Glass Panel with Green Tint */
-  .property-card-bg {
-    position: absolute;
-    inset: 6px;
-    background: linear-gradient(
-      145deg,
-      rgba(14, 15, 17, 0.9),
-      rgba(20, 25, 20, 0.7),
-      rgba(14, 15, 17, 0.9)
-    );
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-radius: 1rem;
-    border: 1px solid rgba(74, 124, 74, 0.15);
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  /* Animated Green Aurora Blob */
-  .property-card-aurora {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    filter: blur(35px);
-    z-index: 1;
-    pointer-events: none;
-
-    background: radial-gradient(
-      circle,
-      rgba(74, 124, 74, 0.4),
-      rgba(86, 150, 86, 0.25),
-      rgba(61, 101, 61, 0.15),
-      transparent
-    );
-
-    animation: property-aurora-move 8s infinite ease-in-out;
-    opacity: 0.6;
-  }
-
-  /* Green Glow Effect on Hover */
-  .property-card-glass::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(
-      circle,
-      rgba(74, 124, 74, 0.1) 0%,
-      transparent 70%
-    );
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .property-card-glass:hover::after {
-    opacity: 1;
-  }
-
-  /* Aurora Animation */
-  @keyframes property-aurora-move {
-    0% {
-      transform: translate(-60%, -60%) scale(1);
-    }
-    30% {
-      transform: translate(10%, -40%) scale(1.15);
-    }
-    60% {
-      transform: translate(20%, 20%) scale(1.05);
-    }
-    80% {
-      transform: translate(-40%, 10%) scale(1.2);
-    }
-    100% {
-      transform: translate(-60%, -60%) scale(1);
-    }
-  }
-
-  .property-card-content {
-    padding: 1.25rem;
-    position: relative;
-    z-index: 3;
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
-    color: white;
-    height: 100%;
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
   }
 }
 

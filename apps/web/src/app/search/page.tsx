@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SearchBar } from '@/components/search/SearchBar';
+import PropertiesMap from '@/components/PropertiesMap';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
@@ -177,123 +178,127 @@ export default function SearchPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-charcoal-950">
-      <div className="bg-earth-600 py-8">
+    <div className="min-h-screen bg-gray-950">
+      <div className="bg-emerald-600 py-8">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-mist-100 mb-6">Find Your Perfect Stay</h1>
+          <h1 className="text-3xl font-bold text-white mb-6">Find Your Perfect Stay</h1>
           <SearchBar />
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <p className="text-mist-300">
-            {loading ? 'Searching...' : `${listings.length} properties found`}
-          </p>
-          <select className="px-4 py-2 bg-charcoal-900 border border-charcoal-800 text-mist-100 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent">
-            <option>Price: Low to High</option>
-            <option>Price: High to Low</option>
-            <option>Rating: High to Low</option>
-            <option>Most Recent</option>
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <div key={n} className="animate-pulse">
-                <div className="bg-charcoal-800 h-64 rounded-xl mb-3"></div>
-                <div className="bg-charcoal-800 h-4 rounded w-3/4 mb-2"></div>
-                <div className="bg-charcoal-800 h-4 rounded w-1/2"></div>
+      <div className="px-6 py-8">
+        <div className="flex gap-8">
+          {/* Listings Column */}
+          <div className="flex-1">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-bold text-white">
+                {loading ? 'Searching...' : `${listings.length} stays in ${searchParams.get('location') || 'all locations'}`}
+              </h2>
+              <div className="flex items-center gap-4">
+                <button className="flex items-center gap-2 px-4 py-2 bg-surface border border-white/10 rounded-full text-sm hover:bg-surface-light transition-all">
+                  <span>📅</span> Dates
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 bg-surface border border-white/10 rounded-full text-sm hover:bg-surface-light transition-all">
+                  <span>👤</span> Guests
+                </button>
+                <select className="px-4 py-2 bg-surface border border-white/10 text-white rounded-full text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all">
+                  <option>Price: Low to High</option>
+                  <option>Price: High to Low</option>
+                  <option>Most Recent</option>
+                </select>
               </div>
-            ))}
-          </div>
-        ) : listings.length === 0 ? (
-          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-12 text-center">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-2xl font-semibold text-mist-100 mb-2">No properties found</h3>
-            <p className="text-mist-400 mb-6">
-              Try adjusting your search criteria or browse all available properties
-            </p>
-            <Link
-              href="/search"
-              className="inline-flex items-center gap-2 bg-earth-500 hover:bg-earth-600 text-white px-6 py-3 rounded-xl font-semibold transition"
-            >
-              Browse All Properties
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listings.map((listing) => (
-              <Link
-                key={listing.id}
-                href={`/listings/${listing.id}`}
-                className="group block h-full"
-              >
-                <div className="property-card-glass h-full">
-                  {/* Animated Aurora Blob */}
-                  <div className="property-card-aurora" />
-                  
-                  {/* Inner Glow Panel */}
-                  <div className="property-card-bg" />
-                  
-                  {/* Image Section */}
-                  <div className="relative h-64 bg-charcoal-800 flex-shrink-0 z-10">
-                    {listing.images && listing.images[0] ? (
-                      <img
-                        src={listing.images[0]}
-                        alt={listing.title || 'Property'}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=Image+Failed+to+Load';
-                          target.onerror = null; // Prevent infinite loop
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white/50">
-                        <span>No Image</span>
-                      </div>
-                    )}
-                    <div className="absolute top-3 right-3 z-20 bg-earth-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-semibold border border-white/20">
-                      Wellness-Friendly
-                    </div>
+            </div>
+
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} className="animate-pulse">
+                    <div className="bg-surface h-72 rounded-3xl mb-3"></div>
+                    <div className="bg-surface h-4 rounded w-3/4 mb-2"></div>
+                    <div className="bg-surface h-4 rounded w-1/2"></div>
                   </div>
-                  
-                  {/* Content Section */}
-                  <div className="property-card-content">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-white text-lg drop-shadow-lg flex-1">
-                        {listing.title}
-                      </h3>
-                      <div className="flex items-center gap-1 ml-2">
-                        <span className="text-yellow-400">★</span>
-                        <span className="text-sm font-medium text-white">{listing.rating?.toFixed(1) || '4.5'}</span>
+                ))}
+              </div>
+            ) : listings.length === 0 ? (
+              <div className="bg-surface border border-white/5 rounded-3xl p-12 text-center shadow-xl">
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-2xl font-semibold text-white mb-2">No properties found</h3>
+                <p className="text-muted mb-6">
+                  Try adjusting your search criteria or browse all available properties
+                </p>
+                <Link
+                  href="/search"
+                  className="btn-primary"
+                >
+                  Browse All Properties
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {listings.map((listing) => (
+                  <Link
+                    key={listing.id}
+                    href={`/listings/${listing.id}`}
+                    className="group card"
+                  >
+                    <div className="relative h-72 bg-surface-light">
+                      {listing.images && listing.images[0] ? (
+                        <img
+                          src={listing.images[0]}
+                          alt={listing.title || 'Property'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=Image+Failed+to+Load';
+                            target.onerror = null;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted">
+                          <span>No Image</span>
+                        </div>
+                      )}
+                      <div className="absolute top-4 right-4 p-2 bg-surface-dark/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-primary-500 transition-colors">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </div>
+                      <div className="absolute top-4 left-4 bg-primary-500 text-black px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg">
+                        Wellness-Friendly
                       </div>
                     </div>
-                    <p className="text-white/80 text-sm mb-3">{listing.location}</p>
-                    {listing.guests && (
-                      <p className="text-white/70 text-xs mb-2">Up to {listing.guests} guests</p>
-                    )}
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {(listing.amenities || []).slice(0, 3).map((amenity) => (
-                        <span
-                          key={amenity}
-                          className="bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full border border-white/30"
-                        >
-                          {amenity}
-                        </span>
-                      ))}
+                    <div className="p-6">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-bold text-white text-xl mb-1 group-hover:text-primary-500 transition-colors">
+                            {listing.title}
+                          </h3>
+                          <p className="text-muted text-sm">{listing.location}</p>
+                        </div>
+                        <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                          <span className="text-primary-500 text-xs text-sm">★</span>
+                          <span className="text-xs font-bold text-white">{listing.rating?.toFixed(1) || '4.5'}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-6">
+                         <p className="text-white font-bold text-2xl">
+                          ${listing.price} <span className="font-normal text-muted text-sm">/ night</span>
+                        </p>
+                        <div className="flex-1" />
+                        <span className="text-muted text-xs font-medium">Up to {listing.guests} guests</span>
+                      </div>
                     </div>
-                    <p className="text-white font-bold text-lg mt-auto">
-                      ${listing.price} <span className="font-normal text-white/70 text-sm">/ night</span>
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Map Column */}
+          <div className="hidden lg:block w-[450px] sticky top-[100px] h-[calc(100vh-140px)]">
+            <PropertiesMap properties={listings} className="w-full h-full rounded-3xl border border-white/10 shadow-2xl" />
+          </div>
+        </div>
       </div>
     </div>
   );

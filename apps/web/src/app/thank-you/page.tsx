@@ -97,7 +97,7 @@ export default function ThankYouPage() {
               Welcome to the {info.title} waitlist
             </p>
             
-            <div className="space-y-4 text-mist-300 mb-8">
+            <div className="space-y-4 text-gray-300 mb-8">
               <p className="text-lg">
                 You're now on the exclusive early access list for VibesBNB!
               </p>
@@ -118,7 +118,7 @@ export default function ThankYouPage() {
                   What happens next?
                 </span>
               </h3>
-              <ul className="space-y-3 text-mist-300">
+              <ul className="space-y-3 text-gray-300">
                 <li className="flex items-start">
                   <svg className="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -148,7 +148,7 @@ export default function ThankYouPage() {
 
             {/* Social Sharing */}
             <div className="mb-8">
-              <p className="text-mist-400 mb-4">Help us spread the word!</p>
+              <p className="text-gray-400 mb-4">Help us spread the word!</p>
               <div className="flex gap-4 justify-center">
                 <button className="bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-6 py-3 transition-all hover:scale-105">
                   Share on Twitter
@@ -172,7 +172,7 @@ export default function ThankYouPage() {
           </div>
 
           {/* Footer */}
-          <p className="text-mist-500 text-sm mt-8">
+          <p className="text-gray-500 text-sm mt-8">
             Questions? Contact us at <a href="mailto:hello@vibesbnb.com" className="text-green-400 hover:text-green-300">hello@vibesbnb.com</a>
           </p>
         </div>

@@ -260,7 +260,7 @@ export default function NewBookingPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     );
@@ -268,10 +268,10 @@ export default function NewBookingPage() {
 
   if (!property) {
     return (
-      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white mb-4">Property not found</h2>
-          <Link href="/search" className="text-earth-500 hover:text-earth-400">
+          <Link href="/search" className="text-emerald-500 hover:text-emerald-400">
             Back to search
           </Link>
         </div>
@@ -282,11 +282,11 @@ export default function NewBookingPage() {
   const priceBreakdown = calculateTotal();
 
   return (
-    <div className="min-h-screen bg-charcoal-950 py-8">
+    <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         <Link
           href={`/listings/${property.id}`}
-          className="text-earth-500 hover:text-earth-400 mb-6 inline-flex items-center gap-2"
+          className="text-emerald-500 hover:text-emerald-400 mb-6 inline-flex items-center gap-2"
         >
           <ArrowLeft size={20} />
           Back to property
@@ -297,17 +297,17 @@ export default function NewBookingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6 space-y-6">
+            <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6">
               {/* Property Info */}
-              <div className="pb-6 border-b border-charcoal-800">
+              <div className="pb-6 border-b border-gray-800">
                 <h2 className="text-2xl font-bold text-white mb-2">{property.name}</h2>
-                <p className="text-mist-400">{property.location}</p>
+                <p className="text-gray-400">{property.location}</p>
               </div>
 
               {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-mist-400 mb-2">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
                     <Calendar size={16} className="inline mr-2" />
                     Check-in
                   </label>
@@ -317,11 +317,11 @@ export default function NewBookingPage() {
                     onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
                     min={new Date().toISOString().split('T')[0]}
                     required
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-mist-400 mb-2">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
                     <Calendar size={16} className="inline mr-2" />
                     Check-out
                   </label>
@@ -331,7 +331,7 @@ export default function NewBookingPage() {
                     onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
                     min={formData.checkIn || new Date().toISOString().split('T')[0]}
                     required
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
               </div>
@@ -343,7 +343,7 @@ export default function NewBookingPage() {
 
               {/* Guests */}
               <div>
-                <label className="block text-sm font-medium text-mist-400 mb-2">
+                <label className="block text-sm font-medium text-gray-400 mb-2">
                   <Users size={16} className="inline mr-2" />
                   Number of Guests
                 </label>
@@ -354,51 +354,51 @@ export default function NewBookingPage() {
                   value={formData.guests}
                   onChange={(e) => setFormData({ ...formData, guests: parseInt(e.target.value) || 1 })}
                   required
-                  className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                 />
-                <p className="text-xs text-mist-500 mt-1">Maximum {property.guests} guests</p>
+                <p className="text-xs text-gray-500 mt-1">Maximum {property.guests} guests</p>
               </div>
 
               {/* Kids and Pets */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-mist-400 mb-2">Kids</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Kids</label>
                   <input
                     type="number"
                     min={0}
                     value={formData.kids}
                     onChange={(e) => setFormData({ ...formData, kids: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-mist-400 mb-2">Pets</label>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Pets</label>
                   <input
                     type="number"
                     min={0}
                     value={formData.pets}
                     onChange={(e) => setFormData({ ...formData, pets: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
               </div>
 
               {/* Special Requests */}
               <div>
-                <label className="block text-sm font-medium text-mist-400 mb-2">Special Requests</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Special Requests</label>
                 <textarea
                   value={formData.specialRequests}
                   onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
                   rows={4}
                   placeholder="Any special requests or notes for the host..."
-                  className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting || !priceBreakdown}
-                className="w-full px-6 py-4 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold text-lg"
+                className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold text-lg"
               >
                 {submitting ? (
                   'Submitting...'
@@ -414,34 +414,34 @@ export default function NewBookingPage() {
 
           {/* Price Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6 sticky top-8">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <h3 className="text-xl font-bold text-white mb-6">Price Summary</h3>
               
               {priceBreakdown ? (
                 <>
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between text-sm">
-                      <span className="text-mist-400">
+                      <span className="text-gray-400">
                         ${property.price} × {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
                       </span>
                       <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-mist-400">Service fee</span>
+                      <span className="text-gray-400">Service fee</span>
                       <span className="text-white">${priceBreakdown.serviceFee.toFixed(2)}</span>
                     </div>
                   </div>
-                  <div className="pt-4 border-t border-charcoal-800 flex justify-between font-bold text-lg">
+                  <div className="pt-4 border-t border-gray-800 flex justify-between font-bold text-lg">
                     <span className="text-white">Total</span>
                     <span className="text-white">${priceBreakdown.total.toFixed(2)}</span>
                   </div>
                 </>
               ) : (
-                <p className="text-mist-400 text-sm">Select dates to see pricing</p>
+                <p className="text-gray-400 text-sm">Select dates to see pricing</p>
               )}
 
-              <div className="mt-6 pt-6 border-t border-charcoal-800">
-                <p className="text-xs text-mist-400 text-center">
+              <div className="mt-6 pt-6 border-t border-gray-800">
+                <p className="text-xs text-gray-400 text-center">
                   You won't be charged until the host accepts your booking request
                 </p>
               </div>

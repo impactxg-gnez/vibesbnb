@@ -145,285 +145,285 @@ export function SearchSection() {
   );
 
   return (
-    <div className="container mx-auto px-4 -mt-16 relative z-10 pb-12">
+    <div className="container mx-auto px-6 -mt-20 relative z-30 pb-20">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="bg-charcoal-900 rounded-3xl p-6 shadow-2xl border border-charcoal-800"
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2.5rem] p-10 border border-white/5 relative overflow-hidden"
       >
+        <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
+        
         {/* Search Inputs */}
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 flex items-center justify-center text-mist-400">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="relative space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">
             {/* Where to? - Location Input */}
-            <div className="relative" ref={locationDropdownRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLocationDropdown(!showLocationDropdown);
-                  setShowDatePicker(false);
-                  setShowGuestPicker(false);
-                }}
-                className="w-full flex items-center gap-2 px-4 py-3 bg-charcoal-800 rounded-2xl text-left hover:bg-charcoal-700 transition"
-              >
-                <svg className="w-5 h-5 text-mist-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span className="text-mist-100 flex-1 text-left">
-                  {selectedLocation || 'Where to?'}
-                </span>
-              </button>
-              
-              {showLocationDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-charcoal-800 rounded-2xl border border-charcoal-700 shadow-xl z-50 max-h-64 overflow-y-auto">
-                  <div className="p-2">
+            <div className="space-y-3" ref={locationDropdownRef}>
+              <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Location</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLocationDropdown(!showLocationDropdown);
+                    setShowDatePicker(false);
+                    setShowGuestPicker(false);
+                  }}
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                >
+                   <svg className="w-5 h-5 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-white font-medium">
+                    {selectedLocation || 'Where are you going?'}
+                  </span>
+                </button>
+                
+                {showLocationDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-3">
                     <input
                       ref={locationInputRef}
                       type="text"
                       value={selectedLocation}
                       onChange={(e) => setSelectedLocation(e.target.value)}
-                      placeholder="Search locations..."
-                      className="w-full px-3 py-2 bg-charcoal-900 border border-charcoal-700 rounded-xl text-mist-100 placeholder-mist-500 focus:outline-none focus:ring-2 focus:ring-earth-500 mb-2"
+                      placeholder="Search vibes..."
+                      className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-primary-500 mb-2"
                       autoFocus
                     />
-                    {filteredLocations.length > 0 ? (
-                      <div className="space-y-1">
-                        {filteredLocations.map((location) => (
+                    <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-hide">
+                      {filteredLocations.length > 0 ? (
+                        filteredLocations.map((location) => (
                           <button
                             key={location}
                             type="button"
                             onClick={() => handleLocationSelect(location)}
-                            className="w-full text-left px-3 py-2 text-mist-100 hover:bg-charcoal-700 rounded-lg transition"
+                            className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium"
                           >
                             {location}
                           </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="px-3 py-2 text-mist-400 text-sm">No locations found</div>
-                    )}
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-muted text-sm italic">No locations found</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
             
             {/* Dates - Date Picker */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDatePicker(!showDatePicker);
-                  setShowLocationDropdown(false);
-                  setShowGuestPicker(false);
-                }}
-                className="w-full flex items-center gap-2 px-4 py-3 bg-charcoal-800 rounded-2xl text-left hover:bg-charcoal-700 transition"
-              >
-                <svg className="w-5 h-5 text-mist-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-mist-100 flex-1 text-left">
-                  {checkIn && checkOut 
-                    ? `${new Date(checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                    : 'Dates'
-                  }
-                </span>
-              </button>
-              
-              {showDatePicker && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-charcoal-800 rounded-2xl border border-charcoal-700 shadow-xl z-50 p-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-mist-400 mb-2">Check In</label>
-                      <input
-                        type="date"
-                        value={checkIn}
-                        onChange={(e) => {
-                          setCheckIn(e.target.value);
-                          if (checkOut && e.target.value >= checkOut) {
-                            setCheckOut('');
-                          }
-                        }}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full px-3 py-2 bg-charcoal-900 border border-charcoal-700 rounded-xl text-mist-100 focus:outline-none focus:ring-2 focus:ring-earth-500"
-                      />
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Journey Dates</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDatePicker(!showDatePicker);
+                    setShowLocationDropdown(false);
+                    setShowGuestPicker(false);
+                  }}
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                >
+                  <svg className="w-5 h-5 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-white font-medium">
+                    {checkIn && checkOut 
+                      ? `${new Date(checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : 'Choose when to wander'
+                    }
+                  </span>
+                </button>
+                
+                {showDatePicker && (
+                  <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-6 min-w-[320px]">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-muted uppercase">Check In</label>
+                        <input
+                          type="date"
+                          value={checkIn}
+                          onChange={(e) => {
+                            setCheckIn(e.target.value);
+                            if (checkOut && e.target.value >= checkOut) setCheckOut('');
+                          }}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-muted uppercase">Check Out</label>
+                        <input
+                          type="date"
+                          value={checkOut}
+                          onChange={(e) => setCheckOut(e.target.value)}
+                          min={checkIn || new Date().toISOString().split('T')[0]}
+                          className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm text-mist-400 mb-2">Check Out</label>
-                      <input
-                        type="date"
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        min={checkIn || new Date().toISOString().split('T')[0]}
-                        className="w-full px-3 py-2 bg-charcoal-900 border border-charcoal-700 rounded-xl text-mist-100 focus:outline-none focus:ring-2 focus:ring-earth-500"
-                      />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDatePicker(false)}
+                      className="mt-6 w-full btn-primary !py-3"
+                    >
+                      Confirm Dates
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowDatePicker(false)}
-                    className="btn-primary mt-4 w-full"
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
             
             {/* Guests - Guest Picker */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowGuestPicker(!showGuestPicker);
-                  setShowLocationDropdown(false);
-                  setShowDatePicker(false);
-                }}
-                className="w-full flex items-center gap-2 px-4 py-3 bg-charcoal-800 rounded-2xl text-left hover:bg-charcoal-700 transition"
-              >
-                <svg className="w-5 h-5 text-mist-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span className="text-mist-100 flex-1 text-left">
-                  {guests} {guests === 1 ? 'Guest' : 'Guests'}
-                  {kids > 0 && `, ${kids} ${kids === 1 ? 'Kid' : 'Kids'}`}
-                  {pets > 0 && `, ${pets} ${pets === 1 ? 'Pet' : 'Pets'}`}
-                </span>
-              </button>
-              
-              {showGuestPicker && (
-                <div className="absolute top-full right-0 mt-2 bg-charcoal-800 rounded-2xl border border-charcoal-700 shadow-xl z-50 p-4 min-w-[250px]">
-                  <div className="space-y-4">
-                    {/* Guests */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-mist-100 font-medium">Guests</span>
-                        <p className="text-mist-400 text-xs">Ages 13+</p>
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Travellers</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGuestPicker(!showGuestPicker);
+                    setShowLocationDropdown(false);
+                    setShowDatePicker(false);
+                  }}
+                  className="w-full flex items-center gap-4 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                >
+                  <svg className="w-5 h-5 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span className="text-white font-medium">
+                    {guests + kids} {guests + kids === 1 ? 'Guest' : 'Guests'}
+                    {pets > 0 && `, ${pets} ${pets === 1 ? 'Pet' : 'Pets'}`}
+                  </span>
+                </button>
+                
+                {showGuestPicker && (
+                  <div className="absolute top-full right-0 lg:right-auto lg:left-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-6 min-w-[280px]">
+                    <div className="space-y-6">
+                      {/* Adults */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-white font-bold">Adults</span>
+                          <p className="text-muted text-xs">Ages 13+</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => handleGuestChange(-1)}
+                            disabled={guests <= 1}
+                            className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                          >
+                            −
+                          </button>
+                          <span className="text-white font-bold w-4 text-center">{guests}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleGuestChange(1)}
+                            className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center font-bold"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleGuestChange(-1)}
-                          disabled={guests <= 1}
-                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
-                        >
-                          −
-                        </button>
-                        <span className="text-mist-100 font-semibold w-8 text-center">{guests}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleGuestChange(1)}
-                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 transition flex items-center justify-center"
-                        >
-                          +
-                        </button>
+
+                      {/* Kids */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-white font-bold">Children</span>
+                          <p className="text-muted text-xs">Ages 2-12</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => handleKidsChange(-1)}
+                            disabled={kids <= 0}
+                            className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                          >
+                            −
+                          </button>
+                          <span className="text-white font-bold w-4 text-center">{kids}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleKidsChange(1)}
+                            className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center font-bold"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pets */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-white font-bold">Pets</span>
+                          <p className="text-muted text-xs">Furry friends welcome</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => handlePetsChange(-1)}
+                            disabled={pets <= 0}
+                            className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                          >
+                            −
+                          </button>
+                          <span className="text-white font-bold w-4 text-center">{pets}</span>
+                          <button
+                            type="button"
+                            onClick={() => handlePetsChange(1)}
+                            className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center font-bold"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Divider */}
-                    <div className="border-t border-charcoal-700"></div>
-
-                    {/* Kids */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-mist-100 font-medium">Kids</span>
-                        <p className="text-mist-400 text-xs">Ages 2-12</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleKidsChange(-1)}
-                          disabled={kids <= 0}
-                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
-                        >
-                          −
-                        </button>
-                        <span className="text-white font-semibold w-8 text-center">{kids}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleKidsChange(1)}
-                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 transition flex items-center justify-center"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t border-charcoal-700"></div>
-
-                    {/* Pets */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-mist-100 font-medium">Pets</span>
-                        <p className="text-mist-400 text-xs">Bringing a service animal?</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handlePetsChange(-1)}
-                          disabled={pets <= 0}
-                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center"
-                        >
-                          −
-                        </button>
-                        <span className="text-white font-semibold w-8 text-center">{pets}</span>
-                        <button
-                          type="button"
-                          onClick={() => handlePetsChange(1)}
-                          className="w-8 h-8 rounded-full border-2 border-charcoal-600 text-mist-400 hover:border-earth-500 hover:text-earth-500 transition flex items-center justify-center"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowGuestPicker(false)}
+                      className="mt-8 w-full btn-primary !py-3"
+                    >
+                      Done
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowGuestPicker(false)}
-                    className="mt-4 w-full px-4 py-2 bg-earth-500 hover:bg-earth-600 text-white rounded-xl transition"
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+
+            {/* Search Button */}
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="btn-primary !px-12 !py-[1.125rem] shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
+            >
+               <div className="flex items-center gap-2">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="font-bold">Search</span>
+               </div>
+            </button>
+          </div>
+
+          {/* Category Filters */}
+          <div className="flex flex-wrap gap-4 pt-4">
+             <span className="text-sm font-bold text-muted uppercase tracking-widest self-center mr-2">Quick Vibes:</span>
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => toggleCategory(category.id)}
+                className={`flex items-center gap-3 px-6 py-3 rounded-full border transition-all ${
+                  selectedCategories.includes(category.id)
+                    ? 'bg-primary-500 border-primary-500 text-black font-bold scale-105 shadow-[0_10px_20px_rgba(0,230,118,0.2)]'
+                    : 'bg-white/5 border-white/10 text-muted hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <span className="text-lg">{category.icon}</span>
+                <span className="text-sm font-bold">{category.label}</span>
+              </button>
+            ))}
           </div>
         </div>
-
-        {/* Category Filters */}
-        <div className="flex gap-2 mb-4">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => toggleCategory(category.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl transition ${
-                selectedCategories.includes(category.id)
-                  ? 'bg-earth-500 text-white'
-                  : 'bg-charcoal-800 text-mist-300 hover:bg-charcoal-700'
-              }`}
-            >
-              <span>{category.icon}</span>
-              <span className="text-sm font-medium">{category.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Search Button */}
-        <button
-          type="button"
-          onClick={handleSearch}
-          className="btn-primary w-full py-4 text-lg font-semibold"
-        >
-          Search stays
-        </button>
       </motion.div>
     </div>
   );

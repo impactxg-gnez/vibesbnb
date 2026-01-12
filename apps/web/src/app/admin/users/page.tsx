@@ -195,7 +195,7 @@ export default function ManageUsersPage() {
           <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search users..."
@@ -213,22 +213,22 @@ export default function ManageUsersPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Bookings
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total Spent
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -236,7 +236,7 @@ export default function ManageUsersPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-mist-500">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                       {loadingUsers ? 'Loading users...' : 'No users found'}
                     </td>
                   </tr>
@@ -250,7 +250,7 @@ export default function ManageUsersPage() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-mist-500">{user.email}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
                           </div>
                         </div>
                       </td>
@@ -273,7 +273,7 @@ export default function ManageUsersPage() {
                           {user.enabled ? (
                             <ToggleRight className="w-6 h-6 text-green-500" />
                           ) : (
-                            <ToggleLeft className="w-6 h-6 text-mist-400" />
+                            <ToggleLeft className="w-6 h-6 text-gray-400" />
                           )}
                         </button>
                       </td>
@@ -320,7 +320,7 @@ export default function ManageUsersPage() {
                     <h2 className="text-xl font-bold text-gray-900">
                       Bookings for {selectedUser.name}
                     </h2>
-                    <p className="text-sm text-mist-500">{selectedUser.email}</p>
+                    <p className="text-sm text-gray-500">{selectedUser.email}</p>
                   </div>
                   <button
                     onClick={() => {
@@ -328,7 +328,7 @@ export default function ManageUsersPage() {
                       setSelectedUser(null);
                       setUserBookings([]);
                     }}
-                    className="text-mist-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600"
                   >
                     ✕
                   </button>
@@ -336,7 +336,7 @@ export default function ManageUsersPage() {
               </div>
               <div className="p-6">
                 {userBookings.length === 0 ? (
-                  <p className="text-mist-500 text-center py-8">No bookings found</p>
+                  <p className="text-gray-500 text-center py-8">No bookings found</p>
                 ) : (
                   <div className="space-y-4">
                     {userBookings.map((booking) => (
@@ -347,11 +347,11 @@ export default function ManageUsersPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="font-semibold text-gray-900">{booking.property_name}</h3>
-                            <p className="text-sm text-mist-500">
+                            <p className="text-sm text-gray-500">
                               {new Date(booking.check_in).toLocaleDateString()} -{' '}
                               {new Date(booking.check_out).toLocaleDateString()}
                             </p>
-                            <p className="text-sm text-mist-500">Location: {booking.location}</p>
+                            <p className="text-sm text-gray-500">Location: {booking.location}</p>
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-900">${booking.total_price}</p>

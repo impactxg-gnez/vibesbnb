@@ -161,7 +161,7 @@ export default function ManageReservationsPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search reservations..."
@@ -192,28 +192,28 @@ export default function ManageReservationsPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Guest
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Property
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Dates
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Guests
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Payment
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-mist-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -221,7 +221,7 @@ export default function ManageReservationsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredReservations.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-mist-500">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                       {loadingReservations ? 'Loading reservations...' : 'No reservations found'}
                     </td>
                   </tr>
@@ -231,16 +231,16 @@ export default function ManageReservationsPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{reservation.user_name}</div>
-                          <div className="text-sm text-mist-500">{reservation.user_email}</div>
+                          <div className="text-sm text-gray-500">{reservation.user_email}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{reservation.property_name}</div>
-                        <div className="text-sm text-mist-500">{reservation.location}</div>
+                        <div className="text-sm text-gray-500">{reservation.location}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>{new Date(reservation.check_in).toLocaleDateString()}</div>
-                        <div className="text-mist-500">to</div>
+                        <div className="text-gray-500">to</div>
                         <div>{new Date(reservation.check_out).toLocaleDateString()}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
