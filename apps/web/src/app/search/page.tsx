@@ -19,7 +19,7 @@ interface Listing {
   type?: string;
   amenities?: string[];
   guests?: number;
-  status?: string;
+  status?: 'active' | 'draft' | 'inactive';
   [key: string]: any;
 }
 
