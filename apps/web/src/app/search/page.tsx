@@ -10,8 +10,8 @@ import { createClient } from '@/lib/supabase/client';
 
 interface Listing {
   id: string;
-  title?: string;
-  name?: string;
+  title: string;
+  name: string;
   location: string;
   price: number;
   rating?: number;
