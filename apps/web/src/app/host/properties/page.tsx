@@ -962,10 +962,23 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       const coordinates = await extractCoordinatesFromGoogleMapsUrl(prop.url.trim());
 
       if (!coordinates) {
+        console.error(`[Add Google Location] Failed to extract coordinates for ${prop.name} from URL: ${prop.url.trim()}`);
         toast.error(`Invalid Google Maps URL for ${prop.name}`);
         errorCount++;
         continue;
       }
+
+      // Validate coordinates before saving
+      if (isNaN(coordinates.lat) || isNaN(coordinates.lng) || 
+          coordinates.lat < -90 || coordinates.lat > 90 ||
+          coordinates.lng < -180 || coordinates.lng > 180) {
+        console.error(`[Add Google Location] Invalid coordinates for ${prop.name}:`, coordinates);
+        toast.error(`Invalid coordinates extracted for ${prop.name}`);
+        errorCount++;
+        continue;
+      }
+
+      console.log(`[Add Google Location] Updating ${prop.name} with coordinates:`, coordinates);
 
       // Update property with coordinates
       const { error } = await supabase

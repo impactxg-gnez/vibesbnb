@@ -53,12 +53,15 @@ async function resolveShortUrl(url: string): Promise<string> {
  */
 export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<{ lat: number; lng: number } | null> {
   if (!url || typeof url !== 'string') {
+    console.log('[Google Maps Utils] Invalid URL input:', url);
     return null;
   }
 
   try {
     // Resolve short URLs first
     let resolvedUrl = await resolveShortUrl(url);
+    console.log('[Google Maps Utils] Original URL:', url);
+    console.log('[Google Maps Utils] Resolved URL:', resolvedUrl);
     
     // Normalize the URL - handle relative URLs
     let normalizedUrl = resolvedUrl;
@@ -74,8 +77,11 @@ export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<
     if (atMatch) {
       const lat = parseFloat(atMatch[1]);
       const lng = parseFloat(atMatch[2]);
+      console.log('[Google Maps Utils] Extracted from @ format:', { lat, lng, raw: `${atMatch[1]},${atMatch[2]}` });
       if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
         return { lat, lng };
+      } else {
+        console.warn('[Google Maps Utils] Invalid coordinate range:', { lat, lng });
       }
     }
 
@@ -85,8 +91,11 @@ export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<
     if (qMatch) {
       const lat = parseFloat(qMatch[1]);
       const lng = parseFloat(qMatch[2]);
+      console.log('[Google Maps Utils] Extracted from q/query format:', { lat, lng, raw: `${qMatch[1]},${qMatch[2]}` });
       if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
         return { lat, lng };
+      } else {
+        console.warn('[Google Maps Utils] Invalid coordinate range:', { lat, lng });
       }
     }
 
@@ -121,9 +130,10 @@ export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<
       }
     }
 
+    console.warn('[Google Maps Utils] No coordinates found in URL:', normalizedUrl);
     return null;
   } catch (error) {
-    console.error('[Google Maps Utils] Error extracting coordinates:', error);
+    console.error('[Google Maps Utils] Error extracting coordinates:', error, 'URL:', url);
     return null;
   }
 }
