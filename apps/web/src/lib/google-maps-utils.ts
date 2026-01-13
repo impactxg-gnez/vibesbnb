@@ -1,4 +1,44 @@
 /**
+ * Resolve Google Maps short URLs to full URLs
+ * Supports: maps.app.goo.gl, goo.gl/maps
+ */
+async function resolveShortUrl(url: string): Promise<string> {
+  if (!url || typeof url !== 'string') {
+    return url;
+  }
+
+  // Check if it's a short URL
+  const isShortUrl = /^(https?:\/\/)?(maps\.app\.goo\.gl|goo\.gl\/maps)\//.test(url);
+  if (!isShortUrl) {
+    return url;
+  }
+
+  try {
+    // Normalize URL
+    let normalizedUrl = url;
+    if (!url.startsWith('http')) {
+      normalizedUrl = 'https://' + url;
+    }
+
+    // Follow redirects to get the full URL
+    // Note: This works in browser/client-side by following redirects
+    // For server-side, we'd need to use a different approach
+    const response = await fetch(normalizedUrl, {
+      method: 'HEAD',
+      redirect: 'follow',
+    });
+
+    if (response.ok && response.url && response.url !== normalizedUrl) {
+      return response.url;
+    }
+  } catch (error) {
+    console.error('[Google Maps Utils] Error resolving short URL:', error);
+  }
+
+  return url;
+}
+
+/**
  * Extract coordinates from various Google Maps URL formats
  * Supports:
  * - https://www.google.com/maps/@25.7616798,-80.1917902,15z
@@ -9,19 +49,23 @@
  * - https://www.google.com/maps/embed?pb=...&q=25.7616798,-80.1917902
  * - https://www.google.com/maps?ll=25.7616798,-80.1917902
  * - https://www.google.com/maps?center=25.7616798,-80.1917902
+ * - https://maps.app.goo.gl/... (short links - will be resolved automatically)
  */
-export function extractCoordinatesFromGoogleMapsUrl(url: string): { lat: number; lng: number } | null {
+export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<{ lat: number; lng: number } | null> {
   if (!url || typeof url !== 'string') {
     return null;
   }
 
   try {
+    // Resolve short URLs first
+    let resolvedUrl = await resolveShortUrl(url);
+    
     // Normalize the URL - handle relative URLs
-    let normalizedUrl = url;
-    if (url.startsWith('//')) {
-      normalizedUrl = 'https:' + url;
-    } else if (url.startsWith('/')) {
-      normalizedUrl = 'https://www.google.com' + url;
+    let normalizedUrl = resolvedUrl;
+    if (resolvedUrl.startsWith('//')) {
+      normalizedUrl = 'https:' + resolvedUrl;
+    } else if (resolvedUrl.startsWith('/')) {
+      normalizedUrl = 'https://www.google.com' + resolvedUrl;
     }
 
     // Format 1: @lat,lng,zoom (most common in iframes)

@@ -926,6 +926,84 @@ const [bookingBuckets, setBookingBuckets] = useState<{
     }
   };
 
+  const handleAddGoogleLocation = () => {
+    if (selectedProperties.length === 0) {
+      toast.error('Please select at least one property');
+      return;
+    }
+
+    const selectedProps = properties.filter(p => selectedProperties.includes(p.id));
+    setPropertiesForLocation(selectedProps.map(p => ({ id: p.id, name: p.name, url: p.googleMapsUrl || '' })));
+    setShowGoogleLocationModal(true);
+  };
+
+  const handleGoogleLocationSubmit = async () => {
+    setUpdatingLocations(true);
+    const supabase = createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+    
+    if (!supabaseUser) {
+      toast.error('You must be logged in to update locations');
+      setUpdatingLocations(false);
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const prop of propertiesForLocation) {
+      if (!prop.url.trim()) {
+        errorCount++;
+        continue;
+      }
+
+      // Extract coordinates from Google Maps URL
+      const { extractCoordinatesFromGoogleMapsUrl } = await import('@/lib/google-maps-utils');
+      const coordinates = await extractCoordinatesFromGoogleMapsUrl(prop.url.trim());
+
+      if (!coordinates) {
+        toast.error(`Invalid Google Maps URL for ${prop.name}`);
+        errorCount++;
+        continue;
+      }
+
+      // Update property with coordinates
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          latitude: coordinates.lat,
+          longitude: coordinates.lng,
+          google_maps_url: prop.url.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', prop.id)
+        .eq('host_id', supabaseUser.id);
+
+      if (error) {
+        console.error(`[Add Google Location] Error updating ${prop.name}:`, error);
+        toast.error(`Failed to update ${prop.name}`);
+        errorCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    setShowGoogleLocationModal(false);
+    setPropertiesForLocation([]);
+    setUpdatingLocations(false);
+
+    if (successCount > 0) {
+      toast.success(`Successfully updated locations for ${successCount} property(ies)`);
+    }
+    if (errorCount > 0) {
+      toast.error(`Failed to update ${errorCount} property(ies)`);
+    }
+
+    // Reload properties to show updated coordinates
+    await loadProperties();
+    setSelectedProperties([]);
+  };
+
   const selectedCount = selectedProperties.length;
   const isAllSelected = properties.length > 0 && selectedCount === properties.length;
 
