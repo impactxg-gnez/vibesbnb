@@ -20,19 +20,35 @@ async function resolveShortUrl(url: string): Promise<string> {
       normalizedUrl = 'https://' + url;
     }
 
-    // Follow redirects to get the full URL
-    // Note: This works in browser/client-side by following redirects
-    // For server-side, we'd need to use a different approach
-    const response = await fetch(normalizedUrl, {
-      method: 'HEAD',
-      redirect: 'follow',
-    });
+    console.log('[Google Maps Utils] Resolving short URL:', normalizedUrl);
 
-    if (response.ok && response.url && response.url !== normalizedUrl) {
+    // Follow redirects to get the full URL
+    // Try GET first (some servers don't allow HEAD)
+    let response: Response;
+    try {
+      response = await fetch(normalizedUrl, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
+    } catch (e) {
+      // If GET fails, try HEAD
+      response = await fetch(normalizedUrl, {
+        method: 'HEAD',
+        redirect: 'follow',
+      });
+    }
+
+    if (response && response.url && response.url !== normalizedUrl) {
+      console.log('[Google Maps Utils] Resolved short URL to:', response.url);
       return response.url;
+    } else {
+      console.warn('[Google Maps Utils] Short URL resolution did not redirect:', normalizedUrl);
     }
   } catch (error) {
-    console.error('[Google Maps Utils] Error resolving short URL:', error);
+    console.error('[Google Maps Utils] Error resolving short URL:', error, 'URL:', url);
   }
 
   return url;
