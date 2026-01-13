@@ -640,36 +640,43 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       });
 
       // Extract map coordinates
+      let coordinates: { lat: number; lng: number } | null = null;
       let googleMapsUrl: string | undefined = undefined;
 
-      // Check for Google Maps iframe
-      const mapIframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.google"]') as HTMLIFrameElement;
-      if (mapIframe && mapIframe.src) {
-        googleMapsUrl = mapIframe.src;
-      }
-
-      // Also check for Google Maps links (not just iframes)
-      if (!googleMapsUrl) {
-        const mapLinks = Array.from(document.querySelectorAll('a[href*="google.com/maps"], a[href*="maps.google"]')) as HTMLAnchorElement[];
-        for (const link of mapLinks) {
-          if (link.href) {
-            googleMapsUrl = link.href;
-            break; // Use the first valid one
-          }
-        }
-      }
-
-      // Check for data attributes
+      // Check for data attributes first (most reliable)
       const latEl = document.querySelector('[data-lat]');
       const lngEl = document.querySelector('[data-lng]');
       if (latEl && lngEl) {
         const lat = latEl.getAttribute('data-lat');
         const lng = lngEl.getAttribute('data-lng');
         if (lat && lng) {
-          coordinates = {
-            lat: parseFloat(lat),
-            lng: parseFloat(lng),
-          };
+          const latNum = parseFloat(lat);
+          const lngNum = parseFloat(lng);
+          if (!isNaN(latNum) && !isNaN(lngNum)) {
+            coordinates = {
+              lat: latNum,
+              lng: lngNum,
+            };
+          }
+        }
+      }
+
+      // Check for Google Maps iframe
+      if (!coordinates) {
+        const mapIframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.google"]') as HTMLIFrameElement;
+        if (mapIframe && mapIframe.src) {
+          googleMapsUrl = mapIframe.src;
+        }
+
+        // Also check for Google Maps links (not just iframes)
+        if (!googleMapsUrl) {
+          const mapLinks = Array.from(document.querySelectorAll('a[href*="google.com/maps"], a[href*="maps.google"]')) as HTMLAnchorElement[];
+          for (const link of mapLinks) {
+            if (link.href) {
+              googleMapsUrl = link.href;
+              break; // Use the first valid one
+            }
+          }
         }
       }
 
@@ -761,7 +768,8 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
     const result = data as ScrapedPropertyData;
     
     // Extract coordinates from Google Maps URL using utility function (outside evaluate context)
-    if (result.googleMapsUrl) {
+    // Only if coordinates weren't already found from data attributes
+    if (!result.coordinates && result.googleMapsUrl) {
       const coords = extractCoordinatesFromGoogleMapsUrl(result.googleMapsUrl);
       if (coords) {
         result.coordinates = coords;
