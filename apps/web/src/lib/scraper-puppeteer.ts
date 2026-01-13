@@ -770,7 +770,7 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
     // Extract coordinates from Google Maps URL using utility function (outside evaluate context)
     // Only if coordinates weren't already found from data attributes
     if (!result.coordinates && result.googleMapsUrl) {
-      const coords = extractCoordinatesFromGoogleMapsUrl(result.googleMapsUrl);
+      const coords = await extractCoordinatesFromGoogleMapsUrl(result.googleMapsUrl);
       if (coords) {
         result.coordinates = coords;
         console.log(`[Puppeteer Esca] Extracted coordinates from Google Maps URL: ${coords.lat}, ${coords.lng}`);

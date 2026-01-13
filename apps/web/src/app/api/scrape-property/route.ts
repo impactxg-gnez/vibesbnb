@@ -1099,7 +1099,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   const mapIframe = $('iframe[src*="google.com/maps"], iframe[src*="maps.google"]').first();
   if (mapIframe.length) {
     const mapSrc = mapIframe.attr('src') || '';
-    const coords = extractCoordinatesFromGoogleMapsUrl(mapSrc);
+    const coords = await extractCoordinatesFromGoogleMapsUrl(mapSrc);
     if (coords) {
       propertyData.coordinates = coords;
       propertyData.googleMapsUrl = mapSrc;
@@ -1109,17 +1109,18 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   // Also check for Google Maps links (not just iframes)
   if (!propertyData.coordinates) {
     const mapLinks = $('a[href*="google.com/maps"], a[href*="maps.google"]');
-    mapLinks.each((_, el) => {
+    for (let i = 0; i < mapLinks.length; i++) {
+      const el = mapLinks[i];
       const href = $(el).attr('href');
       if (href) {
-        const coords = extractCoordinatesFromGoogleMapsUrl(href);
+        const coords = await extractCoordinatesFromGoogleMapsUrl(href);
         if (coords) {
           propertyData.coordinates = coords;
           propertyData.googleMapsUrl = href;
-          return false; // Break the loop
+          break; // Break the loop
         }
       }
-    });
+    }
   }
 
   // Check for data attributes with coordinates
