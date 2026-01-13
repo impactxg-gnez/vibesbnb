@@ -204,12 +204,12 @@ export default function FavoritesPage() {
 
   if (loading || loadingFavorites) {
     return (
-      <div className="min-h-screen bg-charcoal-950 text-white">
+      <div className="min-h-screen bg-gray-950 text-white">
         <div className="container mx-auto px-4 py-16">
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-earth-500 mx-auto mb-4"></div>
-              <p className="text-mist-400">Loading favorites...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+              <p className="text-gray-400">Loading favorites...</p>
             </div>
           </div>
         </div>
@@ -218,20 +218,20 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-charcoal-950 text-white">
+    <div className="min-h-screen bg-gray-950 text-white">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold mb-2">Favorite Properties</h1>
-          <p className="text-mist-400 mb-8">Properties you've saved for later</p>
+          <p className="text-gray-400 mb-8">Properties you've saved for later</p>
 
           {favorites.length === 0 ? (
-            <div className="bg-charcoal-900 rounded-2xl p-12 text-center border border-charcoal-800">
+            <div className="bg-gray-900 rounded-2xl p-12 text-center border border-gray-800">
               <Heart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <h2 className="text-2xl font-semibold mb-2">No favorites yet</h2>
-              <p className="text-mist-400 mb-6">Start exploring properties and save your favorites!</p>
+              <p className="text-gray-400 mb-6">Start exploring properties and save your favorites!</p>
               <Link
                 href="/search"
-                className="inline-flex items-center gap-2 bg-earth-500 hover:bg-earth-600 text-white px-6 py-3 rounded-xl font-semibold transition"
+                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition"
               >
                 Browse Properties
               </Link>
@@ -241,75 +241,67 @@ export default function FavoritesPage() {
               {favorites.map((favorite) => (
                 <div
                   key={favorite.id}
-                  className="group block h-full"
+                  className="group bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:shadow-xl hover:border-emerald-500/50 transition relative"
                 >
-                  <div className="property-card-glass h-full relative">
-                    {/* Animated Aurora Blob */}
-                    <div className="property-card-aurora" />
-                    
-                    {/* Inner Glow Panel */}
-                    <div className="property-card-bg" />
-                    
-                    <Link href={`/listings/${favorite.id}`}>
-                      <div className="relative h-64 flex-shrink-0 z-10">
-                        <Image
-                          src={favorite.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
-                          alt={favorite.name}
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute top-3 right-3 z-20 bg-earth-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-semibold border border-white/20">
-                          Wellness-Friendly
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            removeFavorite(favorite.id);
-                          }}
-                          className="absolute top-3 left-3 z-20 p-2 bg-white/20 backdrop-blur-sm hover:bg-red-500/80 rounded-full transition border border-white/30"
-                          title="Remove from favorites"
-                        >
-                          <Heart className="w-5 h-5 fill-red-500 text-red-500" />
-                        </button>
+                  <Link href={`/listings/${favorite.id}`}>
+                    <div className="relative h-64">
+                      <Image
+                        src={favorite.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
+                        alt={favorite.name}
+                        fill
+                        className="object-cover group-hover:scale-110 transition duration-300"
+                      />
+                      <div className="absolute top-3 right-3 bg-emerald-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                        Wellness-Friendly
                       </div>
-                      <div className="property-card-content">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold text-white text-lg drop-shadow-lg flex-1">
-                            {favorite.name}
-                          </h3>
-                          {favorite.rating && (
-                            <div className="flex items-center gap-1 ml-2">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium text-white">{favorite.rating.toFixed(1)}</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-white/80 text-sm mb-3 flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {favorite.location}
-                        </p>
-                        {favorite.guests && (
-                          <p className="text-white/70 text-xs mb-3 flex items-center gap-1">
-                            <Users className="w-4 h-4" />
-                            Up to {favorite.guests} guests
-                          </p>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          removeFavorite(favorite.id);
+                        }}
+                        className="absolute top-3 left-3 p-2 bg-gray-900/80 hover:bg-red-500/80 rounded-full transition"
+                        title="Remove from favorites"
+                      >
+                        <Heart className="w-5 h-5 fill-red-500 text-red-500" />
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-semibold text-white text-lg group-hover:text-emerald-500 transition">
+                          {favorite.name}
+                        </h3>
+                        {favorite.rating && (
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                            <span className="text-sm font-medium text-gray-100">{favorite.rating.toFixed(1)}</span>
+                          </div>
                         )}
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {(favorite.amenities || []).slice(0, 3).map((amenity) => (
-                            <span
-                              key={amenity}
-                              className="bg-white/20 backdrop-blur-sm text-white px-2 py-1 rounded-full text-xs border border-white/30"
-                            >
-                              {amenity}
-                            </span>
-                          ))}
-                        </div>
-                        <p className="text-white font-bold text-lg mt-auto">
-                          ${favorite.price} <span className="font-normal text-white/70 text-sm">/ night</span>
-                        </p>
                       </div>
-                    </Link>
-                  </div>
+                      <p className="text-gray-400 text-sm mb-3 flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {favorite.location}
+                      </p>
+                      {favorite.guests && (
+                        <p className="text-gray-500 text-xs mb-3 flex items-center gap-1">
+                          <Users className="w-4 h-4" />
+                          Up to {favorite.guests} guests
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {(favorite.amenities || []).slice(0, 3).map((amenity) => (
+                          <span
+                            key={amenity}
+                            className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs"
+                          >
+                            {amenity}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-white font-bold text-lg">
+                        ${favorite.price} <span className="font-normal text-gray-400 text-sm">/ night</span>
+                      </p>
+                    </div>
+                  </Link>
                 </div>
               ))}
             </div>

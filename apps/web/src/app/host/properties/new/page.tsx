@@ -396,36 +396,36 @@ export default function NewPropertyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-charcoal-950 py-12">
+    <div className="min-h-screen bg-gray-950 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <Link
             href="/host/properties"
-            className="text-earth-500 hover:text-earth-400 mb-4 inline-flex items-center gap-2"
+            className="text-emerald-500 hover:text-emerald-400 mb-4 inline-flex items-center gap-2"
           >
             <ArrowLeft size={20} />
             Back to Properties
           </Link>
           <h1 className="text-4xl font-bold text-white mb-2">Add New Property</h1>
-          <p className="text-mist-400">Fill in the details to list your property</p>
+          <p className="text-gray-400">Fill in the details to list your property</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Info */}
-          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-xl font-semibold text-white mb-6">Basic Information</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-mist-300 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Property Name *
                 </label>
                 <input
@@ -433,26 +433,26 @@ export default function NewPropertyPage() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                   placeholder="e.g., Mountain View Cabin"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-mist-300 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={4}
-                  className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                   placeholder="Describe your property, amenities, and what makes it special..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-mist-300 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Location *
                 </label>
                 <input
@@ -460,14 +460,14 @@ export default function NewPropertyPage() {
                   required
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                   placeholder="e.g., Aspen, Colorado"
                 />
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-mist-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Bedrooms
                   </label>
                   <input
@@ -477,12 +477,12 @@ export default function NewPropertyPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, bedrooms: parseInt(e.target.value) })
                     }
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-mist-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Bathrooms
                   </label>
                   <input
@@ -492,12 +492,12 @@ export default function NewPropertyPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, bathrooms: parseInt(e.target.value) })
                     }
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-mist-300 mb-2">Guests</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Guests</label>
                   <input
                     type="number"
                     min="1"
@@ -505,12 +505,12 @@ export default function NewPropertyPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, guests: parseInt(e.target.value) })
                     }
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-mist-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Price/Night ($)
                   </label>
                   <input
@@ -520,7 +520,7 @@ export default function NewPropertyPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, price: parseInt(e.target.value) })
                     }
-                    className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
               </div>
@@ -533,9 +533,9 @@ export default function NewPropertyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, wellnessFriendly: e.target.checked })
                   }
-                  className="w-4 h-4 text-emerald-600 focus:ring-earth-500 border-charcoal-700 rounded bg-charcoal-800"
+                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
                 />
-                <label htmlFor="wellnessFriendly" className="ml-2 block text-sm text-mist-300">
+                <label htmlFor="wellnessFriendly" className="ml-2 block text-sm text-gray-300">
                   This is a wellness-friendly property
                 </label>
               </div>
@@ -543,7 +543,7 @@ export default function NewPropertyPage() {
           </div>
 
           {/* Amenities */}
-          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-xl font-semibold text-white mb-6">Amenities</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {availableAmenities.map((amenity) => (
@@ -553,8 +553,8 @@ export default function NewPropertyPage() {
                   onClick={() => toggleAmenity(amenity)}
                   className={`px-4 py-3 rounded-lg border transition ${
                     formData.amenities.includes(amenity)
-                      ? 'bg-earth-600 border-emerald-600 text-white'
-                      : 'bg-charcoal-800 border-charcoal-700 text-mist-300 hover:border-earth-600'
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
                   }`}
                 >
                   {amenity}
@@ -564,13 +564,13 @@ export default function NewPropertyPage() {
           </div>
 
           {/* Images by Room */}
-          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Photos by Room</h2>
               <button
                 type="button"
                 onClick={addRoom}
-                className="flex items-center gap-2 px-4 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
               >
                 <Plus size={20} />
                 Add Room
@@ -579,14 +579,14 @@ export default function NewPropertyPage() {
 
             <div className="space-y-6">
               {rooms.map((room, roomIndex) => (
-                <div key={room.id} className="border border-charcoal-700 rounded-lg p-4">
+                <div key={room.id} className="border border-gray-700 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
                     <input
                       type="text"
                       value={room.name}
                       onChange={(e) => updateRoomName(room.id, e.target.value)}
                       placeholder="Room name (e.g., Living Room, Bedroom 1, Kitchen)"
-                      className="flex-1 px-4 py-2 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
+                      className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                       required
                     />
                     {rooms.length > 1 && (
@@ -601,10 +601,10 @@ export default function NewPropertyPage() {
                     )}
                   </div>
 
-                  <label className="block border-2 border-dashed border-charcoal-700 rounded-lg p-6 text-center cursor-pointer hover:border-earth-500 transition">
-                    <Upload size={32} className="mx-auto text-mist-400 mb-2" />
+                  <label className="block border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-emerald-500 transition">
+                    <Upload size={32} className="mx-auto text-gray-400 mb-2" />
                     <p className="text-white text-sm mb-1">Click to upload images for {room.name || 'this room'}</p>
-                    <p className="text-xs text-mist-500">Unlimited images (JPG, PNG)</p>
+                    <p className="text-xs text-gray-500">Unlimited images (JPG, PNG)</p>
                     <input
                       type="file"
                       accept="image/*"
@@ -643,14 +643,14 @@ export default function NewPropertyPage() {
           <div className="flex gap-4">
             <Link
               href="/host/properties"
-              className="flex-1 px-6 py-3 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition text-center"
+              className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-center"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Add Property'}
             </button>

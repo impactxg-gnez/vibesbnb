@@ -35,26 +35,25 @@ export function HowItWorks() {
   const isInView = useInView(ref, { once: true, margin: "-100px" });
 
   return (
-    <div className="bg-charcoal-900 py-20 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}/>
+    <div className="bg-surface-dark py-32 relative overflow-hidden">
+      {/* Background Decorative Element */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-primary-500/5 blur-[120px] rounded-full -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary-500/5 blur-[120px] rounded-full translate-x-1/2 translate-y-1/2" />
       </div>
 
-      <div className="container mx-auto px-4 relative z-10" ref={ref}>
+      <div className="container mx-auto px-6 relative z-10" ref={ref}>
         <motion.div 
-          className="text-center mb-16"
+          className="text-center mb-24"
           initial={{ opacity: 0, y: 30 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8 }}
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            How It Works
+          <h2 className="text-5xl font-bold text-white mb-6 tracking-tight">
+            How It <span className="text-primary-500 italic">Works</span>
           </h2>
-          <p className="text-xl text-mist-400">
-            Your wellness-friendly getaway in 4 simple steps
+          <p className="text-muted max-w-2xl mx-auto text-lg leading-relaxed">
+            Your wellness-friendly getaway is just a few clicks away. We've simplified the process so you can focus on your journey.
           </p>
         </motion.div>
         
@@ -65,45 +64,45 @@ export function HowItWorks() {
               className="relative"
               initial={{ opacity: 0, y: 50 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6, delay: index * 0.15 }}
+              transition={{ duration: 0.8, delay: index * 0.15 }}
             >
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
-                <div className="text-6xl mb-6">{step.icon}</div>
+              <div className="bg-surface group rounded-[2.5rem] p-10 border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] h-full flex flex-col">
+                <div className="text-5xl mb-8 group-hover:scale-110 transition-transform origin-left">{step.icon}</div>
                 
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center text-black font-black text-xl shadow-[0_0_20px_rgba(0,230,118,0.3)]">
                     {step.number}
                   </div>
-                  <h3 className="text-2xl font-bold text-white">{step.title}</h3>
+                  <h3 className="text-2xl font-bold text-white group-hover:text-primary-500 transition-colors uppercase tracking-tight">{step.title}</h3>
                 </div>
                 
-                <p className="text-mist-400">{step.description}</p>
+                <p className="text-muted leading-relaxed font-medium">{step.description}</p>
               </div>
 
-              {/* Connector Line */}
+              {/* Connector Line (visible on large screens) */}
               {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-green-500 to-transparent" />
+                <div className="hidden lg:block absolute top-[5.5rem] -right-4 w-8 h-px bg-white/10" />
               )}
             </motion.div>
           ))}
         </div>
         
         <motion.div 
-          className="text-center mt-16"
-          initial={{ opacity: 0, scale: 0.9 }}
+          className="text-center mt-24"
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={isInView ? { opacity: 1, scale: 1 } : {}}
-          transition={{ duration: 0.6, delay: 0.8 }}
+          transition={{ duration: 0.8, delay: 0.8 }}
         >
-          <div className="inline-flex flex-col sm:flex-row gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+          <div className="inline-flex flex-col sm:flex-row gap-6 p-2 bg-surface rounded-[2.5rem] border border-white/5 shadow-2xl">
             <a
               href="/search"
-              className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 transition-all hover:scale-105 shadow-lg hover:shadow-green-500/30"
+              className="btn-primary min-w-[200px]"
             >
               Start Exploring
             </a>
             <a
               href="/host"
-              className="px-8 py-4 bg-white text-gray-900 rounded-xl font-semibold hover:bg-gray-100 transition-all hover:scale-105"
+              className="bg-white/5 hover:bg-white/10 text-white px-8 py-4 rounded-[1.5rem] font-bold transition-all flex items-center justify-center gap-2 border border-white/5"
             >
               Become a Host
             </a>

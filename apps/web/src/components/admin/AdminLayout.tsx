@@ -187,7 +187,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Footer */}
         <footer className="bg-white border-t border-gray-200 py-4 px-6">
-          <p className="text-sm text-mist-500 text-center">
+          <p className="text-sm text-gray-500 text-center">
             Copyright © Vibesbnb. All rights reserved.
           </p>
         </footer>

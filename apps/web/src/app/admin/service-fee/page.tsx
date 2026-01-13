@@ -62,7 +62,7 @@ export default function ManageServiceFeePage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Manage Service Fee</h1>
-          <p className="text-mist-500 mt-1">Update the service fee percentage applied to bookings</p>
+          <p className="text-gray-500 mt-1">Update the service fee percentage applied to bookings</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl">
@@ -81,12 +81,12 @@ export default function ManageServiceFeePage() {
                   onChange={(e) => setServiceFee(Number(e.target.value))}
                   className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
-                <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-mist-500">
+                <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500">
                   %
                 </span>
               </div>
-              <p className="text-sm text-mist-500 mt-2">
+              <p className="text-sm text-gray-500 mt-2">
                 This percentage will be added to all booking totals as a service fee.
               </p>
             </div>

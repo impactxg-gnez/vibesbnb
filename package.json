@@ -16,8 +16,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
-  },
-  "overrides": {
-    "three": "0.171.0"
   }
 }
+
+

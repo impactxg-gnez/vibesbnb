@@ -274,9 +274,9 @@ export default function BulkImportPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-earth-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
           <p className="text-white">Loading...</p>
         </div>
       </div>
@@ -284,23 +284,23 @@ export default function BulkImportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-charcoal-950 py-12">
+    <div className="min-h-screen bg-gray-950 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => router.push('/host/properties')}
-            className="text-earth-500 hover:text-earth-400 mb-4 inline-flex items-center gap-2"
+            className="text-emerald-500 hover:text-emerald-400 mb-4 inline-flex items-center gap-2"
           >
             <ArrowLeft size={20} />
             Back to Properties
           </button>
           <h1 className="text-4xl font-bold text-white mb-2">Bulk Import Properties</h1>
-          <p className="text-mist-400">Import multiple properties from Esca Management URLs</p>
+          <p className="text-gray-400">Import multiple properties from Esca Management URLs</p>
         </div>
 
         {/* URL Input Fields */}
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6 mb-6">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
           <div className="mb-4">
             <h2 className="text-xl font-semibold text-white">Property URLs</h2>
           </div>
@@ -313,7 +313,7 @@ export default function BulkImportPage() {
                   value={url}
                   onChange={(e) => updateUrl(index, e.target.value)}
                   placeholder="Paste property link here"
-                  className="flex-1 px-4 py-3 bg-charcoal-800 border border-charcoal-700 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500"
+                  className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                   disabled={importing}
                 />
                 {urls.length > 1 && (
@@ -330,12 +330,12 @@ export default function BulkImportPage() {
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-mist-400">
+            <p className="text-sm text-gray-400">
               1 URL per line
             </p>
             <button
               onClick={addUrlField}
-              className="px-4 py-2 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition flex items-center gap-2"
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
               disabled={importing}
             >
               <Upload size={16} />
@@ -346,7 +346,7 @@ export default function BulkImportPage() {
 
         {/* Import Status */}
         {importedProperties.length > 0 && (
-          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-6 mb-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
             <h2 className="text-xl font-semibold text-white mb-4">Import Status</h2>
             <div className="space-y-2">
               {importedProperties.map((item, index) => (
@@ -359,14 +359,14 @@ export default function BulkImportPage() {
                       ? 'bg-red-900/30 border-red-700'
                       : item.status === 'importing'
                       ? 'bg-blue-900/30 border-blue-700'
-                      : 'bg-charcoal-800 border-charcoal-700'
+                      : 'bg-gray-800 border-gray-700'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <p className="text-sm text-mist-300 truncate">{item.url}</p>
+                      <p className="text-sm text-gray-300 truncate">{item.url}</p>
                       {item.data && (
-                        <p className="text-xs text-mist-400 mt-1">
+                        <p className="text-xs text-gray-400 mt-1">
                           {item.data.name} - {item.data.location}
                         </p>
                       )}
@@ -382,7 +382,7 @@ export default function BulkImportPage() {
                         <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
                       )}
                       {item.status === 'success' && (
-                        <Check className="w-5 h-5 text-earth-500" />
+                        <Check className="w-5 h-5 text-emerald-500" />
                       )}
                       {item.status === 'error' && (
                         <X className="w-5 h-5 text-red-500" />
@@ -400,14 +400,14 @@ export default function BulkImportPage() {
           <button
             onClick={() => router.push('/host/properties')}
             disabled={importing}
-            className="px-6 py-3 bg-charcoal-800 text-white rounded-lg hover:bg-charcoal-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={handleBulkImport}
             disabled={importing || urls.filter(u => u.trim() !== '').length === 0}
-            className="px-6 py-3 bg-earth-600 text-white rounded-lg hover:bg-earth-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {importing ? (
               <>

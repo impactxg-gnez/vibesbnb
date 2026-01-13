@@ -79,19 +79,19 @@ export function RoleSwitcher() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-charcoal-700/50 hover:bg-charcoal-700 transition-colors border border-charcoal-600"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gray-700/50 hover:bg-gray-700 transition-colors border border-gray-600"
       >
         <div className="flex items-center gap-3">
           <span className="text-xl">{activeRoleConfig?.icon}</span>
           <div className="text-left">
-            <div className="text-xs text-mist-400 uppercase tracking-wide">Current Role</div>
+            <div className="text-xs text-gray-400 uppercase tracking-wide">Current Role</div>
             <div className="text-sm font-medium text-white">
               {activeRoleConfig?.label}
             </div>
           </div>
         </div>
         <ChevronDown
-          className={`w-5 h-5 text-mist-400 transition-transform ${
+          className={`w-5 h-5 text-gray-400 transition-transform ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -106,17 +106,17 @@ export function RoleSwitcher() {
           />
 
           {/* Dropdown */}
-          <div className="absolute left-0 right-0 mt-2 bg-[#2d3748] rounded-lg shadow-xl border border-charcoal-700 z-50 overflow-hidden">
+          <div className="absolute left-0 right-0 mt-2 bg-[#2d3748] rounded-lg shadow-xl border border-gray-700 z-50 overflow-hidden">
             {/* Current Roles */}
             <div className="py-2">
-              <div className="px-4 py-2 text-xs font-semibold text-mist-400 uppercase tracking-wider">
+              <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Switch Role
               </div>
               {availableRoles.map((role) => (
                 <button
                   key={role.id}
                   onClick={() => handleRoleSwitch(role.id)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-charcoal-700 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xl">{role.icon}</span>
@@ -132,10 +132,10 @@ export function RoleSwitcher() {
             </div>
 
             {/* Manage Roles */}
-            <div className="border-t border-charcoal-700 py-2">
+            <div className="border-t border-gray-700 py-2">
               <button
                 onClick={handleManageRoles}
-                className="w-full px-4 py-3 text-left text-sm text-white hover:bg-charcoal-700 transition-colors flex items-center gap-2"
+                className="w-full px-4 py-3 text-left text-sm text-white hover:bg-gray-700 transition-colors flex items-center gap-2"
               >
                 <span>✨</span>
                 <span>Manage Roles</span>

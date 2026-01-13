@@ -87,17 +87,17 @@ export default function MigrateHostsPage() {
         <div className="mb-8">
           <button
             onClick={() => router.back()}
-            className="text-mist-400 hover:text-white mb-4 flex items-center gap-2"
+            className="text-gray-400 hover:text-white mb-4 flex items-center gap-2"
           >
             ← Back to Admin Dashboard
           </button>
           <h1 className="text-4xl font-bold text-white mb-2">Migrate Users to Host</h1>
-          <p className="text-mist-400">
+          <p className="text-gray-400">
             Update existing user accounts to have the 'host' role in their metadata
           </p>
         </div>
 
-        <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-8">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
           <div className="space-y-6">
             {/* Warning */}
             <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-4">
@@ -114,7 +114,7 @@ export default function MigrateHostsPage() {
                 id="allUsers"
                 checked={allUsers}
                 onChange={(e) => setAllUsers(e.target.checked)}
-                className="w-5 h-5 text-emerald-600 focus:ring-earth-500 border-charcoal-700 rounded bg-charcoal-800"
+                className="w-5 h-5 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
                 disabled={migrating}
               />
               <label htmlFor="allUsers" className="text-white font-medium">
@@ -125,7 +125,7 @@ export default function MigrateHostsPage() {
             {/* Email Input */}
             {!allUsers && (
               <div>
-                <label htmlFor="emails" className="block text-sm font-medium text-mist-300 mb-2">
+                <label htmlFor="emails" className="block text-sm font-medium text-gray-300 mb-2">
                   Email Addresses (one per line)
                 </label>
                 <textarea
@@ -134,10 +134,10 @@ export default function MigrateHostsPage() {
                   onChange={(e) => setEmails(e.target.value)}
                   placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com"
                   rows={10}
-                  className="w-full px-4 py-3 border border-charcoal-700 bg-charcoal-800 rounded-lg focus:ring-2 focus:ring-earth-500 focus:border-transparent text-white placeholder-gray-500 font-mono text-sm"
+                  className="w-full px-4 py-3 border border-gray-700 bg-gray-800 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500 font-mono text-sm"
                   disabled={migrating}
                 />
-                <p className="mt-2 text-xs text-mist-500">
+                <p className="mt-2 text-xs text-gray-500">
                   Enter one email address per line. Users will be updated to have the 'host' role.
                 </p>
               </div>
@@ -147,7 +147,7 @@ export default function MigrateHostsPage() {
             <button
               onClick={handleMigrate}
               disabled={migrating || (!allUsers && !emails.trim())}
-              className="w-full bg-earth-600 hover:bg-earth-700 text-white px-6 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {migrating ? 'Migrating...' : 'Migrate Users to Host'}
             </button>
@@ -182,9 +182,9 @@ export default function MigrateHostsPage() {
             )}
 
             {/* Instructions */}
-            <div className="mt-8 border-t border-charcoal-800 pt-6">
+            <div className="mt-8 border-t border-gray-800 pt-6">
               <h3 className="text-white font-semibold mb-3">Instructions</h3>
-              <ol className="list-decimal list-inside space-y-2 text-mist-400 text-sm">
+              <ol className="list-decimal list-inside space-y-2 text-gray-400 text-sm">
                 <li>
                   <strong>Option 1 (Recommended):</strong> Enter specific email addresses, one per line, and click
                   "Migrate Users to Host"
@@ -194,13 +194,13 @@ export default function MigrateHostsPage() {
                   caution)
                 </li>
                 <li>
-                  The migration will update the user's metadata in Supabase to set <code className="bg-charcoal-800 px-1 rounded">role: 'host'</code>
+                  The migration will update the user's metadata in Supabase to set <code className="bg-gray-800 px-1 rounded">role: 'host'</code>
                 </li>
                 <li>
                   Users will need to log out and log back in to see the changes take effect
                 </li>
                 <li>
-                  Make sure <code className="bg-charcoal-800 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> is set in your
+                  Make sure <code className="bg-gray-800 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> is set in your
                   Vercel environment variables
                 </li>
               </ol>

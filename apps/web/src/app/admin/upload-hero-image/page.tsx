@@ -86,7 +86,7 @@ export default function UploadHeroImagePage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Upload Hero Background Image</h1>
-          <p className="text-mist-500 mt-1">Upload the peace sign background image to Supabase Storage</p>
+          <p className="text-gray-500 mt-1">Upload the peace sign background image to Supabase Storage</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl">
@@ -100,7 +100,7 @@ export default function UploadHeroImagePage() {
                 type="file"
                 accept="image/*"
                 onChange={handleFileSelect}
-                className="block w-full text-sm text-mist-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
                 required
               />
             </div>
@@ -126,7 +126,7 @@ export default function UploadHeroImagePage() {
                 <code className="block p-2 bg-white rounded border border-green-200 text-xs break-all">
                   {imageUrl}
                 </code>
-                <p className="text-xs text-mist-500 mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   Copy this URL and update the Hero component with it.
                 </p>
               </div>

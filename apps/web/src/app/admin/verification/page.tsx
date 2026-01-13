@@ -144,7 +144,7 @@ export default function DocumentVerificationPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Document Verification</h1>
-          <p className="text-mist-500 mt-1">Review and verify property owner documents</p>
+          <p className="text-gray-500 mt-1">Review and verify property owner documents</p>
         </div>
 
         {/* Required Documents Management */}
@@ -188,8 +188,8 @@ export default function DocumentVerificationPage() {
         <div className="space-y-4">
           {propertyDocuments.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <FileText className="w-16 h-16 text-mist-400 mx-auto mb-4" />
-              <p className="text-mist-500">No property documents pending verification</p>
+              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No property documents pending verification</p>
             </div>
           ) : (
             propertyDocuments.map((property) => (
@@ -200,10 +200,10 @@ export default function DocumentVerificationPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-semibold text-gray-900">{property.property_name}</h3>
-                    <p className="text-sm text-mist-500">
+                    <p className="text-sm text-gray-500">
                       Host: {property.host_name} ({property.host_email})
                     </p>
-                    <p className="text-sm text-mist-500">
+                    <p className="text-sm text-gray-500">
                       Location: {property.property_details.location}
                     </p>
                   </div>
@@ -223,10 +223,10 @@ export default function DocumentVerificationPage() {
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-mist-400" />
+                        <FileText className="w-5 h-5 text-gray-400" />
                         <div>
                           <p className="font-medium text-gray-900">{doc.type}</p>
-                          <p className="text-xs text-mist-500">
+                          <p className="text-xs text-gray-500">
                             {new Date(doc.uploaded_at).toLocaleDateString()}
                           </p>
                         </div>
@@ -277,7 +277,7 @@ export default function DocumentVerificationPage() {
                   <h2 className="text-xl font-bold text-gray-900">Property Details</h2>
                   <button
                     onClick={() => setSelectedProperty(null)}
-                    className="text-mist-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600"
                   >
                     ✕
                   </button>

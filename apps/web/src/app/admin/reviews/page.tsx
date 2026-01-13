@@ -153,7 +153,7 @@ export default function ReviewsManagementPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="flex gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-mist-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search reviews..."
@@ -179,8 +179,8 @@ export default function ReviewsManagementPage() {
         <div className="space-y-4">
           {filteredReviews.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <Star className="w-16 h-16 text-mist-400 mx-auto mb-4" />
-              <p className="text-mist-500">No reviews found</p>
+              <Star className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No reviews found</p>
             </div>
           ) : (
             filteredReviews.map((review) => (
@@ -199,7 +199,7 @@ export default function ReviewsManagementPage() {
                             className={`w-4 h-4 ${
                               i < review.rating
                                 ? 'text-yellow-400 fill-current'
-                                : 'text-mist-300'
+                                : 'text-gray-300'
                             }`}
                           />
                         ))}
@@ -216,9 +216,9 @@ export default function ReviewsManagementPage() {
                         {review.status}
                       </span>
                     </div>
-                    <p className="text-sm text-mist-500 mb-2">By {review.user_name}</p>
+                    <p className="text-sm text-gray-500 mb-2">By {review.user_name}</p>
                     <p className="text-gray-700">{review.comment}</p>
-                    <p className="text-xs text-mist-400 mt-2">
+                    <p className="text-xs text-gray-400 mt-2">
                       {new Date(review.created_at).toLocaleDateString()}
                     </p>
                   </div>

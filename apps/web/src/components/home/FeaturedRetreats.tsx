@@ -14,7 +14,6 @@ interface Retreat {
   reviews: number;
   price: number;
   image: string;
-  isDataUrl?: boolean;
   amenities: string[];
   badge: string;
 }
@@ -22,7 +21,6 @@ interface Retreat {
 export function FeaturedRetreats() {
   const [retreats, setRetreats] = useState<Retreat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadFeaturedRetreats = async () => {
@@ -43,53 +41,17 @@ export function FeaturedRetreats() {
           return;
         }
 
-        const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => {
-          // Validate and get first valid image
-          let imageUrl = 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
-          let isDataUrl = false;
-          
-          if (p.images && Array.isArray(p.images) && p.images.length > 0) {
-            // Find first valid image URL
-            for (const img of p.images) {
-              if (!img || typeof img !== 'string' || img.length === 0) continue;
-              
-              // Check if it's a data URL
-              if (img.startsWith('data:')) {
-                imageUrl = img;
-                isDataUrl = true;
-                break;
-              }
-              
-              // Check if it's a valid HTTP/HTTPS URL
-              try {
-                const url = new URL(img);
-                if (url.protocol === 'http:' || url.protocol === 'https:') {
-                  imageUrl = img;
-                  break;
-                }
-              } catch (e) {
-                // Not a valid URL, continue to next image
-                console.warn('[FeaturedRetreats] Invalid image URL:', img);
-                continue;
-              }
-            }
-          }
-          
-          console.log('[FeaturedRetreats] Property:', p.name, 'Image URL:', imageUrl.substring(0, 100), 'IsDataUrl:', isDataUrl);
-          
-          return {
-            id: p.id,
-            name: p.name || p.title || 'Property',
-            location: p.location || '',
-            rating: p.rating ? Number(p.rating) : 4.5,
-            reviews: 0, // TODO: Get from reviews table
-            price: p.price ? Number(p.price) : 0,
-            image: imageUrl,
-            isDataUrl: isDataUrl,
-            amenities: (p.amenities || []).slice(0, 2),
-            badge: 'Wellness-friendly',
-          };
-        });
+        const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => ({
+          id: p.id,
+          name: p.name || p.title || 'Property',
+          location: p.location || '',
+          rating: p.rating ? Number(p.rating) : 4.5,
+          reviews: 0, // TODO: Get from reviews table
+          price: p.price ? Number(p.price) : 0,
+          image: p.images && p.images.length > 0 ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
+          amenities: (p.amenities || []).slice(0, 2),
+          badge: 'Wellness-friendly',
+        }));
 
         setRetreats(featuredRetreats);
       } catch (error) {
@@ -112,94 +74,87 @@ export function FeaturedRetreats() {
   }
 
   return (
-    <div className="container mx-auto px-4 pb-12">
-      <h2 className="text-2xl font-bold text-mist-100 mb-6">Featured Retreats</h2>
+    <div className="container mx-auto px-6 pb-24">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+        <div>
+          <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">
+            Featured <span className="text-primary-500 italic">Retreats</span>
+          </h2>
+          <p className="text-muted max-w-xl">
+            Discover our hand-picked collection of properties designed for your ultimate wellness journey.
+          </p>
+        </div>
+        <Link 
+          href="/search" 
+          className="group flex items-center gap-2 text-primary-500 font-bold hover:text-primary-400 transition-colors"
+        >
+          View all properties
+          <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+          </svg>
+        </Link>
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {retreats.map((retreat, index) => (
           <motion.div
             key={retreat.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
+            transition={{ duration: 0.8, delay: index * 0.1 }}
           >
             <Link href={`/listings/${retreat.id}`} className="group block h-full">
-              <div className="property-card-glass h-full">
-                {/* Animated Aurora Blob */}
-                <div className="property-card-aurora" />
-                
-                {/* Inner Glow Panel */}
-                <div className="property-card-bg" />
-                
-                {/* Image Section */}
-                <div className="relative h-48 bg-charcoal-800 flex-shrink-0 z-10">
-                  {imageErrors.has(retreat.id) ? (
-                    <div className="w-full h-full flex items-center justify-center bg-charcoal-800">
-                      <div className="text-center">
-                        <svg className="w-12 h-12 text-white/50 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="text-white/50 text-xs">Image unavailable</p>
-                      </div>
-                    </div>
-                  ) : retreat.isDataUrl ? (
-                    <img
-                      src={retreat.image}
-                      alt={retreat.name}
-                      className="w-full h-full object-cover"
-                      onError={() => {
-                        console.error('[FeaturedRetreats] Failed to load data URL image for:', retreat.id);
-                        setImageErrors(prev => new Set(prev).add(retreat.id));
-                      }}
-                    />
-                  ) : (
-                    <Image
-                      src={retreat.image}
-                      alt={retreat.name}
-                      fill
-                      className="object-cover"
-                      onError={(e) => {
-                        console.error('[FeaturedRetreats] Failed to load image:', retreat.image, 'for property:', retreat.id);
-                        setImageErrors(prev => new Set(prev).add(retreat.id));
-                      }}
-                      unoptimized={true}
-                    />
-                  )}
-                  <div className="absolute top-3 left-3 z-20">
-                    <span className="bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/20">
+              <div className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col">
+                <div className="relative h-72 overflow-hidden">
+                  <Image
+                    src={retreat.image}
+                    alt={retreat.name}
+                    fill
+                    className="object-cover group-hover:scale-110 transition duration-700"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute top-6 left-6">
+                    <span className="bg-surface/90 backdrop-blur-md text-white text-xs font-bold px-4 py-2 rounded-full border border-white/10 uppercase tracking-widest shadow-xl">
                       {retreat.badge}
                     </span>
                   </div>
                 </div>
                 
-                {/* Content Section */}
-                <div className="property-card-content flex-1">
-                  <div className="flex items-start justify-between mb-2">
+                <div className="p-8 flex-1 flex flex-col">
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-white font-semibold text-lg mb-1 drop-shadow-lg">
+                      <h3 className="text-white font-bold text-2xl mb-2 group-hover:text-primary-500 transition-colors line-clamp-1">
                         {retreat.name}
                       </h3>
-                      <div className="flex items-center gap-1 text-white/80 text-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-2 text-muted text-sm font-medium">
+                        <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         <span>{retreat.location}</span>
-                        <span className="mx-1">•</span>
-                        <span>{retreat.rating} ({retreat.reviews})</span>
                       </div>
                     </div>
-                    <div className="text-right ml-2">
-                      <div className="text-white font-bold text-lg">${retreat.price}</div>
-                      <div className="text-white/70 text-xs">/night</div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-auto pt-6 border-t border-white/5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-white font-bold">{retreat.rating}</span>
+                      <svg className="w-4 h-4 text-primary-500 fill-current" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <span className="text-white font-black text-xl">${retreat.price}</span>
+                      <span className="text-muted text-sm ml-1">/ night</span>
                     </div>
                   </div>
                   
-                  <div className="flex gap-2 mt-auto flex-wrap">
+                  <div className="flex gap-2 mt-6">
                     {retreat.amenities.map((amenity) => (
                       <span
                         key={amenity}
-                        className="bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full border border-white/30"
+                        className="bg-white/5 text-muted text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border border-white/5"
                       >
                         {amenity}
                       </span>

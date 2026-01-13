@@ -117,16 +117,16 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-charcoal-950 py-8">
+    <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         <h1 className="text-4xl font-bold text-white mb-8">Messages</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-charcoal-900 border border-charcoal-800 rounded-xl p-4 h-[70vh] overflow-y-auto">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-[70vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-white mb-4">Conversations</h2>
             {loadingList ? (
-              <p className="text-mist-400 text-sm">Loading conversations...</p>
+              <p className="text-gray-400 text-sm">Loading conversations...</p>
             ) : conversations.length === 0 ? (
-              <p className="text-mist-500 text-sm">
+              <p className="text-gray-500 text-sm">
                 No conversations yet. Start by messaging a host from a property
                 page.
               </p>
@@ -140,8 +140,8 @@ export default function MessagesPage() {
                       onClick={() => setSelectedConversation(conversation.id)}
                       className={`w-full text-left p-3 rounded-lg transition ${
                         selectedConversation === conversation.id
-                          ? 'bg-earth-600 text-white'
-                          : 'bg-charcoal-800 text-gray-200 hover:bg-charcoal-700'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -149,7 +149,7 @@ export default function MessagesPage() {
                           <p className="font-semibold">
                             {conversation.properties?.name || 'Property'}
                           </p>
-                          <p className="text-sm text-mist-300">
+                          <p className="text-sm text-gray-300">
                             {getCounterpartName(conversation)}
                           </p>
                         </div>
@@ -159,11 +159,11 @@ export default function MessagesPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-mist-400">
+                      <p className="text-xs text-gray-400">
                         {conversation.properties?.location || 'Location unavailable'}
                       </p>
                       {conversation.last_message && (
-                        <p className="text-xs text-mist-400 mt-1 line-clamp-2">
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">
                           {conversation.last_message}
                         </p>
                       )}
@@ -183,7 +183,7 @@ export default function MessagesPage() {
                 onMessagesRead={loadConversations}
               />
             ) : (
-              <div className="h-full border border-charcoal-800 rounded-xl bg-charcoal-900 flex items-center justify-center text-mist-500">
+              <div className="h-full border border-gray-800 rounded-xl bg-gray-900 flex items-center justify-center text-gray-500">
                 Select a conversation to start messaging.
               </div>
             )}

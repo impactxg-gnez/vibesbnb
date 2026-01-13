@@ -62,7 +62,7 @@ export function ErrorScreen({
 
         {/* Error Text */}
         <h1 className="text-white text-2xl font-bold mb-4">{title}</h1>
-        <p className="text-mist-400 text-center text-sm max-w-xs leading-relaxed">
+        <p className="text-gray-400 text-center text-sm max-w-xs leading-relaxed">
           {message}
         </p>
       </div>
