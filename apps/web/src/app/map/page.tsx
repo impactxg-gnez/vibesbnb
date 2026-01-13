@@ -17,6 +17,7 @@ interface Listing {
 
 export default function MapPage() {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [listingsWithCoords, setListingsWithCoords] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -81,30 +82,94 @@ export default function MapPage() {
         }
 
         // Transform data to Listing format with coordinates
-        const transformedListings: Listing[] = (propertiesData || []).map((p: any) => ({
-          id: p.id,
-          name: p.name || p.title || 'Untitled Property',
-          location: p.location || '',
-          price: p.price ? Number(p.price) : 0,
-          status: p.status || 'active',
-          images: p.images || [],
-          coordinates: p.coordinates ? {
-            lat: Number(p.coordinates.lat),
-            lng: Number(p.coordinates.lng),
-          } : (p.latitude && p.longitude ? {
-            lat: Number(p.latitude),
-            lng: Number(p.longitude),
-          } : undefined),
-        }));
+        const transformedListings: Listing[] = (propertiesData || []).map((p: any) => {
+          // Try multiple ways to extract coordinates
+          let coords: { lat: number; lng: number } | undefined = undefined;
+          
+          // Method 1: Check for coordinates object
+          if (p.coordinates && p.coordinates.lat && p.coordinates.lng) {
+            const lat = Number(p.coordinates.lat);
+            const lng = Number(p.coordinates.lng);
+            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              coords = { lat, lng };
+            }
+          }
+          
+          // Method 2: Check for separate latitude/longitude fields
+          if (!coords && p.latitude && p.longitude) {
+            const lat = Number(p.latitude);
+            const lng = Number(p.longitude);
+            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              coords = { lat, lng };
+            }
+          }
+          
+          // Method 3: Check for lat/lng fields (alternative naming)
+          if (!coords && p.lat && p.lng) {
+            const lat = Number(p.lat);
+            const lng = Number(p.lng);
+            if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              coords = { lat, lng };
+            }
+          }
 
-        // Debug: Log how many listings have coordinates
-        const listingsWithCoords = transformedListings.filter(l => l.coordinates);
-        console.log('[Map] Listings with coordinates:', {
-          total: transformedListings.length,
-          withCoords: listingsWithCoords.length,
+          return {
+            id: p.id,
+            name: p.name || p.title || 'Untitled Property',
+            location: p.location || '',
+            price: p.price ? Number(p.price) : 0,
+            status: p.status || 'active',
+            images: p.images || [],
+            coordinates: coords,
+          };
         });
 
+        // Debug: Log detailed information about properties and coordinates
+        const withCoords = transformedListings.filter(l => l.coordinates);
+        const withoutCoords = transformedListings.filter(l => !l.coordinates);
+        
+        console.log('[Map] Properties Analysis:', {
+          total: transformedListings.length,
+          withCoords: withCoords.length,
+          withoutCoords: withoutCoords.length,
+          propertiesWithCoords: withCoords.map(l => ({
+            id: l.id,
+            name: l.name,
+            location: l.location,
+            coords: l.coordinates,
+          })),
+          propertiesWithoutCoords: withoutCoords.slice(0, 10).map(l => ({
+            id: l.id,
+            name: l.name,
+            location: l.location,
+          })),
+        });
+        
+        // Log sample of raw data to see what fields are available
+        if (propertiesData.length > 0) {
+          console.log('[Map] Sample raw property data:', {
+            sample: propertiesData[0],
+            allFields: Object.keys(propertiesData[0]),
+          });
+          
+          // Log all properties with their coordinate status
+          console.log('[Map] All properties coordinate status:', 
+            propertiesData.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              location: p.location,
+              hasCoordinates: !!(p.coordinates || (p.latitude && p.longitude) || (p.lat && p.lng)),
+              coordinates: p.coordinates,
+              latitude: p.latitude,
+              longitude: p.longitude,
+              lat: p.lat,
+              lng: p.lng,
+            }))
+          );
+        }
+
         setListings(transformedListings);
+        setListingsWithCoords(withCoords);
       } catch (error) {
         console.error('Error loading properties:', error);
         setListings([]);
@@ -127,7 +192,16 @@ export default function MapPage() {
                 Explore Properties on Map
               </h1>
               <p className="text-emerald-50 text-sm md:text-base">
-                {loading ? 'Loading...' : `${listings.length} properties available`}
+                {loading ? 'Loading...' : (
+                  <>
+                    {listingsWithCoords.length} of {listings.length} properties on map
+                    {listings.length > listingsWithCoords.length && (
+                      <span className="block text-xs text-emerald-100/70 mt-1">
+                        {listings.length - listingsWithCoords.length} properties missing coordinates
+                      </span>
+                    )}
+                  </>
+                )}
               </p>
             </div>
             <Link
