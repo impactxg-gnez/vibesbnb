@@ -39,17 +39,20 @@ export default function MapPage() {
         let supabaseErrorOccurred = false;
         
         if (isSupabaseConfigured) {
-          // Fetch active properties from Supabase
-          const { data, error } = await supabase
+          // Fetch active properties from Supabase - same query as search page
+          let query = supabase
             .from('properties')
             .select('*')
             .eq('status', 'active');
+
+          const { data, error } = await query;
 
           if (error) {
             console.error('[Map] Error loading properties from Supabase:', error);
             supabaseErrorOccurred = true;
           } else {
             propertiesData = data || [];
+            console.log('[Map] Loaded', propertiesData.length, 'properties from Supabase');
           }
         }
         
@@ -64,9 +67,9 @@ export default function MapPage() {
             if (key.startsWith('properties_')) {
               try {
                 const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
-                // Only include active properties
+                // Only include active properties - same filter as search page
                 const activeProperties = userProperties.filter((p: any) => 
-                  p.status === 'active' || !p.status
+                  p.status === 'active' || !p.status // Include properties without status as active
                 );
                 allProperties.push(...activeProperties);
               } catch (e) {
