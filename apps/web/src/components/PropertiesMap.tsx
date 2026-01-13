@@ -188,63 +188,118 @@ export default function PropertiesMap({
     // Create bounds to fit all markers
     const bounds = new window.google.maps.LatLngBounds();
 
-    // Add markers for each property
-    let markersCreated = 0;
+    // Group properties by coordinates to handle duplicates
+    const coordinateGroups = new Map<string, typeof propertiesWithCoords>();
     propertiesWithCoords.forEach((property) => {
       if (!property.coordinates) {
         console.warn('[PropertiesMap] Property missing coordinates:', property);
         return;
       }
+      const key = `${property.coordinates.lat.toFixed(6)},${property.coordinates.lng.toFixed(6)}`;
+      if (!coordinateGroups.has(key)) {
+        coordinateGroups.set(key, []);
+      }
+      coordinateGroups.get(key)!.push(property);
+    });
 
-      const marker = new window.google.maps.Marker({
-        position: {
+    console.log('[PropertiesMap] Coordinate groups:', {
+      uniqueLocations: coordinateGroups.size,
+      totalProperties: propertiesWithCoords.length,
+      groups: Array.from(coordinateGroups.entries()).map(([key, props]) => ({
+        coords: key,
+        count: props.length,
+        properties: props.map(p => p.name),
+      })),
+    });
+
+    // Add markers for each property with offset for duplicates
+    let markersCreated = 0;
+    coordinateGroups.forEach((propertiesAtLocation, coordKey) => {
+      propertiesAtLocation.forEach((property, index) => {
+        if (!property.coordinates) return;
+
+        // Calculate offset for properties at the same location
+        // Use a small offset (about 50-100 meters) so markers don't overlap
+        const offsetDistance = propertiesAtLocation.length > 1 ? 0.001 : 0; // ~100 meters for duplicates
+        const angle = propertiesAtLocation.length > 1 
+          ? (index * (360 / propertiesAtLocation.length)) * (Math.PI / 180)
+          : 0;
+        const offsetLat = property.coordinates.lat + (offsetDistance * Math.cos(angle));
+        const offsetLng = property.coordinates.lng + (offsetDistance * Math.sin(angle));
+
+        const marker = new window.google.maps.Marker({
+          position: {
+            lat: offsetLat,
+            lng: offsetLng,
+          },
+          map: mapInstanceRef.current,
+          title: propertiesAtLocation.length > 1 
+            ? `${property.name} (${propertiesAtLocation.length} properties at this location)`
+            : property.name,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: property.status === 'active' ? '#10b981' : '#f59e0b',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+          },
+        });
+
+        // Create info window - show all properties if multiple at same location
+        let infoContent = '';
+        if (propertiesAtLocation.length > 1) {
+          infoContent = `
+            <div style="color: #000; min-width: 250px; max-width: 300px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 14px; color: #666;">${propertiesAtLocation.length} Properties at this location</h3>
+              <div style="max-height: 300px; overflow-y: auto;">
+                ${propertiesAtLocation.map(p => `
+                  <div style="padding: 8px 0; border-bottom: 1px solid #eee;">
+                    <h4 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${p.name}</h4>
+                    <p style="margin: 0 0 2px 0; color: #666; font-size: 12px;">${p.location}</p>
+                    <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 14px;">$${p.price}/night</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          infoContent = `
+            <div style="color: #000; min-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 16px;">${property.name}</h3>
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${property.location}</p>
+              <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 16px;">$${property.price}/night</p>
+              ${property.status ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: ${property.status === 'active' ? '#10b981' : '#f59e0b'};">
+                ${property.status === 'active' ? '✓ Published' : 'Draft'}
+              </p>` : ''}
+            </div>
+          `;
+        }
+
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: infoContent,
+        });
+
+        marker.addListener('click', () => {
+          // Close all other info windows
+          infoWindowsRef.current.forEach(iw => {
+            if (iw && iw.close) {
+              iw.close();
+            }
+          });
+          infoWindow.open(mapInstanceRef.current, marker);
+        });
+
+        // Store info window in a Map
+        infoWindowsRef.current.set(marker, infoWindow);
+        markersRef.current.push(marker);
+        // Use original coordinates for bounds, not offset
+        bounds.extend({
           lat: property.coordinates.lat,
           lng: property.coordinates.lng,
-        },
-        map: mapInstanceRef.current,
-        title: property.name,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: property.status === 'active' ? '#10b981' : '#f59e0b',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
-        },
-      });
-
-      // Create info window
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="color: #000; min-width: 200px;">
-            <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 16px;">${property.name}</h3>
-            <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${property.location}</p>
-            <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 16px;">$${property.price}/night</p>
-            ${property.status ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: ${property.status === 'active' ? '#10b981' : '#f59e0b'};">
-              ${property.status === 'active' ? '✓ Published' : 'Draft'}
-            </p>` : ''}
-          </div>
-        `,
-      });
-
-      marker.addListener('click', () => {
-        // Close all other info windows
-        infoWindowsRef.current.forEach(iw => {
-          if (iw && iw.close) {
-            iw.close();
-          }
         });
-        infoWindow.open(mapInstanceRef.current, marker);
+        markersCreated++;
       });
-
-      // Store info window in a Map
-      infoWindowsRef.current.set(marker, infoWindow);
-      markersRef.current.push(marker);
-      bounds.extend({
-        lat: property.coordinates.lat,
-        lng: property.coordinates.lng,
-      });
-      markersCreated++;
     });
 
     console.log('[PropertiesMap] Markers created:', markersCreated, 'out of', propertiesWithCoords.length);
