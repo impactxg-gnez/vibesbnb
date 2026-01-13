@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 
 interface Property {
   id: string;
@@ -29,8 +29,14 @@ export default function PropertiesMap({
   const infoWindowsRef = useRef<Map<any, any>>(new Map());
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Filter properties with coordinates
-  const propertiesWithCoords = properties.filter(p => p.coordinates);
+  // Filter properties with coordinates - use useMemo to ensure stable reference
+  const propertiesWithCoords = useMemo(() => {
+    return properties.filter(p => p.coordinates && 
+      typeof p.coordinates.lat === 'number' && 
+      typeof p.coordinates.lng === 'number' &&
+      !isNaN(p.coordinates.lat) && 
+      !isNaN(p.coordinates.lng));
+  }, [properties]);
 
   useEffect(() => {
     if (propertiesWithCoords.length === 0) {
@@ -70,9 +76,21 @@ export default function PropertiesMap({
     };
   }, [propertiesWithCoords.length]);
 
+  // Update map when properties change (for filter updates)
   useEffect(() => {
-    if (mapLoaded && mapInstanceRef.current && propertiesWithCoords.length > 0) {
-      updateMarkers();
+    if (mapLoaded && mapInstanceRef.current) {
+      if (propertiesWithCoords.length > 0) {
+        updateMarkers();
+      } else {
+        // Clear all markers if no properties with coordinates
+        markersRef.current.forEach(marker => {
+          if (marker && marker.setMap) {
+            marker.setMap(null);
+          }
+        });
+        markersRef.current = [];
+        infoWindowsRef.current.clear();
+      }
     }
   }, [propertiesWithCoords, mapLoaded]);
 
@@ -91,6 +109,9 @@ export default function PropertiesMap({
       mapTypeControl: true,
       streetViewControl: false,
       fullscreenControl: true,
+      gestureHandling: 'greedy', // Enable scroll zoom without Ctrl key
+      scrollwheel: true, // Enable mouse wheel zoom
+      disableDoubleClickZoom: false, // Allow double-click zoom
       styles: [
         {
           featureType: 'all',
@@ -194,8 +215,21 @@ export default function PropertiesMap({
     });
 
     // Fit map to show all markers
-    if (propertiesWithCoords.length > 1) {
-      mapInstanceRef.current.fitBounds(bounds);
+    if (propertiesWithCoords.length > 0) {
+      if (propertiesWithCoords.length === 1) {
+        // Single property: center and zoom in
+        const singleProperty = propertiesWithCoords[0];
+        if (singleProperty.coordinates) {
+          mapInstanceRef.current.setCenter({
+            lat: singleProperty.coordinates.lat,
+            lng: singleProperty.coordinates.lng,
+          });
+          mapInstanceRef.current.setZoom(15);
+        }
+      } else {
+        // Multiple properties: fit bounds
+        mapInstanceRef.current.fitBounds(bounds);
+      }
     }
   };
 
