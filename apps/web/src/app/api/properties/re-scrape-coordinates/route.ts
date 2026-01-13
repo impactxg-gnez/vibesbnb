@@ -8,7 +8,7 @@ export const maxDuration = 300; // 5 minutes for bulk operations
 
 export async function POST(request: NextRequest) {
   try {
-    const { propertyIds } = await request.json();
+    const { propertyIds, sourceUrls } = await request.json();
 
     if (!propertyIds || !Array.isArray(propertyIds) || propertyIds.length === 0) {
       return NextResponse.json(
@@ -60,7 +60,10 @@ export async function POST(request: NextRequest) {
 
     // Re-scrape coordinates for each property
     for (const property of properties) {
-      if (!property.source_url) {
+      // Use provided source URL from request, or fall back to stored source_url
+      const sourceUrl = (sourceUrls && sourceUrls[property.id]) || property.source_url;
+      
+      if (!sourceUrl) {
         errors.push({
           propertyId: property.id,
           propertyName: property.name,
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        console.log(`[Re-scrape Coordinates] Scraping ${property.name} from ${property.source_url}`);
+        console.log(`[Re-scrape Coordinates] Scraping ${property.name} from ${sourceUrl}`);
         
         // Call the scrape API to get coordinates
         const scrapeResponse = await fetch(
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              url: property.source_url,
+              url: sourceUrl,
               usePuppeteer: true, // Use Puppeteer for better coordinate extraction
             }),
           }

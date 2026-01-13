@@ -52,6 +52,8 @@ export default function HostPropertiesPage() {
   const [loadingProperties, setLoadingProperties] = useState(true);
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [reScraping, setReScraping] = useState(false);
+  const [showSourceUrlModal, setShowSourceUrlModal] = useState(false);
+  const [propertiesNeedingUrls, setPropertiesNeedingUrls] = useState<Array<{id: string; name: string; url: string}>>([]);
   const [stats, setStats] = useState({
     totalProperties: 0,
     activeListings: 0,
@@ -658,22 +660,23 @@ const [bookingBuckets, setBookingBuckets] = useState<{
     }
 
     // Check if selected properties have source URLs
-    const propertiesToScrape = properties.filter(p => 
-      selectedProperties.includes(p.id) && p.sourceUrl
-    );
+    const selectedProps = properties.filter(p => selectedProperties.includes(p.id));
+    const propertiesWithUrls = selectedProps.filter(p => p.sourceUrl);
+    const propertiesWithoutUrls = selectedProps.filter(p => !p.sourceUrl);
 
-    if (propertiesToScrape.length === 0) {
-      toast.error('Selected properties do not have source URLs. Cannot re-scrape coordinates.');
+    // If some properties don't have source URLs, show modal to enter them
+    if (propertiesWithoutUrls.length > 0) {
+      setPropertiesNeedingUrls(propertiesWithoutUrls.map(p => ({ id: p.id, name: p.name, url: '' })));
+      setShowSourceUrlModal(true);
       return;
     }
 
-    if (propertiesToScrape.length < selectedProperties.length) {
-      const missingCount = selectedProperties.length - propertiesToScrape.length;
-      toast(`${missingCount} selected property(ies) don't have source URLs and will be skipped.`, {
-        icon: '⚠️',
-        duration: 4000,
-      });
-    }
+    // All properties have source URLs, proceed with re-scraping
+    await performReScrape(propertiesWithUrls.map(p => p.id));
+  };
+
+  const performReScrape = async (propertyIds: string[]) => {
+    if (propertyIds.length === 0) return;
 
     setReScraping(true);
     try {
@@ -683,7 +686,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          propertyIds: propertiesToScrape.map(p => p.id),
+          propertyIds: propertyIds,
         }),
       });
 
@@ -714,6 +717,91 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       toast.error(error.message || 'Failed to re-scrape coordinates');
     } finally {
       setReScraping(false);
+    }
+  };
+
+  const handleSourceUrlsSubmit = async () => {
+    // Build sourceUrls map for API call
+    const sourceUrlsMap: { [key: string]: string } = {};
+    propertiesNeedingUrls.forEach(prop => {
+      if (prop.url.trim()) {
+        sourceUrlsMap[prop.id] = prop.url.trim();
+      }
+    });
+
+    // Also include properties that already have source URLs
+    const allPropertyIds = selectedProperties;
+    const allSourceUrls: { [key: string]: string } = {
+      ...sourceUrlsMap,
+      ...properties.filter(p => selectedProperties.includes(p.id) && p.sourceUrl)
+        .reduce((acc, p) => {
+          if (p.sourceUrl) acc[p.id] = p.sourceUrl;
+          return acc;
+        }, {} as { [key: string]: string }),
+    };
+
+    setShowSourceUrlModal(false);
+    setPropertiesNeedingUrls([]);
+    
+    // Update source URLs in database for future use
+    const supabase = createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+    
+    if (supabaseUser) {
+      for (const prop of propertiesNeedingUrls) {
+        if (prop.url.trim()) {
+          await supabase
+            .from('properties')
+            .update({ source_url: prop.url.trim() })
+            .eq('id', prop.id)
+            .eq('host_id', supabaseUser.id);
+        }
+      }
+    }
+    
+    if (allPropertyIds.length > 0) {
+      // Pass source URLs directly to API
+      setReScraping(true);
+      try {
+        const response = await fetch('/api/properties/re-scrape-coordinates', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            propertyIds: allPropertyIds,
+            sourceUrls: allSourceUrls,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to re-scrape coordinates');
+        }
+
+        const data = await response.json();
+
+        if (data.summary.successful > 0) {
+          toast.success(
+            `Successfully updated coordinates for ${data.summary.successful} property(ies)`
+          );
+        }
+
+        if (data.errors && data.errors.length > 0) {
+          data.errors.forEach((error: any) => {
+            toast.error(`${error.propertyName}: ${error.error}`);
+          });
+        }
+
+        // Reload properties to show updated coordinates
+        await loadProperties();
+        setSelectedProperties([]);
+      } catch (error: any) {
+        console.error('[Re-scrape Coordinates] Error:', error);
+        toast.error(error.message || 'Failed to re-scrape coordinates');
+      } finally {
+        setReScraping(false);
+      }
     }
   };
 
@@ -1466,6 +1554,68 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           </div>
         )}
       </div>
+
+      {/* Source URL Modal */}
+      {showSourceUrlModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-white mb-4">Enter Source URLs</h2>
+            <p className="text-gray-400 mb-6">
+              Some selected properties don't have source URLs. Please enter the original import URLs for these properties so we can re-scrape their coordinates.
+            </p>
+
+            <div className="space-y-4 mb-6">
+              {propertiesNeedingUrls.map((prop, index) => (
+                <div key={prop.id} className="bg-gray-800 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    {prop.name}
+                  </label>
+                  <input
+                    type="url"
+                    value={prop.url}
+                    onChange={(e) => {
+                      const updated = [...propertiesNeedingUrls];
+                      updated[index].url = e.target.value;
+                      setPropertiesNeedingUrls(updated);
+                    }}
+                    placeholder="https://www.airbnb.com/rooms/12345678 or https://esca-management.com/property/..."
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSourceUrlModal(false);
+                  setPropertiesNeedingUrls([]);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSourceUrlsSubmit}
+                disabled={reScraping || propertiesNeedingUrls.every(p => !p.url.trim())}
+                className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {reScraping ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Re-scraping...
+                  </>
+                ) : (
+                  <>
+                    <Map size={16} />
+                    Save URLs & Re-scrape
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import Modal */}
       {showImportModal && (
