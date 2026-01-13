@@ -51,6 +51,7 @@ export default function HostPropertiesPage() {
   const [importing, setImporting] = useState(false);
   const [loadingProperties, setLoadingProperties] = useState(true);
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+  const [reScraping, setReScraping] = useState(false);
   const [stats, setStats] = useState({
     totalProperties: 0,
     activeListings: 0,
