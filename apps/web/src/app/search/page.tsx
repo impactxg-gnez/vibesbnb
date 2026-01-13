@@ -125,6 +125,15 @@ export default function SearchPage() {
 
         // Transform Supabase data to Listing format
         let filteredListings: Listing[] = (propertiesData || []).map((p: any) => {
+          // Debug: Log coordinates extraction
+          if (p.latitude && p.longitude) {
+            console.log('[Search] Property has coordinates:', {
+              id: p.id,
+              name: p.name,
+              latitude: p.latitude,
+              longitude: p.longitude,
+            });
+          }
           // Normalize and filter images
           const rawImages = p.images || [];
           const normalizedImages = rawImages
@@ -148,6 +157,13 @@ export default function SearchPage() {
             amenities: p.amenities || [],
             guests: p.guests || 0,
             status: p.status || 'active',
+            coordinates: p.coordinates ? {
+              lat: Number(p.coordinates.lat),
+              lng: Number(p.coordinates.lng),
+            } : (p.latitude && p.longitude ? {
+              lat: Number(p.latitude),
+              lng: Number(p.longitude),
+            } : undefined),
           };
         });
 
@@ -165,6 +181,14 @@ export default function SearchPage() {
             return propertyGuests >= totalOccupancy;
           });
         }
+
+        // Debug: Log how many listings have coordinates
+        const listingsWithCoords = filteredListings.filter(l => l.coordinates);
+        console.log('[Search] Listings with coordinates:', {
+          total: filteredListings.length,
+          withCoords: listingsWithCoords.length,
+          coords: listingsWithCoords.map(l => ({ id: l.id, coords: l.coordinates })),
+        });
 
         setListings(filteredListings);
       } catch (error) {
