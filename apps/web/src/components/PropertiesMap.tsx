@@ -31,11 +31,19 @@ export default function PropertiesMap({
 
   // Filter properties with coordinates - use useMemo to ensure stable reference
   const propertiesWithCoords = useMemo(() => {
-    return properties.filter(p => p.coordinates && 
+    const filtered = properties.filter(p => p.coordinates && 
       typeof p.coordinates.lat === 'number' && 
       typeof p.coordinates.lng === 'number' &&
       !isNaN(p.coordinates.lat) && 
       !isNaN(p.coordinates.lng));
+    
+    console.log('[PropertiesMap] Filtered properties with coords:', {
+      totalProperties: properties.length,
+      withCoords: filtered.length,
+      sample: filtered.slice(0, 3).map(p => ({ id: p.id, name: p.name, coords: p.coordinates })),
+    });
+    
+    return filtered;
   }, [properties]);
 
   useEffect(() => {
@@ -74,15 +82,24 @@ export default function PropertiesMap({
       markersRef.current = [];
       infoWindowsRef.current.clear();
     };
-  }, [propertiesWithCoords.length]);
+  }, [propertiesWithCoords.length]); // Only initialize once when we first get properties
 
   // Update map when properties change (for filter updates)
   useEffect(() => {
+    console.log('[PropertiesMap] Properties changed effect triggered:', {
+      mapLoaded,
+      hasMapInstance: !!mapInstanceRef.current,
+      propertiesCount: properties.length,
+      propertiesWithCoordsCount: propertiesWithCoords.length,
+    });
+
     if (mapLoaded && mapInstanceRef.current) {
       if (propertiesWithCoords.length > 0) {
+        console.log('[PropertiesMap] Calling updateMarkers with', propertiesWithCoords.length, 'properties');
         updateMarkers();
       } else {
         // Clear all markers if no properties with coordinates
+        console.log('[PropertiesMap] No properties with coordinates, clearing markers');
         markersRef.current.forEach(marker => {
           if (marker && marker.setMap) {
             marker.setMap(null);
@@ -92,7 +109,7 @@ export default function PropertiesMap({
         infoWindowsRef.current.clear();
       }
     }
-  }, [propertiesWithCoords, mapLoaded]);
+  }, [properties, mapLoaded]); // Depend on properties array, not just propertiesWithCoords
 
   const initializeMap = () => {
     if (!mapRef.current || !window.google?.maps || propertiesWithCoords.length === 0) {
@@ -149,6 +166,16 @@ export default function PropertiesMap({
       return;
     }
 
+    console.log('[PropertiesMap] updateMarkers called with:', {
+      totalProperties: properties.length,
+      propertiesWithCoords: propertiesWithCoords.length,
+      coords: propertiesWithCoords.map(p => ({
+        id: p.id,
+        name: p.name,
+        coords: p.coordinates,
+      })),
+    });
+
     // Clear existing markers
     markersRef.current.forEach(marker => {
       if (marker && marker.setMap) {
@@ -156,13 +183,18 @@ export default function PropertiesMap({
       }
     });
     markersRef.current = [];
+    infoWindowsRef.current.clear();
 
     // Create bounds to fit all markers
     const bounds = new window.google.maps.LatLngBounds();
 
     // Add markers for each property
+    let markersCreated = 0;
     propertiesWithCoords.forEach((property) => {
-      if (!property.coordinates) return;
+      if (!property.coordinates) {
+        console.warn('[PropertiesMap] Property missing coordinates:', property);
+        return;
+      }
 
       const marker = new window.google.maps.Marker({
         position: {
@@ -212,7 +244,10 @@ export default function PropertiesMap({
         lat: property.coordinates.lat,
         lng: property.coordinates.lng,
       });
+      markersCreated++;
     });
+
+    console.log('[PropertiesMap] Markers created:', markersCreated, 'out of', propertiesWithCoords.length);
 
     // Fit map to show all markers
     if (propertiesWithCoords.length > 0) {
@@ -228,8 +263,12 @@ export default function PropertiesMap({
         }
       } else {
         // Multiple properties: fit bounds
-        mapInstanceRef.current.fitBounds(bounds);
+        // Add padding to ensure all markers are visible
+        mapInstanceRef.current.fitBounds(bounds, { padding: 50 });
+        console.log('[PropertiesMap] Fitted bounds for', propertiesWithCoords.length, 'markers');
       }
+    } else {
+      console.warn('[PropertiesMap] No properties with coordinates to display');
     }
   };
 
