@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { scrapeWithPuppeteer } from '@/lib/scraper-puppeteer';
+import { extractCoordinatesFromGoogleMapsUrl } from '@/lib/google-maps-utils';
 
 // Force Node.js runtime (not Edge) to support cheerio and puppeteer
 export const runtime = 'nodejs';
@@ -127,27 +128,33 @@ export async function POST(request: NextRequest) {
       coordinates: propertyData.coordinates,
     });
     
-    if (propertyData.coordinates || propertyData.location) {
-      console.log('[Scraper] Geocoding location...');
+    // Only geocode if we have coordinates (reverse geocode to get better address)
+    // DO NOT geocode location strings to get coordinates - this gives city-level coordinates
+    // which causes all properties in the same city to have identical coordinates
+    if (propertyData.coordinates) {
+      console.log('[Scraper] Reverse geocoding coordinates to enhance address...');
       const geocodeResult = await geocodeLocation(
         propertyData.location,
         propertyData.coordinates
       );
 
       if (geocodeResult) {
-        // Use geocoded data if available
+        // Only update the formatted address, keep the original precise coordinates
         if (geocodeResult.formattedAddress) {
           propertyData.location = geocodeResult.formattedAddress;
         }
-        if (geocodeResult.coordinates) {
-          propertyData.coordinates = geocodeResult.coordinates;
-          propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${geocodeResult.coordinates.lat},${geocodeResult.coordinates.lng}`;
-        }
-        console.log('[Scraper] Geocoded location:', propertyData.location);
-      } else if (propertyData.coordinates) {
+        // DO NOT overwrite coordinates - keep the precise ones from scraping
+        propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
+        console.log('[Scraper] Enhanced address:', propertyData.location, 'Kept precise coordinates:', propertyData.coordinates);
+      } else {
         // If geocoding failed but we have coordinates, still create maps URL
         propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
       }
+    } else {
+      // No coordinates found - log warning but don't geocode location string
+      // Geocoding location strings gives city-level coordinates which is not precise
+      console.warn('[Scraper] No precise coordinates found for property. Location:', propertyData.location);
+      console.warn('[Scraper] Skipping geocoding to avoid assigning city-level coordinates. Property needs precise coordinates from source.');
     }
 
     // Normalize all image URLs to ensure they're absolute
@@ -1092,15 +1099,27 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   const mapIframe = $('iframe[src*="google.com/maps"], iframe[src*="maps.google"]').first();
   if (mapIframe.length) {
     const mapSrc = mapIframe.attr('src') || '';
-    const coordMatch = mapSrc.match(/[?&]q=([+-]?\d+\.\d+),([+-]?\d+\.\d+)/) || 
-                      mapSrc.match(/@([+-]?\d+\.\d+),([+-]?\d+\.\d+)/);
-    if (coordMatch) {
-      propertyData.coordinates = {
-        lat: parseFloat(coordMatch[1]),
-        lng: parseFloat(coordMatch[2]),
-      };
+    const coords = extractCoordinatesFromGoogleMapsUrl(mapSrc);
+    if (coords) {
+      propertyData.coordinates = coords;
       propertyData.googleMapsUrl = mapSrc;
     }
+  }
+
+  // Also check for Google Maps links (not just iframes)
+  if (!propertyData.coordinates) {
+    const mapLinks = $('a[href*="google.com/maps"], a[href*="maps.google"]');
+    mapLinks.each((_, el) => {
+      const href = $(el).attr('href');
+      if (href) {
+        const coords = extractCoordinatesFromGoogleMapsUrl(href);
+        if (coords) {
+          propertyData.coordinates = coords;
+          propertyData.googleMapsUrl = href;
+          return false; // Break the loop
+        }
+      }
+    });
   }
 
   // Check for data attributes with coordinates

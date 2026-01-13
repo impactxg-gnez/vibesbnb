@@ -35,6 +35,7 @@ interface Property {
   status: 'active' | 'draft' | 'inactive';
   wellnessFriendly: boolean;
   googleMapsUrl?: string;
+  sourceUrl?: string;
   coordinates?: {
     lat: number;
     lng: number;
@@ -236,6 +237,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                 status: (p.status || 'active') as 'active' | 'draft' | 'inactive',
                 wellnessFriendly: p.wellness_friendly || false,
                 googleMapsUrl: p.google_maps_url,
+                sourceUrl: p.source_url,
                 coordinates: p.latitude && p.longitude ? {
                   lat: p.latitude,
                   lng: p.longitude,
@@ -284,6 +286,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     status: (localProp.status || 'draft') as 'active' | 'draft' | 'inactive',
                     wellnessFriendly: localProp.wellnessFriendly || false,
                     googleMapsUrl: localProp.googleMapsUrl,
+                    sourceUrl: localProp.sourceUrl,
                     coordinates: localProp.coordinates,
                   });
                   console.log('[Properties] Added property from localStorage backup:', localProp.id);
@@ -644,6 +647,69 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       setSelectedProperties([]);
     } else {
       setSelectedProperties(properties.map((p) => p.id));
+    }
+  };
+
+  const handleReScrapeCoordinates = async () => {
+    if (selectedProperties.length === 0) {
+      toast.error('Please select at least one property');
+      return;
+    }
+
+    // Check if selected properties have source URLs
+    const propertiesToScrape = properties.filter(p => 
+      selectedProperties.includes(p.id) && p.sourceUrl
+    );
+
+    if (propertiesToScrape.length === 0) {
+      toast.error('Selected properties do not have source URLs. Cannot re-scrape coordinates.');
+      return;
+    }
+
+    if (propertiesToScrape.length < selectedProperties.length) {
+      const missingCount = selectedProperties.length - propertiesToScrape.length;
+      toast.warning(`${missingCount} selected property(ies) don't have source URLs and will be skipped.`);
+    }
+
+    setReScraping(true);
+    try {
+      const response = await fetch('/api/properties/re-scrape-coordinates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyIds: propertiesToScrape.map(p => p.id),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to re-scrape coordinates');
+      }
+
+      const data = await response.json();
+
+      if (data.summary.successful > 0) {
+        toast.success(
+          `Successfully updated coordinates for ${data.summary.successful} property(ies)`
+        );
+      }
+
+      if (data.errors && data.errors.length > 0) {
+        data.errors.forEach((error: any) => {
+          toast.error(`${error.propertyName}: ${error.error}`);
+        });
+      }
+
+      // Reload properties to show updated coordinates
+      await loadProperties();
+      setSelectedProperties([]);
+    } catch (error: any) {
+      console.error('[Re-scrape Coordinates] Error:', error);
+      toast.error(error.message || 'Failed to re-scrape coordinates');
+    } finally {
+      setReScraping(false);
     }
   };
 
@@ -1177,6 +1243,23 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   className="px-3 py-2 text-sm text-gray-400 hover:text-white transition"
                 >
                   Clear
+                </button>
+                <button
+                  onClick={handleReScrapeCoordinates}
+                  disabled={reScraping}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reScraping ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Re-scraping...
+                    </>
+                  ) : (
+                    <>
+                      <Map size={16} />
+                      Re-scrape Coordinates
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={handleBulkDelete}

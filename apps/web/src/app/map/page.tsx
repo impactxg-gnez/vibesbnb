@@ -171,6 +171,50 @@ export default function MapPage() {
           );
         }
 
+        // Debug: Check Miami properties specifically
+        const miamiProperties = transformedListings.filter(l => 
+          l.location && l.location.toLowerCase().includes('miami')
+        );
+        if (miamiProperties.length > 0) {
+          console.log('[Map] Miami Properties Analysis:', {
+            total: miamiProperties.length,
+            properties: miamiProperties.map(p => ({
+              id: p.id,
+              name: p.name,
+              location: p.location,
+              coordinates: p.coordinates,
+              hasCoords: !!p.coordinates,
+            })),
+            uniqueCoordinates: Array.from(new Set(
+              miamiProperties
+                .filter(p => p.coordinates)
+                .map(p => `${p.coordinates!.lat.toFixed(6)},${p.coordinates!.lng.toFixed(6)}`)
+            )),
+            coordinateGroups: (() => {
+              const groups: { [key: string]: number } = {};
+              miamiProperties.forEach(p => {
+                if (p.coordinates) {
+                  const key = `${p.coordinates.lat.toFixed(6)},${p.coordinates.lng.toFixed(6)}`;
+                  groups[key] = (groups[key] || 0) + 1;
+                }
+              });
+              return groups;
+            })(),
+            rawMiamiData: propertiesData
+              .filter((p: any) => p.location && p.location.toLowerCase().includes('miami'))
+              .map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                location: p.location,
+                coordinates: p.coordinates,
+                latitude: p.latitude,
+                longitude: p.longitude,
+                lat: p.lat,
+                lng: p.lng,
+              })),
+          });
+        }
+
         setListings(transformedListings);
         setListingsWithCoords(withCoords);
       } catch (error) {

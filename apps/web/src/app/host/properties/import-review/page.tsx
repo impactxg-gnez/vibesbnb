@@ -419,6 +419,7 @@ export default function ImportReviewPage() {
             google_maps_url: formData.googleMapsUrl,
             latitude: formData.coordinates?.lat,
             longitude: formData.coordinates?.lng,
+            source_url: typeof window !== 'undefined' ? sessionStorage.getItem('importedPropertyUrl') || null : null,
           })
           .select()
           .single();

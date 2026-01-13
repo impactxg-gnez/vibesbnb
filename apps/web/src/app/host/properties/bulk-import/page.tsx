@@ -170,6 +170,7 @@ export default function BulkImportPage() {
           smokeFriendly: false,
           googleMapsUrl: scrapedData.googleMapsUrl,
           coordinates: scrapedData.coordinates,
+          sourceUrl: url, // Store the original import URL
           status: 'draft', // Always save as draft so host can review
         };
         
@@ -229,6 +230,7 @@ export default function BulkImportPage() {
           google_maps_url: data.googleMapsUrl,
           latitude: data.coordinates?.lat,
           longitude: data.coordinates?.lng,
+          source_url: data.sourceUrl || null,
         }));
 
         const { error: insertError } = await supabase

@@ -190,6 +190,38 @@ export default function SearchPage() {
           coords: listingsWithCoords.map(l => ({ id: l.id, coords: l.coordinates })),
         });
 
+        // Debug: Check Miami properties specifically
+        const miamiProperties = filteredListings.filter(l => 
+          l.location && l.location.toLowerCase().includes('miami')
+        );
+        if (miamiProperties.length > 0) {
+          console.log('[Search] Miami Properties Analysis:', {
+            total: miamiProperties.length,
+            properties: miamiProperties.map(p => ({
+              id: p.id,
+              name: p.name,
+              location: p.location,
+              coordinates: p.coordinates,
+              hasCoords: !!p.coordinates,
+            })),
+            uniqueCoordinates: Array.from(new Set(
+              miamiProperties
+                .filter(p => p.coordinates)
+                .map(p => `${p.coordinates!.lat.toFixed(6)},${p.coordinates!.lng.toFixed(6)}`)
+            )),
+            coordinateGroups: (() => {
+              const groups: { [key: string]: number } = {};
+              miamiProperties.forEach(p => {
+                if (p.coordinates) {
+                  const key = `${p.coordinates.lat.toFixed(6)},${p.coordinates.lng.toFixed(6)}`;
+                  groups[key] = (groups[key] || 0) + 1;
+                }
+              });
+              return groups;
+            })(),
+          });
+        }
+
         setListings(filteredListings);
       } catch (error) {
         console.error('Error loading properties:', error);

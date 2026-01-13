@@ -1,4 +1,5 @@
 import type { Browser as PuppeteerCoreBrowser, Page } from 'puppeteer-core';
+import { extractCoordinatesFromGoogleMapsUrl } from './google-maps-utils';
 
 interface ScrapedPropertyData {
   name: string;
@@ -639,20 +640,22 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
       });
 
       // Extract map coordinates
-      let coordinates: { lat: number; lng: number } | null = null;
       let googleMapsUrl: string | undefined = undefined;
 
       // Check for Google Maps iframe
       const mapIframe = document.querySelector('iframe[src*="google.com/maps"], iframe[src*="maps.google"]') as HTMLIFrameElement;
       if (mapIframe && mapIframe.src) {
-        const coordMatch = mapIframe.src.match(/[?&]q=([+-]?\d+\.\d+),([+-]?\d+\.\d+)/) || 
-                          mapIframe.src.match(/@([+-]?\d+\.\d+),([+-]?\d+\.\d+)/);
-        if (coordMatch) {
-          coordinates = {
-            lat: parseFloat(coordMatch[1]),
-            lng: parseFloat(coordMatch[2]),
-          };
-          googleMapsUrl = mapIframe.src;
+        googleMapsUrl = mapIframe.src;
+      }
+
+      // Also check for Google Maps links (not just iframes)
+      if (!googleMapsUrl) {
+        const mapLinks = Array.from(document.querySelectorAll('a[href*="google.com/maps"], a[href*="maps.google"]')) as HTMLAnchorElement[];
+        for (const link of mapLinks) {
+          if (link.href) {
+            googleMapsUrl = link.href;
+            break; // Use the first valid one
+          }
         }
       }
 
@@ -757,13 +760,22 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
 
     const result = data as ScrapedPropertyData;
     
+    // Extract coordinates from Google Maps URL using utility function (outside evaluate context)
+    if (result.googleMapsUrl) {
+      const coords = extractCoordinatesFromGoogleMapsUrl(result.googleMapsUrl);
+      if (coords) {
+        result.coordinates = coords;
+        console.log(`[Puppeteer Esca] Extracted coordinates from Google Maps URL: ${coords.lat}, ${coords.lng}`);
+      }
+    }
+    
     // Ensure we have at least one image
     if (result.images.length === 0) {
       console.warn(`[Puppeteer Esca] No images found for ${url}, adding placeholder`);
       result.images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
     }
     
-    console.log(`[Puppeteer Esca] Extracted: ${result.images.length} images, ${result.amenities.length} amenities`);
+    console.log(`[Puppeteer Esca] Extracted: ${result.images.length} images, ${result.amenities.length} amenities, Coordinates: ${result.coordinates ? `${result.coordinates.lat}, ${result.coordinates.lng}` : 'none'}`);
     
     return result;
   } finally {
