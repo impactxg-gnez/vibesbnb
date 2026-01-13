@@ -668,7 +668,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
 
     if (propertiesToScrape.length < selectedProperties.length) {
       const missingCount = selectedProperties.length - propertiesToScrape.length;
-      toast.warning(`${missingCount} selected property(ies) don't have source URLs and will be skipped.`);
+      toast(`${missingCount} selected property(ies) don't have source URLs and will be skipped.`, {
+        icon: '⚠️',
+        duration: 4000,
+      });
     }
 
     setReScraping(true);
