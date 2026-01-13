@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 export function Hero() {
   // Hero background image URL from Supabase Storage
@@ -17,7 +18,7 @@ export function Hero() {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-surface-dark/40 via-transparent to-surface-dark" />
       
-      <div className="relative container mx-auto px-6 h-full flex flex-col justify-center">
+      <div className="relative container mx-auto px-6 h-full flex flex-col justify-center pb-20 sm:pb-12 md:pb-0">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -57,14 +58,20 @@ export function Hero() {
             </button>
           </div>
 
-          <div className="mt-12 flex items-center gap-6">
-            <button className="bg-primary-500 text-black px-8 py-4 rounded-full font-bold flex items-center gap-3 hover:bg-primary-400 transition-all shadow-[0_0_30px_rgba(0,230,118,0.3)] group">
+          <div className="mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 relative z-40">
+            <Link 
+              href="/search"
+              className="bg-primary-500 text-black px-6 sm:px-8 py-4 rounded-full font-bold flex items-center justify-center gap-3 hover:bg-primary-400 transition-all shadow-[0_0_30px_rgba(0,230,118,0.3)] group"
+            >
               <span className="text-xl group-hover:rotate-12 transition-transform">🌐</span>
               Explore Properties
-            </button>
-            <button className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 text-white px-8 py-4 rounded-full font-bold transition-all">
+            </Link>
+            <Link 
+              href="/host"
+              className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 text-white px-6 sm:px-8 py-4 rounded-full font-bold transition-all text-center"
+            >
               Become a Host
-            </button>
+            </Link>
           </div>
         </motion.div>
       </div>

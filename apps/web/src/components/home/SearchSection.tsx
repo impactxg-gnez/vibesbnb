@@ -145,7 +145,7 @@ export function SearchSection() {
   );
 
   return (
-    <div className="container mx-auto px-6 -mt-20 relative z-30 pb-20">
+    <div className="container mx-auto px-6 -mt-10 sm:-mt-16 md:-mt-20 relative z-30 pb-20">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
