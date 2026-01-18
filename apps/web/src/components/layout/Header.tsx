@@ -113,26 +113,38 @@ export function Header() {
           {/* Centered Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <Link href="/search?category=Mountain" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <span className="text-lg">△</span> Mountain
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              Mountain
             </Link>
             <Link href="/search?category=Beach" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <span>🌊</span> Beach
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </svg>
+              Beach
             </Link>
             <Link href="/search?category=Forest" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <span>🌲</span> Forest
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              Forest
             </Link>
           </nav>
 
           {/* Right Side */}
           <div className="flex items-center space-x-6">
-            <button className="text-muted hover:text-white transition-colors">
-              <span className="text-lg">△</span> 
+            <button className="text-muted hover:text-white transition-colors flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span className="font-medium text-sm">Save</span>
             </button>
-            <button className="text-muted hover:text-white transition-colors">
-               <span className="font-medium text-sm">Save</span>
-            </button>
-             <button className="text-muted hover:text-white transition-colors text-sm font-medium">
-               Calendar
+             <button className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Calendar
             </button>
             <button className="w-8 h-8 flex items-center justify-center text-muted hover:text-white transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -227,16 +239,22 @@ export function Header() {
                               {hasHostRole ? (
                                 <button
                                   onClick={switchToHost}
-                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800 flex items-center gap-2"
                                 >
-                                  🏠 Switch to Host
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                  </svg>
+                                  Switch to Host
                                 </button>
                               ) : (
                                 <button
                                   onClick={registerAsHost}
-                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800 flex items-center gap-2"
                                 >
-                                  🏠 Register as a Host
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                  </svg>
+                                  Register as a Host
                                 </button>
                               )}
                             </>
@@ -245,9 +263,12 @@ export function Header() {
                           {isHost && (
                             <button
                               onClick={switchToTraveler}
-                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800"
+                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800 flex items-center gap-2"
                             >
-                              🌍 Switch to Traveler Mode
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Switch to Traveler Mode
                             </button>
                           )}
                           <div className="border-t border-gray-800 my-1"></div>
