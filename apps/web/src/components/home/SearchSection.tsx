@@ -27,6 +27,7 @@ export function SearchSection() {
   const [guests, setGuests] = useState(1);
   const [kids, setKids] = useState(0);
   const [pets, setPets] = useState(0);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -168,8 +169,6 @@ export function SearchSection() {
     loc.toLowerCase().includes(selectedLocation.toLowerCase())
   );
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
   return (
     <div className="container mx-auto px-3 md:px-6 -mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20 relative z-30 pb-12 md:pb-20">
       <motion.div
@@ -197,10 +196,11 @@ export function SearchSection() {
         </div>
         
         {!isCollapsed && (
-        <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
-        
-        {/* Search Inputs */}
-        <div className="relative space-y-8">
+          <>
+            <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
+            
+            {/* Search Inputs */}
+            <div className="relative space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">
             {/* Where to? - Location Input */}
             <div className="space-y-3" ref={locationDropdownRef}>
@@ -468,7 +468,7 @@ export function SearchSection() {
               </button>
             ))}
           </div>
-        </div>
+          </>
         )}
       </motion.div>
     </div>
