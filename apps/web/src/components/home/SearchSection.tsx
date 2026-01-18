@@ -168,14 +168,35 @@ export function SearchSection() {
     loc.toLowerCase().includes(selectedLocation.toLowerCase())
   );
 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
-    <div className="container mx-auto px-6 -mt-10 sm:-mt-16 md:-mt-20 relative z-30 pb-20">
+    <div className="container mx-auto px-3 md:px-6 -mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20 relative z-30 pb-12 md:pb-20">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2.5rem] p-10 border border-white/5 relative overflow-hidden"
+        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative overflow-hidden"
       >
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white">Find Your Perfect Stay</h2>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-white hover:text-primary-500 transition-colors p-2"
+            aria-label={isCollapsed ? 'Expand search' : 'Collapse search'}
+          >
+            <svg 
+              className={`w-5 h-5 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+        
+        {!isCollapsed && (
         <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
         
         {/* Search Inputs */}
@@ -448,6 +469,7 @@ export function SearchSection() {
             ))}
           </div>
         </div>
+        )}
       </motion.div>
     </div>
   );

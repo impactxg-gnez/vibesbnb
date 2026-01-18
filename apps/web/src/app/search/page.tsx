@@ -1,12 +1,39 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { SearchBar } from '@/components/search/SearchBar';
 import PropertiesMap from '@/components/PropertiesMap';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+
+function CollapsibleSearchSection() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  return (
+    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-white/20">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h1 className="text-xl md:text-3xl font-bold text-white">Find Your Perfect Stay</h1>
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="text-white hover:text-primary-500 transition-colors p-2"
+          aria-label={isCollapsed ? 'Expand search' : 'Collapse search'}
+        >
+          <svg 
+            className={`w-5 h-5 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+      {!isCollapsed && <SearchBar />}
+    </div>
+  );
+}
 
 interface Listing {
   id: string;
@@ -26,8 +53,12 @@ interface Listing {
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showGuestPicker, setShowGuestPicker] = useState(false);
+  const [sortBy, setSortBy] = useState('Price: High to Low');
 
   useEffect(() => {
     const loadAndFilterProperties = async () => {
@@ -182,6 +213,22 @@ export default function SearchPage() {
           });
         }
 
+        // Sort listings
+        const sortParam = searchParams.get('sort') || 'high-low';
+        if (sortParam === 'low-high') {
+          filteredListings.sort((a, b) => a.price - b.price);
+          setSortBy('Price: Low to High');
+        } else if (sortParam === 'high-low') {
+          filteredListings.sort((a, b) => b.price - a.price);
+          setSortBy('Price: High to Low');
+        } else if (sortParam === 'recent') {
+          filteredListings.sort((a, b) => {
+            // Sort by ID or creation date if available
+            return b.id.localeCompare(a.id);
+          });
+          setSortBy('Most Recent');
+        }
+
         // Debug: Log how many listings have coordinates
         const listingsWithCoords = filteredListings.filter(l => l.coordinates);
         console.log('[Search] Listings with coordinates:', {
@@ -236,35 +283,151 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="bg-emerald-600 py-8">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-white mb-6">Find Your Perfect Stay</h1>
-          <SearchBar />
+      <div className="bg-emerald-600 py-4 md:py-8">
+        <div className="container mx-auto px-3 md:px-4">
+          <CollapsibleSearchSection />
         </div>
       </div>
 
-      <div className="px-6 py-8">
-        <div className="flex gap-8">
+      <div className="px-3 md:px-6 py-4 md:py-8">
+        <div className="flex gap-4 md:gap-8">
           {/* Listings Column */}
           <div className="flex-1">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-bold text-white">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
+              <h2 className="text-lg md:text-2xl font-bold text-white">
                 {loading ? 'Searching...' : `${listings.length} stays in ${searchParams.get('location') || 'all locations'}`}
               </h2>
-              <div className="flex items-center gap-4">
-                <button className="flex items-center gap-2 px-4 py-2 bg-surface border border-white/10 rounded-full text-sm hover:bg-surface-light transition-all">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Dates
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-surface border border-white/10 rounded-full text-sm hover:bg-surface-light transition-all">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Guests
-                </button>
-                <select className="px-4 py-2 bg-surface border border-white/10 text-white rounded-full text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all">
+              <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+                <div className="relative">
+                  <button 
+                    onClick={() => {
+                      setShowDatePicker(!showDatePicker);
+                      setShowGuestPicker(false);
+                    }}
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-surface border border-white/10 rounded-full text-sm hover:bg-surface-light transition-all"
+                  >
+                    <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Dates</span>
+                  </button>
+                  {showDatePicker && (
+                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 min-w-[280px]">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-2">Check In</label>
+                          <input
+                            type="date"
+                            value={searchParams.get('checkIn') || ''}
+                            onChange={(e) => {
+                              const params = new URLSearchParams(searchParams.toString());
+                              if (e.target.value) params.set('checkIn', e.target.value);
+                              else params.delete('checkIn');
+                              router.push(`/search?${params.toString()}`);
+                            }}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-2">Check Out</label>
+                          <input
+                            type="date"
+                            value={searchParams.get('checkOut') || ''}
+                            onChange={(e) => {
+                              const params = new URLSearchParams(searchParams.toString());
+                              if (e.target.value) params.set('checkOut', e.target.value);
+                              else params.delete('checkOut');
+                              router.push(`/search?${params.toString()}`);
+                            }}
+                            min={searchParams.get('checkIn') || new Date().toISOString().split('T')[0]}
+                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowDatePicker(false)}
+                        className="mt-4 w-full px-4 py-2 bg-primary-500 text-black rounded-lg font-semibold hover:bg-primary-400 transition"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button 
+                    onClick={() => {
+                      setShowGuestPicker(!showGuestPicker);
+                      setShowDatePicker(false);
+                    }}
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-surface border border-white/10 rounded-full text-sm hover:bg-surface-light transition-all"
+                  >
+                    <svg className="w-3 h-3 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="hidden sm:inline">Guests</span>
+                  </button>
+                  {showGuestPicker && (
+                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 min-w-[240px]">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-white text-sm font-semibold">Adults</span>
+                            <p className="text-gray-400 text-xs">Ages 13+</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => {
+                                const currentGuests = parseInt(searchParams.get('guests') || '1');
+                                if (currentGuests > 1) {
+                                  const params = new URLSearchParams(searchParams.toString());
+                                  params.set('guests', (currentGuests - 1).toString());
+                                  router.push(`/search?${params.toString()}`);
+                                }
+                              }}
+                              className="w-8 h-8 rounded-lg border border-white/10 text-white hover:bg-white/10 flex items-center justify-center"
+                            >
+                              −
+                            </button>
+                            <span className="text-white font-semibold w-6 text-center">{searchParams.get('guests') || '1'}</span>
+                            <button
+                              onClick={() => {
+                                const currentGuests = parseInt(searchParams.get('guests') || '1');
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set('guests', (currentGuests + 1).toString());
+                                router.push(`/search?${params.toString()}`);
+                              }}
+                              className="w-8 h-8 rounded-lg border border-white/10 text-white hover:bg-white/10 flex items-center justify-center"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowGuestPicker(false)}
+                        className="mt-4 w-full px-4 py-2 bg-primary-500 text-black rounded-lg font-semibold hover:bg-primary-400 transition"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <select 
+                  value={sortBy}
+                  onChange={(e) => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    if (e.target.value === 'Price: Low to High') {
+                      params.set('sort', 'low-high');
+                    } else if (e.target.value === 'Price: High to Low') {
+                      params.set('sort', 'high-low');
+                    } else {
+                      params.set('sort', 'recent');
+                    }
+                    router.push(`/search?${params.toString()}`);
+                  }}
+                  className="px-3 md:px-4 py-2 bg-surface border border-white/10 text-white rounded-full text-xs md:text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                >
                   <option>Price: Low to High</option>
                   <option>Price: High to Low</option>
                   <option>Most Recent</option>
@@ -358,7 +521,7 @@ export default function SearchPage() {
           </div>
 
           {/* Map Column */}
-          <div className="hidden lg:block w-[450px] sticky top-[100px] h-[calc(100vh-140px)]">
+          <div className="hidden lg:block w-[360px] md:w-[450px] sticky top-[100px] h-[calc(100vh-140px)]">
             <PropertiesMap properties={listings} className="w-full h-full rounded-3xl border border-white/10 shadow-2xl" />
           </div>
         </div>
