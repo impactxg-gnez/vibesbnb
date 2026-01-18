@@ -201,7 +201,7 @@ export function SearchSection() {
             
             {/* Search Inputs */}
             <div className="relative space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">
             {/* Where to? - Location Input */}
             <div className="space-y-3" ref={locationDropdownRef}>
               <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Location</label>
@@ -448,10 +448,11 @@ export function SearchSection() {
                 <span className="font-bold">Search</span>
                </div>
             </button>
-          </div>
+              </div>
+            </div>
 
-          {/* Category Filters */}
-          <div className="flex flex-wrap gap-4 pt-4">
+            {/* Category Filters */}
+            <div className="flex flex-wrap gap-4 pt-4">
              <span className="text-sm font-bold text-muted uppercase tracking-widest self-center mr-2">Quick Vibes:</span>
             {categories.map((category) => (
               <button
