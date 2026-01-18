@@ -17,20 +17,20 @@ export function Footer() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-surface-dark/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden pb-safe">
-      <div className="flex items-center justify-around px-2 h-20">
+      <div className="grid grid-cols-5 h-20">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.id}
               href={item.href}
-              className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors ${isActive ? 'text-primary-500' : 'text-muted hover:text-white'
+              className={`relative flex flex-col items-center justify-center w-full h-full transition-colors ${isActive ? 'text-primary-500' : 'text-muted hover:text-white'
                 }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute -top-px left-1/2 -translate-x-1/2 w-12 h-1 bg-primary-500 rounded-full shadow-[0_0_20px_rgba(0,230,118,0.5)]"
+                  className="absolute -top-px inset-x-0 mx-auto w-12 h-1 bg-primary-500 rounded-full shadow-[0_0_20px_rgba(0,230,118,0.5)]"
                 />
               )}
               <div className={`flex flex-col items-center justify-center transition-transform duration-300 ${isActive ? 'scale-110' : 'scale-100'}`}>
