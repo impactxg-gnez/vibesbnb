@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { scrapeWithPuppeteer } from '@/lib/scraper-puppeteer';
-import { extractCoordinatesFromGoogleMapsUrl } from '@/lib/google-maps-utils';
+import { extractCoordinatesFromGoogleMapsUrl, searchPlaceByNameAndLocation } from '@/lib/google-maps-utils';
 
 // Force Node.js runtime (not Edge) to support cheerio and puppeteer
 export const runtime = 'nodejs';
@@ -41,7 +41,7 @@ async function geocodeLocation(
   coordinates?: { lat: number; lng: number };
 } | null> {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
-  
+
   if (!apiKey) {
     console.log('[Geocoding] No Google Maps API key found, skipping geocoding');
     return null;
@@ -49,7 +49,7 @@ async function geocodeLocation(
 
   try {
     let url = '';
-    
+
     if (coordinates) {
       // Reverse geocoding: coordinates -> address
       url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinates.lat},${coordinates.lng}&key=${apiKey}`;
@@ -83,7 +83,7 @@ async function geocodeLocation(
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     const { url, usePuppeteer } = await request.json();
 
@@ -127,45 +127,47 @@ export async function POST(request: NextRequest) {
       hasCoordinates: !!propertyData.coordinates,
       coordinates: propertyData.coordinates,
     });
-    
-    // Only geocode if we have coordinates (reverse geocode to get better address)
-    // DO NOT geocode location strings to get coordinates - this gives city-level coordinates
-    // which causes all properties in the same city to have identical coordinates
-    if (propertyData.coordinates) {
-      console.log('[Scraper] Reverse geocoding coordinates to enhance address...');
-      const geocodeResult = await geocodeLocation(
-        propertyData.location,
-        propertyData.coordinates
-      );
 
-      if (geocodeResult) {
-        // Only update the formatted address, keep the original precise coordinates
-        if (geocodeResult.formattedAddress) {
-          propertyData.location = geocodeResult.formattedAddress;
-        }
-        // DO NOT overwrite coordinates - keep the precise ones from scraping
-        propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
-        console.log('[Scraper] Enhanced address:', propertyData.location, 'Kept precise coordinates:', propertyData.coordinates);
-      } else {
-        // If geocoding failed but we have coordinates, still create maps URL
+    // Precise Location Refinement:
+    // If we only have city-level coordinates (or no coordinates), use Google Places Search
+    // with the property name + location to find the exact building.
+    if (!propertyData.coordinates || (propertyData.location && !propertyData.coordinates)) {
+      console.log('[Scraper] Attempting to find precise coordinates via Google Places Search...');
+      const preciseResult = await searchPlaceByNameAndLocation(propertyData.name, propertyData.location);
+
+      if (preciseResult) {
+        console.log('[Scraper] Found precise coordinates:', { lat: preciseResult.lat, lng: preciseResult.lng });
+        propertyData.coordinates = { lat: preciseResult.lat, lng: preciseResult.lng };
+        propertyData.googleMapsUrl = preciseResult.url;
+      } else if (propertyData.coordinates) {
+        // Fallback to what we already had if search fails
         propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
       }
-    } else {
-      // No coordinates found - log warning but don't geocode location string
-      // Geocoding location strings gives city-level coordinates which is not precise
-      console.warn('[Scraper] No precise coordinates found for property. Location:', propertyData.location);
-      console.warn('[Scraper] Skipping geocoding to avoid assigning city-level coordinates. Property needs precise coordinates from source.');
+    } else if (propertyData.coordinates) {
+      // We have coordinates, just ensure we have a URL
+      propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
+
+      // Still try to refine if they look like city-level coords (e.g. integer lat/lng or very few decimals)
+      const isLowPrecision = Math.abs(propertyData.coordinates.lat % 0.01) < 0.0001 && Math.abs(propertyData.coordinates.lng % 0.01) < 0.0001;
+      if (isLowPrecision) {
+        console.log('[Scraper] Current coordinates look low-precision, trying to refine...');
+        const preciseResult = await searchPlaceByNameAndLocation(propertyData.name, propertyData.location);
+        if (preciseResult) {
+          propertyData.coordinates = { lat: preciseResult.lat, lng: preciseResult.lng };
+          propertyData.googleMapsUrl = preciseResult.url;
+        }
+      }
     }
 
     // Normalize all image URLs to ensure they're absolute
     const normalizedImages = propertyData.images.map((imgUrl: string) => {
       if (!imgUrl || typeof imgUrl !== 'string') return null;
-      
+
       // If it's already a data URL or placeholder, return as-is
       if (imgUrl.startsWith('data:') || imgUrl.startsWith('https://via.placeholder.com')) {
         return imgUrl;
       }
-      
+
       // Try to make it an absolute URL
       try {
         // If it's already absolute, validate and return
@@ -196,8 +198,8 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
     console.log(`[Scraper] Completed in ${duration}ms - Images: ${propertyData.images.length} (${normalizedImages.length} normalized), Location: ${propertyData.location || 'NOT FOUND'}, Amenities: ${propertyData.amenities.length}`);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: propertyData,
       meta: {
         scrapingMethod: shouldUsePuppeteer ? 'puppeteer' : 'cheerio',
@@ -218,21 +220,21 @@ export async function POST(request: NextRequest) {
  * Cheerio-based scraping (fallback method)
  */
 async function scrapeWithCheerio(url: string, isAirbnb: boolean): Promise<ScrapedPropertyData> {
-    // Fetch the property page
-    const response = await fetch(url, {
-      headers: {
+  // Fetch the property page
+  const response = await fetch(url, {
+    headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
-      },
-    });
+    },
+  });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch property page');
-    }
+  if (!response.ok) {
+    throw new Error('Failed to fetch property page');
+  }
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
+  const html = await response.text();
+  const $ = cheerio.load(html);
 
   if (isAirbnb) {
     return await scrapeAirbnb($, html, url);
@@ -269,7 +271,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         const scriptContent = $(el).html();
         if (scriptContent) {
           const jsonData = JSON.parse(scriptContent);
-          
+
           // Look for listing data in various possible locations
           if (jsonData?.data?.presentation?.stayProductDetailPage) {
             listingData = jsonData.data.presentation.stayProductDetailPage;
@@ -287,7 +289,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
       $('script:not([src])').each((_, el) => {
         try {
           const scriptContent = $(el).html() || '';
-          
+
           // Look for window.__INITIAL_STATE__ or similar patterns
           const stateMatch = scriptContent.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});/);
           if (stateMatch) {
@@ -305,26 +307,26 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
     // Extract from structured data
     if (listingData) {
       // Extract title/name
-      propertyData.name = 
+      propertyData.name =
         listingData?.sections?.titleModule?.title ||
         listingData?.title ||
         listingData?.listing?.title ||
         '';
 
       // Extract description
-      propertyData.description = 
+      propertyData.description =
         listingData?.sections?.descriptionModule?.description ||
         listingData?.description ||
         listingData?.listing?.description ||
         '';
 
       // Extract location - try multiple paths
-      let location = listingData?.sections?.locationModule || 
-                     listingData?.location || 
-                     listingData?.listing?.location ||
-                     listingData?.listing?.publicAddress ||
-                     listingData?.publicAddress;
-      
+      let location = listingData?.sections?.locationModule ||
+        listingData?.location ||
+        listingData?.listing?.location ||
+        listingData?.listing?.publicAddress ||
+        listingData?.publicAddress;
+
       if (location) {
         // Try different location formats
         if (typeof location === 'string') {
@@ -342,10 +344,10 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           ].filter(Boolean);
           propertyData.location = parts.join(', ').trim();
         }
-        
+
         // Extract coordinates - try multiple paths
         let coords: { lat: number; lng: number } | null = null;
-        
+
         // Try direct lat/lng
         if (location.lat && location.lng) {
           coords = { lat: location.lat, lng: location.lng };
@@ -363,7 +365,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             }
           }
         }
-        
+
         // Try nested location objects
         if (!coords && location.geo) {
           const geo = location.geo;
@@ -373,7 +375,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             coords = { lat: geo.latitude, lng: geo.longitude };
           }
         }
-        
+
         // Try position object
         if (!coords && location.position) {
           const pos = location.position;
@@ -381,25 +383,25 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             coords = { lat: pos.lat, lng: pos.lng };
           }
         }
-        
+
         if (coords) {
           propertyData.coordinates = coords;
           propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
         }
       }
-      
+
       // Also try to find coordinates in other parts of the data structure
       if (!propertyData.coordinates) {
         const findCoords = (obj: any, depth = 0): { lat: number; lng: number } | null => {
           if (depth > 10 || !obj || typeof obj !== 'object') return null;
-          
+
           if (typeof obj.lat === 'number' && typeof obj.lng === 'number') {
             return { lat: obj.lat, lng: obj.lng };
           }
           if (typeof obj.latitude === 'number' && typeof obj.longitude === 'number') {
             return { lat: obj.latitude, lng: obj.longitude };
           }
-          
+
           // Check common keys
           for (const key of ['location', 'coordinates', 'geo', 'position', 'map']) {
             if (obj[key]) {
@@ -407,10 +409,10 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
               if (result) return result;
             }
           }
-          
+
           return null;
         };
-        
+
         const coords = findCoords(listingData);
         if (coords) {
           propertyData.coordinates = coords;
@@ -423,11 +425,11 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
       if (overview) {
         // Look for structured room data
         const roomDetails = overview?.listingDetails || overview?.details || [];
-        
+
         roomDetails.forEach((detail: any) => {
           const title = (detail.title || '').toLowerCase();
           const value = parseInt(detail.value || '0');
-          
+
           if (title.includes('guest')) propertyData.guests = value;
           if (title.includes('bedroom')) propertyData.bedrooms = value;
           if (title.includes('bed') && !title.includes('bedroom')) propertyData.beds = value;
@@ -437,7 +439,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
 
       // Extract images - try multiple paths and formats
       const photos: any[] = [];
-      
+
       // Try different paths in the data structure
       const photoSources = [
         listingData?.sections?.photoModule?.images,
@@ -450,7 +452,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         listingData?.media?.photos,
         listingData?.media?.images
       ].filter(Boolean);
-      
+
       // Collect all photos from all sources
       photoSources.forEach((source: any) => {
         if (Array.isArray(source)) {
@@ -464,10 +466,10 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           });
         }
       });
-      
+
       // Extract image URLs from photos
       const imageUrls = new Set<string>();
-      
+
       photos.forEach((photo: any) => {
         if (typeof photo === 'string') {
           if (isValidImageUrl(photo)) {
@@ -481,7 +483,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             'mediumPictureUrl', 'smallPictureUrl', 'thumbnailUrl',
             'originalUrl', 'highResUrl', 'fullUrl'
           ];
-          
+
           // Collect ALL image URLs from photo object, prioritizing higher quality
           const foundUrls: string[] = [];
           for (const prop of urlProperties) {
@@ -490,7 +492,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
               foundUrls.push(url);
             }
           }
-          
+
           // Add the highest quality image first, then others if different
           if (foundUrls.length > 0) {
             // Sort by quality (xxl > xl > large > others)
@@ -503,7 +505,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
               if (b.includes('large') && !a.includes('large')) return 1;
               return 0;
             });
-            
+
             // Add all unique URLs
             foundUrls.forEach(url => {
               if (!Array.from(imageUrls).some(existing => existing === url || existing.includes(url) || url.includes(existing))) {
@@ -511,7 +513,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
               }
             });
           }
-          
+
           // Also check nested objects
           if (photo.picture && typeof photo.picture === 'object') {
             for (const prop of urlProperties) {
@@ -525,11 +527,11 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           }
         }
       });
-      
+
       // Also try to find images in the entire data structure recursively
       const findImagesInObject = (obj: any, depth = 0): void => {
         if (depth > 15 || !obj || typeof obj !== 'object') return;
-        
+
         if (Array.isArray(obj)) {
           obj.forEach(item => {
             if (typeof item === 'string' && isValidImageUrl(item)) {
@@ -540,7 +542,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           });
           return;
         }
-        
+
         // Check for image-related keys
         const imageKeys = ['url', 'src', 'image', 'photo', 'picture', 'pictureUrl'];
         for (const key in obj) {
@@ -558,10 +560,10 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           }
         }
       };
-      
+
       // Search the entire listing data for images
       findImagesInObject(listingData);
-      
+
       // Convert to array and sort by quality
       propertyData.images = Array.from(imageUrls).sort((a, b) => {
         // Prefer higher quality images
@@ -573,14 +575,14 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         if (b.includes('large') && !a.includes('large')) return 1;
         return 0;
       });
-      
+
       console.log(`[Cheerio] Extracted ${propertyData.images.length} images from ${photos.length} photo objects`);
 
       // Extract amenities
-      const amenitiesData = listingData?.sections?.amenitiesModule?.seeAllAmenitiesGroups || 
-                           listingData?.listing?.amenities ||
-                           [];
-      
+      const amenitiesData = listingData?.sections?.amenitiesModule?.seeAllAmenitiesGroups ||
+        listingData?.listing?.amenities ||
+        [];
+
       const amenitiesSet = new Set<string>();
       amenitiesData.forEach((group: any) => {
         const items = group?.amenities || group?.items || [];
@@ -591,25 +593,25 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           }
         });
       });
-      
+
       propertyData.amenities = Array.from(amenitiesSet).filter(a => a);
     }
 
     // Fallback to meta tags and DOM parsing if JSON extraction failed
     if (!propertyData.name) {
-      propertyData.name = 
+      propertyData.name =
         $('h1').first().text().trim() ||
         $('meta[property="og:title"]').attr('content') ||
         $('title').text().split('·')[0].trim();
     }
 
     if (!propertyData.description) {
-      propertyData.description = 
+      propertyData.description =
         $('meta[property="og:description"]').attr('content') ||
         $('meta[name="description"]').attr('content') ||
         '';
     }
-    
+
     // Fallback location extraction if not found in JSON
     if (!propertyData.location) {
       // Try meta tags
@@ -619,7 +621,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
       if (ogLoc || ogRegion || ogCountry) {
         propertyData.location = [ogLoc, ogRegion, ogCountry].filter(Boolean).join(', ');
       }
-      
+
       // Try location section
       if (!propertyData.location) {
         const locationSection = $('[data-section-id="LOCATION_DEFAULT"]');
@@ -632,7 +634,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           }
         }
       }
-      
+
       // Try title parsing (e.g., "Rental unit in Colva")
       if (!propertyData.location) {
         const title = $('h1').first().text().trim();
@@ -642,7 +644,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         }
       }
     }
-    
+
     // Try to extract coordinates from JSON-LD if not found
     if (!propertyData.coordinates) {
       $('script[type="application/ld+json"]').each((_, el) => {
@@ -667,7 +669,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         }
       });
     }
-    
+
     // Try to extract coordinates from data attributes
     if (!propertyData.coordinates) {
       const mapEl = $('[data-lat], [data-latitude], [data-lng], [data-longitude]').first();
@@ -680,16 +682,16 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         }
       }
     }
-    
+
     // Try to extract coordinates from script tags with regex patterns
     if (!propertyData.coordinates) {
       let lat: number | null = null;
       let lng: number | null = null;
-      
+
       $('script:not([src])').each((_, el) => {
         const content = $(el).html() || '';
         if (content.length < 50) return;
-        
+
         // Try to parse as JSON first
         if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
           try {
@@ -720,14 +722,14 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             // Not valid JSON, continue with regex
           }
         }
-        
+
         // Try regex patterns
         const latMatch = content.match(/"lat(?:itude)?"\s*:\s*([-\d.]+)/i);
         const lngMatch = content.match(/"lng|lon(?:gitude)?"\s*:\s*([-\d.]+)/i);
-        
+
         if (latMatch && !lat) lat = parseFloat(latMatch[1]);
         if (lngMatch && !lng) lng = parseFloat(lngMatch[1]);
-        
+
         // Try array format [lat, lng]
         const arrayMatch = content.match(/\[([-\d.]+)\s*,\s*([-\d.]+)\]/);
         if (arrayMatch && !lat && !lng) {
@@ -743,12 +745,12 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
             }
           }
         }
-        
+
         if (lat !== null && lng !== null) {
           return false; // Break
         }
       });
-      
+
       if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
         propertyData.coordinates = { lat, lng };
         propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
@@ -758,9 +760,9 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
     // Try to extract room info from visible text if not found in JSON
     if (propertyData.guests === 0 || propertyData.bedrooms === 0) {
       const overviewText = $('[data-section-id="OVERVIEW_DEFAULT"]').text() ||
-                          $('._tqmy57').text() || 
-                          $('body').text();
-      
+        $('._tqmy57').text() ||
+        $('body').text();
+
       const guestMatch = overviewText.match(/(\d+)\s+guests?/i);
       const bedroomMatch = overviewText.match(/(\d+)\s+bedrooms?/i);
       const bedMatch = overviewText.match(/(\d+)\s+beds?(?!\s*room)/i);
@@ -775,7 +777,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
     // Extract images from meta tags if not found in JSON
     if (propertyData.images.length === 0) {
       const images = new Set<string>();
-      
+
       // Try meta tags
       $('meta[property="og:image"]').each((_, el) => {
         const src = $(el).attr('content');
@@ -783,7 +785,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           images.add(src);
         }
       });
-      
+
       // Try img tags
       $('img').each((_, el) => {
         const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-original-uri');
@@ -796,7 +798,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           }
         }
       });
-      
+
       // Try background images
       $('[style*="background-image"]').each((_, el) => {
         const style = $(el).attr('style') || '';
@@ -813,7 +815,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
           }
         }
       });
-      
+
       // Try data attributes
       $('[data-src], [data-image], [data-photo]').each((_, el) => {
         const src = $(el).attr('data-src') || $(el).attr('data-image') || $(el).attr('data-photo');
@@ -832,9 +834,9 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
 
     // Check for wellness/smoke-free mentions
     const fullText = html.toLowerCase();
-    if (fullText.includes('smoke-free') || 
-        fullText.includes('no smoking') || 
-        fullText.includes('non-smoking')) {
+    if (fullText.includes('smoke-free') ||
+      fullText.includes('no smoking') ||
+      fullText.includes('non-smoking')) {
       propertyData.wellnessFriendly = true;
     }
 
@@ -861,11 +863,11 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   };
 
   // Extract property name
-  let rawName = 
+  let rawName =
     $('h1').first().text().trim() ||
     $('meta[property="og:title"]').attr('content') ||
     $('title').text().split('|')[0].trim();
-  
+
   // Remove "Property Listing" prefix if present
   propertyData.name = rawName
     .replace(/^Property\s+Listing[_\s-]*/i, '')
@@ -874,14 +876,14 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
   // Extract location - try multiple methods
   let location = '';
-  
+
   // Method 1: Look for common Florida city patterns
   const locationText = $('body').text();
   const locationMatch = locationText.match(/(Ft\s+Lauderdale|Fort\s+Lauderdale|Miami|Tampa|Orlando|Jacksonville|Naples|Sarasota|Key\s+West|West\s+Palm\s+Beach)[,\s]+(Florida|FL|USA)/i);
   if (locationMatch) {
     location = locationMatch[0].trim();
   }
-  
+
   // Method 2: Look for address patterns (City, State or City, State, Country)
   if (!location) {
     const addressMatch = locationText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)(?:,\s*(USA|United\s+States))?/i);
@@ -889,15 +891,15 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
       location = addressMatch[0].trim();
     }
   }
-  
+
   // Method 3: Look for location in common selectors
   if (!location) {
-    location = 
+    location =
       $('.location, .address, [class*="location"], [class*="address"]').first().text().trim() ||
       $('[itemprop="address"]').text().trim() ||
       $('p:contains("Florida"), p:contains("FL")').first().text().trim() ||
       '';
-    
+
     // Clean up location text (remove extra whitespace, limit length)
     if (location) {
       location = location.replace(/\s+/g, ' ').trim();
@@ -913,7 +915,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
       }
     }
   }
-  
+
   // Method 4: Try to extract from property name (e.g., "The Netflix House – Fort Lauderdale")
   if (!location && propertyData.name) {
     const nameLocationMatch = propertyData.name.match(/[–-]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*(FL|Florida)/i);
@@ -921,21 +923,21 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
       location = nameLocationMatch[0].replace(/^[–-]\s*/, '').trim();
     }
   }
-  
+
   propertyData.location = location || 'Location not found';
 
   // Extract full description - combine all paragraph text from the description section
   let descriptionParts: string[] = [];
-  
+
   // Look for description paragraphs - typically after the property name
   $('p').each((_, el) => {
     const text = $(el).text().trim();
     // Skip short paragraphs (likely navigation or metadata)
-    if (text.length > 50 && 
-        !text.includes('Skip to') && 
-        !text.includes('Book Now') &&
-        !text.includes('Sign Up') &&
-        !text.includes('Copyright')) {
+    if (text.length > 50 &&
+      !text.includes('Skip to') &&
+      !text.includes('Book Now') &&
+      !text.includes('Sign Up') &&
+      !text.includes('Copyright')) {
       descriptionParts.push(text);
     }
   });
@@ -951,7 +953,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
   // If description is still empty, try meta tags
   if (!propertyData.description) {
-    propertyData.description = 
+    propertyData.description =
       $('meta[property="og:description"]').attr('content') ||
       $('meta[name="description"]').attr('content') ||
       '';
@@ -959,7 +961,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
   // Extract property details from text
   const bodyText = $('body').text();
-  
+
   // Extract guests (e.g., "10 Guests")
   const guestMatch = bodyText.match(/(\d+)\s+Guests?/i);
   if (guestMatch) propertyData.guests = parseInt(guestMatch[1]);
@@ -984,7 +986,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
   // Extract amenities - look for the amenities section
   const amenitiesSet = new Set<string>();
-  
+
   // Try to find amenities in a list or grid
   $('li, .amenity, [class*="amenity"]').each((_, el) => {
     const text = $(el).text().trim();
@@ -1014,7 +1016,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
   // Extract images
   const images = new Set<string>();
-  
+
   // Extract from meta tags
   $('meta[property="og:image"]').each((_, el) => {
     const src = $(el).attr('content');
@@ -1054,7 +1056,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   });
 
   propertyData.images = Array.from(images);
-  
+
   // Ensure we have at least one image - try additional sources if needed
   if (propertyData.images.length === 0) {
     // Try to find images in gallery or carousel elements
@@ -1070,7 +1072,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
         }
       }
     });
-    
+
     // If still no images, try to get the first large image from the page
     if (propertyData.images.length === 0) {
       $('img').each((_, el) => {
@@ -1086,7 +1088,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
         }
       });
     }
-    
+
     // Final fallback: if still no images, add a placeholder
     if (propertyData.images.length === 0) {
       console.warn(`[Scraper] No images found for ${url}, adding placeholder`);
@@ -1155,58 +1157,58 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
 async function scrapeGeneric($: cheerio.CheerioAPI, url: string): Promise<ScrapedPropertyData> {
   const propertyData: ScrapedPropertyData = {
-      name: '',
-      description: '',
-      location: '',
-      bedrooms: 1,
-      bathrooms: 1,
+    name: '',
+    description: '',
+    location: '',
+    bedrooms: 1,
+    bathrooms: 1,
     beds: 1,
-      guests: 2,
-      price: 100,
-      amenities: [],
-      images: [],
-      wellnessFriendly: false,
-    };
+    guests: 2,
+    price: 100,
+    amenities: [],
+    images: [],
+    wellnessFriendly: false,
+  };
 
   // Extract basic info
-    propertyData.name = 
-      $('h1').first().text().trim() ||
+  propertyData.name =
+    $('h1').first().text().trim() ||
     $('meta[property="og:title"]').attr('content') ||
-      $('title').text().trim();
+    $('title').text().trim();
 
-    propertyData.description = 
+  propertyData.description =
     $('meta[property="og:description"]').attr('content') ||
-      $('meta[name="description"]').attr('content') ||
+    $('meta[name="description"]').attr('content') ||
     '';
 
-    propertyData.location = 
-      $('.location').text().trim() ||
-      $('[itemprop="address"]').text().trim() ||
-      '';
+  propertyData.location =
+    $('.location').text().trim() ||
+    $('[itemprop="address"]').text().trim() ||
+    '';
 
   // Extract images
-    const images = new Set<string>();
-    
-    $('meta[property="og:image"]').each((_, el) => {
-      const src = $(el).attr('content');
-      if (src && isValidImageUrl(src)) {
-        images.add(src);
-      }
-    });
+  const images = new Set<string>();
 
-    $('img').each((_, el) => {
-      const src = $(el).attr('src') || $(el).attr('data-src');
-      if (src && isValidImageUrl(src)) {
+  $('meta[property="og:image"]').each((_, el) => {
+    const src = $(el).attr('content');
+    if (src && isValidImageUrl(src)) {
+      images.add(src);
+    }
+  });
+
+  $('img').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src');
+    if (src && isValidImageUrl(src)) {
       try {
         const absoluteUrl = new URL(src, url).href;
         images.add(absoluteUrl);
       } catch (e) {
         // Invalid URL, skip
-        }
       }
-    });
+    }
+  });
 
-    propertyData.images = Array.from(images);
+  propertyData.images = Array.from(images);
 
   // Extract room details from text
   const bodyText = $('body').text();
@@ -1225,7 +1227,7 @@ async function scrapeGeneric($: cheerio.CheerioAPI, url: string): Promise<Scrape
 
 function normalizeAmenity(amenity: string): string {
   const normalized = amenity.trim();
-  
+
   // Map common variations to standard names
   const amenityMap: { [key: string]: string } = {
     'wifi': 'WiFi',
@@ -1260,20 +1262,20 @@ function normalizeAmenity(amenity: string): string {
 
 function isValidImageUrl(url: string): boolean {
   if (!url) return false;
-  
+
   // Skip tiny images, icons, and common non-property images
-  if (url.includes('icon') || 
-      url.includes('logo') || 
-      url.includes('avatar') ||
-      url.includes('sprite') ||
-      url.includes('favicon')) {
+  if (url.includes('icon') ||
+    url.includes('logo') ||
+    url.includes('avatar') ||
+    url.includes('sprite') ||
+    url.includes('favicon')) {
     return false;
   }
-  
+
   // Check for image extensions or image hosting patterns
   const imagePatterns = /\.(jpg|jpeg|png|webp|gif)($|\?|&)/i;
   const imageHosts = /(images|img|photos|media|cdn|cloudinary|unsplash|airbnb\.com\/pictures)/i;
-  
+
   return imagePatterns.test(url) || imageHosts.test(url);
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2 } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2 } from 'lucide-react';
 
 interface BookingSummaryItem {
   id: string;
@@ -52,7 +52,7 @@ export default function HostPropertiesPage() {
   const [loadingProperties, setLoadingProperties] = useState(true);
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [showGoogleLocationModal, setShowGoogleLocationModal] = useState(false);
-  const [propertiesForLocation, setPropertiesForLocation] = useState<Array<{id: string; name: string; url: string}>>([]);
+  const [propertiesForLocation, setPropertiesForLocation] = useState<Array<{ id: string; name: string; url: string }>>([]);
   const [updatingLocations, setUpdatingLocations] = useState(false);
   const [stats, setStats] = useState({
     totalProperties: 0,
@@ -66,15 +66,15 @@ export default function HostPropertiesPage() {
     upcoming: 0,
     previous: 0,
   });
-const [bookingBuckets, setBookingBuckets] = useState<{
-  new: BookingSummaryItem[];
-  upcoming: BookingSummaryItem[];
-  previous: BookingSummaryItem[];
-}>({
-  new: [],
-  upcoming: [],
-  previous: [],
-});
+  const [bookingBuckets, setBookingBuckets] = useState<{
+    new: BookingSummaryItem[];
+    upcoming: BookingSummaryItem[];
+    previous: BookingSummaryItem[];
+  }>({
+    new: [],
+    upcoming: [],
+    previous: [],
+  });
   const [bookingDetails, setBookingDetails] = useState<{
     type: 'new' | 'upcoming' | 'previous';
     title: string;
@@ -94,10 +94,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       // Only clear mock data, not real properties
       // We'll be more conservative - only remove if ALL properties are clearly mock data
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const isSupabaseConfigured = supabaseUrl && 
-                                    supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co';
-      
+      const isSupabaseConfigured = supabaseUrl &&
+        supabaseUrl !== '' &&
+        supabaseUrl !== 'https://placeholder.supabase.co';
+
       if (isSupabaseConfigured) {
         const propertiesKey = `properties_${user.id}`;
         const cachedProperties = localStorage.getItem(propertiesKey);
@@ -106,12 +106,12 @@ const [bookingBuckets, setBookingBuckets] = useState<{
             const parsed = JSON.parse(cachedProperties);
             // Only remove if ALL properties are mock data (not just some)
             // This prevents accidentally removing real properties
-            const allMockData = parsed.length > 0 && parsed.every((p: any) => 
-              p.name === 'Mountain View Cabin' || 
+            const allMockData = parsed.length > 0 && parsed.every((p: any) =>
+              p.name === 'Mountain View Cabin' ||
               p.name === 'Beach Villa' ||
               p.name === 'Cedar Grove Cabin' ||
               p.name === 'Lakeside Lodge' ||
-              p.id === '1' || 
+              p.id === '1' ||
               p.id === '2' ||
               p.id === '3' ||
               (typeof p.id === 'string' && p.id.length < 5) // Very short IDs are likely mock data
@@ -128,26 +128,26 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           }
         }
       }
-      
+
       loadProperties();
     }
   }, [user]);
 
   const loadProperties = useCallback(async () => {
     if (!user) return;
-    
+
     setLoadingProperties(true);
     try {
       const supabase = createClient();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      const isSupabaseConfigured = supabaseUrl && 
-                                    supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co' &&
-                                    supabaseKey &&
-                                    supabaseKey !== '' &&
-                                    supabaseKey !== 'placeholder-key';
-      
+      const isSupabaseConfigured = supabaseUrl &&
+        supabaseUrl !== '' &&
+        supabaseUrl !== 'https://placeholder.supabase.co' &&
+        supabaseKey &&
+        supabaseKey !== '' &&
+        supabaseKey !== 'placeholder-key';
+
       // If Supabase is not configured, use localStorage immediately
       if (!isSupabaseConfigured) {
         console.log('[Properties] Supabase not configured, loading from localStorage');
@@ -160,27 +160,27 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       let supabaseUser = null;
       let retries = 0;
       const maxRetries = 5;
-      
+
       while (retries < maxRetries && !supabaseUser) {
         const { data: { user: userData }, error: authError } = await supabase.auth.getUser();
-        
+
         if (userData) {
           supabaseUser = userData;
           console.log('[Properties] Session loaded successfully, user ID:', supabaseUser.id);
           break;
         }
-        
+
         if (authError) {
           console.log('[Properties] Auth error (attempt', retries + 1, '):', authError.message);
         }
-        
+
         // If no user found, wait a bit and retry (session might still be loading)
         if (retries < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         retries++;
       }
-      
+
       // If there's an auth error or no user after retries, fall back to localStorage
       if (!supabaseUser) {
         console.log('[Properties] No Supabase user found after', maxRetries, 'attempts, falling back to localStorage');
@@ -206,9 +206,9 @@ const [bookingBuckets, setBookingBuckets] = useState<{
         } else {
           console.log('[Properties] Found properties from Supabase:', propertiesData?.length || 0);
           console.log('[Properties] Properties data:', propertiesData);
-          
+
           let finalProperties: Property[] = [];
-          
+
           if (propertiesData && propertiesData.length > 0) {
             // Transform Supabase data to Property interface
             finalProperties = propertiesData.map((p: any) => {
@@ -218,13 +218,13 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                 .replace(/^Property\s+Listing[_\s-]*/i, '')
                 .replace(/^property-listing[_\s-]*/i, '')
                 .trim() || 'Untitled Property';
-              
+
               // Ensure at least one image
               let images = p.images || [];
               if (images.length === 0) {
                 images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
               }
-              
+
               return {
                 id: p.id,
                 name: propertyName,
@@ -248,14 +248,14 @@ const [bookingBuckets, setBookingBuckets] = useState<{
               };
             });
           }
-          
+
           // Always check localStorage as backup/fallback
           const savedProperties = localStorage.getItem(`properties_${user.id}`);
           if (savedProperties) {
             try {
               const localStorageProperties = JSON.parse(savedProperties);
               console.log('[Properties] Found', localStorageProperties.length, 'properties in localStorage');
-              
+
               // Merge Supabase and localStorage properties (avoid duplicates)
               const supabaseIds = new Set(finalProperties.map(p => p.id));
               localStorageProperties.forEach((localProp: any) => {
@@ -267,13 +267,13 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                     .replace(/^Property\s+Listing[_\s-]*/i, '')
                     .replace(/^property-listing[_\s-]*/i, '')
                     .trim() || 'Untitled Property';
-                  
+
                   // Ensure at least one image
                   let images = localProp.images || [];
                   if (images.length === 0) {
                     images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
                   }
-                  
+
                   finalProperties.push({
                     id: localProp.id,
                     name: propertyName,
@@ -299,7 +299,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
               console.error('[Properties] Error parsing localStorage properties:', e);
             }
           }
-          
+
           // Always sync merged properties back to localStorage for persistence
           if (finalProperties.length > 0) {
             setProperties(finalProperties);
@@ -343,20 +343,20 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                 console.error('[Properties] Error parsing localStorage in fallback:', e);
               }
             }
-            
+
             // Debug: Check all properties (without host_id filter) to see what's in the database
             console.log('[Properties] Checking all properties in database...');
             const { data: allProperties, error: allError } = await supabase
               .from('properties')
               .select('id, name, host_id, status')
               .limit(10);
-            
+
             if (!allError && allProperties) {
               console.log('[Properties] All properties in database:', allProperties);
               console.log('[Properties] Current user ID:', supabaseUser.id);
               console.log('[Properties] Properties with matching host_id:', allProperties.filter(p => p.host_id === supabaseUser.id));
             }
-            
+
             // No properties found anywhere - show empty state
             setProperties([]);
             setStats({
@@ -418,14 +418,14 @@ const [bookingBuckets, setBookingBuckets] = useState<{
 
     try {
       const supabase = createClient();
-      
+
       // Wait for user to be available
       const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError) {
         console.log('[Stats] Auth error while getting user:', authError.message);
       }
-      
+
       if (!supabaseUser) {
         console.log('[Stats] No Supabase user available, skipping stats load');
         return;
@@ -452,7 +452,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          
+
           const { data: bookingsData } = await supabase
             .from('bookings')
             .select('id,status,total_price,created_at,check_in,check_out,guest_name,property_name,property_id')
@@ -461,12 +461,12 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           if (bookingsData) {
             const confirmedBookings = bookingsData.filter(b => b.status === 'confirmed');
             totalBookings = confirmedBookings.length;
-            
+
             const thisMonthBookings = confirmedBookings.filter(b => {
               const bookingDate = new Date(b.created_at);
               return bookingDate >= firstDayOfMonth;
             });
-            
+
             thisMonthRevenue = thisMonthBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
             newBookings = thisMonthBookings.length;
 
@@ -496,14 +496,14 @@ const [bookingBuckets, setBookingBuckets] = useState<{
             setBookingDetails((current) =>
               current
                 ? {
-                    ...current,
-                    bookings:
-                      current.type === 'new'
-                        ? newPending
-                        : current.type === 'upcoming'
+                  ...current,
+                  bookings:
+                    current.type === 'new'
+                      ? newPending
+                      : current.type === 'upcoming'
                         ? upcomingBookings
                         : previousBookings,
-                  }
+                }
                 : null
             );
           } else {
@@ -616,9 +616,9 @@ const [bookingBuckets, setBookingBuckets] = useState<{
     setBookingDetails((current) =>
       current
         ? {
-            ...current,
-            bookings: bookingBuckets[current.type] || [],
-          }
+          ...current,
+          bookings: bookingBuckets[current.type] || [],
+        }
         : null
     );
   }, [bookingBuckets]);
@@ -742,7 +742,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       // Try to get Supabase user for database operations
       const supabase = createClient();
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-      
+
       // Use Supabase user ID if available, otherwise use demo user ID
       // This ensures properties are correctly associated with the right host
       const userId = supabaseUser?.id || user.id;
@@ -752,7 +752,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       const propertyId = `${userId}_${Date.now()}`;
       // Extract location from scraped data
       let location = scrapedData.location || '';
-      
+
       // If location is missing, try to extract from name (e.g., "Rental unit in Beloshi" -> "Beloshi")
       if (!location || location === 'Location not found') {
         if (scrapedData.name) {
@@ -769,7 +769,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           }
         }
       }
-      
+
       console.log('[Properties] Location extraction:', {
         originalLocation: scrapedData.location,
         extractedLocation: location,
@@ -799,7 +799,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       sessionStorage.setItem('importedPropertyData', JSON.stringify(importedPropertyData));
       // Also store the original URL for image URL normalization
       sessionStorage.setItem('importedPropertyUrl', importUrl);
-      
+
       // Enhanced success message with more details
       const details = [];
       if (scrapedData.images?.length) details.push(`${scrapedData.images.length} photos`);
@@ -807,16 +807,16 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       if (scrapedData.guests) details.push(`${scrapedData.guests} guests`);
       if (scrapedData.bedrooms) details.push(`${scrapedData.bedrooms} bedrooms`);
       if (scrapedData.bathrooms) details.push(`${scrapedData.bathrooms} bathrooms`);
-      
+
       const method = meta.scrapingMethod === 'puppeteer' ? '🚀 Browser automation' : '⚡ Fast mode';
       const duration = meta.duration ? ` (${(meta.duration / 1000).toFixed(1)}s)` : '';
-      
+
       toast.success(`${method}${duration}\n✅ Imported: ${details.join(', ')}. Please review and publish!`, {
         duration: 5000,
       });
       setShowImportModal(false);
       setImportUrl('');
-      
+
       // Redirect to review page
       router.push('/host/properties/import-review');
     } catch (error: any) {
@@ -845,7 +845,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       toast.error('Map coordinates are required to publish this property. Please edit the property and set the location on the map.');
       return;
     }
-    
+
     try {
       const supabase = createClient();
       const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
@@ -868,7 +868,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
         console.log('[Toggle Publish] No Supabase user available, using localStorage fallback');
       }
 
-      const updatedProperties = properties.map(p => 
+      const updatedProperties = properties.map(p =>
         p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
       );
       setProperties(updatedProperties);
@@ -913,11 +913,11 @@ const [bookingBuckets, setBookingBuckets] = useState<{
 
       const updatedProperties = properties.filter(p => p.id !== id);
       setProperties(updatedProperties);
-      
+
       if (user) {
         localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
       }
-      
+
       loadStats();
       toast.success('Property deleted');
     } catch (error: any) {
@@ -941,7 +941,7 @@ const [bookingBuckets, setBookingBuckets] = useState<{
     setUpdatingLocations(true);
     const supabase = createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-    
+
     if (!supabaseUser) {
       toast.error('You must be logged in to update locations');
       setUpdatingLocations(false);
@@ -969,9 +969,9 @@ const [bookingBuckets, setBookingBuckets] = useState<{
       }
 
       // Validate coordinates before saving
-      if (isNaN(coordinates.lat) || isNaN(coordinates.lng) || 
-          coordinates.lat < -90 || coordinates.lat > 90 ||
-          coordinates.lng < -180 || coordinates.lng > 180) {
+      if (isNaN(coordinates.lat) || isNaN(coordinates.lng) ||
+        coordinates.lat < -90 || coordinates.lat > 90 ||
+        coordinates.lng < -180 || coordinates.lng > 180) {
         console.error(`[Add Google Location] Invalid coordinates for ${prop.name}:`, coordinates);
         toast.error(`Invalid coordinates extracted for ${prop.name}`);
         errorCount++;
@@ -1015,6 +1015,47 @@ const [bookingBuckets, setBookingBuckets] = useState<{
     // Reload properties to show updated coordinates
     await loadProperties();
     setSelectedProperties([]);
+  };
+
+  const handleAutoDetectLocations = async () => {
+    if (selectedProperties.length === 0) return;
+
+    setUpdatingLocations(true);
+    const toastId = toast.loading(`Auto-detecting locations for ${selectedProperties.length} properties...`);
+
+    try {
+      const response = await fetch('/api/properties/auto-detect-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyIds: selectedProperties }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Failed to auto-detect locations');
+
+      const { results, errors, summary } = data;
+
+      if (summary.successful > 0) {
+        toast.success(`Successfully updated ${summary.successful} property(ies)`, { id: toastId });
+      } else if (summary.failed > 0) {
+        toast.error(`Could not find precise locations for ${summary.failed} property(ies)`, { id: toastId });
+      } else {
+        toast.dismiss(toastId);
+      }
+
+      if (errors.length > 0) {
+        console.error('[Auto-Detect] Some errors occurred:', errors);
+      }
+
+      await loadProperties();
+      setSelectedProperties([]);
+    } catch (error: any) {
+      console.error('Auto-detect error:', error);
+      toast.error(error.message || 'An error occurred during auto-detection', { id: toastId });
+    } finally {
+      setUpdatingLocations(false);
+    }
   };
 
   const selectedCount = selectedProperties.length;
@@ -1071,11 +1112,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <button
             onClick={() => openBookingPanel('new')}
-            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
-              bookingDetails?.type === 'new'
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${bookingDetails?.type === 'new'
                 ? 'border-blue-500 shadow-lg shadow-blue-500/30'
                 : 'border-gray-800 hover:border-blue-500'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -1088,11 +1128,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           </button>
           <button
             onClick={() => openBookingPanel('upcoming')}
-            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
-              bookingDetails?.type === 'upcoming'
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${bookingDetails?.type === 'upcoming'
                 ? 'border-emerald-500 shadow-lg shadow-emerald-500/30'
                 : 'border-gray-800 hover:border-emerald-500'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -1105,11 +1144,10 @@ const [bookingBuckets, setBookingBuckets] = useState<{
           </button>
           <button
             onClick={() => openBookingPanel('previous')}
-            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${
-              bookingDetails?.type === 'previous'
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${bookingDetails?.type === 'previous'
                 ? 'border-purple-500 shadow-lg shadow-purple-500/30'
                 : 'border-gray-800 hover:border-purple-500'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -1277,6 +1315,24 @@ const [bookingBuckets, setBookingBuckets] = useState<{
                   Clear
                 </button>
                 <button
+                  onClick={handleAutoDetectLocations}
+                  disabled={updatingLocations}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Automatically find precise locations using Google Places"
+                >
+                  {updatingLocations ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Detecting...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 size={16} />
+                      Auto-Detect Locations
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={handleAddGoogleLocation}
                   disabled={updatingLocations}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1334,161 +1390,159 @@ const [bookingBuckets, setBookingBuckets] = useState<{
             {properties.map((property) => {
               const isSelected = selectedProperties.includes(property.id);
               return (
-              <div
-                key={property.id}
-                className={`bg-gray-900 border ${isSelected ? 'border-emerald-500 ring-1 ring-emerald-500/40' : 'border-gray-800'} rounded-xl overflow-hidden hover:border-emerald-600 transition group`}
-              >
-                {/* Image */}
-                <div className="relative h-48 bg-gray-800">
-                  <div className="absolute bottom-3 left-3 z-10">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => togglePropertySelection(property.id)}
-                      className="w-4 h-4 text-emerald-500 bg-gray-900/70 border-gray-600 rounded focus:ring-emerald-500"
-                      aria-label={`Select ${property.name}`}
-                    />
-                  </div>
-                  {property.images[0] && (
-                    <img
-                      src={property.images[0]}
-                      alt={property.name}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute top-3 right-3">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        property.status === 'active'
-                          ? 'bg-emerald-600 text-white'
-                          : property.status === 'draft'
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-gray-600 text-white'
-                      }`}
-                    >
-                      {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
-                    </span>
-                  </div>
-                  {property.wellnessFriendly && (
-                    <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
-                      <span className="text-white text-xs font-medium">🧘 Wellness-Friendly</span>
+                <div
+                  key={property.id}
+                  className={`bg-gray-900 border ${isSelected ? 'border-emerald-500 ring-1 ring-emerald-500/40' : 'border-gray-800'} rounded-xl overflow-hidden hover:border-emerald-600 transition group`}
+                >
+                  {/* Image */}
+                  <div className="relative h-48 bg-gray-800">
+                    <div className="absolute bottom-3 left-3 z-10">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => togglePropertySelection(property.id)}
+                        className="w-4 h-4 text-emerald-500 bg-gray-900/70 border-gray-600 rounded focus:ring-emerald-500"
+                        aria-label={`Select ${property.name}`}
+                      />
                     </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-white mb-1 group-hover:text-emerald-500 transition">
-                    {property.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mb-3">
-                    <p className="text-gray-400 text-sm">{property.location}</p>
-                    {property.googleMapsUrl && (
-                      <a 
-                        href={property.googleMapsUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-400 text-xs"
+                    {property.images[0] && (
+                      <img
+                        src={property.images[0]}
+                        alt={property.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    <div className="absolute top-3 right-3">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${property.status === 'active'
+                            ? 'bg-emerald-600 text-white'
+                            : property.status === 'draft'
+                              ? 'bg-yellow-600 text-white'
+                              : 'bg-gray-600 text-white'
+                          }`}
                       >
-                        📍 Map
-                      </a>
-                    )}
-                  </div>
-                  
-                  {/* Property Details */}
-                  <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
-                    <span className="text-gray-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
-                    {property.bathrooms && (
-                      <span className="text-gray-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
-                    )}
-                    {property.beds && (
-                      <span className="text-gray-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
-                    )}
-                    {property.guests && (
-                      <span className="text-gray-400">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
-                    )}
-                  </div>
-
-                  {/* Amenities Preview */}
-                  {property.amenities && property.amenities.length > 0 && (
-                    <div className="mb-3">
-                      <div className="flex flex-wrap gap-1">
-                        {property.amenities.slice(0, 3).map((amenity, idx) => (
-                          <span key={idx} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
-                            {amenity}
-                          </span>
-                        ))}
-                        {property.amenities.length > 3 && (
-                          <span className="text-xs text-gray-500 px-2 py-1">
-                            +{property.amenities.length - 3} more
-                          </span>
-                        )}
+                        {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+                      </span>
+                    </div>
+                    {property.wellnessFriendly && (
+                      <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
+                        <span className="text-white text-xs font-medium">🧘 Wellness-Friendly</span>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Price & Image Count */}
-                  <div className="flex items-center justify-between mb-4 pt-3 border-t border-gray-800">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-bold text-lg">
-                        ${property.price}
-                        <span className="text-gray-400 text-sm font-normal">/night</span>
-                      </span>
-                    </div>
-                    {property.images.length > 0 && (
-                      <span className="text-gray-500 text-xs">
-                        📷 {property.images.length} photo{property.images.length !== 1 ? 's' : ''}
-                      </span>
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/host/properties/${property.id}/edit`}
-                      className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2"
-                    >
-                      <Edit size={16} />
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleTogglePublish(property.id, property.status)}
-                      disabled={!property.coordinates && property.status !== 'active'}
-                      className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${
-                        property.status === 'active'
-                          ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      } ${!property.coordinates && property.status !== 'active' ? 'opacity-60 cursor-not-allowed' : ''}`}
-                      title={
-                        property.status === 'active' 
-                          ? 'Unpublish' 
-                          : !property.coordinates 
-                          ? 'Map coordinates required to publish'
-                          : 'Publish'
-                      }
-                    >
-                      <Power size={16} />
-                      {property.status === 'active' ? 'Unpublish' : 'Publish'}
-                      {!property.coordinates && property.status !== 'active' && (
-                        <span className="ml-1 text-xs">⚠️</span>
+                  {/* Content */}
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-white mb-1 group-hover:text-emerald-500 transition">
+                      {property.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-3">
+                      <p className="text-gray-400 text-sm">{property.location}</p>
+                      {property.googleMapsUrl && (
+                        <a
+                          href={property.googleMapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-400 text-xs"
+                        >
+                          📍 Map
+                        </a>
                       )}
-                    </button>
-                    <Link
-                      href={`/listings/${property.id}`}
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"
-                      target="_blank"
-                    >
-                      <ExternalLink size={16} />
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(property.id)}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    </div>
+
+                    {/* Property Details */}
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                      <span className="text-gray-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
+                      {property.bathrooms && (
+                        <span className="text-gray-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
+                      )}
+                      {property.beds && (
+                        <span className="text-gray-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
+                      )}
+                      {property.guests && (
+                        <span className="text-gray-400">👥 {property.guests} guest{property.guests !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+
+                    {/* Amenities Preview */}
+                    {property.amenities && property.amenities.length > 0 && (
+                      <div className="mb-3">
+                        <div className="flex flex-wrap gap-1">
+                          {property.amenities.slice(0, 3).map((amenity, idx) => (
+                            <span key={idx} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+                              {amenity}
+                            </span>
+                          ))}
+                          {property.amenities.length > 3 && (
+                            <span className="text-xs text-gray-500 px-2 py-1">
+                              +{property.amenities.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Price & Image Count */}
+                    <div className="flex items-center justify-between mb-4 pt-3 border-t border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-bold text-lg">
+                          ${property.price}
+                          <span className="text-gray-400 text-sm font-normal">/night</span>
+                        </span>
+                      </div>
+                      {property.images.length > 0 && (
+                        <span className="text-gray-500 text-xs">
+                          📷 {property.images.length} photo{property.images.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/host/properties/${property.id}/edit`}
+                        className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center gap-2"
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </Link>
+                      <button
+                        onClick={() => handleTogglePublish(property.id, property.status)}
+                        disabled={!property.coordinates && property.status !== 'active'}
+                        className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${property.status === 'active'
+                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          } ${!property.coordinates && property.status !== 'active' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        title={
+                          property.status === 'active'
+                            ? 'Unpublish'
+                            : !property.coordinates
+                              ? 'Map coordinates required to publish'
+                              : 'Publish'
+                        }
+                      >
+                        <Power size={16} />
+                        {property.status === 'active' ? 'Unpublish' : 'Publish'}
+                        {!property.coordinates && property.status !== 'active' && (
+                          <span className="ml-1 text-xs">⚠️</span>
+                        )}
+                      </button>
+                      <Link
+                        href={`/listings/${property.id}`}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"
+                        target="_blank"
+                      >
+                        <ExternalLink size={16} />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(property.id)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center justify-center"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
               );
             })}
           </div>

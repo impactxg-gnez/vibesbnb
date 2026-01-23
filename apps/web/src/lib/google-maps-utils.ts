@@ -78,7 +78,7 @@ export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<
     let resolvedUrl = await resolveShortUrl(url);
     console.log('[Google Maps Utils] Original URL:', url);
     console.log('[Google Maps Utils] Resolved URL:', resolvedUrl);
-    
+
     // Normalize the URL - handle relative URLs
     let normalizedUrl = resolvedUrl;
     if (resolvedUrl.startsWith('//')) {
@@ -146,6 +146,18 @@ export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<
       }
     }
 
+    // Format 6: !3d and !4d encoded coordinates
+    // Example: .../!3d25.7616798!4d-80.1917902...
+    const bangMatch = normalizedUrl.match(/!3d([+-]?\d+\.\d+)!4d([+-]?\d+\.\d+)/);
+    if (bangMatch) {
+      const lat = parseFloat(bangMatch[1]);
+      const lng = parseFloat(bangMatch[2]);
+      console.log('[Google Maps Utils] Extracted from !3d!4d format:', { lat, lng, raw: `${bangMatch[1]},${bangMatch[2]}` });
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+
     console.warn('[Google Maps Utils] No coordinates found in URL:', normalizedUrl);
     return null;
   } catch (error) {
@@ -154,3 +166,52 @@ export async function extractCoordinatesFromGoogleMapsUrl(url: string): Promise<
   }
 }
 
+
+/**
+ * Search for a place by name and location using Google Places API
+ * Returns precise coordinates and Google Maps URL if found
+ */
+export async function searchPlaceByNameAndLocation(name: string, location: string): Promise<{ lat: number; lng: number, url: string } | null> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    console.error('[Google Maps Utils] No API key found for place search');
+    return null;
+  }
+
+  try {
+    // Construct search query
+    const query = encodeURIComponent(`${name} ${location}`);
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${apiKey}`;
+
+    console.log('[Google Maps Utils] Searching for place:', { name, location });
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const result = data.results[0];
+      const lat = result.geometry.location.lat;
+      const lng = result.geometry.location.lng;
+
+      // Construct a better Google Maps URL using place_id if available
+      const mapsUrl = result.place_id
+        ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${result.place_id}`
+        : `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+      console.log('[Google Maps Utils] Found place:', {
+        name: result.name,
+        address: result.formatted_address,
+        coords: { lat, lng }
+      });
+
+      return { lat, lng, url: mapsUrl };
+    } else {
+      console.warn('[Google Maps Utils] No places found for query:', { name, location, status: data.status });
+    }
+  } catch (error) {
+    console.error('[Google Maps Utils] Error searching for place:', error);
+  }
+
+  return null;
+}

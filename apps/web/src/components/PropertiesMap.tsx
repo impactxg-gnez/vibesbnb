@@ -18,10 +18,10 @@ interface PropertiesMapProps {
   height?: string;
 }
 
-export default function PropertiesMap({ 
-  properties, 
-  className = '', 
-  height = '600px' 
+export default function PropertiesMap({
+  properties,
+  className = '',
+  height = '600px'
 }: PropertiesMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -31,18 +31,18 @@ export default function PropertiesMap({
 
   // Filter properties with coordinates - use useMemo to ensure stable reference
   const propertiesWithCoords = useMemo(() => {
-    const filtered = properties.filter(p => p.coordinates && 
-      typeof p.coordinates.lat === 'number' && 
+    const filtered = properties.filter(p => p.coordinates &&
+      typeof p.coordinates.lat === 'number' &&
       typeof p.coordinates.lng === 'number' &&
-      !isNaN(p.coordinates.lat) && 
+      !isNaN(p.coordinates.lat) &&
       !isNaN(p.coordinates.lng));
-    
+
     console.log('[PropertiesMap] Filtered properties with coords:', {
       totalProperties: properties.length,
       withCoords: filtered.length,
       sample: filtered.slice(0, 3).map(p => ({ id: p.id, name: p.name, coords: p.coordinates })),
     });
-    
+
     return filtered;
   }, [properties]);
 
@@ -219,9 +219,9 @@ export default function PropertiesMap({
         if (!property.coordinates) return;
 
         // Calculate offset for properties at the same location
-        // Use a small offset (about 50-100 meters) so markers don't overlap
-        const offsetDistance = propertiesAtLocation.length > 1 ? 0.001 : 0; // ~100 meters for duplicates
-        const angle = propertiesAtLocation.length > 1 
+        // Use a smaller offset (about 30 meters) so markers don't overlap but stay close
+        const offsetDistance = propertiesAtLocation.length > 1 ? 0.0003 : 0; // ~30 meters for duplicates
+        const angle = propertiesAtLocation.length > 1
           ? (index * (360 / propertiesAtLocation.length)) * (Math.PI / 180)
           : 0;
         const offsetLat = property.coordinates.lat + (offsetDistance * Math.cos(angle));
@@ -233,7 +233,7 @@ export default function PropertiesMap({
             lng: offsetLng,
           },
           map: mapInstanceRef.current,
-          title: propertiesAtLocation.length > 1 
+          title: propertiesAtLocation.length > 1
             ? `${property.name} (${propertiesAtLocation.length} properties at this location)`
             : property.name,
           icon: {

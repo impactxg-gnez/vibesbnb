@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter } from 'lucide-react';
+import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -130,6 +130,35 @@ export default function ManageListingsPage() {
     }
   };
 
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncAllCoordinates = async () => {
+    if (!confirm('This will attempt to find precise coordinates for ALL properties using their Google Maps URLs. Proceed?')) return;
+
+    setSyncing(true);
+    const toastId = toast.loading('Syncing coordinates for all properties...');
+
+    try {
+      const response = await fetch('/api/properties/auto-detect-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyIds: 'all' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || 'Failed to sync coordinates');
+
+      toast.success(`Successfully synced ${data.summary.successful} property(ies)`, { id: toastId });
+      loadProperties();
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast.error(error.message || 'An error occurred during sync', { id: toastId });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading || loadingProperties) {
     return (
       <AdminLayout>
@@ -149,6 +178,14 @@ export default function ManageListingsPage() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Manage Listings</h1>
+          <button
+            onClick={handleSyncAllCoordinates}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+          >
+            {syncing ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
+            Sync All Coordinates
+          </button>
         </div>
 
         {/* Search and Filters */}
@@ -227,13 +264,12 @@ export default function ManageListingsPage() {
                   )}
                   <div className="absolute top-2 right-2">
                     <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        property.status === 'active'
+                      className={`px-2 py-1 text-xs rounded-full ${property.status === 'active'
                           ? 'bg-green-100 text-green-800'
                           : property.status === 'draft'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
                     >
                       {property.status}
                     </span>
