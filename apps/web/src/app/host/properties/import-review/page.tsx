@@ -28,6 +28,8 @@ interface ImportedPropertyData {
   amenities: string[];
   wellnessFriendly: boolean;
   googleMapsUrl?: string;
+  latitude?: number;
+  longitude?: number;
   coordinates?: { lat: number; lng: number };
 }
 
@@ -80,10 +82,10 @@ export default function ImportReviewPage() {
   // Normalize image URLs to ensure they're absolute and valid
   const normalizeImageUrl = (url: string, baseUrl?: string): string | null => {
     if (!url || typeof url !== 'string') return null;
-    
+
     // If it's already a data URL, return as-is
     if (url.startsWith('data:')) return url;
-    
+
     // If it's already a valid absolute URL, return as-is
     try {
       const urlObj = new URL(url);
@@ -128,7 +130,7 @@ export default function ImportReviewPage() {
           locationLength: data.location?.length || 0,
           allKeys: Object.keys(data),
         });
-        
+
         // If location is missing or "Location not found", try to extract from name
         if (!data.location || data.location === 'Location not found' || data.location.trim() === '') {
           console.log('[Import Review] Location missing, attempting to extract from name:', data.name);
@@ -150,19 +152,19 @@ export default function ImportReviewPage() {
             }
           }
         }
-        
+
         console.log('[Import Review] Final location after processing:', data.location);
         setFormData(data);
-        
+
         // Normalize and filter imported images
         const importedImages = (data.images || []).map((url: string) => {
           // Try to get the original URL from sessionStorage if available
           const originalUrl = sessionStorage.getItem('importedPropertyUrl') || '';
           return normalizeImageUrl(url, originalUrl);
         }).filter((url: string | null): url is string => url !== null);
-        
+
         console.log('[Import Review] Loaded images:', importedImages.length, 'valid images');
-        
+
         setRooms([
           {
             id: Date.now().toString(),
@@ -289,39 +291,39 @@ export default function ImportReviewPage() {
       const supabase = createClient();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      const isSupabaseConfigured = supabaseUrl && 
-                                    supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co' &&
-                                    supabaseKey &&
-                                    supabaseKey !== '' &&
-                                    supabaseKey !== 'placeholder-key';
-      
+      const isSupabaseConfigured = supabaseUrl &&
+        supabaseUrl !== '' &&
+        supabaseUrl !== 'https://placeholder.supabase.co' &&
+        supabaseKey &&
+        supabaseKey !== '' &&
+        supabaseKey !== 'placeholder-key';
+
       // Wait for session to be available (important after sign-in)
       let supabaseUser = null;
       let retries = 0;
       const maxRetries = 5;
-      
+
       if (isSupabaseConfigured) {
         while (retries < maxRetries && !supabaseUser) {
           const { data: { user: userData }, error: authError } = await supabase.auth.getUser();
-          
+
           if (userData) {
             supabaseUser = userData;
             console.log('[Import Review] Session loaded successfully, user ID:', supabaseUser.id);
             break;
           }
-          
+
           if (authError) {
             console.log('[Import Review] Auth error (attempt', retries + 1, '):', authError.message);
           }
-          
+
           // If no user found, wait a bit and retry (session might still be loading)
           if (retries < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
           retries++;
         }
-        
+
         if (!supabaseUser) {
           console.warn('[Import Review] No Supabase session available after', maxRetries, 'attempts. Will save to localStorage only.');
         }
@@ -368,7 +370,7 @@ export default function ImportReviewPage() {
       if (isSupabaseConfigured && supabaseUser) {
         // Verify session is still valid before inserting
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (!currentSession || sessionError) {
           console.error('[Import Review] Session not available when attempting insert:', sessionError);
           toast.error('Session expired. Please sign in again.');
@@ -376,7 +378,7 @@ export default function ImportReviewPage() {
           setPublishing(false);
           return;
         }
-        
+
         console.log('[Import Review] Session verified, saving property with host_id:', supabaseUser.id);
         console.log('[Import Review] Property data:', {
           id: propertyId,
@@ -395,7 +397,7 @@ export default function ImportReviewPage() {
           rooms: roomsData,
           hasRooms: !!roomsData && roomsData.length > 0,
         });
-        
+
         const { data: insertedProperty, error: insertError } = await supabase
           .from('properties')
           .insert({
@@ -430,7 +432,7 @@ export default function ImportReviewPage() {
           console.error('[Import Review] Error message:', insertError.message);
           console.error('[Import Review] Error details:', insertError.details);
           console.error('[Import Review] Error hint:', insertError.hint);
-          
+
           // Check if it's a missing column error
           if (insertError.message?.includes('rooms') || insertError.message?.includes('column') || insertError.code === 'PGRST204') {
             const errorMsg = `Database migration required! The 'rooms' column is missing. Please run SUPABASE_FIX_PROPERTIES_TABLE.sql in Supabase SQL Editor. Error: ${insertError.message}`;
@@ -439,7 +441,7 @@ export default function ImportReviewPage() {
           } else {
             toast.error(`Failed to save property: ${insertError.message}. Check console for details.`, { duration: 8000 });
           }
-          
+
           // Still save to localStorage as backup even if Supabase fails
           const savedProperties = localStorage.getItem(`properties_${userId}`);
           const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
@@ -463,16 +465,16 @@ export default function ImportReviewPage() {
           parsedProperties.push(backupProperty);
           localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
           console.log('[Import Review] Property saved to localStorage as backup due to Supabase error');
-          
+
           setSaving(false);
           setPublishing(false);
           return; // Don't throw, just return so user can see the error
         }
-        
+
         console.log('[Import Review] Property saved successfully to Supabase:', insertedProperty);
         console.log('[Import Review] Property ID:', insertedProperty?.id);
         console.log('[Import Review] Host ID:', insertedProperty?.host_id);
-        
+
         // Also save to localStorage as backup
         const savedProperties = localStorage.getItem(`properties_${userId}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
@@ -625,7 +627,7 @@ export default function ImportReviewPage() {
                       ...formData,
                       location,
                       coordinates,
-                      googleMapsUrl: coordinates 
+                      googleMapsUrl: coordinates
                         ? `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`
                         : undefined,
                     });
@@ -709,11 +711,10 @@ export default function ImportReviewPage() {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
-                className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
-                  formData.wellnessFriendly
+                className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${formData.wellnessFriendly
                     ? 'bg-emerald-600 border-emerald-600 text-white'
                     : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                }`}
+                  }`}
               >
                 <span className="text-lg">🧘</span>
                 <span>Wellness-Friendly</span>
@@ -722,11 +723,10 @@ export default function ImportReviewPage() {
               <button
                 type="button"
                 onClick={() => setSmokeFriendly(!smokeFriendly)}
-                className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
-                  smokeFriendly
+                className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${smokeFriendly
                     ? 'bg-emerald-600 border-emerald-600 text-white'
                     : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                }`}
+                  }`}
               >
                 <span className="text-lg">🚬</span>
                 <span>Smoke-Friendly</span>
@@ -743,11 +743,10 @@ export default function ImportReviewPage() {
                   key={amenity}
                   type="button"
                   onClick={() => toggleAmenity(amenity)}
-                  className={`px-4 py-3 rounded-lg border transition ${
-                    formData.amenities.includes(amenity)
+                  className={`px-4 py-3 rounded-lg border transition ${formData.amenities.includes(amenity)
                       ? 'bg-emerald-600 border-emerald-600 text-white'
                       : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                  }`}
+                    }`}
                 >
                   {amenity}
                 </button>

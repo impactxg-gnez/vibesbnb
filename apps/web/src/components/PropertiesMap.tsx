@@ -7,6 +7,10 @@ interface Property {
   name: string;
   location: string;
   coordinates?: { lat: number; lng: number };
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
   price: number;
   images?: string[];
   status?: 'active' | 'draft' | 'inactive';
@@ -31,11 +35,34 @@ export default function PropertiesMap({
 
   // Filter properties with coordinates - use useMemo to ensure stable reference
   const propertiesWithCoords = useMemo(() => {
-    const filtered = properties.filter(p => p.coordinates &&
-      typeof p.coordinates.lat === 'number' &&
-      typeof p.coordinates.lng === 'number' &&
-      !isNaN(p.coordinates.lat) &&
-      !isNaN(p.coordinates.lng));
+    const filtered = properties
+      .map(p => {
+        let lat = p.coordinates?.lat;
+        let lng = p.coordinates?.lng;
+
+        if (lat === undefined || lng === undefined) {
+          lat = p.latitude ?? p.lat;
+          lng = p.longitude ?? p.lng;
+        }
+
+        if (lat !== undefined && lng !== undefined) {
+          return {
+            ...p,
+            coordinates: {
+              lat: typeof lat === 'string' ? parseFloat(lat) : lat,
+              lng: typeof lng === 'string' ? parseFloat(lng) : lng
+            }
+          };
+        }
+        return null;
+      })
+      .filter((p): p is any =>
+        p !== null &&
+        typeof p.coordinates.lat === 'number' &&
+        typeof p.coordinates.lng === 'number' &&
+        !isNaN(p.coordinates.lat) &&
+        !isNaN(p.coordinates.lng)
+      );
 
     console.log('[PropertiesMap] Filtered properties with coords:', {
       totalProperties: properties.length,

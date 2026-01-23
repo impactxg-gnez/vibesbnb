@@ -23,6 +23,8 @@ interface ScrapedPropertyData {
   images: string[];
   wellnessFriendly: boolean;
   googleMapsUrl?: string;
+  latitude?: number;
+  longitude?: number;
   coordinates?: {
     lat: number;
     lng: number;
@@ -140,13 +142,19 @@ export async function POST(request: NextRequest) {
       if (preciseResult) {
         console.log('[Scraper] Found precise coordinates:', { lat: preciseResult.lat, lng: preciseResult.lng });
         propertyData.coordinates = { lat: preciseResult.lat, lng: preciseResult.lng };
+        propertyData.latitude = preciseResult.lat;
+        propertyData.longitude = preciseResult.lng;
         propertyData.googleMapsUrl = preciseResult.url;
       } else if (currentCoords) {
         // Fallback to what we had if search fails
+        propertyData.latitude = currentCoords.lat;
+        propertyData.longitude = currentCoords.lng;
         propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
       }
     } else {
-      // We already have high-precision coordinates, just ensure we have a URL
+      // We already have high-precision coordinates, just ensure we have top-level fields and a URL
+      propertyData.latitude = currentCoords.lat;
+      propertyData.longitude = currentCoords.lng;
       propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
     }
 

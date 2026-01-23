@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import LocationPicker from '@/components/LocationPicker';
 
 interface Room {
   id: string;
@@ -29,6 +30,7 @@ export default function NewPropertyPage() {
     price: 100,
     wellnessFriendly: false,
     amenities: [] as string[],
+    coordinates: undefined as { lat: number; lng: number } | undefined,
   });
   const [rooms, setRooms] = useState<Room[]>([
     { id: Date.now().toString(), name: 'Living Room', images: [], imagePreviewUrls: [] },
@@ -157,39 +159,39 @@ export default function NewPropertyPage() {
       const supabase = createClient();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      const isSupabaseConfigured = supabaseUrl && 
-                                    supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co' &&
-                                    supabaseKey &&
-                                    supabaseKey !== '' &&
-                                    supabaseKey !== 'placeholder-key';
-      
+      const isSupabaseConfigured = supabaseUrl &&
+        supabaseUrl !== '' &&
+        supabaseUrl !== 'https://placeholder.supabase.co' &&
+        supabaseKey &&
+        supabaseKey !== '' &&
+        supabaseKey !== 'placeholder-key';
+
       // Wait for session to be available (important after sign-in)
       let supabaseUser = null;
       let retries = 0;
       const maxRetries = 5;
-      
+
       if (isSupabaseConfigured) {
         while (retries < maxRetries && !supabaseUser) {
           const { data: { user: userData }, error: authError } = await supabase.auth.getUser();
-          
+
           if (userData) {
             supabaseUser = userData;
             console.log('[New Property] Session loaded successfully, user ID:', supabaseUser.id);
             break;
           }
-          
+
           if (authError) {
             console.log('[New Property] Auth error (attempt', retries + 1, '):', authError.message);
           }
-          
+
           // If no user found, wait a bit and retry (session might still be loading)
           if (retries < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
           retries++;
         }
-        
+
         if (!supabaseUser) {
           console.warn('[New Property] No Supabase session available after', maxRetries, 'attempts. Will save to localStorage only.');
         }
@@ -235,12 +237,12 @@ export default function NewPropertyPage() {
       if (isSupabaseConfigured && supabaseUser) {
         // Verify session is still valid before inserting
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (!currentSession || sessionError) {
           console.error('[New Property] Session not available when attempting insert:', sessionError);
           console.error('[New Property] Falling back to localStorage');
           toast.error('Session expired. Please sign in again.');
-          
+
           // Save to localStorage as fallback
           const savedProperties = localStorage.getItem(`properties_${userId}`);
           const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
@@ -264,7 +266,7 @@ export default function NewPropertyPage() {
           setSaving(false);
           return;
         }
-        
+
         console.log('[New Property] Session verified, saving property with host_id:', supabaseUser.id);
         console.log('[New Property] Session token exists:', !!currentSession.access_token);
         console.log('[New Property] Property data:', {
@@ -274,7 +276,7 @@ export default function NewPropertyPage() {
           price: formData.price,
           host_id: supabaseUser.id,
         });
-        
+
         const { data: insertedProperty, error: insertError } = await supabase
           .from('properties')
           .insert({
@@ -293,6 +295,11 @@ export default function NewPropertyPage() {
             guests: formData.guests,
             status: 'draft',
             wellness_friendly: formData.wellnessFriendly,
+            google_maps_url: formData.coordinates
+              ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
+              : null,
+            latitude: formData.coordinates?.lat,
+            longitude: formData.coordinates?.lng,
           })
           .select()
           .single();
@@ -306,7 +313,7 @@ export default function NewPropertyPage() {
             hint: insertError.hint,
           });
           toast.error(`Failed to save property to database: ${insertError.message}. Check console for details.`);
-          
+
           // Still save to localStorage as backup even if Supabase fails
           const savedProperties = localStorage.getItem(`properties_${userId}`);
           const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
@@ -328,14 +335,14 @@ export default function NewPropertyPage() {
           parsedProperties.push(backupProperty);
           localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
           console.log('[New Property] Property saved to localStorage as backup due to Supabase error');
-          
+
           throw insertError;
         }
-        
+
         console.log('[New Property] Property saved successfully to Supabase:', insertedProperty);
         console.log('[New Property] Property ID:', insertedProperty?.id);
         console.log('[New Property] Host ID:', insertedProperty?.host_id);
-        
+
         // Also save to localStorage as backup
         const savedProperties = localStorage.getItem(`properties_${userId}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
@@ -455,13 +462,17 @@ export default function NewPropertyPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Location *
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                  placeholder="e.g., Aspen, Colorado"
+                <LocationPicker
+                  location={formData.location}
+                  coordinates={formData.coordinates}
+                  onLocationChange={(location, coordinates) => {
+                    setFormData({
+                      ...formData,
+                      location,
+                      coordinates,
+                    });
+                  }}
+                  className="mb-2"
                 />
               </div>
 
@@ -551,11 +562,10 @@ export default function NewPropertyPage() {
                   key={amenity}
                   type="button"
                   onClick={() => toggleAmenity(amenity)}
-                  className={`px-4 py-3 rounded-lg border transition ${
-                    formData.amenities.includes(amenity)
-                      ? 'bg-emerald-600 border-emerald-600 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                  }`}
+                  className={`px-4 py-3 rounded-lg border transition ${formData.amenities.includes(amenity)
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                    }`}
                 >
                   {amenity}
                 </button>
