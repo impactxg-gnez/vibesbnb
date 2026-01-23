@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
                 .select('id');
 
             if (allIdsError) throw allIdsError;
-            queryPropertyIds = allIds.map(p => p.id);
+            queryPropertyIds = allIds.map((p: { id: string }) => p.id);
         }
 
         if (!queryPropertyIds || !Array.isArray(queryPropertyIds) || queryPropertyIds.length === 0) {

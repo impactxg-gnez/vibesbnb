@@ -129,34 +129,25 @@ export async function POST(request: NextRequest) {
     });
 
     // Precise Location Refinement:
-    // If we only have city-level coordinates (or no coordinates), use Google Places Search
-    // with the property name + location to find the exact building.
-    if (!propertyData.coordinates || (propertyData.location && !propertyData.coordinates)) {
-      console.log('[Scraper] Attempting to find precise coordinates via Google Places Search...');
+    // 1. Try to find precise coordinates if we don't have them or if they look low-precision
+    const currentCoords = propertyData.coordinates;
+    const isLowPrecision = currentCoords && Math.abs(currentCoords.lat % 0.01) < 0.0001 && Math.abs(currentCoords.lng % 0.01) < 0.0001;
+
+    if (!currentCoords || isLowPrecision) {
+      console.log(`[Scraper] ${!currentCoords ? 'No' : 'Low-precision'} coordinates found. Attempting to refine via Google Places Search...`);
       const preciseResult = await searchPlaceByNameAndLocation(propertyData.name, propertyData.location);
 
       if (preciseResult) {
         console.log('[Scraper] Found precise coordinates:', { lat: preciseResult.lat, lng: preciseResult.lng });
         propertyData.coordinates = { lat: preciseResult.lat, lng: preciseResult.lng };
         propertyData.googleMapsUrl = preciseResult.url;
-      } else if (propertyData.coordinates) {
-        // Fallback to what we already had if search fails
-        propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
+      } else if (currentCoords) {
+        // Fallback to what we had if search fails
+        propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
       }
-    } else if (propertyData.coordinates) {
-      // We have coordinates, just ensure we have a URL
-      propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${propertyData.coordinates.lat},${propertyData.coordinates.lng}`;
-
-      // Still try to refine if they look like city-level coords (e.g. integer lat/lng or very few decimals)
-      const isLowPrecision = Math.abs(propertyData.coordinates.lat % 0.01) < 0.0001 && Math.abs(propertyData.coordinates.lng % 0.01) < 0.0001;
-      if (isLowPrecision) {
-        console.log('[Scraper] Current coordinates look low-precision, trying to refine...');
-        const preciseResult = await searchPlaceByNameAndLocation(propertyData.name, propertyData.location);
-        if (preciseResult) {
-          propertyData.coordinates = { lat: preciseResult.lat, lng: preciseResult.lng };
-          propertyData.googleMapsUrl = preciseResult.url;
-        }
-      }
+    } else {
+      // We already have high-precision coordinates, just ensure we have a URL
+      propertyData.googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${currentCoords.lat},${currentCoords.lng}`;
     }
 
     // Normalize all image URLs to ensure they're absolute
