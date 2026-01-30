@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, Save } from 'lucide-react';
+import { Search, Save, Sparkles, RefreshCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function SearchSettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [settings, setSettings] = useState({
     defaultSearchLocation: '',
     featuredLocations: '',
@@ -58,6 +59,28 @@ export default function SearchSettingsPage() {
       toast.error(error.message || 'Failed to save search settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAiSync = async () => {
+    setSyncing(true);
+    try {
+      const response = await fetch('/api/admin/generate-embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'admin' }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(`Success! Processed ${data.processed} properties.`);
+      } else {
+        toast.error(data.error || 'Failed to sync embeddings');
+      }
+    } catch (error: any) {
+      toast.error('Sync failed: ' + error.message);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -148,6 +171,39 @@ export default function SearchSettingsPage() {
             </button>
           </div>
         </form>
+
+        <div className="mt-8 bg-purple-900/5 border border-purple-500/20 rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Sparkles className="w-6 h-6 text-purple-600" />
+            <h2 className="text-xl font-bold text-gray-900">AI Vibe Search Management</h2>
+          </div>
+          <p className="text-gray-600 mb-6">
+            Ensure your properties are searchable by "vibe". This process generates vector embeddings for all active properties that haven't been processed yet.
+          </p>
+          <div className="flex flex-col gap-4">
+            <div className="bg-white/50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700">
+              <p className="font-bold mb-1">Status Check:</p>
+              <p>The system will automatically process 50 properties at a time to prevent timeouts.</p>
+            </div>
+            <button
+              onClick={handleAiSync}
+              disabled={syncing}
+              className="w-full sm:w-auto px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center gap-2 font-bold shadow-lg shadow-purple-200"
+            >
+              {syncing ? (
+                <>
+                  <RefreshCcw className="w-5 h-5 animate-spin" />
+                  Syncing Embeddings...
+                </>
+              ) : (
+                <>
+                  <RefreshCcw className="w-5 h-5" />
+                  Sync AI Embeddings
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </AdminLayout>
   );

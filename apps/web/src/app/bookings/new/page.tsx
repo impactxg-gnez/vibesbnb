@@ -16,6 +16,12 @@ interface Property {
   images: string[];
   guests: number;
   host_id?: string;
+  rooms?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    guests: number;
+  }>;
 }
 
 interface PriceBreakdown {
@@ -30,12 +36,14 @@ export default function NewBookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const propertyId = searchParams.get('propertyId');
+  const selectedUnitsParam = searchParams.get('selectedUnits');
+  const [selectedUnits, setSelectedUnits] = useState<any[]>([]);
 
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [availability, setAvailability] = useState<Record<string, 'blocked' | 'booked'>>({});
-  
+  const [availability, setAvailability] = useState<Record<string, string[]>>({});
+
   const [formData, setFormData] = useState({
     checkIn: '',
     checkOut: '',
@@ -82,7 +90,15 @@ export default function NewBookingPage() {
         images: propertyData.images || [],
         guests: propertyData.guests || 1,
         host_id: propertyData.host_id,
+        rooms: propertyData.rooms || [],
       });
+
+      // If units were selected, filter them
+      if (selectedUnitsParam && propertyData.rooms) {
+        const selectedIds = selectedUnitsParam.split(',');
+        const filtered = propertyData.rooms.filter((r: any) => selectedIds.includes(r.id));
+        setSelectedUnits(filtered);
+      }
 
       setFormData(prev => ({
         ...prev,
@@ -104,11 +120,11 @@ export default function NewBookingPage() {
       const response = await fetch(`/api/properties/${id}/availability`);
       if (!response.ok) return;
       const data = await response.json();
-      const map: Record<string, 'blocked' | 'booked'> = {};
-      (data.availability || []).forEach((entry: { day: string; status: string }) => {
-        if (entry.status === 'blocked' || entry.status === 'booked') {
-          map[entry.day] = entry.status;
-        }
+      const map: Record<string, string[]> = {};
+      (data.availability || []).forEach((entry: { day: string; status: string; room_id?: string | null }) => {
+        if (!map[entry.day]) map[entry.day] = [];
+        // If room_id is null, the whole property is blocked
+        map[entry.day].push(entry.room_id || 'PROPERTY_WIDE');
       });
       setAvailability(map);
     } catch (error) {
@@ -118,23 +134,31 @@ export default function NewBookingPage() {
 
   const calculateTotal = (): PriceBreakdown | null => {
     if (!property || !formData.checkIn || !formData.checkOut) return null;
-    
+
     const checkInDate = new Date(formData.checkIn);
     const checkOutDate = new Date(formData.checkOut);
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (nights <= 0) return null;
-    
-    const basePrice = property.price * nights;
+
+    const getDailyPrice = () => {
+      if (selectedUnits.length > 0) {
+        return selectedUnits.reduce((sum, unit) => sum + (unit.price || 0), 0);
+      }
+      return property.price || 0;
+    };
+
+    const dailyPrice = getDailyPrice();
+    const basePrice = dailyPrice * nights;
     const serviceFee = basePrice * 0.1; // 10% service fee
     const total = basePrice + serviceFee;
-    
+
     return { nights, basePrice, serviceFee, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user || !property) return;
 
     // Validation
@@ -172,8 +196,17 @@ export default function NewBookingPage() {
         cursor.setDate(cursor.getDate() + 1)
       ) {
         const key = cursor.toISOString().split('T')[0];
-        if (availability[key]) {
-          return false;
+        const blockedUnits = availability[key] || [];
+
+        if (blockedUnits.includes('PROPERTY_WIDE')) return false;
+
+        if (selectedUnits.length > 0) {
+          // Check if any of our selected units are in the blocked list
+          const isAnySelectedUnitBlocked = selectedUnits.some(unit => blockedUnits.includes(unit.id));
+          if (isAnySelectedUnitBlocked) return false;
+        } else {
+          // If no specific units selected, anything blocked means unavailable
+          if (blockedUnits.length > 0) return false;
         }
       }
       return true;
@@ -212,7 +245,7 @@ export default function NewBookingPage() {
             .select('host_id')
             .eq('id', property.id)
             .single();
-          
+
           // Host contact info will be fetched in the API route using service role
         } catch (e) {
           console.warn('Could not fetch host info:', e);
@@ -239,6 +272,7 @@ export default function NewBookingPage() {
           special_requests: formData.specialRequests || '',
           guest_name: user.user_metadata?.full_name || user.email || 'Guest',
           guest_email: user.email || '',
+          selected_units: selectedUnits.length > 0 ? selectedUnits : null,
         }),
       });
 
@@ -416,16 +450,38 @@ export default function NewBookingPage() {
           <div className="lg:col-span-1">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <h3 className="text-xl font-bold text-white mb-6">Price Summary</h3>
-              
+
               {priceBreakdown ? (
                 <>
                   <div className="space-y-3 mb-6">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">
-                        ${property.price} × {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
-                      </span>
-                      <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
-                    </div>
+                    {selectedUnits.length > 0 ? (
+                      <div className="space-y-2 mb-4 p-3 bg-gray-800/50 rounded-lg">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Units Selected</p>
+                        {selectedUnits.map(unit => (
+                          <div key={unit.id} className="flex justify-between text-sm">
+                            <span className="text-white">{unit.name}</span>
+                            <span className="text-emerald-400 font-medium">${unit.price}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">
+                          ${property.price} × {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
+                        </span>
+                        <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {selectedUnits.length > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">
+                          Total for {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
+                        </span>
+                        <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Service fee</span>
                       <span className="text-white">${priceBreakdown.serviceFee.toFixed(2)}</span>

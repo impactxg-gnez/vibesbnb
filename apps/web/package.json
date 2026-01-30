@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@googlemaps/js-api-loader": "^1.16.2",
     "@hookform/resolvers": "^3.3.4",
     "@sparticuz/chromium": "^141.0.0",
@@ -23,6 +24,7 @@
     "cheerio": "^1.1.2",
     "clsx": "^2.1.0",
     "date-fns": "^3.1.0",
+    "dotenv": "^17.2.3",
     "framer-motion": "^12.23.24",
     "jszip": "^3.10.1",
     "lucide-react": "^0.303.0",

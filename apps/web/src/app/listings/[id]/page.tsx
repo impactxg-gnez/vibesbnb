@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  MapPin, 
-  Users, 
-  Bed, 
-  Bath, 
-  Wifi, 
-  Car, 
+import {
+  MapPin,
+  Users,
+  Bed,
+  Bath,
+  Wifi,
+  Car,
   Wind,
   Tv,
   Coffee,
@@ -19,7 +19,8 @@ import {
   Star,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -44,6 +45,13 @@ interface Property {
   hostImage: string;
   latitude?: number;
   longitude?: number;
+  rooms?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    guests: number;
+    images: string[];
+  }>;
 }
 
 const amenityIcons: { [key: string]: any } = {
@@ -62,6 +70,7 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -69,10 +78,10 @@ export default function ListingDetailPage() {
       try {
         const supabase = createClient();
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const isSupabaseConfigured = supabaseUrl && 
-                                      supabaseUrl !== '' &&
-                                      supabaseUrl !== 'https://placeholder.supabase.co';
-        
+        const isSupabaseConfigured = supabaseUrl &&
+          supabaseUrl !== '' &&
+          supabaseUrl !== 'https://placeholder.supabase.co';
+
         let propertyData: any = null;
 
         // Try to load from Supabase if configured
@@ -93,7 +102,7 @@ export default function ListingDetailPage() {
         if (!propertyData) {
           console.log('[Listing Detail] Loading property from localStorage fallback');
           const allProperties: any[] = [];
-          
+
           // Check all localStorage keys for properties
           const keys = Object.keys(localStorage);
           keys.forEach(key => {
@@ -101,7 +110,7 @@ export default function ListingDetailPage() {
               try {
                 const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
                 // Include active properties or properties without status
-                const activeProperties = userProperties.filter((p: any) => 
+                const activeProperties = userProperties.filter((p: any) =>
                   p.status === 'active' || !p.status
                 );
                 allProperties.push(...activeProperties);
@@ -110,10 +119,10 @@ export default function ListingDetailPage() {
               }
             }
           });
-          
+
           // Find the property by ID
           propertyData = allProperties.find((p: any) => p.id === params.id);
-          
+
           if (propertyData) {
             console.log('[Listing Detail] Found property in localStorage:', propertyData.id);
           }
@@ -129,7 +138,7 @@ export default function ListingDetailPage() {
         // TODO: Create a public profiles table or use a different approach
         let hostName = 'Host';
         let hostImage = 'https://api.dicebear.com/7.x/initials/svg?seed=Host';
-        
+
         // For now, we'll use a generic host name
         // In production, you'd want to create a public profiles table or use a different approach
         if (propertyData.host_id) {
@@ -155,6 +164,7 @@ export default function ListingDetailPage() {
           hostImage,
           latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
           longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
+          rooms: propertyData.rooms || [],
         };
 
         setProperty(loadedProperty);
@@ -192,8 +202,33 @@ export default function ListingDetailPage() {
   };
 
   const handleBooking = () => {
-    router.push(`/bookings/new?propertyId=${params.id}`);
+    if (property?.rooms && property.rooms.length > 0 && selectedRoomIds.length === 0) {
+      toast.error('Please select at least one room/unit to book');
+      return;
+    }
+    const selectedRoomsParam = selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
+    router.push(`/bookings/new?propertyId=${params.id}${selectedRoomsParam}`);
   };
+
+  const toggleRoomSelection = (roomId: string) => {
+    setSelectedRoomIds(prev =>
+      prev.includes(roomId)
+        ? prev.filter(id => id !== roomId)
+        : [...prev, roomId]
+    );
+  };
+
+  const calculateTotalPrice = () => {
+    if (!property) return 0;
+    if (property.rooms && property.rooms.length > 0 && selectedRoomIds.length > 0) {
+      return property.rooms
+        .filter(room => selectedRoomIds.includes(room.id))
+        .reduce((sum, room) => sum + room.price, 0);
+    }
+    return property.price;
+  }
+
+  const currentPrice = calculateTotalPrice();
 
   if (loading) {
     return (
@@ -254,11 +289,10 @@ export default function ListingDetailPage() {
             </button>
             <button
               onClick={handleFavorite}
-              className={`p-3 rounded-lg transition ${
-                isFavorite
+              className={`p-3 rounded-lg transition ${isFavorite
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-800 text-white hover:bg-gray-700'
-              }`}
+                }`}
             >
               <Heart size={20} className={isFavorite ? 'fill-white' : ''} />
             </button>
@@ -274,7 +308,7 @@ export default function ListingDetailPage() {
               alt={`${property.name} - Image ${currentImageIndex + 1}`}
               className="w-full h-full object-cover"
             />
-            
+
             {property.wellnessFriendly && (
               <div className="absolute top-4 left-4 bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold">
                 🧘 Wellness-Friendly
@@ -300,9 +334,8 @@ export default function ListingDetailPage() {
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full transition ${
-                        index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
-                      }`}
+                      className={`w-2 h-2 rounded-full transition ${index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
+                        }`}
                     />
                   ))}
                 </div>
@@ -313,8 +346,8 @@ export default function ListingDetailPage() {
           {/* Map */}
           {property.latitude && property.longitude && (
             <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800">
-              <PropertyMap 
-                latitude={property.latitude} 
+              <PropertyMap
+                latitude={property.latitude}
                 longitude={property.longitude}
                 propertyName={property.name}
               />
@@ -380,6 +413,45 @@ export default function ListingDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Room/Unit Selection */}
+            {property.rooms && property.rooms.length > 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold text-white mb-6">Available Units</h2>
+                <div className="space-y-4">
+                  {property.rooms.map((room) => (
+                    <div
+                      key={room.id}
+                      onClick={() => toggleRoomSelection(room.id)}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${selectedRoomIds.includes(room.id)
+                          ? 'bg-emerald-600/10 border-emerald-500'
+                          : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'
+                        }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition ${selectedRoomIds.includes(room.id)
+                            ? 'bg-emerald-500 border-emerald-500'
+                            : 'bg-transparent border-gray-600'
+                          }`}>
+                          {selectedRoomIds.includes(room.id) && <Check size={16} className="text-white" />}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-semibold">{room.name}</h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <Users size={14} />
+                            <span>Up to {room.guests} guests</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white font-bold">${room.price}</div>
+                        <div className="text-xs text-gray-400">per night</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Booking Card */}
@@ -387,7 +459,7 @@ export default function ListingDetailPage() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <div className="mb-6">
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-3xl font-bold text-white">${property.price}</span>
+                  <span className="text-3xl font-bold text-white">${currentPrice}</span>
                   <span className="text-gray-400">/ night</span>
                 </div>
                 <div className="flex items-center gap-1 text-sm">
@@ -416,16 +488,16 @@ export default function ListingDetailPage() {
 
               <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">${property.price} × 5 nights</span>
-                  <span className="text-white">${property.price * 5}</span>
+                  <span className="text-gray-400">${currentPrice} × 5 nights</span>
+                  <span className="text-white">${currentPrice * 5}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Service fee</span>
-                  <span className="text-white">${Math.round(property.price * 5 * 0.1)}</span>
+                  <span className="text-white">${Math.round(currentPrice * 5 * 0.1)}</span>
                 </div>
                 <div className="flex justify-between font-semibold pt-3 border-t border-gray-800">
                   <span className="text-white">Total</span>
-                  <span className="text-white">${property.price * 5 + Math.round(property.price * 5 * 0.1)}</span>
+                  <span className="text-white">${currentPrice * 5 + Math.round(currentPrice * 5 * 0.1)}</span>
                 </div>
               </div>
             </div>

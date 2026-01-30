@@ -65,11 +65,25 @@ export async function POST(request: NextRequest) {
         days.push(cursor.toISOString().split('T')[0]);
       }
       if (days.length > 0) {
-        await supabase
-          .from('property_availability')
-          .delete()
-          .eq('property_id', booking.property_id)
-          .in('day', days);
+        const unitsToRelease = (booking.selected_units && Array.isArray(booking.selected_units) && booking.selected_units.length > 0)
+          ? booking.selected_units
+          : [{ id: null }];
+
+        for (const unit of unitsToRelease) {
+          let deleteQuery = supabase
+            .from('property_availability')
+            .delete()
+            .eq('property_id', booking.property_id)
+            .in('day', days);
+
+          if (unit.id) {
+            deleteQuery = deleteQuery.eq('room_id', unit.id);
+          } else {
+            deleteQuery = deleteQuery.is('room_id', null);
+          }
+
+          await deleteQuery;
+        }
       }
     } catch (availabilityError) {
       console.warn('Failed to release availability:', availabilityError);
@@ -81,9 +95,8 @@ export async function POST(request: NextRequest) {
         user_id: booking.host_id,
         type: 'booking_cancelled',
         title: 'Booking Cancelled',
-        message: `${booking.guest_name || 'Guest'} cancelled their booking for ${
-          booking.property_name || 'your property'
-        }.`,
+        message: `${booking.guest_name || 'Guest'} cancelled their booking for ${booking.property_name || 'your property'
+          }.`,
         related_booking_id: booking.id,
       });
     }

@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
       special_requests,
       guest_name,
       guest_email,
+      selected_units,
     } = body;
 
     // Validate required fields
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
         host_whatsapp: hostWhatsApp,
         special_requests: special_requests || null,
         payment_status: 'pending',
+        selected_units: selected_units || null,
       })
       .select()
       .single();
@@ -131,24 +133,33 @@ export async function POST(request: NextRequest) {
       const daysToBlock: { day: string; status: 'booked'; property_id: string; host_id: string }[] = [];
       const start = new Date(check_in);
       const end = new Date(check_out);
-      for (
-        let cursor = new Date(start);
-        cursor < end;
-        cursor.setDate(cursor.getDate() + 1)
-      ) {
-        const dateKey = cursor.toISOString().split('T')[0];
-        daysToBlock.push({
-          day: dateKey,
-          status: 'booked',
-          property_id,
-          host_id: hostId,
-        });
-      }
 
-      if (daysToBlock.length > 0) {
-        await supabase
-          .from('property_availability')
-          .upsert(daysToBlock, { onConflict: 'property_id,day' });
+      const unitsToBlock = (selected_units && Array.isArray(selected_units) && selected_units.length > 0)
+        ? selected_units
+        : [{ id: null }]; // Default to property-wide if no units specified
+
+      for (const unit of unitsToBlock) {
+        const daysToBlock: { day: string; status: 'booked'; property_id: string; host_id: string; room_id: string | null }[] = [];
+        for (
+          let cursor = new Date(start);
+          cursor < end;
+          cursor.setDate(cursor.getDate() + 1)
+        ) {
+          const dateKey = cursor.toISOString().split('T')[0];
+          daysToBlock.push({
+            day: dateKey,
+            status: 'booked',
+            property_id,
+            host_id: hostId,
+            room_id: unit.id || null,
+          });
+        }
+
+        if (daysToBlock.length > 0) {
+          await supabase
+            .from('property_availability')
+            .upsert(daysToBlock, { onConflict: 'property_id,room_id,day' });
+        }
       }
     } catch (availabilityError) {
       console.warn('Failed to mark booked days:', availabilityError);

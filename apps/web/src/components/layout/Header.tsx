@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Bed, Home, Building, Trees, Sparkles } from 'lucide-react';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -12,22 +12,22 @@ export function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  
+
   const userRole = user?.user_metadata?.role || 'traveller';
   const isHost = userRole === 'host';
   const isAdmin = userRole === 'admin';
   const isTraveller = userRole === 'traveller' || (!isHost && !isAdmin);
-  
+
   // Check if user has host role available (from localStorage and user metadata)
   useEffect(() => {
     if (user) {
       // First, check user metadata for role (most reliable source)
       const metadataRole = user.user_metadata?.role;
-      
+
       // Then check localStorage
       const rolesStr = localStorage.getItem('userRoles');
       let roles: string[] = [];
-      
+
       if (rolesStr) {
         try {
           roles = JSON.parse(rolesStr) as string[];
@@ -36,26 +36,26 @@ export function Header() {
           roles = [];
         }
       }
-      
+
       // If user metadata has a role, ensure it's in the roles array
       if (metadataRole && !roles.includes(metadataRole)) {
         roles.push(metadataRole);
         localStorage.setItem('userRoles', JSON.stringify(roles));
       }
-      
+
       // If no roles in localStorage but user has role in metadata, use metadata
       if (roles.length === 0 && metadataRole) {
         roles = [metadataRole];
         localStorage.setItem('userRoles', JSON.stringify(roles));
       }
-      
+
       setUserRoles(roles);
     } else {
       // Clear roles when user logs out
       setUserRoles([]);
     }
   }, [user]);
-  
+
   const hasHostRole = userRoles.includes('host') || isHost;
 
   useEffect(() => {
@@ -111,30 +111,28 @@ export function Header() {
           </Link>
 
           {/* Centered Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/search?category=Mountain" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-              </svg>
-              Mountain
+          <nav className="hidden lg:flex items-center space-x-6">
+            <Link href="/search?category=1-bed" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
+              <Bed className="w-4 h-4" />
+              1 Bed
             </Link>
-            <Link href="/search?category=Beach" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-              </svg>
-              Beach
+            <Link href="/search?category=2-bed" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
+              <Bed className="w-4 h-4" />
+              2 Bed
             </Link>
-            <Link href="/search?category=Forest" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              Forest
+            <Link href="/search?category=studios" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
+              <Building className="w-4 h-4" />
+              Studios
+            </Link>
+            <Link href="/search?category=villas" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
+              <Home className="w-4 h-4" />
+              Villas
             </Link>
           </nav>
 
           {/* Right Side */}
           <div className="flex items-center space-x-3 md:space-x-6">
-            <Link 
+            <Link
               href="/favorites"
               className="text-muted hover:text-white transition-colors flex items-center gap-2"
             >
@@ -143,7 +141,7 @@ export function Header() {
               </svg>
               <span className="font-medium text-xs md:text-sm hidden sm:inline">Save</span>
             </Link>
-            <Link 
+            <Link
               href="/bookings"
               className="text-muted hover:text-white transition-colors text-xs md:text-sm font-medium flex items-center gap-2"
             >
@@ -157,14 +155,14 @@ export function Header() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
-            
+
             {!loading && (
               <>
                 {user ? (
                   <>
                     {/* User Menu */}
                     <div className="relative">
-                      <button 
+                      <button
                         onClick={() => setShowUserMenu(!showUserMenu)}
                         className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full p-1 pl-3 transition-all"
                       >
@@ -293,14 +291,14 @@ export function Header() {
                   </>
                 ) : (
                   <div className="flex items-center space-x-4">
-                    <Link 
-                      href="/login" 
+                    <Link
+                      href="/login"
                       className="text-muted hover:text-white transition-colors text-sm font-medium"
                     >
                       Log In
                     </Link>
-                    <Link 
-                      href="/signup" 
+                    <Link
+                      href="/signup"
                       className="bg-primary-500 text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-primary-400 transition-all shadow-[0_0_20px_rgba(0,230,118,0.2)]"
                     >
                       Sign Up

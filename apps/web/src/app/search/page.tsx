@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 
 function CollapsibleSearchSection() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
+
   return (
     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-white/20">
       <div className="flex items-center justify-between mb-4 md:mb-6">
@@ -20,10 +20,10 @@ function CollapsibleSearchSection() {
           className="text-white hover:text-primary-500 transition-colors p-2"
           aria-label={isCollapsed ? 'Expand search' : 'Collapse search'}
         >
-          <svg 
-            className={`w-5 h-5 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} 
-            fill="none" 
-            stroke="currentColor" 
+          <svg
+            className={`w-5 h-5 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -63,7 +63,7 @@ export default function SearchPage() {
   useEffect(() => {
     const loadAndFilterProperties = async () => {
       setLoading(true);
-      
+
       // Get search parameters
       const location = searchParams.get('location') || '';
       const guests = parseInt(searchParams.get('guests') || '0');
@@ -77,16 +77,16 @@ export default function SearchPage() {
         const supabase = createClient();
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        const isSupabaseConfigured = supabaseUrl && 
-                                      supabaseUrl !== '' &&
-                                      supabaseUrl !== 'https://placeholder.supabase.co' &&
-                                      supabaseKey &&
-                                      supabaseKey !== '' &&
-                                      supabaseKey !== 'placeholder-key';
-        
+        const isSupabaseConfigured = supabaseUrl &&
+          supabaseUrl !== '' &&
+          supabaseUrl !== 'https://placeholder.supabase.co' &&
+          supabaseKey &&
+          supabaseKey !== '' &&
+          supabaseKey !== 'placeholder-key';
+
         let propertiesData: any[] = [];
         let supabaseErrorOccurred = false;
-        
+
         if (isSupabaseConfigured) {
           // Fetch active properties from Supabase
           let query = supabase
@@ -103,12 +103,12 @@ export default function SearchPage() {
             propertiesData = data || [];
           }
         }
-        
+
         // Fallback to localStorage if Supabase is not configured or query failed
         if (!isSupabaseConfigured || supabaseErrorOccurred) {
           console.log('[Search] Loading properties from localStorage fallback');
           const allProperties: any[] = [];
-          
+
           // Check all localStorage keys for properties
           const keys = Object.keys(localStorage);
           keys.forEach(key => {
@@ -116,7 +116,7 @@ export default function SearchPage() {
               try {
                 const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
                 // Only include active properties
-                const activeProperties = userProperties.filter((p: any) => 
+                const activeProperties = userProperties.filter((p: any) =>
                   p.status === 'active' || !p.status // Include properties without status as active
                 );
                 allProperties.push(...activeProperties);
@@ -125,7 +125,7 @@ export default function SearchPage() {
               }
             }
           });
-          
+
           if (allProperties.length > 0) {
             propertiesData = allProperties;
             console.log('[Search] Found', allProperties.length, 'properties from localStorage');
@@ -137,12 +137,12 @@ export default function SearchPage() {
           if (!url || typeof url !== 'string') {
             return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
           }
-          
+
           // If it's already a data URL or placeholder, return as-is
           if (url.startsWith('data:') || url.startsWith('https://via.placeholder.com')) {
             return url;
           }
-          
+
           // If it's already a valid absolute URL, return as-is
           try {
             new URL(url);
@@ -170,12 +170,12 @@ export default function SearchPage() {
           const normalizedImages = rawImages
             .map(normalizeImageUrl)
             .filter((img: string) => img && img.length > 0);
-          
+
           // Ensure at least one image
-          const images = normalizedImages.length > 0 
-            ? normalizedImages 
+          const images = normalizedImages.length > 0
+            ? normalizedImages
             : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
-          
+
           return {
             id: p.id,
             name: p.name || p.title || 'Untitled Property',
@@ -198,17 +198,25 @@ export default function SearchPage() {
           };
         });
 
-        // Filter by location
+        // Filter by location - more lenient matching
         if (location) {
-          filteredListings = filteredListings.filter(listing =>
-            listing.location.toLowerCase().includes(location.toLowerCase())
-          );
+          const searchTerms = location.toLowerCase().split(/[,\s]+/).filter(term => term.length > 1);
+          filteredListings = filteredListings.filter(listing => {
+            const listingLoc = listing.location.toLowerCase();
+            const listingName = listing.name.toLowerCase();
+
+            // Check if any search term matches location OR name
+            return searchTerms.some(term => listingLoc.includes(term) || listingName.includes(term)) ||
+              listingLoc.includes(location.toLowerCase());
+          });
         }
 
         // Filter by guest count - show properties that allow selected guests or more
+        // If property has 0 guests (not set), we show it only if totalOccupancy is 1
         if (totalOccupancy > 0) {
           filteredListings = filteredListings.filter(listing => {
             const propertyGuests = listing.guests || 0;
+            if (propertyGuests === 0) return totalOccupancy <= 2; // Assume typical capacity if not set
             return propertyGuests >= totalOccupancy;
           });
         }
@@ -238,7 +246,7 @@ export default function SearchPage() {
         });
 
         // Debug: Check Miami properties specifically
-        const miamiProperties = filteredListings.filter(l => 
+        const miamiProperties = filteredListings.filter(l =>
           l.location && l.location.toLowerCase().includes('miami')
         );
         if (miamiProperties.length > 0) {
@@ -299,7 +307,7 @@ export default function SearchPage() {
               </h2>
               <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={() => {
                       setShowDatePicker(!showDatePicker);
                       setShowGuestPicker(false);
@@ -355,7 +363,7 @@ export default function SearchPage() {
                   )}
                 </div>
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={() => {
                       setShowGuestPicker(!showGuestPicker);
                       setShowDatePicker(false);
@@ -413,7 +421,7 @@ export default function SearchPage() {
                     </div>
                   )}
                 </div>
-                <select 
+                <select
                   value={sortBy}
                   onChange={(e) => {
                     const params = new URLSearchParams(searchParams.toString());
@@ -507,7 +515,7 @@ export default function SearchPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 mt-6">
-                         <p className="text-white font-bold text-2xl">
+                        <p className="text-white font-bold text-2xl">
                           ${listing.price} <span className="font-normal text-muted text-sm">/ night</span>
                         </p>
                         <div className="flex-1" />

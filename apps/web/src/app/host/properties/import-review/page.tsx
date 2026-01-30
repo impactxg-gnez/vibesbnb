@@ -13,6 +13,8 @@ interface Room {
   name: string;
   images: File[];
   imagePreviewUrls: string[];
+  price?: number;
+  guests?: number;
 }
 
 interface ImportedPropertyData {
@@ -171,6 +173,8 @@ export default function ImportReviewPage() {
             name: 'All Photos',
             images: [],
             imagePreviewUrls: importedImages, // Show all imported images
+            price: data.price || 100,
+            guests: Math.max(1, Math.floor((data.guests || 2) / 2)), // Default to half of total or 1
           },
         ]);
       } catch (error) {
@@ -187,7 +191,14 @@ export default function ImportReviewPage() {
   const addRoom = () => {
     setRooms([
       ...rooms,
-      { id: Date.now().toString(), name: '', images: [], imagePreviewUrls: [] },
+      {
+        id: Date.now().toString(),
+        name: '',
+        images: [],
+        imagePreviewUrls: [],
+        price: formData.price,
+        guests: 1
+      },
     ]);
   };
 
@@ -197,8 +208,8 @@ export default function ImportReviewPage() {
     }
   };
 
-  const updateRoomName = (roomId: string, name: string) => {
-    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, name } : r)));
+  const updateRoomData = (roomId: string, data: Partial<Room>) => {
+    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, ...data } : r)));
   };
 
   const handleImageUpload = (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -360,8 +371,11 @@ export default function ImportReviewPage() {
           }
         }
         roomsData.push({
+          id: room.id,
           name: room.name,
           images: roomImages,
+          price: room.price || formData.price,
+          guests: room.guests || 1,
         });
       }
 
@@ -712,8 +726,8 @@ export default function ImportReviewPage() {
                 type="button"
                 onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
                 className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${formData.wellnessFriendly
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
                   }`}
               >
                 <span className="text-lg">🧘</span>
@@ -724,8 +738,8 @@ export default function ImportReviewPage() {
                 type="button"
                 onClick={() => setSmokeFriendly(!smokeFriendly)}
                 className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${smokeFriendly
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
                   }`}
               >
                 <span className="text-lg">🚬</span>
@@ -744,8 +758,8 @@ export default function ImportReviewPage() {
                   type="button"
                   onClick={() => toggleAmenity(amenity)}
                   className={`px-4 py-3 rounded-lg border transition ${formData.amenities.includes(amenity)
-                      ? 'bg-emerald-600 border-emerald-600 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
                     }`}
                 >
                   {amenity}
@@ -777,14 +791,34 @@ export default function ImportReviewPage() {
               {rooms.map((room, roomIndex) => (
                 <div key={room.id} className="border border-gray-700 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <input
-                      type="text"
-                      value={room.name}
-                      onChange={(e) => updateRoomName(room.id, e.target.value)}
-                      placeholder="Room name (e.g., Living Room, Bedroom 1, Kitchen)"
-                      className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                      required
-                    />
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <input
+                        type="text"
+                        value={room.name}
+                        onChange={(e) => updateRoomData(room.id, { name: e.target.value })}
+                        placeholder="Room name (e.g., Suite 101, Villa A)"
+                        className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                        required
+                      />
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 whitespace-nowrap">Price ($)</label>
+                        <input
+                          type="number"
+                          value={room.price}
+                          onChange={(e) => updateRoomData(room.id, { price: parseInt(e.target.value) || 0 })}
+                          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400 whitespace-nowrap">Guests</label>
+                        <input
+                          type="number"
+                          value={room.guests}
+                          onChange={(e) => updateRoomData(room.id, { guests: parseInt(e.target.value) || 1 })}
+                          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                        />
+                      </div>
+                    </div>
                     {rooms.length > 1 && (
                       <button
                         type="button"

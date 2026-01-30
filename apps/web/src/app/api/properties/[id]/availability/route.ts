@@ -7,10 +7,20 @@ export async function GET(
 ) {
   try {
     const supabase = createClient();
-    const { data, error } = await supabase
+    const { searchParams } = new URL(_request.url);
+    const roomId = searchParams.get('roomId');
+
+    let query = supabase
       .from('property_availability')
-      .select('day, status')
+      .select('day, status, room_id')
       .eq('property_id', params.id);
+
+    if (roomId) {
+      // If a specific room is requested, show its specific blocks OR property-wide blocks
+      query = query.or(`room_id.is.null,room_id.eq.${roomId}`);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
