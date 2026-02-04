@@ -6,6 +6,7 @@ import { SearchSection } from '@/components/home/SearchSection';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import PropertiesMap from '@/components/PropertiesMap';
 
 interface Listing {
   id: string;
