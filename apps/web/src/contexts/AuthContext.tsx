@@ -308,11 +308,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Redirect based on role
       if (normalizedRole === 'host') {
         router.push('/host/properties');
-      } else {
+      } else if (normalizedRole !== 'dispensary') {
         router.push('/');
       }
+      
       router.refresh();
-      return { error: null };
+      return { error: null, data: { user: mockUser } };
     }
     
     // Supabase authentication
@@ -343,7 +344,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // For hosts, we might want to redirect them directly if email is already verified
         // But typically, Supabase requires email verification first
         router.push('/verify-email');
-      } else {
+      } else if (normalizedRole !== 'dispensary') {
         router.push('/verify-email');
       }
     }
