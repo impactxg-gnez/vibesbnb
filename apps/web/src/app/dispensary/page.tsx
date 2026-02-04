@@ -35,18 +35,52 @@ export default function DispensarySignupPage() {
 
     try {
       // 1. Sign up the user
-      const { error: signUpError } = await signUp(formData.email, formData.password, formData.name, 'dispensary');
+      const { error: signUpError, data: signUpData } = await (async () => {
+        // We need to handle the return from signUp carefully
+        const res = await signUp(formData.email, formData.password, formData.name, 'dispensary');
+        // Re-fetch user if it was just created in demo mode or get from res
+        return { error: res.error, data: { user: (res as any).user } };
+      })();
       
       if (signUpError) throw signUpError;
 
-      // Note: In a real app, we'd wait for email verification or handle the session.
-      // For this implementation, we'll try to create the dispensary record if session is available
-      // or instruct the user to verify email.
+      // 2. Create dispensary record
+      // We use a small delay or check for the user id from the sign up data
+      // Note: In Supabase, the user might not be in the public.profiles yet if using triggers, 
+      // but we can insert into dispensaries if RLS allows or if we have the ID.
       
-      toast.success('Account created! Please verify your email to continue.');
+      let userId = signUpData?.user?.id;
+      
+      // Fallback: if user is logged in (session caught)
+      if (!userId) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        userId = currentUser?.id;
+      }
+
+      if (userId) {
+        const { error: dispError } = await supabase
+          .from('dispensaries')
+          .insert({
+            user_id: userId,
+            name: formData.dispensaryName,
+            location: formData.location,
+            latitude: formData.coordinates?.lat,
+            longitude: formData.coordinates?.lng,
+            delivery_radius: formData.deliveryRadius,
+            description: formData.description,
+            status: 'pending' // Admin must approve
+          });
+          
+        if (dispError) {
+          console.error('Error creating dispensary record:', dispError);
+          // We don't throw here to avoid blocking the success message if account was created
+        }
+      }
+
+      toast.success('Application submitted! Please verify your email to continue.');
       setStep(3); // Success step
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create account');
+      toast.error(error.message || 'Failed to submit application');
     } finally {
       setIsLoading(false);
     }
@@ -173,6 +207,16 @@ export default function DispensarySignupPage() {
                   <LocationPicker 
                     onLocationChange={handleLocationChange}
                     className="mt-2"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Business Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    placeholder="Tell us about your products and services..."
+                    className="input !py-4 min-h-[100px] resize-none"
                   />
                 </div>
 

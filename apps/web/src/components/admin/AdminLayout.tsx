@@ -20,6 +20,7 @@ import {
   ChevronRight,
   LogOut,
   Globe,
+  Leaf,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -45,6 +46,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Manage listings', href: '/admin/listings', icon: <Home className="w-5 h-5" /> },
     { label: 'Manage Reservations', href: '/admin/reservations', icon: <Calendar className="w-5 h-5" /> },
     { label: 'Reviews Management', href: '/admin/reviews', icon: <Star className="w-5 h-5" /> },
+    { label: 'Manage Dispensaries', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
     {
       label: 'Admin Reviews',
       icon: <Star className="w-5 h-5" />,
