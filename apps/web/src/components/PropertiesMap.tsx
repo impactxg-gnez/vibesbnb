@@ -290,11 +290,22 @@ export default function PropertiesMap({
       propertiesAtLocation.forEach((property, index) => {
         if (!property.coordinates) return;
 
+        // Add a tiny offset for overlapping markers to make them visible as separate blips
+        let lat = property.coordinates.lat;
+        let lng = property.coordinates.lng;
+        
+        if (propertiesAtLocation.length > 1) {
+          // Spread markers out in a tiny circle if they overlap
+          // The radius starts small and grows slightly with more properties
+          const angle = (index / propertiesAtLocation.length) * 2 * Math.PI;
+          const radius = 0.00008 * (1 + Math.floor(index / 8) * 0.5); // ~8-12 meters offset
+          lat += radius * Math.cos(angle);
+          // Adjust longitude for latitude to keep circle shape
+          lng += (radius * Math.sin(angle)) / Math.cos(lat * Math.PI / 180);
+        }
+
         const marker = new window.google.maps.Marker({
-          position: {
-            lat: property.coordinates.lat,
-            lng: property.coordinates.lng,
-          },
+          position: { lat, lng },
           map: mapInstanceRef.current,
           title: property.name,
           icon: {

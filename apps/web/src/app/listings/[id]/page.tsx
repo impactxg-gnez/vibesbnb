@@ -33,6 +33,7 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
+import NearbyDispensaries from '@/components/NearbyDispensaries';
 
 interface Property {
   id: string;
@@ -557,6 +558,16 @@ export default function ListingDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Nearby Dispensaries */}
+            {property.location && (
+              <NearbyDispensaries 
+                propertyLocation={property.location}
+                propertyCoordinates={property.latitude && property.longitude ? { lat: property.latitude, lng: property.longitude } : undefined}
+                propertyId={property.id}
+                propertyName={property.name}
+              />
+            )}
 
             {/* Host Info */}
             <div className="bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden group">

@@ -15,7 +15,6 @@ import {
   Award
 } from 'lucide-react';
 import Link from 'next/link';
-import { Header } from '@/components/layout/Header';
 
 interface HostProfile {
   id: string;
@@ -117,7 +116,6 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Header />
       
       <main className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">

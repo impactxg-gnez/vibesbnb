@@ -260,6 +260,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           router.push('/admin');
         } else if (role === 'host') {
           router.push('/host/properties');
+        } else if (role === 'dispensary') {
+          router.push('/dispensary/dashboard');
         } else {
           router.push('/');
         }
