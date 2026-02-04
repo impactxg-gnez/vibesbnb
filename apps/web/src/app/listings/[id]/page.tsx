@@ -55,6 +55,7 @@ interface Property {
   hostImage: string;
   hostBio?: string;
   hostJoinedDate?: string;
+  type?: string;
   rooms?: Array<{
     id: string;
     name: string;
@@ -217,6 +218,7 @@ export default function ListingDetailPage() {
           hostJoinedDate,
           latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
           longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
+          type: propertyData.type || 'Retreat',
           rooms: propertyData.rooms || [],
         };
 
