@@ -24,6 +24,129 @@ interface Listing {
   [key: string]: any;
 }
 
+// Listing Card Component with Image Carousel
+function ListingCard({ listing, onHover }: { listing: Listing, onHover: (id: string | null) => void }) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
+
+  const nextImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div
+      onMouseEnter={() => onHover(listing.id)}
+      onMouseLeave={() => onHover(null)}
+      className="group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors"
+    >
+      <Link href={`/listings/${listing.id}`} className="block relative">
+        <div className="relative h-64 bg-surface-light overflow-hidden">
+          <img
+            src={images[currentImageIndex]}
+            alt={listing.title || 'Property'}
+            className="w-full h-full object-cover transition-transform duration-500"
+          />
+          
+          {/* Navigation Arrows */}
+          {images.length > 1 && (
+            <>
+              <button 
+                onClick={prevImage}
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button 
+                onClick={nextImage}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          {/* Badges */}
+          <div className="absolute top-4 left-4 p-2 bg-surface-dark/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-primary-500 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </div>
+          <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
+              <span className="text-lg">🌿</span>
+              <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                <span className="flex items-center gap-1">
+                  INDOOR <span className="text-green-400">✓</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  OUTDOOR <span className="text-green-400">✓</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* Thumbnails */}
+      {images.length > 1 && (
+        <div className="flex gap-2 p-3 bg-surface-dark overflow-x-auto scrollbar-hide border-b border-white/5">
+          {images.slice(0, 5).map((img, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setCurrentImageIndex(idx);
+              }}
+              className={`relative w-16 h-12 flex-shrink-0 rounded-lg overflow-hidden transition-all ${
+                idx === currentImageIndex 
+                  ? 'ring-2 ring-primary-500 opacity-100' 
+                  : 'opacity-60 hover:opacity-100'
+              }`}
+            >
+              <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Link href={`/listings/${listing.id}`} className="flex-1 p-5">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-1">
+              {listing.title}
+            </h3>
+            <p className="text-muted text-sm line-clamp-1">{listing.location}</p>
+          </div>
+          <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
+            <span className="text-primary-500 text-xs">★</span>
+            <span className="text-xs font-bold text-white">{listing.rating?.toFixed(1) || '4.5'}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-end justify-between mt-4">
+          <p className="text-white font-bold text-xl">
+            ${listing.price} <span className="font-normal text-muted text-xs">/ night</span>
+          </p>
+          <span className="text-muted text-xs font-medium">Up to {listing.guests} guests</span>
+        </div>
+      </Link>
+    </div>
+  );
+}
+
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,6 +155,7 @@ export default function SearchPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [sortBy, setSortBy] = useState('Price: High to Low');
+  const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
 
   useEffect(() => {
     // ... existing useEffect logic ...
@@ -211,46 +335,6 @@ export default function SearchPage() {
           setSortBy('Most Recent');
         }
 
-        // Debug: Log how many listings have coordinates
-        const listingsWithCoords = filteredListings.filter(l => l.coordinates);
-        console.log('[Search] Listings with coordinates:', {
-          total: filteredListings.length,
-          withCoords: listingsWithCoords.length,
-          coords: listingsWithCoords.map(l => ({ id: l.id, coords: l.coordinates })),
-        });
-
-        // Debug: Check Miami properties specifically
-        const miamiProperties = filteredListings.filter(l =>
-          l.location && l.location.toLowerCase().includes('miami')
-        );
-        if (miamiProperties.length > 0) {
-          console.log('[Search] Miami Properties Analysis:', {
-            total: miamiProperties.length,
-            properties: miamiProperties.map(p => ({
-              id: p.id,
-              name: p.name,
-              location: p.location,
-              coordinates: p.coordinates,
-              hasCoords: !!p.coordinates,
-            })),
-            uniqueCoordinates: Array.from(new Set(
-              miamiProperties
-                .filter(p => p.coordinates)
-                .map(p => `${p.coordinates!.lat.toFixed(6)},${p.coordinates!.lng.toFixed(6)}`)
-            )),
-            coordinateGroups: (() => {
-              const groups: { [key: string]: number } = {};
-              miamiProperties.forEach(p => {
-                if (p.coordinates) {
-                  const key = `${p.coordinates.lat.toFixed(6)},${p.coordinates.lng.toFixed(6)}`;
-                  groups[key] = (groups[key] || 0) + 1;
-                }
-              });
-              return groups;
-            })(),
-          });
-        }
-
         setListings(filteredListings);
       } catch (error) {
         console.error('Error loading properties:', error);
@@ -283,9 +367,9 @@ export default function SearchPage() {
       </div>
 
       <div className="px-3 md:px-6 py-4 md:py-8">
-        <div className="flex gap-4 md:gap-8">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Listings Column */}
-          <div className="flex-1">
+          <div className="w-full lg:w-1/2 order-2 lg:order-1">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
               <h2 className="text-lg md:text-2xl font-bold text-white">
                 {loading ? 'Searching...' : `${listings.length} stays in ${searchParams.get('location') || 'all locations'}`}
@@ -455,77 +539,23 @@ export default function SearchPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {listings.map((listing) => (
-                  <Link
-                    key={listing.id}
-                    href={`/listings/${listing.id}`}
-                    className="group card"
-                  >
-                    <div className="relative h-72 bg-surface-light">
-                      {listing.images && listing.images[0] ? (
-                        <img
-                          src={listing.images[0]}
-                          alt={listing.title || 'Property'}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=Image+Failed+to+Load';
-                            target.onerror = null;
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted">
-                          <span>No Image</span>
-                        </div>
-                      )}
-                      <div className="absolute top-4 left-4 p-2 bg-surface-dark/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-primary-500 transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                      </div>
-                      <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
-                        <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-                          <span className="text-lg">🌿</span>
-                          <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                            <span className="flex items-center gap-1">
-                              INDOOR <span className="text-green-400">✓</span>
-                            </span>
-                            <span className="flex items-center gap-1">
-                              OUTDOOR <span className="text-green-400">✓</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="font-bold text-white text-xl mb-1 group-hover:text-primary-500 transition-colors">
-                            {listing.title}
-                          </h3>
-                          <p className="text-muted text-sm">{listing.location}</p>
-                        </div>
-                        <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
-                          <span className="text-primary-500 text-xs text-sm">★</span>
-                          <span className="text-xs font-bold text-white">{listing.rating?.toFixed(1) || '4.5'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 mt-6">
-                        <p className="text-white font-bold text-2xl">
-                          ${listing.price} <span className="font-normal text-muted text-sm">/ night</span>
-                        </p>
-                        <div className="flex-1" />
-                        <span className="text-muted text-xs font-medium">Up to {listing.guests} guests</span>
-                      </div>
-                    </div>
-                  </Link>
+                  <ListingCard 
+                    key={listing.id} 
+                    listing={listing}
+                    onHover={setHoveredListingId}
+                  />
                 ))}
               </div>
             )}
           </div>
 
           {/* Map Column */}
-          <div className="hidden lg:block w-[360px] md:w-[450px] sticky top-[100px] h-[calc(100vh-140px)]">
-            <PropertiesMap properties={listings} className="w-full h-full rounded-3xl border border-white/10 shadow-2xl" />
+          <div className="hidden lg:block lg:w-1/2 order-1 lg:order-2 sticky top-[100px] h-[calc(100vh-140px)]">
+            <PropertiesMap 
+              properties={listings} 
+              className="w-full h-full rounded-3xl border border-white/10 shadow-2xl" 
+              hoveredListingId={hoveredListingId}
+            />
           </div>
         </div>
       </div>

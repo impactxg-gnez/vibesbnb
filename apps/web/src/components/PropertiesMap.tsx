@@ -20,16 +20,19 @@ interface PropertiesMapProps {
   properties: Property[];
   className?: string;
   height?: string;
+  hoveredListingId?: string | null;
 }
 
 export default function PropertiesMap({
   properties,
   className = '',
-  height = '600px'
+  height = '600px',
+  hoveredListingId
 }: PropertiesMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const markersMapRef = useRef<Map<string, any>>(new Map());
   const infoWindowsRef = useRef<Map<any, any>>(new Map());
   const [mapLoaded, setMapLoaded] = useState(false);
 
@@ -107,6 +110,7 @@ export default function PropertiesMap({
         }
       });
       markersRef.current = [];
+      markersMapRef.current.clear();
       infoWindowsRef.current.clear();
     };
   }, [propertiesWithCoords.length]); // Only initialize once when we first get properties
@@ -133,10 +137,50 @@ export default function PropertiesMap({
           }
         });
         markersRef.current = [];
+        markersMapRef.current.clear();
         infoWindowsRef.current.clear();
       }
     }
   }, [properties, mapLoaded]); // Depend on properties array, not just propertiesWithCoords
+
+  // Handle hovered property highlighting
+  useEffect(() => {
+    if (!mapInstanceRef.current || !window.google?.maps) return;
+
+    // Reset all markers to default state
+    markersRef.current.forEach(marker => {
+      marker.setIcon({
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#10b981', // Default green
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      });
+      marker.setZIndex(1);
+    });
+
+    if (hoveredListingId) {
+      const marker = markersMapRef.current.get(hoveredListingId);
+      if (marker) {
+        // Highlight marker
+        marker.setIcon({
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 12, // Bigger
+          fillColor: '#059669', // Darker green
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+        });
+        marker.setZIndex(999); // Bring to front
+        
+        // Pan map to marker
+        mapInstanceRef.current.panTo(marker.getPosition());
+        // Optional: slight zoom if nice
+        // mapInstanceRef.current.setZoom(15);
+      }
+    }
+  }, [hoveredListingId, mapLoaded]);
 
   const initializeMap = () => {
     if (!mapRef.current || !window.google?.maps || propertiesWithCoords.length === 0) {
@@ -210,6 +254,7 @@ export default function PropertiesMap({
       }
     });
     markersRef.current = [];
+    markersMapRef.current.clear();
     infoWindowsRef.current.clear();
 
     // Create bounds to fit all markers
@@ -322,6 +367,8 @@ export default function PropertiesMap({
         // Store info window in a Map
         infoWindowsRef.current.set(marker, infoWindow);
         markersRef.current.push(marker);
+        markersMapRef.current.set(property.id, marker); // Store mapping
+        
         // Use original coordinates for bounds, not offset
         bounds.extend({
           lat: property.coordinates.lat,
