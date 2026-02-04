@@ -99,33 +99,33 @@ export function Header() {
   };
 
   return (
-    <header className="bg-surface-dark/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
+    <header className="bg-surface-dark/90 backdrop-blur-xl border-b border-primary-500/10 sticky top-0 z-50 shadow-[0_4px_30px_-10px_rgba(16,185,129,0.15)]">
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href={isHost ? "/host/properties" : "/"} className="flex items-center space-x-2 group">
-            <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110">
+            <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-[0_0_20px_rgba(16,185,129,0.5)]">
               <span className="text-black font-extrabold text-2xl">V</span>
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">VibesBNB</span>
+            <span className="text-2xl font-bold text-white tracking-tight group-hover:text-primary-400 transition-colors">VibesBNB</span>
           </Link>
 
           {/* Centered Navigation */}
-          <nav className="hidden lg:flex items-center space-x-6">
-            <Link href="/search?category=1-bed" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <Bed className="w-4 h-4" />
+          <nav className="hidden lg:flex items-center space-x-8">
+            <Link href="/search?category=1-bed" className="text-gray-400 hover:text-primary-400 transition-colors duration-300 text-sm font-semibold flex items-center gap-2 group">
+              <Bed className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               1 Bed
             </Link>
-            <Link href="/search?category=2-bed" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <Bed className="w-4 h-4" />
+            <Link href="/search?category=2-bed" className="text-gray-400 hover:text-primary-400 transition-colors duration-300 text-sm font-semibold flex items-center gap-2 group">
+              <Bed className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               2 Bed
             </Link>
-            <Link href="/search?category=studios" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <Building className="w-4 h-4" />
+            <Link href="/search?category=studios" className="text-gray-400 hover:text-primary-400 transition-colors duration-300 text-sm font-semibold flex items-center gap-2 group">
+              <Building className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               Studios
             </Link>
-            <Link href="/search?category=villas" className="text-muted hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-              <Home className="w-4 h-4" />
+            <Link href="/search?category=villas" className="text-gray-400 hover:text-primary-400 transition-colors duration-300 text-sm font-semibold flex items-center gap-2 group">
+              <Home className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               Villas
             </Link>
           </nav>
@@ -134,24 +134,24 @@ export function Header() {
           <div className="flex items-center space-x-3 md:space-x-6">
             <Link
               href="/favorites"
-              className="text-muted hover:text-white transition-colors flex items-center gap-2"
+              className="text-gray-400 hover:text-primary-400 transition-colors duration-300 flex items-center gap-2 group"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
-              <span className="font-medium text-xs md:text-sm hidden sm:inline">Save</span>
+              <span className="font-semibold text-xs md:text-sm hidden sm:inline">Save</span>
             </Link>
             <Link
               href="/bookings"
-              className="text-muted hover:text-white transition-colors text-xs md:text-sm font-medium flex items-center gap-2"
+              className="text-gray-400 hover:text-primary-400 transition-colors duration-300 text-xs md:text-sm font-semibold flex items-center gap-2 group"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span className="hidden sm:inline">Calendar</span>
             </Link>
-            <button className="w-8 h-8 flex items-center justify-center text-muted hover:text-white transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-400 transition-colors duration-300 group">
+              <svg className="w-5 h-5 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
@@ -164,12 +164,12 @@ export function Header() {
                     <div className="relative">
                       <button
                         onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full p-1 pl-3 transition-all"
+                        className="flex items-center space-x-2 bg-white/5 hover:bg-primary-500/10 border border-white/10 hover:border-primary-500/50 rounded-full p-1 pl-3 transition-all duration-300 group"
                       >
-                        <svg className="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
-                        <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(16,185,129,0.3)]">
                           <span className="text-black text-xs font-bold">
                             {user.email?.[0].toUpperCase()}
                           </span>
@@ -178,20 +178,20 @@ export function Header() {
 
                       {/* Dropdown Menu */}
                       {showUserMenu && (
-                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-800 rounded-lg shadow-lg py-2">
-                          <div className="px-4 py-2 border-b border-gray-800">
+                        <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-primary-500/20 rounded-lg shadow-[0_0_30px_-10px_rgba(16,185,129,0.3)] py-2 z-50">
+                          <div className="px-4 py-2 border-b border-primary-500/10">
                             <p className="text-sm font-medium text-white truncate">{user.email}</p>
                           </div>
                           <Link
                             href="/profile"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                             onClick={() => setShowUserMenu(false)}
                           >
                             Profile
                           </Link>
                           <Link
                             href="/messages"
-                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                            className="block px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                             onClick={() => setShowUserMenu(false)}
                           >
                             Messages
@@ -200,7 +200,7 @@ export function Header() {
                           {isTraveller && (
                             <Link
                               href="/bookings"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
                             >
                               My Bookings
@@ -210,7 +210,7 @@ export function Header() {
                           {isHost && (
                             <Link
                               href="/host/properties"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
                             >
                               My Properties
@@ -220,7 +220,7 @@ export function Header() {
                           {isTraveller && (
                             <Link
                               href="/favorites"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
                             >
                               Favorite Properties
@@ -230,20 +230,20 @@ export function Header() {
                           {isAdmin && (
                             <Link
                               href="/admin"
-                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
+                              className="block px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
                             >
                               Admin Panel
                             </Link>
                           )}
-                          <div className="border-t border-gray-800 my-1"></div>
+                          <div className="border-t border-primary-500/10 my-1"></div>
                           {/* Role switching - only show for travellers */}
                           {isTraveller && (
                             <>
                               {hasHostRole ? (
                                 <button
                                   onClick={switchToHost}
-                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800 flex items-center gap-2"
+                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-primary-500/10 flex items-center gap-2 transition-colors"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -253,7 +253,7 @@ export function Header() {
                               ) : (
                                 <button
                                   onClick={registerAsHost}
-                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800 flex items-center gap-2"
+                                  className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-primary-500/10 flex items-center gap-2 transition-colors"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -267,7 +267,7 @@ export function Header() {
                           {isHost && (
                             <button
                               onClick={switchToTraveler}
-                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-gray-800 flex items-center gap-2"
+                              className="block w-full text-left px-4 py-2 text-sm text-emerald-400 hover:bg-primary-500/10 flex items-center gap-2 transition-colors"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -275,7 +275,7 @@ export function Header() {
                               Switch to Traveler Mode
                             </button>
                           )}
-                          <div className="border-t border-gray-800 my-1"></div>
+                          <div className="border-t border-primary-500/10 my-1"></div>
                           <button
                             onClick={() => {
                               signOut();
@@ -293,13 +293,13 @@ export function Header() {
                   <div className="flex items-center space-x-4">
                     <Link
                       href="/login"
-                      className="text-muted hover:text-white transition-colors text-sm font-medium"
+                      className="text-gray-300 hover:text-primary-400 transition-colors text-sm font-semibold"
                     >
                       Log In
                     </Link>
                     <Link
                       href="/signup"
-                      className="bg-primary-500 text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-primary-400 transition-all shadow-[0_0_20px_rgba(0,230,118,0.2)]"
+                      className="bg-primary-500 text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-primary-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:-translate-y-0.5"
                     >
                       Sign Up
                     </Link>

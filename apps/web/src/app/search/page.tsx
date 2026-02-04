@@ -15,6 +15,7 @@ interface Listing {
   location: string;
   price: number;
   rating?: number;
+  reviews?: number;
   images: string[];
   type?: string;
   amenities?: string[];
@@ -131,8 +132,10 @@ function ListingCard({ listing, onHover }: { listing: Listing, onHover: (id: str
             <p className="text-muted text-sm line-clamp-1">{listing.location}</p>
           </div>
           <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
-            <span className="text-primary-500 text-xs">★</span>
-            <span className="text-xs font-bold text-white">{listing.rating?.toFixed(1) || '4.5'}</span>
+            <span className={listing.reviews && listing.reviews > 0 ? "text-primary-500 text-xs" : "text-gray-500 text-xs"}>★</span>
+            <span className="text-xs font-bold text-white">
+              {listing.reviews && listing.reviews > 0 ? listing.rating?.toFixed(1) : 'New'}
+            </span>
           </div>
         </div>
         
@@ -280,7 +283,8 @@ export default function SearchPage() {
             title: p.name || p.title || 'Untitled Property',
             location: p.location || '',
             price: p.price ? Number(p.price) : 0,
-            rating: p.rating ? Number(p.rating) : 4.5,
+            rating: p.rating ? Number(p.rating) : 0,
+            reviews: p.reviews_count || 0,
             images: images,
             type: p.type || 'Property',
             amenities: p.amenities || [],

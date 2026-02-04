@@ -284,30 +284,19 @@ export default function PropertiesMap({
       })),
     });
 
-    // Add markers for each property with offset for duplicates
+    // Add markers for each property
     let markersCreated = 0;
     coordinateGroups.forEach((propertiesAtLocation, coordKey) => {
       propertiesAtLocation.forEach((property, index) => {
         if (!property.coordinates) return;
 
-        // Calculate offset for properties at the same location
-        // Use a smaller offset (about 30 meters) so markers don't overlap but stay close
-        const offsetDistance = propertiesAtLocation.length > 1 ? 0.0003 : 0; // ~30 meters for duplicates
-        const angle = propertiesAtLocation.length > 1
-          ? (index * (360 / propertiesAtLocation.length)) * (Math.PI / 180)
-          : 0;
-        const offsetLat = property.coordinates.lat + (offsetDistance * Math.cos(angle));
-        const offsetLng = property.coordinates.lng + (offsetDistance * Math.sin(angle));
-
         const marker = new window.google.maps.Marker({
           position: {
-            lat: offsetLat,
-            lng: offsetLng,
+            lat: property.coordinates.lat,
+            lng: property.coordinates.lng,
           },
           map: mapInstanceRef.current,
-          title: propertiesAtLocation.length > 1
-            ? `${property.name} (${propertiesAtLocation.length} properties at this location)`
-            : property.name,
+          title: property.name,
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
             scale: 8,

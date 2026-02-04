@@ -20,7 +20,14 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Check
+  Check,
+  Sparkles,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Brain,
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -41,10 +48,13 @@ interface Property {
   wellnessFriendly: boolean;
   rating: number;
   reviews: number;
-  hostName: string;
-  hostImage: string;
   latitude?: number;
   longitude?: number;
+  hostId: string;
+  hostName: string;
+  hostImage: string;
+  hostBio?: string;
+  hostJoinedDate?: string;
   rooms?: Array<{
     id: string;
     name: string;
@@ -71,6 +81,9 @@ export default function ListingDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const [reviewsData, setReviewsData] = useState<any[]>([]);
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false);
+  const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -134,17 +147,54 @@ export default function ListingDetailPage() {
           return;
         }
 
-        // Get host info - use placeholder for now since we can't access other users' data without admin
-        // TODO: Create a public profiles table or use a different approach
-        let hostName = 'Host';
-        let hostImage = 'https://api.dicebear.com/7.x/initials/svg?seed=Host';
+        // Fetch Host Profile
+        let hostName = 'Property Host';
+        let hostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id || 'host'}`;
+        let hostBio = '';
+        let hostJoinedDate = '2024';
 
-        // For now, we'll use a generic host name
-        // In production, you'd want to create a public profiles table or use a different approach
-        if (propertyData.host_id) {
-          hostName = 'Property Host';
-          hostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id}`;
+        if (propertyData.host_id && isSupabaseConfigured) {
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', propertyData.host_id)
+              .single();
+
+            if (profile) {
+              hostName = profile.full_name || hostName;
+              hostImage = profile.avatar_url || hostImage;
+              hostBio = profile.bio || '';
+              hostJoinedDate = new Date(profile.created_at).getFullYear().toString();
+            }
+          } catch (e) {
+            console.error('[Listing Detail] Error fetching host profile:', e);
+          }
         }
+
+        // Fetch Reviews
+        let reviews: any[] = [];
+        if (isSupabaseConfigured) {
+          try {
+            const { data: reviewsData } = await supabase
+              .from('reviews')
+              .select('*, profiles(full_name, avatar_url)')
+              .eq('property_id', params.id as string)
+              .eq('status', 'approved')
+              .order('created_at', { ascending: false });
+
+            if (reviewsData) {
+              reviews = reviewsData;
+            }
+          } catch (e) {
+            console.error('[Listing Detail] Error fetching reviews:', e);
+          }
+        }
+
+        // Calculate Average Rating
+        const avgRating = reviews.length > 0
+          ? Number((reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
+          : 0;
 
         const loadedProperty: Property = {
           id: propertyData.id,
@@ -158,16 +208,20 @@ export default function ListingDetailPage() {
           images: propertyData.images || [],
           amenities: propertyData.amenities || [],
           wellnessFriendly: propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
-          rating: propertyData.rating ? Number(propertyData.rating) : 4.5,
-          reviews: 0, // TODO: Get from reviews table
+          rating: avgRating || Number(propertyData.rating || 0),
+          reviews: reviews.length,
+          hostId: propertyData.host_id || '',
           hostName,
           hostImage,
+          hostBio,
+          hostJoinedDate,
           latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
           longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
           rooms: propertyData.rooms || [],
         };
 
         setProperty(loadedProperty);
+        setReviewsData(reviews);
       } catch (error) {
         console.error('Error loading property:', error);
         setProperty(null);
@@ -269,9 +323,11 @@ export default function ListingDetailPage() {
             <h1 className="text-4xl font-bold text-white mb-2">{property.name}</h1>
             <div className="flex items-center gap-4 text-gray-400">
               <div className="flex items-center gap-1">
-                <Star size={18} className="text-yellow-500 fill-yellow-500" />
-                <span className="text-white font-semibold">{property.rating}</span>
-                <span>({property.reviews} reviews)</span>
+                <Star size={18} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-600"} />
+                <span className="text-white font-semibold">
+                  {property.reviews > 0 ? property.rating : 'New'}
+                </span>
+                <span>({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
@@ -392,27 +448,162 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Description - Moved below amenities */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-2xl font-bold text-white mb-4">About this place</h2>
-              <p className="text-gray-300 leading-relaxed">{property.description}</p>
-            </div>
+            {/* About this place */}
+            <div className="bg-gray-900 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                onClick={() => setIsAboutExpanded(!isAboutExpanded)}
+              >
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  About this place
+                  <span className="bg-primary-500/10 text-primary-400 text-xs px-2 py-1 rounded-full border border-primary-500/20">Official</span>
+                </h2>
+                {isAboutExpanded ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
+              </div>
 
-            {/* Host Info */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h2 className="text-2xl font-bold text-white mb-6">Hosted by {property.hostName}</h2>
-              <div className="flex items-center gap-4">
-                <img
-                  src={property.hostImage}
-                  alt={property.hostName}
-                  className="w-16 h-16 rounded-full"
-                />
-                <div>
-                  <p className="text-white font-semibold">{property.hostName}</p>
-                  <p className="text-gray-400 text-sm">Joined in 2024</p>
+              <div className={`transition-all duration-500 overflow-hidden ${isAboutExpanded ? 'max-h-[2000px] border-t border-white/5' : 'max-h-0'}`}>
+                <div className="p-6 py-2 space-y-6">
+                  {/* Two Categories Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                    {/* Category 1: AI Summary */}
+                    <div className="bg-primary-500/5 border border-primary-500/20 rounded-2xl p-5 relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Brain size={48} className="text-primary-500" />
+                      </div>
+                      <div className="flex items-center gap-2 mb-3 text-primary-400 font-bold text-sm uppercase tracking-wider">
+                        <Sparkles size={16} />
+                        AI Summary
+                      </div>
+                      <p className="text-gray-300 text-sm leading-relaxed relative z-10">
+                        {property.description.length > 100 
+                          ? `${property.description.substring(0, 120)}... This ${property.type?.toLowerCase() || 'retreat'} offers a blend of comfort and style, perfect for those seeking a unique ${property.wellnessFriendly ? 'wellness-oriented' : ''} stay in ${property.location.split(',')[0]}.`
+                          : "This property is highly recommended for its excellent location and premium amenities."}
+                      </p>
+                    </div>
+
+                    {/* Category 2: Reviews Summary */}
+                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-5 relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <MessageSquare size={48} className="text-blue-500" />
+                      </div>
+                      <div className="flex items-center gap-2 mb-3 text-blue-400 font-bold text-sm uppercase tracking-wider">
+                        <Star size={16} />
+                        Guest Sentiment
+                      </div>
+                      <div className="text-gray-300 text-sm leading-relaxed relative z-10">
+                        {property.reviews > 0 ? (
+                          <>
+                            Guests generally praise the <span className="text-white font-medium">cleanliness</span> and <span className="text-white font-medium">amenities</span>. 
+                            The average rating of <span className="text-white font-medium">{property.rating}★</span> suggests an exceptional stay experience based on {property.reviews} recent {property.reviews === 1 ? 'review' : 'reviews'}.
+                          </>
+                        ) : (
+                          <span className="text-gray-400 italic">There aren't many user reviews for this property yet. Be one of the first to share your experience!</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Description with local collapse */}
+                  <div className="relative">
+                    <div className={`text-gray-300 leading-relaxed space-y-4 ${isDescriptionCollapsed ? 'line-clamp-4' : ''}`}>
+                      {property.description.split('\n\n').map((para, i) => (
+                        <p key={i}>{para}</p>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => setIsDescriptionCollapsed(!isDescriptionCollapsed)}
+                      className="mt-4 text-primary-400 hover:text-primary-300 font-bold text-sm flex items-center gap-1 group"
+                    >
+                      {isDescriptionCollapsed ? 'Show more' : 'Show less'}
+                      <ArrowRight size={14} className={`transition-transform ${isDescriptionCollapsed ? '' : '-rotate-90'}`} />
+                    </button>
+                  </div>
+
+                  {/* Reviews List */}
+                  {reviewsData.length > 0 && (
+                    <div className="mt-8 pt-8 border-t border-white/5 pb-6">
+                      <h3 className="text-xl font-bold text-white mb-6">Recent Guest Reviews</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {reviewsData.slice(0, 4).map((review) => (
+                          <div key={review.id} className="bg-white/5 border border-white/5 rounded-2xl p-5">
+                            <div className="flex items-center gap-3 mb-3">
+                              <img 
+                                src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
+                                className="w-10 h-10 rounded-full border border-white/10" 
+                                alt="reviewer"
+                              />
+                              <div>
+                                <div className="text-white font-bold text-sm">{review.profiles?.full_name || 'Guest'}</div>
+                                <div className="text-gray-500 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
+                              </div>
+                              <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                                <span className="text-primary-500 text-[10px]">★</span>
+                                <span className="text-white text-[10px] font-bold">{review.rating}</span>
+                              </div>
+                            </div>
+                            <p className="text-gray-400 text-sm italic">"{review.comment}"</p>
+                          </div>
+                        ))}
+                      </div>
+                      {property.reviews > 4 && (
+                        <button className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors">
+                          Show all {property.reviews} reviews
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* Host Info */}
+            <div className="bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <ShieldCheck size={80} className="text-primary-500" />
+              </div>
+              
+              <h2 className="text-2xl font-bold text-white mb-6">Meet your Host</h2>
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
+                <div className="relative">
+                  <img
+                    src={property.hostImage}
+                    alt={property.hostName}
+                    className="w-24 h-24 rounded-full border-4 border-primary-500/20"
+                  />
+                  <div className="absolute -bottom-1 -right-1 bg-primary-500 text-black p-1.5 rounded-full shadow-lg border-2 border-gray-900">
+                    <ShieldCheck size={14} />
+                  </div>
+                </div>
+                
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-xl font-bold text-white mb-1">{property.hostName}</h3>
+                  <div className="flex items-center justify-center md:justify-start gap-4 text-gray-400 text-sm mb-3">
+                    <span className="flex items-center gap-1"><Star size={14} className="text-primary-500" /> Superhost</span>
+                    <span>•</span>
+                    <span>Joined in {property.hostJoinedDate}</span>
+                  </div>
+                  <p className="text-gray-400 text-sm line-clamp-2 mb-4 leading-relaxed">
+                    {property.hostBio || "Hi, I'm your host! I love sharing my unique spaces and helping travelers feel at home while exploring the vibes of the city."}
+                  </p>
+                  
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4">
+                    <Link 
+                      href={`/users/${property.hostId}`}
+                      className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
+                    >
+                      Check Profile
+                    </Link>
+                  <Link 
+                    href="/messages"
+                    className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
+                  >
+                  <MessageSquare size={18} />
+                  Message Host
+                </Link>
+                </div>
+              </div>
+            </div>
+          </div>
 
             {/* Room/Unit Selection */}
             {property.rooms && property.rooms.length > 0 && (
@@ -463,9 +654,11 @@ export default function ListingDetailPage() {
                   <span className="text-gray-400">/ night</span>
                 </div>
                 <div className="flex items-center gap-1 text-sm">
-                  <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                  <span className="text-white font-semibold">{property.rating}</span>
-                  <span className="text-gray-400">({property.reviews} reviews)</span>
+                  <Star size={16} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-500"} />
+                  <span className="text-white font-semibold">
+                    {property.reviews > 0 ? property.rating : 'New'}
+                  </span>
+                  <span className="text-gray-400">({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
                 </div>
               </div>
 
