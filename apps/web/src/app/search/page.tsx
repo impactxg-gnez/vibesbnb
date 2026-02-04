@@ -2,38 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { SearchBar } from '@/components/search/SearchBar';
-import PropertiesMap from '@/components/PropertiesMap';
+import { SearchSection } from '@/components/home/SearchSection';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
-
-function CollapsibleSearchSection() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-white/20">
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h1 className="text-xl md:text-3xl font-bold text-white">Find Your Perfect Stay</h1>
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-white hover:text-primary-500 transition-colors p-2"
-          aria-label={isCollapsed ? 'Expand search' : 'Collapse search'}
-        >
-          <svg
-            className={`w-5 h-5 transition-transform ${isCollapsed ? '' : 'rotate-180'}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      </div>
-      {!isCollapsed && <SearchBar />}
-    </div>
-  );
-}
 
 interface Listing {
   id: string;
@@ -61,6 +33,7 @@ export default function SearchPage() {
   const [sortBy, setSortBy] = useState('Price: High to Low');
 
   useEffect(() => {
+    // ... existing useEffect logic ...
     const loadAndFilterProperties = async () => {
       setLoading(true);
 
@@ -293,7 +266,18 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-950">
       <div className="bg-emerald-600 py-4 md:py-8">
         <div className="container mx-auto px-3 md:px-4">
-          <CollapsibleSearchSection />
+          <SearchSection
+            enableNegativeMargin={false}
+            initialValues={{
+              location: searchParams.get('location') || '',
+              checkIn: searchParams.get('checkIn') || '',
+              checkOut: searchParams.get('checkOut') || '',
+              guests: parseInt(searchParams.get('guests') || '1'),
+              kids: parseInt(searchParams.get('kids') || '0'),
+              pets: parseInt(searchParams.get('pets') || '0'),
+              categories: searchParams.get('categories')?.split(',') || []
+            }}
+          />
         </div>
       </div>
 
@@ -492,13 +476,23 @@ export default function SearchPage() {
                           <span>No Image</span>
                         </div>
                       )}
-                      <div className="absolute top-4 right-4 p-2 bg-surface-dark/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-primary-500 transition-colors">
+                      <div className="absolute top-4 left-4 p-2 bg-surface-dark/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-primary-500 transition-colors">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                       </div>
-                      <div className="absolute top-4 left-4 bg-primary-500 text-black px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg">
-                        Wellness-Friendly
+                      <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                        <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
+                          <span className="text-lg">🌿</span>
+                          <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                            <span className="flex items-center gap-1">
+                              INDOOR <span className="text-green-400">✓</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              OUTDOOR <span className="text-green-400">✓</span>
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="p-6">

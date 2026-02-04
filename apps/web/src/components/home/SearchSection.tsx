@@ -16,20 +16,34 @@ interface Property {
   [key: string]: any;
 }
 
-export function SearchSection() {
+interface SearchSectionProps {
+  className?: string;
+  initialValues?: {
+    location?: string;
+    checkIn?: string;
+    checkOut?: string;
+    guests?: number;
+    kids?: number;
+    pets?: number;
+    categories?: string[];
+  };
+  enableNegativeMargin?: boolean;
+}
+
+export function SearchSection({ className = '', initialValues, enableNegativeMargin = true }: SearchSectionProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialValues?.categories || []);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [locations, setLocations] = useState<string[]>([]);
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(1);
-  const [kids, setKids] = useState(0);
-  const [pets, setPets] = useState(0);
+  const [selectedLocation, setSelectedLocation] = useState(initialValues?.location || '');
+  const [checkIn, setCheckIn] = useState(initialValues?.checkIn || '');
+  const [checkOut, setCheckOut] = useState(initialValues?.checkOut || '');
+  const [guests, setGuests] = useState(initialValues?.guests || 1);
+  const [kids, setKids] = useState(initialValues?.kids || 0);
+  const [pets, setPets] = useState(initialValues?.pets || 0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAiMode, setIsAiMode] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
@@ -37,6 +51,19 @@ export function SearchSection() {
   const [aiResults, setAiResults] = useState<any[]>([]);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Update state when initialValues change
+  useEffect(() => {
+    if (initialValues) {
+      if (initialValues.location !== undefined) setSelectedLocation(initialValues.location);
+      if (initialValues.checkIn !== undefined) setCheckIn(initialValues.checkIn);
+      if (initialValues.checkOut !== undefined) setCheckOut(initialValues.checkOut);
+      if (initialValues.guests !== undefined) setGuests(initialValues.guests);
+      if (initialValues.kids !== undefined) setKids(initialValues.kids);
+      if (initialValues.pets !== undefined) setPets(initialValues.pets);
+      if (initialValues.categories !== undefined) setSelectedCategories(initialValues.categories);
+    }
+  }, [initialValues]);
 
   const categories = [
     {
@@ -205,8 +232,12 @@ export function SearchSection() {
     loc.toLowerCase().includes(selectedLocation.toLowerCase())
   );
 
+  const displayLocations = (selectedLocation === '' || locations.includes(selectedLocation)) 
+    ? locations 
+    : filteredLocations;
+
   return (
-    <div className="container mx-auto px-3 md:px-6 -mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20 relative z-30 pb-12 md:pb-20">
+    <div className={`container mx-auto px-3 md:px-6 ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-30 pb-12 md:pb-20 ${className}`}>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -358,8 +389,8 @@ export function SearchSection() {
                             autoFocus
                           />
                           <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-hide">
-                            {filteredLocations.length > 0 ? (
-                              filteredLocations.map((location) => (
+                            {displayLocations.length > 0 ? (
+                              displayLocations.map((location) => (
                                 <button
                                   key={location}
                                   type="button"
@@ -477,7 +508,7 @@ export function SearchSection() {
                                   type="button"
                                   onClick={() => handleGuestChange(-1)}
                                   disabled={guests <= 1}
-                                  className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
                                 >
                                   −
                                 </button>
@@ -485,7 +516,7 @@ export function SearchSection() {
                                 <button
                                   type="button"
                                   onClick={() => handleGuestChange(1)}
-                                  className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 transition-all flex items-center justify-center font-bold"
                                 >
                                   +
                                 </button>
@@ -503,7 +534,7 @@ export function SearchSection() {
                                   type="button"
                                   onClick={() => handleKidsChange(-1)}
                                   disabled={kids <= 0}
-                                  className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
                                 >
                                   −
                                 </button>
@@ -511,7 +542,7 @@ export function SearchSection() {
                                 <button
                                   type="button"
                                   onClick={() => handleKidsChange(1)}
-                                  className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 transition-all flex items-center justify-center font-bold"
                                 >
                                   +
                                 </button>
@@ -529,7 +560,7 @@ export function SearchSection() {
                                   type="button"
                                   onClick={() => handlePetsChange(-1)}
                                   disabled={pets <= 0}
-                                  className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
                                 >
                                   −
                                 </button>
@@ -537,7 +568,7 @@ export function SearchSection() {
                                 <button
                                   type="button"
                                   onClick={() => handlePetsChange(1)}
-                                  className="w-10 h-10 rounded-xl border border-white/10 text-white hover:bg-white/10 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 transition-all flex items-center justify-center font-bold"
                                 >
                                   +
                                 </button>

@@ -81,8 +81,18 @@ export function WellnessCategories() {
                     {category.description}
                   </p>
                 </div>
-                <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white text-sm font-medium border border-white/30">
-                  Wellness-Friendly ✓
+                <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+                  <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
+                    <span className="text-lg">🌿</span>
+                    <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                      <span className="flex items-center gap-1">
+                        INDOOR <span className="text-green-400">✓</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        OUTDOOR <span className="text-green-400">✓</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </Link>
             </motion.div>

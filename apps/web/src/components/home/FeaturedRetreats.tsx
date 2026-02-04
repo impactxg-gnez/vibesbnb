@@ -114,10 +114,18 @@ export function FeaturedRetreats() {
                     className="object-cover group-hover:scale-110 transition duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="absolute top-6 left-6">
-                    <span className="bg-surface/90 backdrop-blur-md text-white text-xs font-bold px-4 py-2 rounded-full border border-white/10 uppercase tracking-widest shadow-xl">
-                      {retreat.badge}
-                    </span>
+                  <div className="absolute top-6 right-6 flex flex-col items-end gap-1">
+                    <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
+                      <span className="text-lg">🌿</span>
+                      <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                        <span className="flex items-center gap-1">
+                          INDOOR <span className="text-green-400">✓</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          OUTDOOR <span className="text-green-400">✓</span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
