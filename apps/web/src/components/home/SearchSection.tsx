@@ -242,7 +242,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative overflow-hidden"
+        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative"
       >
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <div className="flex flex-col gap-1">
