@@ -35,12 +35,7 @@ export default function DispensarySignupPage() {
 
     try {
       // 1. Sign up the user
-      const { error: signUpError, data: signUpData } = await (async () => {
-        // We need to handle the return from signUp carefully
-        const res = await signUp(formData.email, formData.password, formData.name, 'dispensary');
-        // Re-fetch user if it was just created in demo mode or get from res
-        return { error: res.error, data: { user: (res as any).user } };
-      })();
+      const { error: signUpError, data: signUpData } = await signUp(formData.email, formData.password, formData.name, 'dispensary');
       
       if (signUpError) throw signUpError;
 
@@ -268,10 +263,10 @@ export default function DispensarySignupPage() {
                 <ShieldCheck className="text-primary-500 w-10 h-10" />
               </div>
               <div className="space-y-4">
-                <h2 className="text-3xl font-bold">Application Received!</h2>
+                <h2 className="text-3xl font-bold">Application Submitted!</h2>
                 <div className="space-y-2">
-                  <p className="text-muted">We've sent a verification email to <span className="text-white font-bold">{formData.email}</span>.</p>
-                  <p className="text-muted">Once verified, we'll review your dispensary application and grant you access to your inventory dashboard.</p>
+                  <p className="text-muted">Your request has been submitted with the <span className="text-primary-500 font-bold">VibesBNB</span> team.</p>
+                  <p className="text-muted">We will update you via email once your shop is approved and online.</p>
                 </div>
               </div>
               <Link href="/" className="btn-primary inline-flex px-8 !py-4">

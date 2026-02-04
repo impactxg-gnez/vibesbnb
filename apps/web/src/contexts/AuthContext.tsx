@@ -348,7 +348,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    return { error };
+    return { error, data };
   };
 
   const signOut = async () => {

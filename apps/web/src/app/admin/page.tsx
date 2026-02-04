@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Users, List, Bell, RefreshCw, Image } from 'lucide-react';
+import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface DashboardStats {
@@ -22,6 +22,10 @@ interface DashboardStats {
     total: number;
     last24Hours: number;
     last30Days: number;
+  };
+  dispensaries?: {
+    total: number;
+    pending: number;
   };
 }
 
@@ -198,6 +202,7 @@ Check browser console for full details and property data.`;
     users: { total: 0, last24Hours: 0, last30Days: 0 },
     listings: { total: 0, last24Hours: 0, last30Days: 0 },
     reservations: { total: 0, last24Hours: 0, last30Days: 0 },
+    dispensaries: { total: 0, pending: 0 },
   };
 
   return (
@@ -302,6 +307,46 @@ Check browser console for full details and property data.`;
                 </svg>
               </div>
             </div>
+          </div>
+        </div>
+        
+        {/* Dispensary Statistics - Real-time Application Alerts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Total Dispensary Partners */}
+          <div 
+            onClick={() => router.push('/admin/dispensaries')}
+            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:border-primary-500 transition-all"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-green-100 rounded-lg group-hover:bg-primary-500 transition-colors">
+                <Leaf className="w-6 h-6 text-green-600 group-hover:text-black" />
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-primary-500 transform group-hover:translate-x-1 transition-all" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.dispensaries?.total || 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Total Dispensary Partners</div>
+            <div className="mt-4 text-xs text-gray-400">Manage all registered wellness providers</div>
+          </div>
+
+          {/* Pending Applications - URGENT ACTION */}
+          <div 
+            onClick={() => router.push('/admin/dispensaries?filter=pending')}
+            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-orange-100 hover:border-orange-500 transition-all relative overflow-hidden"
+          >
+            {statsData.dispensaries?.pending! > 0 && (
+              <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
+                ACTION REQUIRED
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-500 transition-colors">
+                <ShieldCheck className="w-6 h-6 text-orange-600 group-hover:text-white" />
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transform group-hover:translate-x-1 transition-all" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.dispensaries?.pending || 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Pending Approvals</div>
+            <p className="mt-4 text-xs text-gray-500">New shops waiting to join the platform</p>
           </div>
         </div>
 

@@ -73,6 +73,16 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .gte('created_at', last30Days.toISOString());
 
+    // Get dispensaries stats
+    const { count: totalDispensaries } = await supabase
+      .from('dispensaries')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: pendingDispensaries } = await supabase
+      .from('dispensaries')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
     return NextResponse.json({
       users: {
         total: totalUsersCount || 0,
@@ -88,6 +98,10 @@ export async function GET() {
         total: totalReservations || 0,
         last24Hours: reservations24h || 0,
         last30Days: reservations30d || 0,
+      },
+      dispensaries: {
+        total: totalDispensaries || 0,
+        pending: pendingDispensaries || 0,
       },
     });
   } catch (error: any) {
