@@ -26,7 +26,7 @@ interface Dispensary {
   delivery_radius: number;
 }
 
-interface InventoryItem {
+export interface InventoryItem {
   id: string;
   category: string;
   name: string;
@@ -39,6 +39,7 @@ interface NearbyDispensariesProps {
   propertyCoordinates?: { lat: number; lng: number };
   propertyId: string;
   propertyName: string;
+  onAddItem?: (item: InventoryItem) => void;
 }
 
 // Haversine formula to calculate distance between two points in miles
@@ -59,7 +60,8 @@ export default function NearbyDispensaries({
   propertyLocation, 
   propertyCoordinates, 
   propertyId,
-  propertyName 
+  propertyName,
+  onAddItem
 }: NearbyDispensariesProps) {
   const [dispensaries, setDispensaries] = useState<Dispensary[]>([]);
   const [selectedDispensary, setSelectedDispensary] = useState<Dispensary | null>(null);
@@ -244,7 +246,10 @@ export default function NearbyDispensaries({
                       <h4 className="font-bold mb-1 truncate">{item.name}</h4>
                       <div className="flex items-center justify-between mt-4">
                         <span className="text-lg font-black text-primary-500">${item.price}</span>
-                        <button className="p-2 bg-primary-500 text-black rounded-xl hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,230,118,0.2)]">
+                        <button 
+                          onClick={() => onAddItem?.(item)}
+                          className="p-2 bg-primary-500 text-black rounded-xl hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(0,230,118,0.2)]"
+                        >
                           <Plus size={18} />
                         </button>
                       </div>

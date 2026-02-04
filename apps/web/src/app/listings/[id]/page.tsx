@@ -27,13 +27,14 @@ import {
   ChevronUp,
   Brain,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Leaf
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
-import NearbyDispensaries from '@/components/NearbyDispensaries';
+import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
 
 interface Property {
   id: string;
@@ -86,6 +87,7 @@ export default function ListingDetailPage() {
   const [reviewsData, setReviewsData] = useState<any[]>([]);
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
+  const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -285,7 +287,17 @@ export default function ListingDetailPage() {
     return property.price;
   }
 
+  const handleAddToWellnessCart = (item: InventoryItem) => {
+    setWellnessCart(prev => [...prev, item]);
+    toast.success(`Added ${item.name} to wellness supplies`);
+  };
+
+  const wellnessTotal = wellnessCart.reduce((sum, item) => sum + item.price, 0);
   const currentPrice = calculateTotalPrice();
+  const stayDuration = 5; // Assuming 5 nights as per existing UI logic
+  const stayTotal = currentPrice * stayDuration;
+  const serviceFee = Math.round(stayTotal * 0.1);
+  const finalTotal = stayTotal + serviceFee + wellnessTotal;
 
   if (loading) {
     return (
@@ -566,6 +578,7 @@ export default function ListingDetailPage() {
                 propertyCoordinates={property.latitude && property.longitude ? { lat: property.latitude, lng: property.longitude } : undefined}
                 propertyId={property.id}
                 propertyName={property.name}
+                onAddItem={handleAddToWellnessCart}
               />
             )}
 
@@ -694,16 +707,25 @@ export default function ListingDetailPage() {
 
               <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">${currentPrice} × 5 nights</span>
-                  <span className="text-white">${currentPrice * 5}</span>
+                  <span className="text-gray-400">${currentPrice} × {stayDuration} nights</span>
+                  <span className="text-white">${stayTotal}</span>
                 </div>
+                {wellnessCart.length > 0 && (
+                  <div className="flex justify-between text-sm animate-in fade-in slide-in-from-left-2 transition-all">
+                    <span className="text-primary-500 font-medium flex items-center gap-1">
+                      <Leaf className="w-3 h-3" />
+                      Wellness Supplies ({wellnessCart.length})
+                    </span>
+                    <span className="text-primary-500 font-bold">+ ${wellnessTotal}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Service fee</span>
-                  <span className="text-white">${Math.round(currentPrice * 5 * 0.1)}</span>
+                  <span className="text-white">${serviceFee}</span>
                 </div>
                 <div className="flex justify-between font-semibold pt-3 border-t border-gray-800">
                   <span className="text-white">Total</span>
-                  <span className="text-white">${currentPrice * 5 + Math.round(currentPrice * 5 * 0.1)}</span>
+                  <span className="text-white text-xl text-primary-500">${finalTotal}</span>
                 </div>
               </div>
             </div>
