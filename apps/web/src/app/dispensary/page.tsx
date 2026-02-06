@@ -98,7 +98,11 @@ export default function DispensarySignupPage() {
           toast.error('An application with this email or dispensary name already exists');
         } else {
           console.error('Error creating dispensary application:', dispError);
-          toast.error('Failed to submit application. Please try again.');
+          console.error('Error details:', JSON.stringify(dispError, null, 2));
+          console.error('Error message:', dispError.message);
+          console.error('Error hint:', dispError.hint);
+          console.error('Error details:', dispError.details);
+          toast.error(`Failed to submit: ${dispError.message || 'Please try again.'}`);
         }
         setIsLoading(false);
         return;
