@@ -12,6 +12,8 @@ import LocationPicker from '@/components/LocationPicker';
 interface Room {
   id: string;
   name: string;
+  price: number;
+  guests: number;
   images: File[];
   imagePreviewUrls: string[];
 }
@@ -33,8 +35,9 @@ export default function NewPropertyPage() {
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
   const [rooms, setRooms] = useState<Room[]>([
-    { id: Date.now().toString(), name: 'Living Room', images: [], imagePreviewUrls: [] },
+    { id: Date.now().toString(), name: 'Unit 1', price: 100, guests: 2, images: [], imagePreviewUrls: [] },
   ]);
+  const [isMultiUnit, setIsMultiUnit] = useState(false);
 
   const availableAmenities = [
     'WiFi',
@@ -59,18 +62,23 @@ export default function NewPropertyPage() {
   }, [user, loading, router]);
 
   const addRoom = () => {
+    const unitNumber = rooms.length + 1;
     setRooms([
       ...rooms,
-      { id: Date.now().toString(), name: '', images: [], imagePreviewUrls: [] },
+      { id: Date.now().toString(), name: `Unit ${unitNumber}`, price: formData.price, guests: formData.guests, images: [], imagePreviewUrls: [] },
     ]);
   };
 
   const removeRoom = (roomId: string) => {
     if (rooms.length === 1) {
-      toast.error('At least one room is required');
+      toast.error('At least one unit is required');
       return;
     }
     setRooms(rooms.filter((r) => r.id !== roomId));
+  };
+
+  const updateRoom = (roomId: string, updates: Partial<Room>) => {
+    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, ...updates } : r)));
   };
 
   const updateRoomName = (roomId: string, name: string) => {
@@ -224,7 +232,10 @@ export default function NewPropertyPage() {
           }
         }
         roomsData.push({
+          id: room.id,
           name: room.name,
+          price: isMultiUnit ? room.price : formData.price,
+          guests: isMultiUnit ? room.guests : formData.guests,
           images: roomImages,
         });
       }
@@ -551,6 +562,105 @@ export default function NewPropertyPage() {
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* Multi-Unit Configuration */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Multiple Units</h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Enable this if your property has multiple bookable units (e.g., 5 apartments in one building)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMultiUnit(!isMultiUnit)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isMultiUnit ? 'bg-emerald-600' : 'bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isMultiUnit ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {isMultiUnit && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-300 text-sm">
+                    Configure each unit with its own name, price, and guest capacity. Guests will be able to select which units they want to book.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addRoom}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm"
+                  >
+                    <Plus size={18} />
+                    Add Unit
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {rooms.map((room, index) => (
+                    <div key={room.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Unit Name</label>
+                          <input
+                            type="text"
+                            value={room.name}
+                            onChange={(e) => updateRoom(room.id, { name: e.target.value })}
+                            placeholder="e.g., Studio A, Suite 101"
+                            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500 text-sm"
+                          />
+                        </div>
+                        <div className="w-28">
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Price/Night</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={room.price}
+                              onChange={(e) => updateRoom(room.id, { price: parseInt(e.target.value) || 0 })}
+                              className="w-full pl-7 pr-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-xs font-medium text-gray-400 mb-1">Max Guests</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={room.guests}
+                            onChange={(e) => updateRoom(room.id, { guests: parseInt(e.target.value) || 1 })}
+                            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white text-sm"
+                          />
+                        </div>
+                        {rooms.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeRoom(room.id)}
+                            className="p-2 text-red-500 hover:text-red-400 transition mt-5"
+                            title="Remove unit"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 Tip: You can add photos for each unit in the "Photos by Room" section below
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Amenities */}
