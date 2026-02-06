@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
-import { Truck, Leaf, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Truck, Leaf, ShieldCheck, ArrowRight, Store } from 'lucide-react';
 
 export default function DispensarySignupPage() {
   const [step, setStep] = useState(1);
