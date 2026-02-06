@@ -42,11 +42,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { label: 'Host Applications', href: '/admin/hosts', icon: <Home className="w-5 h-5" /> },
+    { label: 'Dispensary Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
     { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
     { label: 'Manage listings', href: '/admin/listings', icon: <Home className="w-5 h-5" /> },
     { label: 'Manage Reservations', href: '/admin/reservations', icon: <Calendar className="w-5 h-5" /> },
     { label: 'Reviews Management', href: '/admin/reviews', icon: <Star className="w-5 h-5" /> },
-    { label: 'Manage Dispensaries', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
     {
       label: 'Admin Reviews',
       icon: <Star className="w-5 h-5" />,

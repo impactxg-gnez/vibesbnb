@@ -27,6 +27,10 @@ interface DashboardStats {
     total: number;
     pending: number;
   };
+  hosts?: {
+    total: number;
+    pending: number;
+  };
 }
 
 export default function AdminDashboard() {
@@ -203,6 +207,7 @@ Check browser console for full details and property data.`;
     listings: { total: 0, last24Hours: 0, last30Days: 0 },
     reservations: { total: 0, last24Hours: 0, last30Days: 0 },
     dispensaries: { total: 0, pending: 0 },
+    hosts: { total: 0, pending: 0 },
   };
 
   return (
@@ -310,42 +315,47 @@ Check browser console for full details and property data.`;
           </div>
         </div>
         
-        {/* Dispensary Statistics - Real-time Application Alerts */}
+        {/* Pending Applications - URGENT ACTION */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Total Dispensary Partners */}
+          {/* Pending Host Applications */}
           <div 
-            onClick={() => router.push('/admin/dispensaries')}
-            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:border-primary-500 transition-all"
+            onClick={() => router.push('/admin/hosts')}
+            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-blue-100 hover:border-blue-500 transition-all relative overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-green-100 rounded-lg group-hover:bg-primary-500 transition-colors">
-                <Leaf className="w-6 h-6 text-green-600 group-hover:text-black" />
+            {(statsData.hosts?.pending ?? 0) > 0 && (
+              <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
+                ACTION REQUIRED
               </div>
-              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-primary-500 transform group-hover:translate-x-1 transition-all" />
+            )}
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-500 transition-colors">
+                <Users className="w-6 h-6 text-blue-600 group-hover:text-white" />
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transform group-hover:translate-x-1 transition-all" />
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.dispensaries?.total || 0}</div>
-            <div className="text-sm text-gray-600 font-medium">Total Dispensary Partners</div>
-            <div className="mt-4 text-xs text-gray-400">Manage all registered wellness providers</div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.hosts?.pending || 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Pending Host Applications</div>
+            <p className="mt-4 text-xs text-gray-500">New hosts waiting to be approved</p>
           </div>
 
-          {/* Pending Applications - URGENT ACTION */}
+          {/* Pending Dispensary Applications */}
           <div 
             onClick={() => router.push('/admin/dispensaries?filter=pending')}
             className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-orange-100 hover:border-orange-500 transition-all relative overflow-hidden"
           >
-            {statsData.dispensaries?.pending! > 0 && (
+            {(statsData.dispensaries?.pending ?? 0) > 0 && (
               <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
                 ACTION REQUIRED
               </div>
             )}
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-500 transition-colors">
-                <ShieldCheck className="w-6 h-6 text-orange-600 group-hover:text-white" />
+                <Leaf className="w-6 h-6 text-orange-600 group-hover:text-white" />
               </div>
               <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transform group-hover:translate-x-1 transition-all" />
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.dispensaries?.pending || 0}</div>
-            <div className="text-sm text-gray-600 font-medium">Pending Approvals</div>
+            <div className="text-sm text-gray-600 font-medium">Pending Dispensary Applications</div>
             <p className="mt-4 text-xs text-gray-500">New shops waiting to join the platform</p>
           </div>
         </div>

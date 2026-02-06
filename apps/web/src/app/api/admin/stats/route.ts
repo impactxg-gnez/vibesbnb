@@ -83,6 +83,26 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
 
+    // Get host applications stats
+    let totalHostApplications = 0;
+    let pendingHostApplications = 0;
+    
+    try {
+      const { count: totalHosts } = await supabase
+        .from('pending_host_applications')
+        .select('*', { count: 'exact', head: true });
+      totalHostApplications = totalHosts || 0;
+
+      const { count: pendingHosts } = await supabase
+        .from('pending_host_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      pendingHostApplications = pendingHosts || 0;
+    } catch (e) {
+      // Table might not exist yet
+      console.warn('pending_host_applications table not found');
+    }
+
     return NextResponse.json({
       users: {
         total: totalUsersCount || 0,
@@ -102,6 +122,10 @@ export async function GET() {
       dispensaries: {
         total: totalDispensaries || 0,
         pending: pendingDispensaries || 0,
+      },
+      hosts: {
+        total: totalHostApplications,
+        pending: pendingHostApplications,
       },
     });
   } catch (error: any) {

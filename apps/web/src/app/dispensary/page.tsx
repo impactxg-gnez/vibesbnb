@@ -34,45 +34,34 @@ export default function DispensarySignupPage() {
     setIsLoading(true);
 
     try {
-      // 1. Sign up the user
-      const { error: signUpError, data: signUpData } = await signUp(formData.email, formData.password, formData.name, 'dispensary');
-      
-      if (signUpError) throw signUpError;
-
-      // 2. Create dispensary record
-      // We use a small delay or check for the user id from the sign up data
-      // Note: In Supabase, the user might not be in the public.profiles yet if using triggers, 
-      // but we can insert into dispensaries if RLS allows or if we have the ID.
-      
-      let userId = signUpData?.user?.id;
-      
-      // Fallback: if user is logged in (session caught)
-      if (!userId) {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        userId = currentUser?.id;
-      }
-
-      if (userId) {
-        const { error: dispError } = await supabase
-          .from('dispensaries')
-          .insert({
-            user_id: userId,
-            name: formData.dispensaryName,
-            location: formData.location,
-            latitude: formData.coordinates?.lat,
-            longitude: formData.coordinates?.lng,
-            delivery_radius: formData.deliveryRadius,
-            description: formData.description,
-            status: 'pending' // Admin must approve
-          });
-          
-        if (dispError) {
-          console.error('Error creating dispensary record:', dispError);
-          // We don't throw here to avoid blocking the success message if account was created
+      // Create dispensary application directly (no auth signup - admin approval only)
+      const { error: dispError } = await supabase
+        .from('dispensaries')
+        .insert({
+          email: formData.email,
+          owner_name: formData.name,
+          name: formData.dispensaryName,
+          location: formData.location,
+          latitude: formData.coordinates?.lat,
+          longitude: formData.coordinates?.lng,
+          delivery_radius: formData.deliveryRadius,
+          description: formData.description,
+          status: 'pending' // Admin must approve
+        });
+        
+      if (dispError) {
+        // Check if it's a duplicate
+        if (dispError.code === '23505') {
+          toast.error('An application with this email or dispensary name already exists');
+        } else {
+          console.error('Error creating dispensary application:', dispError);
+          toast.error('Failed to submit application. Please try again.');
         }
+        setIsLoading(false);
+        return;
       }
 
-      toast.success('Application submitted! Please verify your email to continue.');
+      toast.success('Application submitted!');
       setStep(3); // Success step
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit application');
@@ -264,9 +253,17 @@ export default function DispensarySignupPage() {
               </div>
               <div className="space-y-4">
                 <h2 className="text-3xl font-bold">Application Submitted!</h2>
-                <div className="space-y-2">
-                  <p className="text-muted">Your request has been submitted with the <span className="text-primary-500 font-bold">VibesBNB</span> team.</p>
-                  <p className="text-muted">We will update you via email once your shop is approved and online.</p>
+                <div className="space-y-3">
+                  <p className="text-muted">Your dispensary application has been sent to our admin team for review.</p>
+                  <div className="bg-primary-500/10 border border-primary-500/20 rounded-2xl p-4 inline-block">
+                    <div className="flex items-center justify-center gap-2 text-primary-500 font-semibold">
+                      <ShieldCheck className="w-5 h-5" />
+                      <span>Pending Admin Approval</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted">
+                    You'll receive an email at <span className="text-white font-medium">{formData.email}</span> once approved.
+                  </p>
                 </div>
               </div>
               <Link href="/" className="btn-primary inline-flex px-8 !py-4">
