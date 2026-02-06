@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
-import { MapPin, Truck, Leaf, ShieldCheck, ArrowRight, Store, Package } from 'lucide-react';
-import LocationPicker from '@/components/LocationPicker';
+import { Truck, Leaf, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function DispensarySignupPage() {
   const [step, setStep] = useState(1);
@@ -17,13 +14,10 @@ export default function DispensarySignupPage() {
     password: '',
     dispensaryName: '',
     location: '',
-    coordinates: { lat: 0, lng: 0 },
     deliveryRadius: 10,
     description: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, user } = useAuth();
-  const router = useRouter();
   const supabase = createClient();
 
   const handleNext = () => setStep(step + 1);
@@ -42,8 +36,9 @@ export default function DispensarySignupPage() {
           owner_name: formData.name,
           name: formData.dispensaryName,
           location: formData.location,
-          latitude: formData.coordinates?.lat,
-          longitude: formData.coordinates?.lng,
+          // Coordinates can be added later by admin or geocoding service
+          latitude: null,
+          longitude: null,
           delivery_radius: formData.deliveryRadius,
           description: formData.description,
           status: 'pending' // Admin must approve
@@ -68,14 +63,6 @@ export default function DispensarySignupPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLocationChange = (location: string, coordinates?: { lat: number; lng: number }) => {
-    setFormData({
-      ...formData,
-      location,
-      coordinates: coordinates || { lat: 0, lng: 0 },
-    });
   };
 
   return (
@@ -187,11 +174,15 @@ export default function DispensarySignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Store Location</label>
-                  <LocationPicker 
-                    onLocationChange={handleLocationChange}
-                    className="mt-2"
+                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Store Location / Address</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                    placeholder="e.g. 123 Main St, Miami, FL 33101"
+                    className="input !py-4"
                   />
+                  <p className="text-xs text-muted ml-1">Enter your store's full address</p>
                 </div>
 
                 <div className="space-y-2">
