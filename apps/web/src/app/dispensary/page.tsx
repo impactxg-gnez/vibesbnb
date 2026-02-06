@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
@@ -14,11 +14,60 @@ export default function DispensarySignupPage() {
     password: '',
     dispensaryName: '',
     location: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     deliveryRadius: 10,
     description: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
+  
+  // Google Places Autocomplete
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [mapsLoaded, setMapsLoaded] = useState(false);
+
+  // Load Google Maps script
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.google?.maps) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => setMapsLoaded(true);
+      document.head.appendChild(script);
+    } else if (window.google?.maps) {
+      setMapsLoaded(true);
+    }
+  }, []);
+
+  // Initialize autocomplete when on step 2 and maps loaded
+  useEffect(() => {
+    if (step === 2 && mapsLoaded && locationInputRef.current && !autocompleteRef.current) {
+      if (window.google?.maps?.places) {
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(
+          locationInputRef.current,
+          { types: ['geocode', 'establishment'] }
+        );
+
+        autocompleteRef.current.addListener('place_changed', () => {
+          const place = autocompleteRef.current?.getPlace();
+          if (place?.geometry) {
+            const lat = place.geometry.location?.lat();
+            const lng = place.geometry.location?.lng();
+            const address = place.formatted_address || place.name || '';
+            
+            setFormData(prev => ({
+              ...prev,
+              location: address,
+              latitude: lat ?? null,
+              longitude: lng ?? null,
+            }));
+          }
+        });
+      }
+    }
+  }, [step, mapsLoaded]);
 
   const handleNext = () => setStep(step + 1);
   const handleBack = () => setStep(step - 1);
@@ -36,9 +85,8 @@ export default function DispensarySignupPage() {
           owner_name: formData.name,
           name: formData.dispensaryName,
           location: formData.location,
-          // Coordinates can be added later by admin or geocoding service
-          latitude: null,
-          longitude: null,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
           delivery_radius: formData.deliveryRadius,
           description: formData.description,
           status: 'pending' // Admin must approve
@@ -176,13 +224,16 @@ export default function DispensarySignupPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Store Location / Address</label>
                   <input
+                    ref={locationInputRef}
                     type="text"
                     value={formData.location}
                     onChange={(e) => setFormData({...formData, location: e.target.value})}
-                    placeholder="e.g. 123 Main St, Miami, FL 33101"
+                    placeholder="Start typing to search for an address..."
                     className="input !py-4"
                   />
-                  <p className="text-xs text-muted ml-1">Enter your store's full address</p>
+                  <p className="text-xs text-muted ml-1">
+                    {mapsLoaded ? '📍 Start typing to see address suggestions' : 'Enter your store\'s full address'}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
