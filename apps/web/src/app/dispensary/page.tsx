@@ -78,19 +78,23 @@ export default function DispensarySignupPage() {
 
     try {
       // Create dispensary application directly (no auth signup - admin approval only)
+      const payload = {
+        email: formData.email,
+        owner_name: formData.name,
+        name: formData.dispensaryName,
+        location: formData.location,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        delivery_radius: formData.deliveryRadius,
+        description: formData.description || null,
+        status: 'pending' // Admin must approve
+      };
+      
+      console.log('Submitting dispensary application with payload:', payload);
+      
       const { error: dispError } = await supabase
         .from('dispensaries')
-        .insert({
-          email: formData.email,
-          owner_name: formData.name,
-          name: formData.dispensaryName,
-          location: formData.location,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          delivery_radius: formData.deliveryRadius,
-          description: formData.description,
-          status: 'pending' // Admin must approve
-        });
+        .insert(payload);
         
       if (dispError) {
         // Check if it's a duplicate
