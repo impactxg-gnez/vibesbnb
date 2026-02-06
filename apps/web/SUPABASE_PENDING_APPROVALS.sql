@@ -83,10 +83,15 @@ END $$;
 -- 9. Enable RLS on dispensaries
 ALTER TABLE dispensaries ENABLE ROW LEVEL SECURITY;
 
--- 10. Policy: Anyone can insert dispensary applications
+-- 10. Policy: Anyone can insert dispensary applications (including anonymous users)
 DROP POLICY IF EXISTS "Anyone can insert dispensary applications" ON dispensaries;
 CREATE POLICY "Anyone can insert dispensary applications" ON dispensaries
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT TO public WITH CHECK (true);
+
+-- 10b. Explicitly allow anon role to insert
+DROP POLICY IF EXISTS "Anonymous can insert dispensary applications" ON dispensaries;
+CREATE POLICY "Anonymous can insert dispensary applications" ON dispensaries
+  FOR INSERT TO anon WITH CHECK (true);
 
 -- 11. Policy: Admins can read all dispensaries
 DROP POLICY IF EXISTS "Admins can read all dispensaries" ON dispensaries;
@@ -114,6 +119,22 @@ CREATE POLICY "Admins can update dispensaries" ON dispensaries
 DROP POLICY IF EXISTS "Users can read own dispensary" ON dispensaries;
 CREATE POLICY "Users can read own dispensary" ON dispensaries
   FOR SELECT USING (user_id = auth.uid() OR status = 'active');
+
+-- 14. Policy: Anonymous users can read active dispensaries (for public listings)
+DROP POLICY IF EXISTS "Anonymous can read active dispensaries" ON dispensaries;
+CREATE POLICY "Anonymous can read active dispensaries" ON dispensaries
+  FOR SELECT TO anon USING (status = 'active');
+
+-- 15. Admins can delete dispensaries
+DROP POLICY IF EXISTS "Admins can delete dispensaries" ON dispensaries;
+CREATE POLICY "Admins can delete dispensaries" ON dispensaries
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM auth.users 
+      WHERE auth.users.id = auth.uid() 
+      AND auth.users.raw_user_meta_data->>'role' = 'admin'
+    )
+  );
 
 -- Verify tables
 SELECT 'pending_host_applications' as table_name, COUNT(*) as row_count FROM pending_host_applications
