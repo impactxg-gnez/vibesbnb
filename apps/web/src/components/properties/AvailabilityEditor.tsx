@@ -9,6 +9,8 @@ interface AvailabilityEntry {
   day: string;
   status: AvailabilityStatus;
   note?: string | null;
+  room_id?: string | null;
+  booking_id?: string | null;
 }
 
 interface AvailabilityEditorProps {
@@ -34,6 +36,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
   const [initialBlockedDays, setInitialBlockedDays] = useState<Set<string>>(
     () => new Set()
   );
+  const [bookedDays, setBookedDays] = useState<Set<string>>(() => new Set());
   const [removedDays, setRemovedDays] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
@@ -50,16 +53,26 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
 
         const map: Record<string, AvailabilityStatus> = {};
         const blocked = new Set<string>();
+        const booked = new Set<string>();
         (data.availability || []).forEach((entry: AvailabilityEntry) => {
-          map[entry.day] = entry.status;
+          // For simplicity, we show property-wide status
+          // In future, we could show per-room status
+          if (!map[entry.day] || entry.status === 'booked') {
+            map[entry.day] = entry.status;
+          }
           if (entry.status === 'blocked') {
             blocked.add(entry.day);
+          }
+          if (entry.status === 'booked') {
+            booked.add(entry.day);
           }
         });
 
         setAvailabilityMap(map);
         setInitialBlockedDays(blocked);
         setRemovedDays(new Set());
+        // Store booked days in state (they can't be modified)
+        setBookedDays(booked);
       } catch (error: any) {
         console.error('[AvailabilityEditor] load error', error);
         toast.error(error.message || 'Failed to load availability');
@@ -95,8 +108,9 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
     const dayKey = formatDateKey(date);
     const current = availabilityMap[dayKey] || 'available';
 
-    if (current === 'booked') {
-      toast.error('Booked dates cannot be changed.');
+    // Prevent modifying booked dates (from guest bookings)
+    if (current === 'booked' || bookedDays.has(dayKey)) {
+      toast.error('Booked dates cannot be changed. Cancel the booking first.');
       return;
     }
 
@@ -186,30 +200,37 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
 
     const dayKey = formatDateKey(date);
     const status = availabilityMap[dayKey] || 'available';
+    const isBooked = status === 'booked' || bookedDays.has(dayKey);
 
     const colors: Record<AvailabilityStatus, string> = {
       available:
         'bg-gray-900 hover:bg-gray-800 text-white border border-gray-800',
       blocked: 'bg-red-900/60 border border-red-500 text-red-100',
-      booked: 'bg-emerald-900/60 border border-emerald-500 text-emerald-100',
+      booked: 'bg-emerald-900/60 border border-emerald-500 text-emerald-100 cursor-not-allowed',
     };
 
     const isPast =
       new Date(dayKey).setHours(0, 0, 0, 0) <
       new Date().setHours(0, 0, 0, 0);
 
+    const isDisabled = isPast || isBooked;
+
     return (
       <button
         key={dayKey}
         type="button"
-        disabled={isPast && status !== 'blocked' && status !== 'booked'}
+        disabled={isDisabled}
         onClick={() => toggleDay(date)}
         className={`h-16 rounded-lg text-sm font-semibold transition ${
           colors[status]
-        } ${isPast ? 'opacity-40 cursor-not-allowed' : ''}`}
+        } ${isPast ? 'opacity-40' : ''} ${isDisabled ? 'cursor-not-allowed' : ''}`}
+        title={isBooked ? 'Guest booking - cannot be changed' : undefined}
       >
         <div>{date.getDate()}</div>
-        <div className="text-xs capitalize">{status}</div>
+        <div className="text-xs capitalize flex items-center justify-center gap-1">
+          {isBooked && <span>🔒</span>}
+          {status}
+        </div>
       </button>
     );
   };

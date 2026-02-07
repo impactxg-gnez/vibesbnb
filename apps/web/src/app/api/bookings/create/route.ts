@@ -128,9 +128,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark booked dates in availability table
+    // Mark booked dates in availability table using service client (bypasses RLS)
     try {
-      const daysToBlock: { day: string; status: 'booked'; property_id: string; host_id: string }[] = [];
       const start = new Date(check_in);
       const end = new Date(check_out);
 
@@ -139,7 +138,15 @@ export async function POST(request: NextRequest) {
         : [{ id: null }]; // Default to property-wide if no units specified
 
       for (const unit of unitsToBlock) {
-        const daysToBlock: { day: string; status: 'booked'; property_id: string; host_id: string; room_id: string | null }[] = [];
+        const daysToBlock: { 
+          day: string; 
+          status: 'booked'; 
+          property_id: string; 
+          host_id: string; 
+          room_id: string | null;
+          booking_id: string;
+        }[] = [];
+        
         for (
           let cursor = new Date(start);
           cursor < end;
@@ -152,13 +159,46 @@ export async function POST(request: NextRequest) {
             property_id,
             host_id: hostId,
             room_id: unit.id || null,
+            booking_id: booking.id,
           });
         }
 
         if (daysToBlock.length > 0) {
-          await supabase
-            .from('property_availability')
-            .upsert(daysToBlock, { onConflict: 'property_id,room_id,day' });
+          // Use service client to bypass RLS - travelers can't insert directly
+          // We need to handle upserts manually due to partial unique indexes
+          for (const block of daysToBlock) {
+            // First try to update existing entry
+            let updateQuery = serviceSupabase
+              .from('property_availability')
+              .update({
+                status: 'booked',
+                booking_id: block.booking_id,
+                host_id: block.host_id,
+              })
+              .eq('property_id', block.property_id)
+              .eq('day', block.day);
+
+            if (block.room_id) {
+              updateQuery = updateQuery.eq('room_id', block.room_id);
+            } else {
+              updateQuery = updateQuery.is('room_id', null);
+            }
+
+            const { data: updated, error: updateError } = await updateQuery.select();
+            
+            // If no rows updated, insert new entry
+            if (!updateError && (!updated || updated.length === 0)) {
+              const { error: insertError } = await serviceSupabase
+                .from('property_availability')
+                .insert(block);
+              
+              if (insertError) {
+                console.warn('Failed to insert booked day:', block.day, insertError);
+              }
+            } else if (updateError) {
+              console.warn('Failed to update booked day:', block.day, updateError);
+            }
+          }
         }
       }
     } catch (availabilityError) {

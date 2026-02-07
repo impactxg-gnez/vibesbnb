@@ -5,6 +5,7 @@ interface AvailabilityEntry {
   day: string;
   status: 'available' | 'blocked';
   note?: string;
+  room_id?: string | null;
 }
 
 async function ensureHostOwnership(
@@ -46,7 +47,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('property_availability')
-      .select('id, day, status, note')
+      .select('id, day, status, note, room_id, booking_id')
       .eq('property_id', params.id)
       .order('day', { ascending: true });
 
@@ -96,7 +97,7 @@ export async function PUT(
     }
 
     const upserts: any[] = [];
-    const deletions: string[] = [];
+    const deletions: { day: string; room_id: string | null }[] = [];
 
     body.entries.forEach((entry) => {
       if (!entry.day || !entry.status) {
@@ -106,8 +107,10 @@ export async function PUT(
         return;
       }
 
+      const roomId = entry.room_id ?? null;
+
       if (entry.status === 'available') {
-        deletions.push(entry.day);
+        deletions.push({ day: entry.day, room_id: roomId });
       } else {
         upserts.push({
           property_id: params.id,
@@ -115,29 +118,64 @@ export async function PUT(
           day: entry.day,
           status: entry.status,
           note: entry.note ?? null,
+          room_id: roomId,
         });
       }
     });
 
-    if (upserts.length > 0) {
-      const { error: upsertError } = await supabase
+    // Handle upserts manually due to partial unique indexes
+    for (const entry of upserts) {
+      // First try to update existing entry
+      let updateQuery = supabase
         .from('property_availability')
-        .upsert(upserts, {
-          onConflict: 'property_id,day',
-        });
-      if (upsertError) {
-        throw upsertError;
+        .update({
+          status: entry.status,
+          note: entry.note,
+          host_id: entry.host_id,
+        })
+        .eq('property_id', entry.property_id)
+        .eq('day', entry.day);
+
+      if (entry.room_id) {
+        updateQuery = updateQuery.eq('room_id', entry.room_id);
+      } else {
+        updateQuery = updateQuery.is('room_id', null);
+      }
+
+      const { data: updated, error: updateError } = await updateQuery.select();
+      
+      // If no rows updated, insert new entry
+      if (!updateError && (!updated || updated.length === 0)) {
+        const { error: insertError } = await supabase
+          .from('property_availability')
+          .insert(entry);
+        
+        if (insertError) {
+          throw insertError;
+        }
+      } else if (updateError) {
+        throw updateError;
       }
     }
 
-    if (deletions.length > 0) {
-      const { error: deleteError } = await supabase
+    // Delete entries that are being set back to available
+    for (const deletion of deletions) {
+      let deleteQuery = supabase
         .from('property_availability')
         .delete()
         .eq('property_id', params.id)
-        .in('day', deletions);
+        .eq('day', deletion.day)
+        .eq('status', 'blocked'); // Only delete blocked entries, not booked ones
+      
+      if (deletion.room_id) {
+        deleteQuery = deleteQuery.eq('room_id', deletion.room_id);
+      } else {
+        deleteQuery = deleteQuery.is('room_id', null);
+      }
+      
+      const { error: deleteError } = await deleteQuery;
       if (deleteError) {
-        throw deleteError;
+        console.warn('Failed to delete availability entry:', deleteError);
       }
     }
 
