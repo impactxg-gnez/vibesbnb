@@ -44,9 +44,13 @@ export default function NewBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [availability, setAvailability] = useState<Record<string, string[]>>({});
 
+  // Initialize with URL params if available
+  const initialCheckIn = searchParams.get('checkIn') || '';
+  const initialCheckOut = searchParams.get('checkOut') || '';
+  
   const [formData, setFormData] = useState({
-    checkIn: '',
-    checkOut: '',
+    checkIn: initialCheckIn,
+    checkOut: initialCheckOut,
     guests: 1,
     kids: 0,
     pets: 0,

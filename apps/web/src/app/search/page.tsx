@@ -26,9 +26,12 @@ interface Listing {
 }
 
 // Listing Card Component with Image Carousel
-function ListingCard({ listing, onHover }: { listing: Listing, onHover: (id: string | null) => void }) {
+function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing, onHover: (id: string | null) => void, checkIn?: string, checkOut?: string }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
+  
+  // Build the listing URL with date params if available
+  const listingUrl = `/listings/${listing.id}${checkIn || checkOut ? `?${checkIn ? `checkIn=${checkIn}` : ''}${checkIn && checkOut ? '&' : ''}${checkOut ? `checkOut=${checkOut}` : ''}` : ''}`;
 
   const nextImage = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -48,7 +51,7 @@ function ListingCard({ listing, onHover }: { listing: Listing, onHover: (id: str
       onMouseLeave={() => onHover(null)}
       className="group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors"
     >
-      <Link href={`/listings/${listing.id}`} className="block relative">
+      <Link href={listingUrl} className="block relative">
         <div className="relative h-64 bg-surface-light overflow-hidden">
           <img
             src={images[currentImageIndex]}
@@ -123,7 +126,7 @@ function ListingCard({ listing, onHover }: { listing: Listing, onHover: (id: str
         </div>
       )}
 
-      <Link href={`/listings/${listing.id}`} className="flex-1 p-5">
+      <Link href={listingUrl} className="flex-1 p-5">
         <div className="flex justify-between items-start mb-2">
           <div>
             <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-1">
@@ -547,6 +550,8 @@ export default function SearchPage() {
                     key={listing.id} 
                     listing={listing}
                     onHover={setHoveredListingId}
+                    checkIn={searchParams.get('checkIn') || undefined}
+                    checkOut={searchParams.get('checkOut') || undefined}
                   />
                 ))}
               </div>

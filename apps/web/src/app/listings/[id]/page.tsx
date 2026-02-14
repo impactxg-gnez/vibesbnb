@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   MapPin,
@@ -79,6 +79,7 @@ const amenityIcons: { [key: string]: any } = {
 export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -88,6 +89,22 @@ export default function ListingDetailPage() {
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
   const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
+  
+  // Date selection state - initialized from URL params
+  const [checkInDate, setCheckInDate] = useState<string>(searchParams.get('checkIn') || '');
+  const [checkOutDate, setCheckOutDate] = useState<string>(searchParams.get('checkOut') || '');
+  
+  // Calculate number of nights
+  const calculateNights = (): number => {
+    if (!checkInDate || !checkOutDate) return 0;
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    const diffTime = checkOut.getTime() - checkIn.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+  
+  const stayDuration = calculateNights();
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -266,7 +283,8 @@ export default function ListingDetailPage() {
       return;
     }
     const selectedRoomsParam = selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
-    router.push(`/bookings/new?propertyId=${params.id}${selectedRoomsParam}`);
+    const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
+    router.push(`/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`);
   };
 
   const toggleRoomSelection = (roomId: string) => {
@@ -294,8 +312,8 @@ export default function ListingDetailPage() {
 
   const wellnessTotal = wellnessCart.reduce((sum, item) => sum + item.price, 0);
   const currentPrice = calculateTotalPrice();
-  const stayDuration = 5; // Assuming 5 nights as per existing UI logic
-  const stayTotal = currentPrice * stayDuration;
+  const nights = stayDuration || 1; // Use 1 night for display if no dates selected
+  const stayTotal = currentPrice * nights;
   const serviceFee = Math.round(stayTotal * 0.1);
   const finalTotal = stayTotal + serviceFee + wellnessTotal;
 
@@ -688,12 +706,50 @@ export default function ListingDetailPage() {
                 </div>
               </div>
 
+              {/* Date Selection */}
+              <div className="mb-4 border border-gray-700 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-2 divide-x divide-gray-700">
+                  <div className="p-3">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-in</label>
+                    <input
+                      type="date"
+                      value={checkInDate}
+                      onChange={(e) => setCheckInDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-out</label>
+                    <input
+                      type="date"
+                      value={checkOutDate}
+                      onChange={(e) => setCheckOutDate(e.target.value)}
+                      min={checkInDate || new Date().toISOString().split('T')[0]}
+                      className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+                {/* Selected dates display */}
+                {checkInDate && checkOutDate && stayDuration > 0 && (
+                  <div className="bg-emerald-900/30 border-t border-gray-700 px-3 py-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-emerald-400 font-medium flex items-center gap-2">
+                        <Calendar size={14} />
+                        {new Date(checkInDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(checkOutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <span className="text-emerald-400 font-semibold">{stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={handleBooking}
                 className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold text-lg mb-4"
               >
                 <Calendar size={20} className="inline mr-2" />
-                Book Now
+                {checkInDate && checkOutDate ? 'Reserve' : 'Check Availability'}
               </button>
 
               <PropertyChatButton
@@ -706,27 +762,33 @@ export default function ListingDetailPage() {
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">${currentPrice} × {stayDuration} nights</span>
-                  <span className="text-white">${stayTotal}</span>
-                </div>
-                {wellnessCart.length > 0 && (
-                  <div className="flex justify-between text-sm animate-in fade-in slide-in-from-left-2 transition-all">
-                    <span className="text-primary-500 font-medium flex items-center gap-1">
-                      <Leaf className="w-3 h-3" />
-                      Wellness Supplies ({wellnessCart.length})
-                    </span>
-                    <span className="text-primary-500 font-bold">+ ${wellnessTotal}</span>
-                  </div>
+                {stayDuration > 0 ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">${currentPrice} × {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
+                      <span className="text-white">${stayTotal}</span>
+                    </div>
+                    {wellnessCart.length > 0 && (
+                      <div className="flex justify-between text-sm animate-in fade-in slide-in-from-left-2 transition-all">
+                        <span className="text-primary-500 font-medium flex items-center gap-1">
+                          <Leaf className="w-3 h-3" />
+                          Wellness Supplies ({wellnessCart.length})
+                        </span>
+                        <span className="text-primary-500 font-bold">+ ${wellnessTotal}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Service fee</span>
+                      <span className="text-white">${serviceFee}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold pt-3 border-t border-gray-800">
+                      <span className="text-white">Total</span>
+                      <span className="text-white text-xl text-primary-500">${finalTotal}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-400 text-sm text-center">Select dates to see total price</p>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Service fee</span>
-                  <span className="text-white">${serviceFee}</span>
-                </div>
-                <div className="flex justify-between font-semibold pt-3 border-t border-gray-800">
-                  <span className="text-white">Total</span>
-                  <span className="text-white text-xl text-primary-500">${finalTotal}</span>
-                </div>
               </div>
             </div>
           </div>
