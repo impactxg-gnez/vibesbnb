@@ -25,11 +25,17 @@ export function Hero() {
 
   return (
     <div className="relative h-[600px] md:h-[700px] overflow-hidden">
-      <img
-        src={backgroundImageUrl}
-        alt="VibesBNB Hero"
-        className="absolute inset-0 w-full h-full object-cover"
+      {/* Hero background - cover on mobile, contain on desktop to show full peace sign */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center lg:bg-contain lg:bg-no-repeat lg:bg-right"
+        style={{ 
+          backgroundImage: `url(${backgroundImageUrl})`,
+        }}
+        role="img"
+        aria-label="VibesBNB Hero"
       />
+      {/* Background color fill for desktop when image doesn't cover full width */}
+      <div className="absolute inset-0 bg-[#8B7355] -z-10" />
       <div className="absolute inset-0 bg-gradient-to-b from-surface-dark/40 via-transparent to-surface-dark" />
 
       <div className="relative container mx-auto px-6 h-full flex flex-col justify-center pb-20 sm:pb-12 md:pb-0">
@@ -43,7 +49,7 @@ export function Hero() {
 
           <h1 className="text-6xl md:text-7xl font-bold text-white mb-12 tracking-tight leading-tight">
             Find your <br />
-            <span className="text-primary-500">cannabis-friendly</span> <br />
+            <span className="text-primary-500">wellness-friendly</span> <br />
             sanctuary
           </h1>
 

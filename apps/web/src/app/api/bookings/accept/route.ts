@@ -76,20 +76,38 @@ export async function POST(request: NextRequest) {
     // Send email notification to guest
     if (booking.guest_email) {
       try {
+        // Get host name for the email
+        let hostName = 'Your Host';
+        try {
+          const { data: hostProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', booking.host_id)
+            .single();
+          if (hostProfile?.full_name) {
+            hostName = hostProfile.full_name;
+          }
+        } catch (e) {
+          console.warn('Could not fetch host name:', e);
+        }
+
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
         await fetch(`${appUrl}/api/notifications/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to: booking.guest_email,
-            subject: `Booking Accepted: ${booking.property_name}`,
+            subject: `Booking Confirmed: ${booking.property_name}`,
             template: 'booking_accepted',
             data: {
               propertyName: booking.property_name,
+              hostName: hostName,
               checkIn: booking.check_in,
               checkOut: booking.check_out,
+              guests: booking.guests,
               totalPrice: booking.total_price,
               bookingId: booking.id,
+              location: booking.location,
             },
           }),
         });
