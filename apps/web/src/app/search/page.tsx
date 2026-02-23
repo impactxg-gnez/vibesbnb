@@ -23,7 +23,24 @@ interface Listing {
   bedrooms?: number;
   status?: 'active' | 'draft' | 'inactive';
   coordinates?: { lat: number; lng: number };
+  isAvailable?: boolean;
   [key: string]: any;
+}
+
+// Helper to calculate nights between dates
+function calculateNights(checkIn: string, checkOut: string): number {
+  if (!checkIn || !checkOut) return 0;
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+  const diffTime = end.getTime() - start.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// Helper to format date for display
+function formatDateShort(dateStr: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // Listing Card Component with Image Carousel
@@ -33,6 +50,10 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
   
   // Build the listing URL with date params if available
   const listingUrl = `/listings/${listing.id}${checkIn || checkOut ? `?${checkIn ? `checkIn=${checkIn}` : ''}${checkIn && checkOut ? '&' : ''}${checkOut ? `checkOut=${checkOut}` : ''}` : ''}`;
+  
+  // Calculate stay info
+  const nights = checkIn && checkOut ? calculateNights(checkIn, checkOut) : 0;
+  const totalPrice = nights > 0 ? listing.price * nights : listing.price;
 
   const nextImage = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -88,7 +109,31 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </div>
-          <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
+          <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+            {/* Availability Badge - only show when dates are selected */}
+            {checkIn && checkOut && listing.isAvailable !== undefined && (
+              <div className={`backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-1.5 border text-xs font-bold ${
+                listing.isAvailable 
+                  ? 'bg-emerald-500/80 border-emerald-400/50 text-white' 
+                  : 'bg-red-500/80 border-red-400/50 text-white'
+              }`}>
+                {listing.isAvailable ? (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Available
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Unavailable
+                  </>
+                )}
+              </div>
+            )}
             <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
               <span className="text-lg">🌿</span>
               <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
@@ -158,11 +203,33 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
             {listing.guests || 2} guests
           </span>
         </div>
+
+        {/* Selected Dates Display */}
+        {checkIn && checkOut && nights > 0 && (
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-white font-medium">
+              {formatDateShort(checkIn)} - {formatDateShort(checkOut)}
+            </span>
+            <span className="text-muted">({nights} {nights === 1 ? 'night' : 'nights'})</span>
+          </div>
+        )}
         
         <div className="flex items-end justify-between mt-4">
-          <p className="text-white font-bold text-xl">
-            ${listing.price} <span className="font-normal text-muted text-xs">/ night</span>
-          </p>
+          {nights > 0 ? (
+            <div>
+              <p className="text-white font-bold text-xl">
+                ${totalPrice} <span className="font-normal text-muted text-xs">total</span>
+              </p>
+              <p className="text-muted text-xs">${listing.price} × {nights} nights</p>
+            </div>
+          ) : (
+            <p className="text-white font-bold text-xl">
+              ${listing.price} <span className="font-normal text-muted text-xs">/ night</span>
+            </p>
+          )}
         </div>
       </Link>
     </div>
@@ -178,6 +245,21 @@ export default function SearchPage() {
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [sortBy, setSortBy] = useState('Price: High to Low');
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
+  const [hideUnavailable, setHideUnavailable] = useState(false);
+  
+  // Get selected dates from URL
+  const checkIn = searchParams.get('checkIn') || '';
+  const checkOut = searchParams.get('checkOut') || '';
+  const hasDateFilter = !!(checkIn && checkOut);
+  const nights = hasDateFilter ? calculateNights(checkIn, checkOut) : 0;
+  
+  // Filter listings based on availability toggle
+  const displayedListings = hideUnavailable 
+    ? listings.filter(l => l.isAvailable !== false)
+    : listings;
+  
+  const availableCount = listings.filter(l => l.isAvailable !== false).length;
+  const unavailableCount = listings.filter(l => l.isAvailable === false).length;
 
   useEffect(() => {
     // ... existing useEffect logic ...
@@ -343,17 +425,83 @@ export default function SearchPage() {
           });
         }
 
+        // Check availability if dates are selected
+        if (checkIn && checkOut && isSupabaseConfigured) {
+          try {
+            // Get all dates in the range
+            const startDate = new Date(checkIn);
+            const endDate = new Date(checkOut);
+            const datesToCheck: string[] = [];
+            for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+              datesToCheck.push(d.toISOString().split('T')[0]);
+            }
+
+            if (datesToCheck.length > 0) {
+              // Fetch blocked/booked dates for all properties in our list
+              const propertyIds = filteredListings.map(l => l.id);
+              const supabase = createClient();
+              
+              const { data: blockedDates, error: availError } = await supabase
+                .from('property_availability')
+                .select('property_id, day, status')
+                .in('property_id', propertyIds)
+                .in('day', datesToCheck)
+                .in('status', ['blocked', 'booked']);
+
+              if (!availError && blockedDates) {
+                // Create a set of property IDs that have blocked dates
+                const unavailablePropertyIds = new Set<string>();
+                blockedDates.forEach((block: any) => {
+                  unavailablePropertyIds.add(block.property_id);
+                });
+
+                // Mark properties as available or not
+                filteredListings = filteredListings.map(listing => ({
+                  ...listing,
+                  isAvailable: !unavailablePropertyIds.has(listing.id)
+                }));
+
+                // Filter to only show available properties (move unavailable to end or hide)
+                // Sort: available first, then unavailable
+                filteredListings.sort((a, b) => {
+                  if (a.isAvailable && !b.isAvailable) return -1;
+                  if (!a.isAvailable && b.isAvailable) return 1;
+                  return 0;
+                });
+              }
+            }
+          } catch (availError) {
+            console.warn('[Search] Error checking availability:', availError);
+          }
+        }
+
         // Sort listings
         const sortParam = searchParams.get('sort') || 'high-low';
         if (sortParam === 'low-high') {
-          filteredListings.sort((a, b) => a.price - b.price);
+          // Keep availability sorting as secondary, price as primary
+          filteredListings.sort((a, b) => {
+            if (checkIn && checkOut) {
+              if (a.isAvailable && !b.isAvailable) return -1;
+              if (!a.isAvailable && b.isAvailable) return 1;
+            }
+            return a.price - b.price;
+          });
           setSortBy('Price: Low to High');
         } else if (sortParam === 'high-low') {
-          filteredListings.sort((a, b) => b.price - a.price);
+          filteredListings.sort((a, b) => {
+            if (checkIn && checkOut) {
+              if (a.isAvailable && !b.isAvailable) return -1;
+              if (!a.isAvailable && b.isAvailable) return 1;
+            }
+            return b.price - a.price;
+          });
           setSortBy('Price: High to Low');
         } else if (sortParam === 'recent') {
           filteredListings.sort((a, b) => {
-            // Sort by ID or creation date if available
+            if (checkIn && checkOut) {
+              if (a.isAvailable && !b.isAvailable) return -1;
+              if (!a.isAvailable && b.isAvailable) return 1;
+            }
             return b.id.localeCompare(a.id);
           });
           setSortBy('Most Recent');
@@ -395,9 +543,25 @@ export default function SearchPage() {
           {/* Listings Column */}
           <div className="w-full lg:w-1/2 order-2 lg:order-1">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
-              <h2 className="text-lg md:text-2xl font-bold text-white">
-                {loading ? 'Searching...' : `${listings.length} stays in ${searchParams.get('location') || 'all locations'}`}
-              </h2>
+              <div>
+                <h2 className="text-lg md:text-2xl font-bold text-white">
+                  {loading ? 'Searching...' : `${displayedListings.length} stays in ${searchParams.get('location') || 'all locations'}`}
+                </h2>
+                {/* Show selected dates summary */}
+                {hasDateFilter && !loading && (
+                  <p className="text-sm text-primary-500 mt-1 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {formatDateShort(checkIn)} - {formatDateShort(checkOut)} ({nights} {nights === 1 ? 'night' : 'nights'})
+                    {unavailableCount > 0 && (
+                      <span className="text-muted">
+                        • {availableCount} available
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
               <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                 <div className="relative">
                   <button
@@ -533,6 +697,22 @@ export default function SearchPage() {
                   <option>Price: High to Low</option>
                   <option>Most Recent</option>
                 </select>
+                {/* Hide unavailable toggle - only show when dates are selected */}
+                {hasDateFilter && unavailableCount > 0 && (
+                  <button
+                    onClick={() => setHideUnavailable(!hideUnavailable)}
+                    className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-all ${
+                      hideUnavailable 
+                        ? 'bg-primary-500 text-black' 
+                        : 'bg-surface border border-white/10 text-white hover:bg-surface-light'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    {hideUnavailable ? 'Showing available only' : 'Hide unavailable'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -546,29 +726,44 @@ export default function SearchPage() {
                   </div>
                 ))}
               </div>
-            ) : listings.length === 0 ? (
+            ) : displayedListings.length === 0 ? (
               <div className="bg-surface border border-white/5 rounded-3xl p-12 text-center shadow-xl">
                 <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-2xl font-semibold text-white mb-2">No properties found</h3>
+                <h3 className="text-2xl font-semibold text-white mb-2">
+                  {hideUnavailable && listings.length > 0 
+                    ? 'No available properties for these dates' 
+                    : 'No properties found'}
+                </h3>
                 <p className="text-muted mb-6">
-                  Try adjusting your search criteria or browse all available properties
+                  {hideUnavailable && listings.length > 0 
+                    ? 'Try different dates or show all properties including unavailable ones'
+                    : 'Try adjusting your search criteria or browse all available properties'}
                 </p>
-                <Link
-                  href="/search"
-                  className="btn-primary"
-                >
-                  Browse All Properties
-                </Link>
+                {hideUnavailable && listings.length > 0 ? (
+                  <button
+                    onClick={() => setHideUnavailable(false)}
+                    className="btn-primary"
+                  >
+                    Show All Properties
+                  </button>
+                ) : (
+                  <Link
+                    href="/search"
+                    className="btn-primary"
+                  >
+                    Browse All Properties
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {listings.map((listing) => (
+                {displayedListings.map((listing) => (
                   <ListingCard 
                     key={listing.id} 
                     listing={listing}
                     onHover={setHoveredListingId}
-                    checkIn={searchParams.get('checkIn') || undefined}
-                    checkOut={searchParams.get('checkOut') || undefined}
+                    checkIn={checkIn || undefined}
+                    checkOut={checkOut || undefined}
                   />
                 ))}
               </div>
@@ -578,7 +773,7 @@ export default function SearchPage() {
           {/* Map Column */}
           <div className="hidden lg:block lg:w-1/2 order-1 lg:order-2 sticky top-[100px] h-[calc(100vh-140px)]">
             <PropertiesMap 
-              properties={listings} 
+              properties={displayedListings} 
               className="w-full h-full rounded-3xl border border-white/10 shadow-2xl" 
               hoveredListingId={hoveredListingId}
             />
