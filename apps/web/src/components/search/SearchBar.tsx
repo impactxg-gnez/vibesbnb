@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { DatePicker } from '@/components/ui/DatePicker';
 
 export function SearchBar() {
   const router = useRouter();
@@ -192,11 +193,11 @@ export function SearchBar() {
               </svg>
               Check In
             </label>
-            <input
+            <DatePicker
               id="checkIn"
-              type="date"
               value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
+              onChange={(dateStr) => setCheckIn(dateStr)}
+              min={new Date().toISOString().split('T')[0]}
               className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
             />
           </div>
@@ -208,11 +209,11 @@ export function SearchBar() {
               </svg>
               Check Out
             </label>
-            <input
+            <DatePicker
               id="checkOut"
-              type="date"
               value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
+              onChange={(dateStr) => setCheckOut(dateStr)}
+              min={checkIn || new Date().toISOString().split('T')[0]}
               className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
             />
           </div>

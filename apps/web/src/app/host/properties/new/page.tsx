@@ -8,6 +8,7 @@ import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
+import { applyWatermark } from '@/lib/image-utils';
 
 interface Room {
   id: string;
@@ -30,6 +31,7 @@ export default function NewPropertyPage() {
     bathrooms: 1,
     guests: 2,
     price: 100,
+    type: 'Entire House',
     wellnessFriendly: false,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
@@ -85,30 +87,37 @@ export default function NewPropertyPage() {
     setRooms(rooms.map((r) => (r.id === roomId ? { ...r, name } : r)));
   };
 
-  const handleImageUpload = (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
-    const newImages = [...room.images, ...files];
-    const newPreviews = [...room.imagePreviewUrls];
+    const toastId = toast.loading('Applying watermarks...', { id: 'watermark-toast' });
 
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newPreviews.push(reader.result as string);
-        setRooms(
-          rooms.map((r) =>
-            r.id === roomId ? { ...r, images: newImages, imagePreviewUrls: newPreviews } : r
-          )
-        );
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const watermarkedPreviews: string[] = [];
+      
+      for (const file of files) {
+        // Apply watermark and get data URL
+        const watermarkedUrl = await applyWatermark(file);
+        watermarkedPreviews.push(watermarkedUrl);
+      }
 
-    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, images: newImages } : r)));
+      const newPreviews = [...room.imagePreviewUrls, ...watermarkedPreviews];
+      
+      setRooms(
+        rooms.map((r) =>
+          r.id === roomId ? { ...r, imagePreviewUrls: newPreviews } : r
+        )
+      );
+      
+      toast.success('Images watermarked and uploaded!', { id: 'watermark-toast' });
+    } catch (error) {
+      console.error('Error watermarking images:', error);
+      toast.error('Failed to apply watermark to some images.', { id: 'watermark-toast' });
+    }
   };
 
   const removeImage = (roomId: string, index: number) => {
@@ -266,6 +275,7 @@ export default function NewPropertyPage() {
             bathrooms: formData.bathrooms,
             guests: formData.guests,
             price: formData.price,
+            type: formData.type,
             wellnessFriendly: formData.wellnessFriendly,
             amenities: formData.amenities,
             images: allImageUrls,
@@ -305,6 +315,7 @@ export default function NewPropertyPage() {
             bathrooms: formData.bathrooms,
             guests: formData.guests,
             status: 'draft',
+            type: formData.type,
             wellness_friendly: formData.wellnessFriendly,
             google_maps_url: formData.coordinates
               ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
@@ -337,11 +348,17 @@ export default function NewPropertyPage() {
             bathrooms: formData.bathrooms,
             guests: formData.guests,
             price: formData.price,
+            type: formData.type,
             wellnessFriendly: formData.wellnessFriendly,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
             status: 'draft',
+            google_maps_url: formData.coordinates
+              ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
+              : null,
+            latitude: formData.coordinates?.lat,
+            longitude: formData.coordinates?.lng,
           };
           parsedProperties.push(backupProperty);
           localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
@@ -442,6 +459,24 @@ export default function NewPropertyPage() {
             <h2 className="text-xl font-semibold text-white mb-6">Basic Information</h2>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Property Type *
+                </label>
+                <select
+                  required
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                >
+                  <option value="Entire House">Entire House</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="Condo">Condo</option>
+                  <option value="Private Rooms">Private Rooms</option>
+                  <option value="Room inside property">Room inside property</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Property Name *

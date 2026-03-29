@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const userRole = user?.user_metadata?.role || 'traveller';
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -22,6 +23,14 @@ export default function ProfilePage() {
     whatsapp: '',
     hostEmail: '',
   });
+
+  const [stats, setStats] = useState({
+    totalProperties: 0,
+    totalBookings: 0,
+    totalEarnings: 0
+  });
+
+  const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -43,11 +52,65 @@ export default function ProfilePage() {
     }
   }, [user]);
 
+  useEffect(() => {
+    const fetchHostStats = async () => {
+      if (userRole === 'host' && user?.id) {
+        setLoadingStats(true);
+        try {
+          const supabase = createClient();
+          
+          // Total properties
+          const { count: propertyCount, error: propsError } = await supabase
+            .from('properties')
+            .select('id', { count: 'exact', head: true })
+            .eq('host_id', user.id);
+          
+          // Total bookings for those properties
+          const { data: propsData } = await supabase
+            .from('properties')
+            .select('id')
+            .eq('host_id', user.id);
+          
+          const propIds = propsData?.map(p => p.id) || [];
+          
+          let bookingCount = 0;
+          let totalEarnings = 0;
+          
+          if (propIds.length > 0) {
+            const { data: bookingsData } = await supabase
+              .from('bookings')
+              .select('total_price, status')
+              .in('property_id', propIds);
+            
+            if (bookingsData) {
+              bookingCount = bookingsData.length;
+              totalEarnings = bookingsData
+                .filter(b => b.status === 'confirmed' || b.status === 'completed')
+                .reduce((sum, b) => sum + (Number(b.total_price) || 0), 0);
+            }
+          }
+
+          setStats({
+            totalProperties: propertyCount || 0,
+            totalBookings: bookingCount,
+            totalEarnings: totalEarnings
+          });
+        } catch (error) {
+          console.error('Error fetching host stats:', error);
+        } finally {
+          setLoadingStats(false);
+        }
+      }
+    };
+    
+    if (userRole === 'host') {
+      fetchHostStats();
+    }
+  }, [userRole, user?.id]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const userRole = user?.user_metadata?.role || 'traveller';
-      
       // For hosts: validate that at least one contact method (WhatsApp or email) is provided
       if (userRole === 'host') {
         if (!formData.whatsapp?.trim() && !formData.hostEmail?.trim()) {
@@ -61,24 +124,40 @@ export default function ProfilePage() {
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (supabaseUser) {
+        // Update user metadata in Supabase
         const { error: updateError } = await supabase.auth.updateUser({
           data: {
+            ...user?.user_metadata,
             full_name: formData.fullName,
             phone: formData.phone,
             location: formData.location,
             bio: formData.bio,
             whatsapp: formData.whatsapp,
             host_email: formData.hostEmail,
-            ...user?.user_metadata,
           },
         });
         
         if (updateError) throw updateError;
         
+        // Also update the profiles table if it exists
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: supabaseUser.id,
+            full_name: formData.fullName,
+            bio: formData.bio,
+            updated_at: new Date().toISOString()
+          });
+          
+        if (profileError) {
+          console.warn('Error updating profiles table:', profileError.message);
+          // Don't throw here as the auth metadata update succeeded
+        }
+        
         toast.success('Profile updated successfully!');
         setEditing(false);
         // Refresh the page to show updated data
-        window.location.reload();
+        router.refresh(); 
       } else {
         // Fallback for demo mode
         const updatedMetadata = {
@@ -130,7 +209,6 @@ export default function ProfilePage() {
     return null;
   }
 
-  const userRole = user.user_metadata?.role || 'traveller';
   const memberSince = user.created_at 
     ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : 'Recently';
@@ -371,15 +449,15 @@ export default function ProfilePage() {
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h3 className="text-gray-400 text-sm font-medium mb-2">Total Properties</h3>
-              <p className="text-3xl font-bold text-white">2</p>
+              <p className="text-3xl font-bold text-white">{loadingStats ? '...' : stats.totalProperties}</p>
             </div>
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h3 className="text-gray-400 text-sm font-medium mb-2">Total Bookings</h3>
-              <p className="text-3xl font-bold text-white">156</p>
+              <p className="text-3xl font-bold text-white">{loadingStats ? '...' : stats.totalBookings}</p>
             </div>
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h3 className="text-gray-400 text-sm font-medium mb-2">Total Earnings</h3>
-              <p className="text-3xl font-bold text-white">$24,580</p>
+              <p className="text-3xl font-bold text-white">${loadingStats ? '...' : stats.totalEarnings.toLocaleString()}</p>
             </div>
           </div>
         )}

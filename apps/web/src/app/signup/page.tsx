@@ -42,6 +42,31 @@ export default function SignupPage() {
     try {
       // For hosts, submit to pending approvals (no email verification needed)
       if (role === 'host') {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.name,
+              role: 'host_pending',
+            },
+            emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
+          },
+        });
+
+        if (signUpError) {
+          if (
+            signUpError.message.toLowerCase().includes('already registered') ||
+            signUpError.message.toLowerCase().includes('already exists')
+          ) {
+            toast.error('user already registered as traveller, please register as a host from your profile');
+          } else {
+            toast.error(signUpError.message || 'Failed to create account');
+          }
+          setIsLoading(false);
+          return;
+        }
+
         const res = await fetch('/api/host/application', {
           method: 'POST',
           headers: {

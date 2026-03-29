@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
 import AvailabilityEditor from '@/components/properties/AvailabilityEditor';
+import { applyWatermark } from '@/lib/image-utils';
 
 interface Room {
   id: string;
@@ -36,6 +37,8 @@ interface Property {
   rooms?: Room[];
   coordinates?: { lat: number; lng: number };
   googleMapsUrl?: string;
+  vibesbnb_take?: string;
+  type?: string;
 }
 
 export default function EditPropertyPage() {
@@ -59,6 +62,7 @@ export default function EditPropertyPage() {
     images: [],
     imagePreviewUrls: [],
     rooms: [],
+    type: 'Entire House',
   });
   const [rooms, setRooms] = useState<Room[]>([
     { id: Date.now().toString(), name: 'Unit 1', price: 100, guests: 2, images: [], imagePreviewUrls: [] },
@@ -142,6 +146,8 @@ export default function EditPropertyPage() {
               images: [],
               imagePreviewUrls: propertyData.images || [],
               rooms: propertyData.rooms || [],
+              vibesbnb_take: propertyData.vibesbnb_take || '',
+              type: propertyData.type || 'Entire House',
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
@@ -285,30 +291,37 @@ export default function EditPropertyPage() {
     setRooms(rooms.map((r) => (r.id === roomId ? { ...r, name } : r)));
   };
 
-  const handleImageUpload = (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
-    const newImages = [...room.images, ...files];
-    const newPreviews = [...room.imagePreviewUrls];
+    const toastId = toast.loading('Applying watermarks...', { id: 'watermark-toast' });
 
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newPreviews.push(reader.result as string);
-        setRooms(
-          rooms.map((r) =>
-            r.id === roomId ? { ...r, images: newImages, imagePreviewUrls: newPreviews } : r
-          )
-        );
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const watermarkedPreviews: string[] = [];
+      
+      for (const file of files) {
+        // Apply watermark and get data URL
+        const watermarkedUrl = await applyWatermark(file);
+        watermarkedPreviews.push(watermarkedUrl);
+      }
 
-    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, images: newImages } : r)));
+      const newPreviews = [...room.imagePreviewUrls, ...watermarkedPreviews];
+      
+      setRooms(
+        rooms.map((r) =>
+          r.id === roomId ? { ...r, imagePreviewUrls: newPreviews } : r
+        )
+      );
+      
+      toast.success('Images watermarked and uploaded!', { id: 'watermark-toast' });
+    } catch (error) {
+      console.error('Error watermarking images:', error);
+      toast.error('Failed to apply watermark to some images.', { id: 'watermark-toast' });
+    }
   };
 
   const removeImage = (roomId: string, index: number) => {
@@ -426,6 +439,7 @@ export default function EditPropertyPage() {
             bathrooms: formData.bathrooms,
             guests: formData.guests,
             price: formData.price,
+            type: formData.type,
             wellness_friendly: formData.wellnessFriendly,
             smoke_friendly: formData.smokeFriendly || false,
             amenities: formData.amenities,
@@ -434,6 +448,7 @@ export default function EditPropertyPage() {
             latitude: formData.coordinates?.lat,
             longitude: formData.coordinates?.lng,
             google_maps_url: formData.googleMapsUrl,
+            vibesbnb_take: formData.vibesbnb_take,
             status: newStatus,
             updated_at: new Date().toISOString(),
           })
@@ -549,6 +564,24 @@ export default function EditPropertyPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Property Type *
+                </label>
+                <select
+                  required
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                >
+                  <option value="Entire House">Entire House</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="Condo">Condo</option>
+                  <option value="Private Rooms">Private Rooms</option>
+                  <option value="Room inside property">Room inside property</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Property Name *
                 </label>
                 <input
@@ -573,6 +606,25 @@ export default function EditPropertyPage() {
                   placeholder="Describe your property, amenities, and what makes it special..."
                 />
               </div>
+
+              {user?.user_metadata?.role === 'admin' && (
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4 mt-4">
+                  <label className="block text-sm font-bold text-emerald-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles size={16} />
+                    VibesBNB Take (Admin Only)
+                  </label>
+                  <textarea
+                    value={formData.vibesbnb_take}
+                    onChange={(e) => setFormData({ ...formData, vibesbnb_take: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-gray-800 border border-emerald-500/30 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                    placeholder="Enter the official VibesBNB take/recommendation for this property..."
+                  />
+                  <p className="text-xs text-gray-400 mt-2">
+                    This will be displayed as a featured recommendation on the listing page.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">

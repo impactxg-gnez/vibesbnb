@@ -35,6 +35,7 @@ import { createClient } from '@/lib/supabase/client';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
 import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
+import { DatePicker } from '@/components/ui/DatePicker';
 
 interface Property {
   id: string;
@@ -58,6 +59,7 @@ interface Property {
   hostBio?: string;
   hostJoinedDate?: string;
   type?: string;
+  vibesbnb_take?: string;
   rooms?: Array<{
     id: string;
     name: string;
@@ -93,12 +95,11 @@ export default function ListingDetailPage() {
   const scrollToReviews = () => {
     setIsAboutExpanded(true);
     setTimeout(() => {
-      const element = document.getElementById('reviews-section') || document.getElementById('about-section');
+      const element = document.getElementById('reviews-section');
       if (element) {
-        const y = element.getBoundingClientRect().top + window.scrollY - 100;
-        window.scrollTo({ top: y, behavior: 'smooth' });
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 150);
+    }, 200);
   };
   
   // Date selection state - initialized from URL params
@@ -139,7 +140,12 @@ export default function ListingDetailPage() {
             .single();
 
           if (!error && data) {
-            propertyData = data;
+            propertyData = {
+              ...data,
+              wellnessFriendly: data.wellness_friendly,
+              hostId: data.host_id,
+              vibesbnb_take: data.vibesbnb_take,
+            };
           }
         }
 
@@ -364,7 +370,10 @@ export default function ListingDetailPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">{property.name}</h1>
+            <h1 className="text-4xl font-bold text-white mb-0">{property.name}</h1>
+            {property.type && (
+              <p className="text-emerald-400 font-semibold mb-3 tracking-wide">{property.type}</p>
+            )}
             <div className="flex items-center gap-4 text-gray-400">
               <button onClick={scrollToReviews} className="flex items-center gap-1 hover:text-emerald-400 hover:underline transition-colors focus:outline-none">
                 <Star size={18} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-600"} />
@@ -545,6 +554,22 @@ export default function ListingDetailPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Category 3: VibesBNB Take */}
+                    {property.vibesbnb_take && (
+                      <div className="md:col-span-2 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 relative group overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <Leaf size={48} className="text-emerald-500" />
+                        </div>
+                        <div className="flex items-center gap-2 mb-4 text-emerald-400 font-bold text-sm uppercase tracking-wider">
+                          <Sparkles size={18} />
+                          VibesBNB Take
+                        </div>
+                        <div className="text-gray-300 text-base leading-relaxed relative z-10 italic">
+                          "{property.vibesbnb_take}"
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Full Description with local collapse */}
@@ -564,40 +589,45 @@ export default function ListingDetailPage() {
                   </div>
 
                   {/* Reviews List */}
-                  {reviewsData.length > 0 ? (
-                    <div id="reviews-section" className="mt-8 pt-8 border-t border-white/5 pb-6">
-                      <h3 className="text-xl font-bold text-white mb-6">Recent Guest Reviews</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {reviewsData.slice(0, 4).map((review) => (
-                          <div key={review.id} className="bg-white/5 border border-white/5 rounded-2xl p-5">
-                            <div className="flex items-center gap-3 mb-3">
-                              <img 
-                                src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
-                                className="w-10 h-10 rounded-full border border-white/10" 
-                                alt="reviewer"
-                              />
-                              <div>
-                                <div className="text-white font-bold text-sm">{review.profiles?.full_name || 'Guest'}</div>
-                                <div className="text-gray-500 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
+                  <div id="reviews-section" className="mt-8 pt-8 border-t border-white/5 pb-6">
+                    <h3 className="text-xl font-bold text-white mb-6">Recent Guest Reviews</h3>
+                    {reviewsData.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {reviewsData.slice(0, 4).map((review) => (
+                            <div key={review.id} className="bg-white/5 border border-white/5 rounded-2xl p-5">
+                              <div className="flex items-center gap-3 mb-3">
+                                <img 
+                                  src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
+                                  className="w-10 h-10 rounded-full border border-white/10" 
+                                  alt="reviewer"
+                                />
+                                <div>
+                                  <div className="text-white font-bold text-sm">{review.profiles?.full_name || 'Guest'}</div>
+                                  <div className="text-gray-500 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
+                                </div>
+                                <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                                  <span className="text-primary-500 text-[10px]">★</span>
+                                  <span className="text-white text-[10px] font-bold">{review.rating}</span>
+                                </div>
                               </div>
-                              <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
-                                <span className="text-primary-500 text-[10px]">★</span>
-                                <span className="text-white text-[10px] font-bold">{review.rating}</span>
-                              </div>
+                              <p className="text-gray-400 text-sm italic">"{review.comment}"</p>
                             </div>
-                            <p className="text-gray-400 text-sm italic">"{review.comment}"</p>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
+                        {property.reviews > 4 && (
+                          <button className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors">
+                            Show all {property.reviews} reviews
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center text-gray-500">
+                        <MessageSquare size={32} className="mx-auto mb-3 opacity-20" />
+                        <p>No reviews for this property yet.</p>
                       </div>
-                      {property.reviews > 4 && (
-                        <button className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors">
-                          Show all {property.reviews} reviews
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div id="reviews-section" className="hidden"></div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -724,20 +754,18 @@ export default function ListingDetailPage() {
                 <div className="grid grid-cols-2 divide-x divide-gray-700">
                   <div className="p-3">
                     <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-in</label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={checkInDate}
-                      onChange={(e) => setCheckInDate(e.target.value)}
+                      onChange={(dateStr: string) => setCheckInDate(dateStr)}
                       min={new Date().toISOString().split('T')[0]}
                       className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
                     />
                   </div>
                   <div className="p-3">
                     <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-out</label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={checkOutDate}
-                      onChange={(e) => setCheckOutDate(e.target.value)}
+                      onChange={(dateStr: string) => setCheckOutDate(dateStr)}
                       min={checkInDate || new Date().toISOString().split('T')[0]}
                       className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
                     />

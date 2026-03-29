@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Bed, Home, Building, Trees, Sparkles } from 'lucide-react';
+import { DatePicker } from '@/components/ui/DatePicker';
 
 interface Property {
   id: string;
@@ -438,12 +439,11 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <label className="block text-xs font-bold text-muted uppercase">Check In</label>
-                              <input
-                                type="date"
+                              <DatePicker
                                 value={checkIn}
-                                onChange={(e) => {
-                                  setCheckIn(e.target.value);
-                                  if (checkOut && e.target.value >= checkOut) setCheckOut('');
+                                onChange={(dateStr) => {
+                                  setCheckIn(dateStr);
+                                  if (checkOut && dateStr >= checkOut) setCheckOut('');
                                 }}
                                 min={new Date().toISOString().split('T')[0]}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -451,10 +451,9 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                             </div>
                             <div className="space-y-2">
                               <label className="block text-xs font-bold text-muted uppercase">Check Out</label>
-                              <input
-                                type="date"
+                              <DatePicker
                                 value={checkOut}
-                                onChange={(e) => setCheckOut(e.target.value)}
+                                onChange={(dateStr) => setCheckOut(dateStr)}
                                 min={checkIn || new Date().toISOString().split('T')[0]}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                               />

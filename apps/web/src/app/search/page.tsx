@@ -7,6 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
+import { DatePicker } from '@/components/ui/DatePicker';
 
 interface Listing {
   id: string;
@@ -581,12 +582,11 @@ export default function SearchPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs text-gray-400 mb-2">Check In</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             value={searchParams.get('checkIn') || ''}
-                            onChange={(e) => {
+                            onChange={(dateStr) => {
                               const params = new URLSearchParams(searchParams.toString());
-                              if (e.target.value) params.set('checkIn', e.target.value);
+                              if (dateStr) params.set('checkIn', dateStr);
                               else params.delete('checkIn');
                               router.push(`/search?${params.toString()}`);
                             }}
@@ -596,12 +596,11 @@ export default function SearchPage() {
                         </div>
                         <div>
                           <label className="block text-xs text-gray-400 mb-2">Check Out</label>
-                          <input
-                            type="date"
+                          <DatePicker
                             value={searchParams.get('checkOut') || ''}
-                            onChange={(e) => {
+                            onChange={(dateStr) => {
                               const params = new URLSearchParams(searchParams.toString());
-                              if (e.target.value) params.set('checkOut', e.target.value);
+                              if (dateStr) params.set('checkOut', dateStr);
                               else params.delete('checkOut');
                               router.push(`/search?${params.toString()}`);
                             }}
