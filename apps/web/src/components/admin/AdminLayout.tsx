@@ -89,8 +89,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         {/* Logo */}
         <div className="p-6 border-b border-purple-700">
           <Link href="/admin" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-purple-600 font-bold text-xl">V</span>
+            <div className="w-8 h-8 flex items-center justify-center">
+              <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="text-lg font-bold">Vibesbnb</div>

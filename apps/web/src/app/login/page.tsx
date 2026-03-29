@@ -49,8 +49,8 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center">
            <Link href="/" className="inline-flex items-center space-x-2 group mb-8">
-            <div className="w-12 h-12 bg-primary-500 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-[0_0_30px_rgba(0,230,118,0.3)]">
-              <span className="text-black font-extrabold text-3xl">V</span>
+            <div className="w-16 h-16 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_15px_rgba(0,230,118,0.3)]">
+              <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
           </Link>
           <h2 className="text-4xl font-bold text-white tracking-tight">

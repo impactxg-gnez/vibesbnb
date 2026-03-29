@@ -104,8 +104,8 @@ export function Header() {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href={isHost ? "/host/properties" : "/"} className="flex items-center space-x-2 group">
-            <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-[0_0_20px_rgba(16,185,129,0.5)]">
-              <span className="text-black font-extrabold text-2xl">V</span>
+            <div className="w-10 h-10 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+              <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
             <span className="text-2xl font-bold text-white tracking-tight group-hover:text-primary-400 transition-colors">VibesBNB</span>
           </Link>

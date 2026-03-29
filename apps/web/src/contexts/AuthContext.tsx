@@ -343,9 +343,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (normalizedRole === 'host') {
         // For hosts, we might want to redirect them directly if email is already verified
         // But typically, Supabase requires email verification first
-        router.push('/verify-email');
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else if (normalizedRole !== 'dispensary') {
-        router.push('/verify-email');
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       }
     }
 

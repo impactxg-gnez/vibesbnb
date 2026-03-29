@@ -238,8 +238,8 @@ export default function DispensaryDashboard() {
       {/* Sidebar */}
       <aside className="w-72 bg-surface border-r border-white/5 flex flex-col p-6">
         <div className="flex items-center gap-3 mb-12 px-2">
-          <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(0,230,118,0.3)]">
-            <span className="text-black font-black text-xl">V</span>
+          <div className="w-10 h-10 flex items-center justify-center drop-shadow-[0_0_8px_rgba(0,230,118,0.3)]">
+            <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-bold text-xl tracking-tight">Dispensary</span>
         </div>

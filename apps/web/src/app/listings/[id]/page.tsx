@@ -90,6 +90,17 @@ export default function ListingDetailPage() {
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
   const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
   
+  const scrollToReviews = () => {
+    setIsAboutExpanded(true);
+    setTimeout(() => {
+      const element = document.getElementById('reviews-section') || document.getElementById('about-section');
+      if (element) {
+        const y = element.getBoundingClientRect().top + window.scrollY - 100;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }, 150);
+  };
+  
   // Date selection state - initialized from URL params
   const [checkInDate, setCheckInDate] = useState<string>(searchParams.get('checkIn') || '');
   const [checkOutDate, setCheckOutDate] = useState<string>(searchParams.get('checkOut') || '');
@@ -355,13 +366,13 @@ export default function ListingDetailPage() {
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">{property.name}</h1>
             <div className="flex items-center gap-4 text-gray-400">
-              <div className="flex items-center gap-1">
+              <button onClick={scrollToReviews} className="flex items-center gap-1 hover:text-emerald-400 hover:underline transition-colors focus:outline-none">
                 <Star size={18} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-600"} />
-                <span className="text-white font-semibold">
+                <span className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
                   {property.reviews > 0 ? property.rating : 'New'}
                 </span>
                 <span>({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
-              </div>
+              </button>
               <span>•</span>
               <div className="flex items-center gap-1">
                 <MapPin size={18} />
@@ -482,7 +493,7 @@ export default function ListingDetailPage() {
             </div>
 
             {/* About this place */}
-            <div className="bg-gray-900 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+            <div id="about-section" className="bg-gray-900 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.3)]">
               <div 
                 className="p-6 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
                 onClick={() => setIsAboutExpanded(!isAboutExpanded)}
@@ -553,8 +564,8 @@ export default function ListingDetailPage() {
                   </div>
 
                   {/* Reviews List */}
-                  {reviewsData.length > 0 && (
-                    <div className="mt-8 pt-8 border-t border-white/5 pb-6">
+                  {reviewsData.length > 0 ? (
+                    <div id="reviews-section" className="mt-8 pt-8 border-t border-white/5 pb-6">
                       <h3 className="text-xl font-bold text-white mb-6">Recent Guest Reviews</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {reviewsData.slice(0, 4).map((review) => (
@@ -584,6 +595,8 @@ export default function ListingDetailPage() {
                         </button>
                       )}
                     </div>
+                  ) : (
+                    <div id="reviews-section" className="hidden"></div>
                   )}
                 </div>
               </div>
@@ -697,13 +710,13 @@ export default function ListingDetailPage() {
                   <span className="text-3xl font-bold text-white">${currentPrice}</span>
                   <span className="text-gray-400">/ night</span>
                 </div>
-                <div className="flex items-center gap-1 text-sm">
+                <button onClick={scrollToReviews} className="flex items-center gap-1 text-sm hover:text-emerald-400 hover:underline transition-colors focus:outline-none">
                   <Star size={16} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-500"} />
-                  <span className="text-white font-semibold">
+                  <span className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
                     {property.reviews > 0 ? property.rating : 'New'}
                   </span>
                   <span className="text-gray-400">({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
-                </div>
+                </button>
               </div>
 
               {/* Date Selection */}

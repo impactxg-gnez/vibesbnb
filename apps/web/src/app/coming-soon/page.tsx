@@ -96,8 +96,8 @@ export default function ComingSoonPage() {
         {/* Logo */}
         <div className="mb-8 animate-fade-in">
           <div className="flex items-center space-x-3">
-            <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-green-500/50">
-              <span className="text-white font-bold text-4xl">V</span>
+            <div className="w-24 h-24 flex items-center justify-center drop-shadow-[0_0_15px_rgba(0,230,118,0.5)]">
+              <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-green-400 to-green-600 bg-clip-text text-transparent">
               VibesBNB
