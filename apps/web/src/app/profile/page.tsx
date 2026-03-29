@@ -118,6 +118,11 @@ export default function ProfilePage() {
           setSaving(false);
           return;
         }
+        if (!formData.bio?.trim()) {
+          toast.error('Hosts must provide an "About Me" bio for their public profile');
+          setSaving(false);
+          return;
+        }
       }
       
       const supabase = createClient();
@@ -345,19 +350,20 @@ export default function ProfilePage() {
               {/* Bio */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Bio
+                  Bio {userRole === 'host' && <span className="text-red-500 font-bold">* Mandatory for hosts</span>}
                 </label>
                 {editing ? (
                   <textarea
                     value={formData.bio}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     rows={4}
-                    placeholder="Tell us about yourself..."
+                    placeholder={userRole === 'host' ? "Tell your future guests about yourself, your hosting style, and what makes your stays special..." : "Tell us about yourself..."}
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                    required={userRole === 'host'}
                   />
                 ) : (
-                  <div className="text-white">
-                    {formData.bio || 'No bio yet'}
+                  <div className="text-white whitespace-pre-wrap leading-relaxed">
+                    {formData.bio || (userRole === 'host' ? <span className="text-red-500 italic font-bold text-sm">Action Required: Please add a bio to enable your public profile</span> : 'No bio yet')}
                   </div>
                 )}
               </div>

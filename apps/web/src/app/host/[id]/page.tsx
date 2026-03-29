@@ -191,26 +191,30 @@ export default function HostProfilePage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-white">{stats.totalProperties}</p>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Properties</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center shadow-lg">
+                <p className="text-3xl font-black text-white mb-1 tracking-tight">{stats.totalProperties}</p>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Properties</p>
               </div>
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-white">{stats.totalBookings}</p>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Bookings</p>
-              </div>
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-white">${stats.totalEarnings.toLocaleString()}</p>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Earnings</p>
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center shadow-lg">
+                <p className="text-3xl font-black text-white mb-1 tracking-tight">{stats.totalBookings}</p>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Bookings</p>
               </div>
             </div>
 
             {/* Bio */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
-              <h2 className="text-2xl font-bold text-white mb-4">About {host.full_name}</h2>
-              <div className="prose prose-invert max-w-none text-gray-300">
-                {host.bio || `Welcome to my profile! I love hosting people from all over the world and making sure they have a great vibe at my properties.`}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl rounded-full" />
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                <div className="w-1 h-6 bg-emerald-500 rounded-full" />
+                About {host.full_name}
+              </h2>
+              <div className="prose prose-invert max-w-none text-gray-300 leading-relaxed relative">
+                {host.bio ? (
+                  <p className="whitespace-pre-wrap">{host.bio}</p>
+                ) : (
+                  <p className="italic text-gray-500 font-medium">This host hasn't shared their story yet.</p>
+                )}
               </div>
             </div>
 
