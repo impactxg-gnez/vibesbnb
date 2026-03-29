@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SearchSection } from '@/components/home/SearchSection';
+import Filters from '@/components/search/Filters';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
@@ -247,6 +248,16 @@ export default function SearchPage() {
   const [sortBy, setSortBy] = useState('Price: High to Low');
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [hideUnavailable, setHideUnavailable] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<any>({
+    typeOfPlace: 'any',
+    priceRange: [0, 1000000],
+    rooms: 0,
+    beds: 0,
+    bathrooms: 0,
+    propertyTypes: [],
+    amenities: []
+  });
   
   // Get selected dates from URL
   const checkIn = searchParams.get('checkIn') || '';
@@ -476,6 +487,47 @@ export default function SearchPage() {
           }
         }
 
+        // Filter by Price Range
+        if (activeFilters.priceRange) {
+          filteredListings = filteredListings.filter(listing => 
+            listing.price >= activeFilters.priceRange[0] && 
+            listing.price <= activeFilters.priceRange[1]
+          );
+        }
+
+        // Filter by Rooms/Beds/Baths
+        if (activeFilters.rooms > 0) {
+          filteredListings = filteredListings.filter(listing => (listing.bedrooms || 0) >= activeFilters.rooms);
+        }
+        if (activeFilters.beds > 0) {
+          filteredListings = filteredListings.filter(listing => (listing.beds || listing.bedrooms || 0) >= activeFilters.beds);
+        }
+        if (activeFilters.bathrooms > 0) {
+          filteredListings = filteredListings.filter(listing => (listing.bathrooms || 0) >= activeFilters.bathrooms);
+        }
+
+        // Filter by Property Type
+        if (activeFilters.propertyTypes && activeFilters.propertyTypes.length > 0) {
+          filteredListings = filteredListings.filter(listing => 
+            activeFilters.propertyTypes.includes(listing.type) || 
+            (listing.type === 'Property' && activeFilters.propertyTypes.includes('House'))
+          );
+        }
+
+        // Filter by Amenities
+        if (activeFilters.amenities && activeFilters.amenities.length > 0) {
+          filteredListings = filteredListings.filter(listing => 
+            activeFilters.amenities.every((a: string) => listing.amenities?.includes(a))
+          );
+        }
+
+        // Filter by Type of Place
+        if (activeFilters.typeOfPlace === 'room') {
+          filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('room') || listing.type === 'Private Rooms');
+        } else if (activeFilters.typeOfPlace === 'entire') {
+          filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('house') || listing.type?.toLowerCase().includes('apartment') || listing.type?.toLowerCase().includes('condo'));
+        }
+
         // Sort listings
         const sortParam = searchParams.get('sort') || 'high-low';
         if (sortParam === 'low-high') {
@@ -518,7 +570,7 @@ export default function SearchPage() {
     };
 
     loadAndFilterProperties();
-  }, [searchParams]);
+  }, [searchParams, activeFilters]);
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -712,8 +764,42 @@ export default function SearchPage() {
                     {hideUnavailable ? 'Showing available only' : 'Hide unavailable'}
                   </button>
                 )}
+                <button
+                  onClick={() => setShowFiltersModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-black rounded-full text-sm font-bold shadow-[0_10px_20px_rgba(0,230,118,0.2)] hover:bg-primary-400 transition-all active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  Filters
+                  {(activeFilters.rooms > 0 || activeFilters.propertyTypes.length > 0 || activeFilters.amenities.length > 0 || activeFilters.priceRange[0] > 0) && (
+                    <span className="w-5 h-5 bg-black text-primary-500 rounded-full text-[10px] flex items-center justify-center border border-primary-500/50">
+                      {(activeFilters.propertyTypes.length + activeFilters.amenities.length + (activeFilters.rooms > 0 ? 1 : 0))}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
+
+            {/* Filters Modal Overlay */}
+            {showFiltersModal && (
+              <div className="fixed inset-0 z-[100] flex justify-end">
+                <div 
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                  onClick={() => setShowFiltersModal(false)}
+                />
+                <div className="relative w-full max-w-xl bg-gray-950 shadow-2xl animate-in slide-in-from-right duration-300">
+                  <Filters 
+                    initialFilters={activeFilters}
+                    onClose={() => setShowFiltersModal(false)}
+                    onApply={(filters) => {
+                      setActiveFilters(filters);
+                      setShowFiltersModal(false);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
