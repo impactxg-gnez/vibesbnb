@@ -67,26 +67,11 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   }, [initialValues]);
 
   const categories = [
-    {
-      id: '1-bed',
-      label: '1 Bed',
-      icon: <Bed className="w-5 h-5" />
-    },
-    {
-      id: '2-bed',
-      label: '2 Bed',
-      icon: <Bed className="w-5 h-5" />
-    },
-    {
-      id: 'studios',
-      label: 'Studios',
-      icon: <Building className="w-5 h-5" />
-    },
-    {
-      id: 'villas',
-      label: 'Villas',
-      icon: <Home className="w-5 h-5" />
-    },
+    { id: 'Entire House', label: 'House', icon: <Home className="w-5 h-5" /> },
+    { id: 'Apartment', label: 'Apartment', icon: <Building className="w-5 h-5" /> },
+    { id: 'Condo', label: 'Condo', icon: <Building className="w-5 h-5" /> },
+    { id: 'Private Rooms', label: 'Private Room', icon: <Bed className="w-5 h-5" /> },
+    { id: 'Room inside property', label: 'Shared Room', icon: <Bed className="w-5 h-5" /> },
   ];
 
   // Fetch available locations from Supabase properties
@@ -278,6 +263,33 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
+        </div>
+
+        {/* Categories at Top */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-6 scrollbar-hide -mx-2 px-2 border-b border-white/5 mb-8">
+          <button
+            onClick={() => setSelectedCategories([])}
+            className={`flex flex-col items-center gap-2 px-6 py-2 rounded-xl transition-all min-w-fit ${selectedCategories.length === 0
+              ? 'text-primary-500 border-b-2 border-primary-500 font-bold bg-white/5'
+              : 'text-muted hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="text-xs font-bold uppercase tracking-wider">All Stays</span>
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              onClick={() => toggleCategory(category.id)}
+              className={`flex flex-col items-center gap-2 px-6 py-2 rounded-xl transition-all min-w-fit ${selectedCategories.includes(category.id)
+                ? 'text-primary-500 border-b-2 border-primary-500 font-bold bg-white/5'
+                : 'text-muted hover:text-white'
+              }`}
+            >
+              {category.icon}
+              <span className="text-xs font-bold uppercase tracking-wider">{category.label}</span>
+            </button>
+          ))}
         </div>
 
         {!isCollapsed && (
@@ -602,24 +614,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                   </button>
                 </div>
               )}
-            </div>
-
-            {/* Category Filters */}
-            <div className="flex flex-wrap gap-4 pt-4">
-              <span className="text-sm font-bold text-muted uppercase tracking-widest self-center mr-2">Quick Vibes:</span>
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => toggleCategory(category.id)}
-                  className={`flex items-center gap-3 px-6 py-3 rounded-full border transition-all ${selectedCategories.includes(category.id)
-                    ? 'bg-primary-500 border-primary-500 text-black font-bold scale-105 shadow-[0_10px_20px_rgba(0,230,118,0.2)]'
-                    : 'bg-white/5 border-white/10 text-muted hover:bg-white/10 hover:text-white'
-                    }`}
-                >
-                  {category.icon}
-                  <span className="text-sm font-bold">{category.label}</span>
-                </button>
-              ))}
             </div>
           </>
         )}
