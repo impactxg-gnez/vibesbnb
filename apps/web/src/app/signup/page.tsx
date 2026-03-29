@@ -42,21 +42,26 @@ export default function SignupPage() {
     try {
       // For hosts, submit to pending approvals (no email verification needed)
       if (role === 'host') {
-        const { error: insertError } = await supabase
-          .from('pending_host_applications')
-          .insert({
+        const res = await fetch('/api/host/application', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             email: formData.email,
             name: formData.name,
-            status: 'pending',
-          });
+          }),
+        });
 
-        if (insertError) {
+        const data = await res.json();
+
+        if (!res.ok) {
           // Check if it's a duplicate email
-          if (insertError.code === '23505') {
+          if (data.code === '23505') {
             toast.error('An application with this email already exists');
           } else {
-            console.error('Error submitting host application:', insertError);
-            toast.error('Failed to submit application. Please try again.');
+            console.error('Error submitting host application:', data.error);
+            toast.error(data.error || 'Failed to submit application. Please try again.');
           }
           setIsLoading(false);
           return;

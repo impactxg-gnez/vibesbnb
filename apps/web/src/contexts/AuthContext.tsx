@@ -356,6 +356,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!useSupabase) {
       // Demo mode - clear localStorage
       localStorage.removeItem('demoUser');
+      localStorage.removeItem('userRoles');
       setUser(null);
       setSession(null);
       router.push('/');
@@ -363,6 +364,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       // Supabase authentication
       await supabase.auth.signOut();
+      localStorage.removeItem('userRoles');
       router.push('/');
       router.refresh();
     }

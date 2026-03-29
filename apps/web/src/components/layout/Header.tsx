@@ -10,7 +10,6 @@ export function Header() {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   const userRole = user?.user_metadata?.role || 'traveller';
@@ -18,45 +17,11 @@ export function Header() {
   const isAdmin = userRole === 'admin';
   const isTraveller = userRole === 'traveller' || (!isHost && !isAdmin);
 
-  // Check if user has host role available (from localStorage and user metadata)
-  useEffect(() => {
-    if (user) {
-      // First, check user metadata for role (most reliable source)
-      const metadataRole = user.user_metadata?.role;
 
-      // Then check localStorage
-      const rolesStr = localStorage.getItem('userRoles');
-      let roles: string[] = [];
 
-      if (rolesStr) {
-        try {
-          roles = JSON.parse(rolesStr) as string[];
-        } catch (e) {
-          // If parsing fails, start fresh
-          roles = [];
-        }
-      }
-
-      // If user metadata has a role, ensure it's in the roles array
-      if (metadataRole && !roles.includes(metadataRole)) {
-        roles.push(metadataRole);
-        localStorage.setItem('userRoles', JSON.stringify(roles));
-      }
-
-      // If no roles in localStorage but user has role in metadata, use metadata
-      if (roles.length === 0 && metadataRole) {
-        roles = [metadataRole];
-        localStorage.setItem('userRoles', JSON.stringify(roles));
-      }
-
-      setUserRoles(roles);
-    } else {
-      // Clear roles when user logs out
-      setUserRoles([]);
-    }
-  }, [user]);
-
-  const hasHostRole = userRoles.includes('host') || isHost;
+  // If the user's role is 'host', isHost is true, and they'll get the host menus.
+  // If they are a 'traveller', they must register as a host.
+  const hasHostRole = isHost;
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
