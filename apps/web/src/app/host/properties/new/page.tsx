@@ -34,6 +34,8 @@ export default function NewPropertyPage() {
     type: 'Entire House',
     wellnessFriendly: false,
     smokeFriendly: false,
+    allowExtraGuests: false,
+    extraGuestPrice: 50,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
@@ -319,6 +321,8 @@ export default function NewPropertyPage() {
             type: formData.type,
             wellness_friendly: formData.wellnessFriendly,
             smoke_friendly: formData.smokeFriendly,
+            allow_extra_guests: formData.allowExtraGuests,
+            extra_guest_price: formData.extraGuestPrice,
             google_maps_url: formData.coordinates
               ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
               : null,
@@ -353,6 +357,8 @@ export default function NewPropertyPage() {
             type: formData.type,
             wellnessFriendly: formData.wellnessFriendly,
             smokeFriendly: formData.smokeFriendly,
+            allowExtraGuests: formData.allowExtraGuests,
+            extraGuestPrice: formData.extraGuestPrice,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -388,6 +394,8 @@ export default function NewPropertyPage() {
           price: formData.price,
           wellnessFriendly: formData.wellnessFriendly,
           smokeFriendly: formData.smokeFriendly,
+          allowExtraGuests: formData.allowExtraGuests,
+          extraGuestPrice: formData.extraGuestPrice,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -412,6 +420,8 @@ export default function NewPropertyPage() {
           price: formData.price,
           wellnessFriendly: formData.wellnessFriendly,
           smokeFriendly: formData.smokeFriendly,
+          allowExtraGuests: formData.allowExtraGuests,
+          extraGuestPrice: formData.extraGuestPrice,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -619,6 +629,56 @@ export default function NewPropertyPage() {
                 <span>Smoke-Friendly</span>
               </button>
             </div>
+          </div>
+
+          {/* Guest Policy */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Extra Guest Policy</h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Allow guests to bring more people than the base capacity for an extra fee
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, allowExtraGuests: !formData.allowExtraGuests })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  formData.allowExtraGuests ? 'bg-emerald-600' : 'bg-gray-700'
+                }`}
+              >
+                <div
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    formData.allowExtraGuests ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {formData.allowExtraGuests && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="max-w-xs">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Price per Extra Guest ($)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.extraGuestPrice}
+                      onChange={(e) => setFormData({ ...formData, extraGuestPrice: parseInt(e.target.value) || 0 })}
+                      className="w-full pl-8 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                      placeholder="e.g., 50"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5 bg-white/5 p-2 rounded-lg border border-white/5">
+                    <span className="text-emerald-500">💡</span>
+                    Fee is charged per extra guest, per night.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Multi-Unit Configuration */}
