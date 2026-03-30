@@ -33,6 +33,7 @@ export default function NewPropertyPage() {
     price: 100,
     type: 'Entire House',
     wellnessFriendly: false,
+    smokeFriendly: false,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
@@ -317,6 +318,7 @@ export default function NewPropertyPage() {
             status: 'draft',
             type: formData.type,
             wellness_friendly: formData.wellnessFriendly,
+            smoke_friendly: formData.smokeFriendly,
             google_maps_url: formData.coordinates
               ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
               : null,
@@ -350,6 +352,7 @@ export default function NewPropertyPage() {
             price: formData.price,
             type: formData.type,
             wellnessFriendly: formData.wellnessFriendly,
+            smokeFriendly: formData.smokeFriendly,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -384,6 +387,7 @@ export default function NewPropertyPage() {
           guests: formData.guests,
           price: formData.price,
           wellnessFriendly: formData.wellnessFriendly,
+          smokeFriendly: formData.smokeFriendly,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -407,6 +411,7 @@ export default function NewPropertyPage() {
           guests: formData.guests,
           price: formData.price,
           wellnessFriendly: formData.wellnessFriendly,
+          smokeFriendly: formData.smokeFriendly,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -581,21 +586,38 @@ export default function NewPropertyPage() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="wellnessFriendly"
-                  checked={formData.wellnessFriendly}
-                  onChange={(e) =>
-                    setFormData({ ...formData, wellnessFriendly: e.target.checked })
-                  }
-                  className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 border-gray-700 rounded bg-gray-800"
-                />
-                <label htmlFor="wellnessFriendly" className="ml-2 block text-sm text-gray-300">
-                  This is a wellness-friendly property
-                </label>
-              </div>
+          {/* Property Features */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-6">Property Features</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
+                className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
+                  formData.wellnessFriendly
+                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_8px_20px_rgba(16,185,129,0.25)]'
+                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50 hover:bg-gray-800'
+                }`}
+              >
+                <span className="text-2xl">🧘</span>
+                <span>Wellness-Friendly</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, smokeFriendly: !formData.smokeFriendly })}
+                className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
+                  formData.smokeFriendly
+                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_8px_20px_rgba(16,185,129,0.25)]'
+                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50 hover:bg-gray-800'
+                }`}
+              >
+                <span className="text-2xl">🌿</span>
+                <span>Smoke-Friendly</span>
+              </button>
             </div>
           </div>
 

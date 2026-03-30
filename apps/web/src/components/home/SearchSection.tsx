@@ -151,9 +151,20 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   }, [showLocationDropdown]);
 
   const toggleCategory = (id: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
+    const newCategories = selectedCategories.includes(id) 
+      ? selectedCategories.filter(c => c !== id) 
+      : [...selectedCategories, id];
+    
+    setSelectedCategories(newCategories);
+    
+    // Immediate search update for categories
+    const params = new URLSearchParams(window.location.search);
+    if (newCategories.length > 0) {
+      params.set('categories', newCategories.join(','));
+    } else {
+      params.delete('categories');
+    }
+    router.push(`/search?${params.toString()}`);
   };
 
   const handleLocationSelect = (location: string) => {

@@ -740,11 +740,11 @@ export default function EditPropertyPage() {
                 onClick={() => setFormData({ ...formData, smokeFriendly: !(formData.smokeFriendly || false) })}
                 className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
                   formData.smokeFriendly
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)]'
                     : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
                 }`}
               >
-                <span className="text-lg">🚬</span>
+                <span className="text-lg">🌿</span>
                 <span>Smoke-Friendly</span>
               </button>
             </div>

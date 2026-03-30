@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2 } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare } from 'lucide-react';
 
 interface BookingSummaryItem {
   id: string;
@@ -1095,24 +1095,13 @@ export default function HostPropertiesPage() {
               <Share2 size={20} />
               Share Profile
             </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+            <Link
+              href="/host/messages"
+              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
             >
-              <Upload size={20} />
-              Import from URL
-            </button>
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/host/${user?.id}`;
-                navigator.clipboard.writeText(url);
-                toast.success('Host profile link copied to clipboard!');
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-            >
-              <Share2 size={20} />
-              Share Profile
-            </button>
+              <MessageSquare size={20} />
+              Messages
+            </Link>
             <Link
               href="/host/properties/bulk-import"
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"

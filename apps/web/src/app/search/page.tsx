@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { SearchSection } from '@/components/home/SearchSection';
 import Filters from '@/components/search/Filters';
 import Link from 'next/link';
@@ -9,6 +10,8 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { Heart } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Listing {
   id: string;
@@ -47,7 +50,79 @@ function formatDateShort(dateStr: string): string {
 
 // Listing Card Component with Image Carousel
 function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing, onHover: (id: string | null) => void, checkIn?: string, checkOut?: string }) {
+  const { user } = useAuth();
+  const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [loadingFavorite, setLoadingFavorite] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      checkIfFavorited();
+    }
+  }, [user, listing.id]);
+
+  const checkIfFavorited = async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('property_id', listing.id)
+        .single();
+      
+      if (data && !error) {
+        setIsFavorited(true);
+      }
+    } catch (error) {
+      // Not favorited or error
+    }
+  };
+
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error('Please login to save favorites');
+      router.push('/login');
+      return;
+    }
+
+    setLoadingFavorite(true);
+    try {
+      const supabase = createClient();
+      if (isFavorited) {
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('property_id', listing.id);
+        
+        if (error) throw error;
+        setIsFavorited(false);
+        toast.success('Removed from favorites');
+      } else {
+        const { error } = await supabase
+          .from('favorites')
+          .insert({
+            user_id: user.id,
+            property_id: listing.id
+          });
+        
+        if (error) throw error;
+        setIsFavorited(true);
+        toast.success('Added to favorites');
+      }
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite');
+    } finally {
+      setLoadingFavorite(false);
+    }
+  };
+
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
   
   // Build the listing URL with date params if available
@@ -106,11 +181,21 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
           )}
 
           {/* Badges */}
-          <div className="absolute top-4 left-4 p-2 bg-surface-dark/40 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-primary-500 transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </div>
+          {/* Heart Button */}
+          <button 
+            onClick={toggleFavorite}
+            disabled={loadingFavorite}
+            className={`absolute top-4 left-4 p-2.5 backdrop-blur-md rounded-full border transition-all duration-300 group/heart ${
+              isFavorited 
+                ? 'bg-rose-500 border-rose-400 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]' 
+                : 'bg-surface-dark/40 border-white/10 text-white hover:bg-rose-500/20 hover:border-rose-500/50'
+            }`}
+          >
+            <Heart 
+              size={18} 
+              className={`transition-all duration-300 ${isFavorited ? 'fill-current scale-110' : 'group-hover/heart:scale-110'}`} 
+            />
+          </button>
           <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
             {/* Availability Badge - only show when dates are selected */}
             {checkIn && checkOut && listing.isAvailable !== undefined && (
@@ -251,11 +336,11 @@ export default function SearchPage() {
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState<any>({
     typeOfPlace: 'any',
-    priceRange: [0, 1000000],
+    priceRange: [0, 100000],
     rooms: 0,
     beds: 0,
     bathrooms: 0,
-    propertyTypes: [],
+    propertyTypes: searchParams.get('categories')?.split(',').filter(Boolean) || [],
     amenities: []
   });
   
@@ -272,6 +357,17 @@ export default function SearchPage() {
   
   const availableCount = listings.filter(l => l.isAvailable !== false).length;
   const unavailableCount = listings.filter(l => l.isAvailable === false).length;
+
+  // Sync URL categories to activeFilters
+  useEffect(() => {
+    const categories = searchParams.get('categories')?.split(',').filter(Boolean) || [];
+    if (JSON.stringify(categories) !== JSON.stringify(activeFilters.propertyTypes)) {
+      setActiveFilters((prev: any) => ({
+        ...prev,
+        propertyTypes: categories
+      }));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // ... existing useEffect logic ...
@@ -507,11 +603,31 @@ export default function SearchPage() {
         }
 
         // Filter by Property Type
+        // Filter by Property Type (Robust mapping between categories and property types)
         if (activeFilters.propertyTypes && activeFilters.propertyTypes.length > 0) {
-          filteredListings = filteredListings.filter(listing => 
-            activeFilters.propertyTypes.includes(listing.type) || 
-            (listing.type === 'Property' && activeFilters.propertyTypes.includes('House'))
-          );
+          filteredListings = filteredListings.filter(listing => {
+            const listingType = listing.type || 'Property';
+            
+            // Exact match or mapped match
+            return activeFilters.propertyTypes.some((type: string) => {
+              if (type === 'House' || type === 'Entire House') {
+                return listingType.toLowerCase().includes('house') || listingType === 'Property';
+              }
+              if (type === 'Apartment') {
+                return listingType.toLowerCase().includes('apartment');
+              }
+              if (type === 'Condo') {
+                return listingType.toLowerCase().includes('condo');
+              }
+              if (type === 'Private Room' || type === 'Private Rooms') {
+                return listingType.toLowerCase().includes('private room');
+              }
+              if (type === 'Shared Room' || type === 'Room inside property') {
+                return listingType.toLowerCase().includes('shared room') || listingType.toLowerCase().includes('room inside');
+              }
+              return listingType === type;
+            });
+          });
         }
 
         // Filter by Amenities

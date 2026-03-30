@@ -80,6 +80,11 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
+      if (error.code === '42703') { // Undefined column
+        throw new Error(
+          'Missing database columns: host_unread_count or traveller_unread_count. Please run the migration: SUPABASE_FIX_MESSAGING_ARCHIVE.sql in your Supabase SQL editor.'
+        );
+      }
       throw error;
     }
 
@@ -90,6 +95,7 @@ export async function GET(request: NextRequest) {
       viewer_id: user.id,
     });
   } catch (error: any) {
+    console.error('[ConversationsAPI] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to load conversations' },
       { status: 500 }
