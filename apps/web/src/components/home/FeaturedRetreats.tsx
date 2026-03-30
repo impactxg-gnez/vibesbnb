@@ -18,6 +18,7 @@ interface Retreat {
   badge: string;
   bedrooms: number;
   guests: number;
+  type?: string;
 }
 
 export function FeaturedRetreats() {
@@ -55,6 +56,7 @@ export function FeaturedRetreats() {
           badge: 'Wellness-friendly',
           bedrooms: p.bedrooms || 1,
           guests: p.guests || 2,
+          type: p.type || '',
         }));
 
         setRetreats(featuredRetreats);
@@ -144,7 +146,9 @@ export function FeaturedRetreats() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span>{retreat.location}</span>
+                        <span>
+                          {retreat.type ? `${retreat.type} in ` : ''}{retreat.location}
+                        </span>
                       </div>
                     </div>
                   </div>

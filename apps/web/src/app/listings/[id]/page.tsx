@@ -370,23 +370,22 @@ export default function ListingDetailPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-0">{property.name}</h1>
-            {property.type && (
-              <p className="text-emerald-400 font-semibold mb-3 tracking-wide">{property.type}</p>
-            )}
-            <div className="flex items-center gap-4 text-gray-400">
-              <button onClick={scrollToReviews} className="flex items-center gap-1 hover:text-emerald-400 hover:underline transition-colors focus:outline-none">
+            <h1 className="text-4xl font-bold text-white mb-2">{property.name}</h1>
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
+              <p className="text-emerald-400 font-semibold tracking-wide">
+                {property.type ? `${property.type} in ` : ''}{property.location}
+              </p>
+              <span className="hidden md:block text-gray-700">•</span>
+              <button 
+                onClick={scrollToReviews} 
+                className="flex items-center gap-1 hover:text-emerald-400 hover:underline transition-colors focus:outline-none"
+              >
                 <Star size={18} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-600"} />
-                <span className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
+                <span className="text-white font-semibold">
                   {property.reviews > 0 ? property.rating : 'New'}
                 </span>
-                <span>({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
+                <span className="text-sm">({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
               </button>
-              <span>•</span>
-              <div className="flex items-center gap-1">
-                <MapPin size={18} />
-                <span>{property.location}</span>
-              </div>
             </div>
           </div>
           <div className="flex gap-3">

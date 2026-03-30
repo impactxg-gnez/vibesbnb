@@ -33,6 +33,7 @@ interface Property {
   bedrooms: number;
   bathrooms: number;
   guests: number;
+  type?: string;
   rating?: number;
   reviews?: number;
   vibesbnb_take?: string;
@@ -247,7 +248,7 @@ export default function HostProfilePage() {
                         <h3 className="font-bold text-white mb-1">{property.name}</h3>
                         <p className="text-gray-400 text-sm flex items-center gap-1 mb-3">
                           <MapPin size={14} className="text-emerald-500" />
-                          {property.location}
+                          {property.type ? `${property.type} in ` : ''}{property.location}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span className="flex items-center gap-1">

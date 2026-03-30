@@ -35,6 +35,7 @@ interface ImportedPropertyData {
   coordinates?: { lat: number; lng: number };
   allowExtraGuests: boolean;
   extraGuestPrice: number;
+  type: string;
 }
 
 export default function ImportReviewPage() {
@@ -57,6 +58,7 @@ export default function ImportReviewPage() {
     wellnessFriendly: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
+    type: 'Entire House',
   });
   const [smokeFriendly, setSmokeFriendly] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([
@@ -439,6 +441,7 @@ export default function ImportReviewPage() {
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             google_maps_url: formData.googleMapsUrl,
+            type: formData.type,
             latitude: formData.coordinates?.lat,
             longitude: formData.coordinates?.lng,
             source_url: typeof window !== 'undefined' ? sessionStorage.getItem('importedPropertyUrl') || null : null,
@@ -479,6 +482,7 @@ export default function ImportReviewPage() {
             images: allImageUrls,
             rooms: roomsData,
             status: status,
+            type: formData.type,
             googleMapsUrl: formData.googleMapsUrl,
             coordinates: formData.coordinates,
           };
@@ -543,6 +547,7 @@ export default function ImportReviewPage() {
           images: allImageUrls,
           rooms: roomsData,
           status: status,
+          type: formData.type,
           coordinates: formData.coordinates,
           googleMapsUrl: formData.googleMapsUrl,
         };
@@ -598,6 +603,24 @@ export default function ImportReviewPage() {
             <h2 className="text-xl font-semibold text-white mb-6">Basic Information</h2>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Property Type *
+                </label>
+                <select
+                  required
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                >
+                  <option value="Entire House">Entire House</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="Condo">Condo</option>
+                  <option value="Private Rooms">Private Rooms</option>
+                  <option value="Room inside property">Room inside property</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Property Name *

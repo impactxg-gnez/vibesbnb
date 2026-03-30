@@ -265,7 +265,9 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
             <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-1">
               {listing.title}
             </h3>
-            <p className="text-muted text-sm line-clamp-1">{listing.location}</p>
+            <p className="text-muted text-sm line-clamp-1">
+              {listing.type ? `${listing.type} in ` : ''}{listing.location}
+            </p>
           </div>
           <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
             <span className={listing.reviews && listing.reviews > 0 ? "text-primary-500 text-xs" : "text-gray-500 text-xs"}>★</span>

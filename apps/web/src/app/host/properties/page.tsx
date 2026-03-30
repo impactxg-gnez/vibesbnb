@@ -40,6 +40,7 @@ interface Property {
     lat: number;
     lng: number;
   };
+  type?: string;
 }
 
 export default function HostPropertiesPage() {
@@ -245,6 +246,7 @@ export default function HostPropertiesPage() {
                   lat: p.latitude,
                   lng: p.longitude,
                 } : undefined,
+                type: p.type || '',
               };
             });
           }
@@ -291,6 +293,7 @@ export default function HostPropertiesPage() {
                     googleMapsUrl: localProp.googleMapsUrl,
                     sourceUrl: localProp.sourceUrl,
                     coordinates: localProp.coordinates,
+                    type: localProp.type || '',
                   });
                   console.log('[Properties] Added property from localStorage backup:', localProp.id);
                 }
@@ -334,6 +337,7 @@ export default function HostPropertiesPage() {
                     wellnessFriendly: p.wellnessFriendly || p.wellness_friendly || false,
                     googleMapsUrl: p.googleMapsUrl || p.google_maps_url,
                     coordinates: p.coordinates || (p.latitude && p.longitude ? { lat: p.latitude, lng: p.longitude } : undefined),
+                    type: p.type || '',
                   }));
                   setProperties(transformedProperties);
                   setTimeout(() => loadStats(), 100);
@@ -1118,6 +1122,42 @@ export default function HostPropertiesPage() {
             </Link>
           </div>
         </div>
+
+        {/* Missing Type Warning */}
+        {properties.some(p => !p.type || p.type.trim() === '') && (
+          <div className="mb-8 bg-amber-500/10 border border-amber-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-500 flex-shrink-0">
+                <Wand2 size={24} />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-lg">Complete your listings</h3>
+                <p className="text-amber-200/70 text-sm">
+                  Some of your properties are missing a property type. Add it to help travelers find your stay!
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {properties
+                .filter(p => !p.type || p.type.trim() === '')
+                .slice(0, 3)
+                .map(p => (
+                  <Link
+                    key={p.id}
+                    href={`/host/properties/${p.id}/edit`}
+                    className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 rounded-lg text-sm font-semibold transition flex items-center gap-2"
+                  >
+                    Edit {p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name}
+                  </Link>
+                ))}
+              {properties.filter(p => !p.type || p.type.trim() === '').length > 3 && (
+                <span className="text-amber-500/50 self-center text-sm ml-2">
+                  + {properties.filter(p => !p.type || p.type.trim() === '').length - 3} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Booking Snapshot */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
