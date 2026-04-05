@@ -600,8 +600,7 @@ export default function EditPropertyPage() {
                   <option value="Entire House">Entire House</option>
                   <option value="Apartment">Apartment</option>
                   <option value="Condo">Condo</option>
-                  <option value="Private Rooms">Private Rooms</option>
-                  <option value="Room inside property">Room inside property</option>
+                  <option value="Private Room">Private Room</option>
                 </select>
               </div>
 

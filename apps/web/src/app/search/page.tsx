@@ -621,11 +621,8 @@ export default function SearchPage() {
               if (type === 'Condo') {
                 return listingType.toLowerCase().includes('condo');
               }
-              if (type === 'Private Room' || type === 'Private Rooms') {
-                return listingType.toLowerCase().includes('private room');
-              }
-              if (type === 'Shared Room' || type === 'Room inside property') {
-                return listingType.toLowerCase().includes('shared room') || listingType.toLowerCase().includes('room inside');
+              if (type === 'Private Room') {
+                return listingType.toLowerCase().includes('private room') || listingType.toLowerCase().includes('private rooms');
               }
               return listingType === type;
             });
@@ -641,7 +638,7 @@ export default function SearchPage() {
 
         // Filter by Type of Place
         if (activeFilters.typeOfPlace === 'room') {
-          filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('room') || listing.type === 'Private Rooms');
+          filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('room'));
         } else if (activeFilters.typeOfPlace === 'entire') {
           filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('house') || listing.type?.toLowerCase().includes('apartment') || listing.type?.toLowerCase().includes('condo'));
         }

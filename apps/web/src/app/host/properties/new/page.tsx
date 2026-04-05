@@ -42,28 +42,12 @@ interface Room {
   imagePreviewUrls: string[];
 }
 
-// Property type options with icons
+// Property type options with icons - synced with traveler filters
 const PROPERTY_TYPES = [
-  { id: 'house', label: 'House', icon: Home },
-  { id: 'apartment', label: 'Flat/Apartment', icon: Building2 },
-  { id: 'barn', label: 'Barn', icon: Warehouse },
-  { id: 'bnb', label: 'Bed & Breakfast', icon: Hotel },
-  { id: 'boat', label: 'Boat', icon: Ship },
-  { id: 'cabin', label: 'Cabin', icon: TreePine },
-  { id: 'campervan', label: 'Campervan/Motorhome', icon: Caravan },
-  { id: 'casa', label: 'Casa Particular', icon: Castle },
-  { id: 'castle', label: 'Castle', icon: Castle },
-  { id: 'cave', label: 'Cave', icon: Home },
-  { id: 'container', label: 'Container', icon: Warehouse },
-  { id: 'cottage', label: 'Cottage', icon: Home },
-  { id: 'farmhouse', label: 'Farm House', icon: Warehouse },
-  { id: 'guesthouse', label: 'Guest House', icon: Hotel },
-  { id: 'hotel', label: 'Hotel', icon: Hotel },
-  { id: 'houseboat', label: 'Houseboat', icon: Ship },
-  { id: 'tent', label: 'Tent/Glamping', icon: TreePine },
-  { id: 'townhouse', label: 'Townhouse', icon: Building2 },
-  { id: 'treehouse', label: 'Treehouse', icon: TreePine },
-  { id: 'villa', label: 'Villa', icon: Home },
+  { id: 'house', label: 'Entire House', icon: Home },
+  { id: 'apartment', label: 'Apartment', icon: Building2 },
+  { id: 'condo', label: 'Condo', icon: Building2 },
+  { id: 'private_room', label: 'Private Room', icon: User },
 ];
 
 // Guest access types

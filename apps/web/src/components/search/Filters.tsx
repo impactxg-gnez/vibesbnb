@@ -30,11 +30,10 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
   const priceLimit = 100000;
 
   const availablePropertyTypes = [
-    { id: 'Entire House', label: 'House', icon: <Home size={20} /> },
+    { id: 'Entire House', label: 'Entire House', icon: <Home size={20} /> },
     { id: 'Apartment', label: 'Apartment', icon: <Building size={20} /> },
     { id: 'Condo', label: 'Condo', icon: <Building size={20} /> },
-    { id: 'Private Rooms', label: 'Private Room', icon: <Bed size={20} /> },
-    { id: 'Room inside property', label: 'Shared Room', icon: <Bed size={20} /> },
+    { id: 'Private Room', label: 'Private Room', icon: <Bed size={20} /> },
   ];
 
   const allAmenities = [

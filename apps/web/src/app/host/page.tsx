@@ -199,13 +199,10 @@ export default function HostPage() {
                   className="input !py-4 appearance-none"
                 >
                   <option value="">Select property type</option>
-                  <option value="Cabin">Cabin</option>
-                  <option value="House">House</option>
+                  <option value="Entire House">Entire House</option>
                   <option value="Apartment">Apartment</option>
-                  <option value="Villa">Villa</option>
-                  <option value="Bungalow">Bungalow</option>
                   <option value="Condo">Condo</option>
-                  <option value="Other">Other</option>
+                  <option value="Private Room">Private Room</option>
                 </select>
               </div>
 
