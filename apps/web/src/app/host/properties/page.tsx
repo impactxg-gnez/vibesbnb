@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle } from 'lucide-react';
+import { validateProperty, getMissingFieldsSummary, canPublish, PropertyValidation } from '@/lib/property-validation';
 
 interface BookingSummaryItem {
   id: string;
@@ -305,6 +306,42 @@ export default function HostPropertiesPage() {
 
           // Always sync merged properties back to localStorage for persistence
           if (finalProperties.length > 0) {
+            // Auto-unpublish properties that are active but don't meet validation requirements
+            const propertiesToUnpublish = finalProperties.filter(p => {
+              if (p.status !== 'active') return false;
+              const validation = validateProperty(p);
+              return !validation.isComplete;
+            });
+
+            if (propertiesToUnpublish.length > 0 && supabaseUser) {
+              console.log('[Properties] Auto-unpublishing', propertiesToUnpublish.length, 'incomplete properties');
+              
+              // Update status in Supabase
+              for (const prop of propertiesToUnpublish) {
+                const { error } = await supabase
+                  .from('properties')
+                  .update({ status: 'draft', updated_at: new Date().toISOString() })
+                  .eq('id', prop.id)
+                  .eq('host_id', supabaseUser.id);
+                
+                if (error) {
+                  console.error('[Properties] Failed to auto-unpublish:', prop.id, error);
+                } else {
+                  // Update local state
+                  prop.status = 'draft';
+                  console.log('[Properties] Auto-unpublished:', prop.name);
+                }
+              }
+
+              // Show toast notification about auto-unpublished properties
+              if (propertiesToUnpublish.length > 0) {
+                toast.error(
+                  `${propertiesToUnpublish.length} ${propertiesToUnpublish.length === 1 ? 'property has' : 'properties have'} been unpublished due to missing required information. Please complete the listings to publish them.`,
+                  { duration: 6000 }
+                );
+              }
+            }
+
             setProperties(finalProperties);
             // Sync back to localStorage to ensure persistence (includes both Supabase and localStorage properties)
             localStorage.setItem(`properties_${user.id}`, JSON.stringify(finalProperties));
@@ -840,14 +877,15 @@ export default function HostPropertiesPage() {
       return;
     }
 
-    if (
-      newStatus === 'active' &&
-      (!property.coordinates ||
-        typeof property.coordinates.lat !== 'number' ||
-        typeof property.coordinates.lng !== 'number')
-    ) {
-      toast.error('Map coordinates are required to publish this property. Please edit the property and set the location on the map.');
-      return;
+    // Validate property before publishing
+    if (newStatus === 'active') {
+      const publishCheck = canPublish(property);
+      if (!publishCheck.canPublish) {
+        toast.error(`Cannot publish: ${publishCheck.reason}. Please complete all required fields first.`, {
+          duration: 5000,
+        });
+        return;
+      }
     }
 
     try {
@@ -1123,41 +1161,112 @@ export default function HostPropertiesPage() {
           </div>
         </div>
 
-        {/* Missing Type Warning */}
-        {properties.some(p => !p.type || p.type.trim() === '') && (
-          <div className="mb-8 bg-amber-500/10 border border-amber-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-500 flex-shrink-0">
-                <Wand2 size={24} />
-              </div>
-              <div>
-                <h3 className="text-white font-bold text-lg">Complete your listings</h3>
-                <p className="text-amber-200/70 text-sm">
-                  Some of your properties are missing a property type. Add it to help travelers find your stay!
-                </p>
+        {/* Incomplete Properties Warning */}
+        {(() => {
+          const incompleteProperties = properties.filter(p => {
+            const validation = validateProperty(p);
+            return !validation.isComplete;
+          });
+          
+          if (incompleteProperties.length === 0) return null;
+          
+          // Check if any active properties are incomplete (need auto-unpublish warning)
+          const activeIncomplete = incompleteProperties.filter(p => p.status === 'active');
+          
+          return (
+            <div className="mb-8 bg-red-500/10 border border-red-500/50 rounded-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 flex-shrink-0">
+                  <AlertTriangle size={24} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-bold text-lg mb-1">
+                    {incompleteProperties.length} {incompleteProperties.length === 1 ? 'Property' : 'Properties'} Missing Required Information
+                  </h3>
+                  <p className="text-red-200/70 text-sm mb-4">
+                    Properties cannot be published until all mandatory fields are completed. 
+                    {activeIncomplete.length > 0 && (
+                      <span className="text-red-400 font-semibold">
+                        {' '}{activeIncomplete.length} active {activeIncomplete.length === 1 ? 'listing has' : 'listings have'} been set to draft.
+                      </span>
+                    )}
+                  </p>
+                  <div className="space-y-3">
+                    {incompleteProperties.slice(0, 5).map(p => {
+                      const validation = validateProperty(p);
+                      return (
+                        <div key={p.id} className="bg-red-500/10 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                          <div>
+                            <span className="text-white font-medium">{p.name}</span>
+                            <p className="text-red-300/80 text-xs mt-1">
+                              {getMissingFieldsSummary(validation.missingFields)}
+                            </p>
+                          </div>
+                          <Link
+                            href={`/host/properties/${p.id}/edit`}
+                            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-semibold transition flex items-center gap-2 self-start md:self-center"
+                          >
+                            <Edit size={14} />
+                            Complete Listing
+                          </Link>
+                        </div>
+                      );
+                    })}
+                    {incompleteProperties.length > 5 && (
+                      <p className="text-red-400/50 text-sm">
+                        + {incompleteProperties.length - 5} more properties need attention
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {properties
-                .filter(p => !p.type || p.type.trim() === '')
-                .slice(0, 3)
-                .map(p => (
-                  <Link
-                    key={p.id}
-                    href={`/host/properties/${p.id}/edit`}
-                    className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 rounded-lg text-sm font-semibold transition flex items-center gap-2"
-                  >
-                    Edit {p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name}
-                  </Link>
-                ))}
-              {properties.filter(p => !p.type || p.type.trim() === '').length > 3 && (
-                <span className="text-amber-500/50 self-center text-sm ml-2">
-                  + {properties.filter(p => !p.type || p.type.trim() === '').length - 3} more
-                </span>
-              )}
+          );
+        })()}
+
+        {/* Missing Type Warning (for properties that are otherwise complete) */}
+        {(() => {
+          const propertiesWithMissingType = properties.filter(p => {
+            const validation = validateProperty(p);
+            return validation.isComplete && (!p.type || p.type.trim() === '');
+          });
+          
+          if (propertiesWithMissingType.length === 0) return null;
+          
+          return (
+            <div className="mb-8 bg-amber-500/10 border border-amber-500/50 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-500 flex-shrink-0">
+                  <Wand2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-lg">Improve your listings</h3>
+                  <p className="text-amber-200/70 text-sm">
+                    Some properties are missing a property type. Add it to help travelers find your stay!
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {propertiesWithMissingType
+                  .slice(0, 3)
+                  .map(p => (
+                    <Link
+                      key={p.id}
+                      href={`/host/properties/${p.id}/edit`}
+                      className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 rounded-lg text-sm font-semibold transition flex items-center gap-2"
+                    >
+                      Edit {p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name}
+                    </Link>
+                  ))}
+                {propertiesWithMissingType.length > 3 && (
+                  <span className="text-amber-500/50 self-center text-sm ml-2">
+                    + {propertiesWithMissingType.length - 3} more
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Booking Snapshot */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -1463,7 +1572,7 @@ export default function HostPropertiesPage() {
                         className="w-full h-full object-cover"
                       />
                     )}
-                    <div className="absolute top-3 right-3">
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${property.status === 'active'
                             ? 'bg-emerald-600 text-white'
@@ -1474,6 +1583,18 @@ export default function HostPropertiesPage() {
                       >
                         {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
                       </span>
+                      {(() => {
+                        const validation = validateProperty(property);
+                        if (!validation.isComplete) {
+                          return (
+                            <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-red-600 text-white flex items-center gap-1">
+                              <AlertTriangle size={10} />
+                              Incomplete
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     {property.wellnessFriendly && (
                       <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">
@@ -1572,24 +1693,36 @@ export default function HostPropertiesPage() {
                       </Link>
                       <button
                         onClick={() => handleTogglePublish(property.id, property.status)}
-                        disabled={!property.coordinates && property.status !== 'active'}
+                        disabled={(() => {
+                          if (property.status === 'active') return false;
+                          const validation = validateProperty(property);
+                          return !validation.isComplete;
+                        })()}
                         className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${property.status === 'active'
                             ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
                             : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          } ${!property.coordinates && property.status !== 'active' ? 'opacity-60 cursor-not-allowed' : ''}`}
-                        title={
-                          property.status === 'active'
-                            ? 'Unpublish'
-                            : !property.coordinates
-                              ? 'Map coordinates required to publish'
-                              : 'Publish'
-                        }
+                          } ${(() => {
+                            if (property.status === 'active') return '';
+                            const validation = validateProperty(property);
+                            return !validation.isComplete ? 'opacity-60 cursor-not-allowed' : '';
+                          })()}`}
+                        title={(() => {
+                          if (property.status === 'active') return 'Unpublish';
+                          const validation = validateProperty(property);
+                          if (!validation.isComplete) {
+                            return `Cannot publish: ${getMissingFieldsSummary(validation.missingFields)}`;
+                          }
+                          return 'Publish';
+                        })()}
                       >
                         <Power size={16} />
                         {property.status === 'active' ? 'Unpublish' : 'Publish'}
-                        {!property.coordinates && property.status !== 'active' && (
-                          <span className="ml-1 text-xs">⚠️</span>
-                        )}
+                        {(() => {
+                          const validation = validateProperty(property);
+                          return !validation.isComplete && property.status !== 'active' ? (
+                            <span className="ml-1 text-xs">⚠️</span>
+                          ) : null;
+                        })()}
                       </button>
                       <Link
                         href={`/listings/${property.id}`}
