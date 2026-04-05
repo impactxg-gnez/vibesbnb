@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight } from 'lucide-react';
 import { validateProperty, getMissingFieldsSummary, canPublish, PropertyValidation } from '@/lib/property-validation';
 
 interface BookingSummaryItem {
@@ -84,12 +84,21 @@ export default function HostPropertiesPage() {
     bookings: BookingSummaryItem[];
   } | null>(null);
   const [bookingActionLoading, setBookingActionLoading] = useState<string | null>(null);
+  const [hasPayoutSettings, setHasPayoutSettings] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Check if payout settings are configured
+  useEffect(() => {
+    if (user) {
+      const payoutInfo = user.user_metadata?.payout_info;
+      setHasPayoutSettings(!!payoutInfo?.account_number_masked);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -1117,6 +1126,38 @@ export default function HostPropertiesPage() {
   return (
     <div className="min-h-screen bg-gray-950 py-12">
       <div className="container mx-auto px-4">
+        {/* Payout Settings Reminder Banner */}
+        {hasPayoutSettings === false && (
+          <div className="mb-6 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 border border-amber-500/40 rounded-2xl p-5 animate-in fade-in slide-in-from-top duration-500">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <CreditCard className="text-amber-400" size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-amber-300 font-bold text-lg mb-1">Set Up Your Payout Account</h3>
+                <p className="text-amber-200/80 text-sm mb-3">
+                  You haven't configured your payout settings yet. To receive your earnings from VibesBnB, please add your bank account details.
+                </p>
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg transition text-sm"
+                >
+                  <CreditCard size={16} />
+                  Set Up Payout Account
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
+              <button
+                onClick={() => setHasPayoutSettings(null)}
+                className="text-amber-400/60 hover:text-amber-400 transition p-1"
+                title="Dismiss for now"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
