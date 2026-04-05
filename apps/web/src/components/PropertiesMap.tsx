@@ -13,7 +13,7 @@ interface Property {
   lng?: number;
   price: number;
   images?: string[];
-  status?: 'active' | 'draft' | 'inactive';
+  status?: 'active' | 'draft' | 'inactive' | 'pending_approval';
 }
 
 interface PropertiesMapProps {
