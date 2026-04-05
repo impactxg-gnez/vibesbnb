@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
 import AvailabilityEditor from '@/components/properties/AvailabilityEditor';
+import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
 
 interface Room {
@@ -340,6 +341,20 @@ export default function EditPropertyPage() {
             ...r,
             images: r.images.filter((_, i) => i !== index),
             imagePreviewUrls: r.imagePreviewUrls.filter((_, i) => i !== index),
+          };
+        }
+        return r;
+      })
+    );
+  };
+
+  const reorderImages = (roomId: string, newImageUrls: string[]) => {
+    setRooms(
+      rooms.map((r) => {
+        if (r.id === roomId) {
+          return {
+            ...r,
+            imagePreviewUrls: newImageUrls,
           };
         }
         return r;
@@ -933,7 +948,12 @@ export default function EditPropertyPage() {
           {/* Images by Room */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white">Photos by Room</h2>
+              <div>
+                <h2 className="text-xl font-semibold text-white">Photos by Room</h2>
+                <p className="text-sm text-gray-400 mt-1">
+                  Drag images to reorder • First image will be the cover photo
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={addRoom}
@@ -946,16 +966,21 @@ export default function EditPropertyPage() {
 
             <div className="space-y-6">
               {rooms.map((room, roomIndex) => (
-                <div key={room.id} className="border border-gray-700 rounded-lg p-4">
+                <div key={room.id} className="border border-gray-700 rounded-xl p-5 bg-gray-800/30">
                   <div className="flex items-center justify-between mb-4">
-                    <input
-                      type="text"
-                      value={room.name}
-                      onChange={(e) => updateRoomName(room.id, e.target.value)}
-                      placeholder="Room name (e.g., Living Room, Bedroom 1, Kitchen)"
-                      className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                      required
-                    />
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="p-2 bg-gray-700 rounded-lg">
+                        <GripVertical size={18} className="text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={room.name}
+                        onChange={(e) => updateRoomName(room.id, e.target.value)}
+                        placeholder="Room name (e.g., Living Room, Bedroom 1, Kitchen)"
+                        className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                        required
+                      />
+                    </div>
                     {rooms.length > 1 && (
                       <button
                         type="button"
@@ -968,7 +993,7 @@ export default function EditPropertyPage() {
                     )}
                   </div>
 
-                  <label className="block border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-emerald-500 transition">
+                  <label className="block border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-emerald-500 transition mb-4">
                     <Upload size={32} className="mx-auto text-gray-400 mb-2" />
                     <p className="text-white text-sm mb-1">Click to upload images for {room.name || 'this room'}</p>
                     <p className="text-xs text-gray-500">Unlimited images (JPG, PNG)</p>
@@ -982,24 +1007,12 @@ export default function EditPropertyPage() {
                   </label>
 
                   {room.imagePreviewUrls.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      {room.imagePreviewUrls.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`${room.name} - Image ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(room.id, index)}
-                            className="absolute top-2 right-2 p-1 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition"
-                          >
-                            <X size={16} className="text-white" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <ImageReorder
+                      images={room.imagePreviewUrls}
+                      onReorder={(newImages) => reorderImages(room.id, newImages)}
+                      onRemove={(index) => removeImage(room.id, index)}
+                      roomName={room.name}
+                    />
                   )}
                 </div>
               ))}

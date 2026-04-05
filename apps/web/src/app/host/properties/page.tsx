@@ -33,7 +33,7 @@ interface Property {
   price: number;
   images: string[];
   amenities?: string[];
-  status: 'active' | 'draft' | 'inactive';
+  status: 'active' | 'draft' | 'inactive' | 'pending_approval';
   wellnessFriendly: boolean;
   googleMapsUrl?: string;
   sourceUrl?: string;
@@ -239,7 +239,7 @@ export default function HostPropertiesPage() {
                 price: p.price ? Number(p.price) : 0,
                 images: images,
                 amenities: p.amenities || [],
-                status: (p.status || 'active') as 'active' | 'draft' | 'inactive',
+                status: (p.status || 'active') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                 wellnessFriendly: p.wellness_friendly || false,
                 googleMapsUrl: p.google_maps_url,
                 sourceUrl: p.source_url,
@@ -289,7 +289,7 @@ export default function HostPropertiesPage() {
                     price: localProp.price ? Number(localProp.price) : 0,
                     images: images,
                     amenities: localProp.amenities || [],
-                    status: (localProp.status || 'draft') as 'active' | 'draft' | 'inactive',
+                    status: (localProp.status || 'draft') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                     wellnessFriendly: localProp.wellnessFriendly || false,
                     googleMapsUrl: localProp.googleMapsUrl,
                     sourceUrl: localProp.sourceUrl,
@@ -370,7 +370,7 @@ export default function HostPropertiesPage() {
                     price: p.price ? Number(p.price) : 0,
                     images: p.images || [],
                     amenities: p.amenities || [],
-                    status: (p.status || 'draft') as 'active' | 'draft' | 'inactive',
+                    status: (p.status || 'draft') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                     wellnessFriendly: p.wellnessFriendly || p.wellness_friendly || false,
                     googleMapsUrl: p.googleMapsUrl || p.google_maps_url,
                     coordinates: p.coordinates || (p.latitude && p.longitude ? { lat: p.latitude, lng: p.longitude } : undefined),
@@ -911,7 +911,7 @@ export default function HostPropertiesPage() {
       }
 
       const updatedProperties = properties.map(p =>
-        p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' } : p
+        p.id === id ? { ...p, status: newStatus as 'active' | 'draft' | 'inactive' | 'pending_approval' } : p
       );
       setProperties(updatedProperties);
 
@@ -1576,12 +1576,16 @@ export default function HostPropertiesPage() {
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${property.status === 'active'
                             ? 'bg-emerald-600 text-white'
-                            : property.status === 'draft'
-                              ? 'bg-yellow-600 text-white'
-                              : 'bg-gray-600 text-white'
+                            : property.status === 'pending_approval'
+                              ? 'bg-amber-500 text-white'
+                              : property.status === 'draft'
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-gray-600 text-white'
                           }`}
                       >
-                        {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+                        {property.status === 'pending_approval' 
+                          ? 'Pending Approval' 
+                          : property.status.charAt(0).toUpperCase() + property.status.slice(1)}
                       </span>
                       {(() => {
                         const validation = validateProperty(property);
@@ -1691,39 +1695,49 @@ export default function HostPropertiesPage() {
                         <Edit size={16} />
                         Edit
                       </Link>
-                      <button
-                        onClick={() => handleTogglePublish(property.id, property.status)}
-                        disabled={(() => {
-                          if (property.status === 'active') return false;
-                          const validation = validateProperty(property);
-                          return !validation.isComplete;
-                        })()}
-                        className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${property.status === 'active'
-                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          } ${(() => {
-                            if (property.status === 'active') return '';
+                      {property.status === 'pending_approval' ? (
+                        <div
+                          className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center gap-2 cursor-not-allowed"
+                          title="Awaiting admin approval"
+                        >
+                          <span className="w-4 h-4 flex items-center justify-center">⏳</span>
+                          Pending Review
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleTogglePublish(property.id, property.status)}
+                          disabled={(() => {
+                            if (property.status === 'active') return false;
                             const validation = validateProperty(property);
-                            return !validation.isComplete ? 'opacity-60 cursor-not-allowed' : '';
-                          })()}`}
-                        title={(() => {
-                          if (property.status === 'active') return 'Unpublish';
-                          const validation = validateProperty(property);
-                          if (!validation.isComplete) {
-                            return `Cannot publish: ${getMissingFieldsSummary(validation.missingFields)}`;
-                          }
-                          return 'Publish';
-                        })()}
-                      >
-                        <Power size={16} />
-                        {property.status === 'active' ? 'Unpublish' : 'Publish'}
-                        {(() => {
-                          const validation = validateProperty(property);
-                          return !validation.isComplete && property.status !== 'active' ? (
-                            <span className="ml-1 text-xs">⚠️</span>
-                          ) : null;
-                        })()}
-                      </button>
+                            return !validation.isComplete;
+                          })()}
+                          className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${property.status === 'active'
+                              ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            } ${(() => {
+                              if (property.status === 'active') return '';
+                              const validation = validateProperty(property);
+                              return !validation.isComplete ? 'opacity-60 cursor-not-allowed' : '';
+                            })()}`}
+                          title={(() => {
+                            if (property.status === 'active') return 'Unpublish';
+                            const validation = validateProperty(property);
+                            if (!validation.isComplete) {
+                              return `Cannot publish: ${getMissingFieldsSummary(validation.missingFields)}`;
+                            }
+                            return 'Publish';
+                          })()}
+                        >
+                          <Power size={16} />
+                          {property.status === 'active' ? 'Unpublish' : 'Publish'}
+                          {(() => {
+                            const validation = validateProperty(property);
+                            return !validation.isComplete && property.status !== 'active' ? (
+                              <span className="ml-1 text-xs">⚠️</span>
+                            ) : null;
+                          })()}
+                        </button>
+                      )}
                       <Link
                         href={`/listings/${property.id}`}
                         className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"

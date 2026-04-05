@@ -4,10 +4,33 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2 } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Upload, 
+  X, 
+  Plus, 
+  Trash2, 
+  Home, 
+  Building2, 
+  Warehouse, 
+  Hotel, 
+  Ship, 
+  TreePine, 
+  Caravan, 
+  Castle,
+  Users,
+  User,
+  UserCheck,
+  HelpCircle,
+  CheckCircle2,
+  ChevronRight,
+  Sparkles,
+  FileSpreadsheet
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
+import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
 
 interface Room {
@@ -19,19 +42,91 @@ interface Room {
   imagePreviewUrls: string[];
 }
 
+// Property type options with icons
+const PROPERTY_TYPES = [
+  { id: 'house', label: 'House', icon: Home },
+  { id: 'apartment', label: 'Flat/Apartment', icon: Building2 },
+  { id: 'barn', label: 'Barn', icon: Warehouse },
+  { id: 'bnb', label: 'Bed & Breakfast', icon: Hotel },
+  { id: 'boat', label: 'Boat', icon: Ship },
+  { id: 'cabin', label: 'Cabin', icon: TreePine },
+  { id: 'campervan', label: 'Campervan/Motorhome', icon: Caravan },
+  { id: 'casa', label: 'Casa Particular', icon: Castle },
+  { id: 'castle', label: 'Castle', icon: Castle },
+  { id: 'cave', label: 'Cave', icon: Home },
+  { id: 'container', label: 'Container', icon: Warehouse },
+  { id: 'cottage', label: 'Cottage', icon: Home },
+  { id: 'farmhouse', label: 'Farm House', icon: Warehouse },
+  { id: 'guesthouse', label: 'Guest House', icon: Hotel },
+  { id: 'hotel', label: 'Hotel', icon: Hotel },
+  { id: 'houseboat', label: 'Houseboat', icon: Ship },
+  { id: 'tent', label: 'Tent/Glamping', icon: TreePine },
+  { id: 'townhouse', label: 'Townhouse', icon: Building2 },
+  { id: 'treehouse', label: 'Treehouse', icon: TreePine },
+  { id: 'villa', label: 'Villa', icon: Home },
+];
+
+// Guest access types
+const GUEST_ACCESS_TYPES = [
+  { 
+    id: 'entire', 
+    label: 'An entire place', 
+    description: 'Guests have the whole place to themselves.',
+    icon: Home 
+  },
+  { 
+    id: 'private', 
+    label: 'A private room', 
+    description: 'Guests sleep in a private room but some areas may be shared with you or others.',
+    icon: User 
+  },
+  { 
+    id: 'shared', 
+    label: 'A shared room', 
+    description: 'Guests sleep in a room or common area that may be shared with you or others.',
+    icon: Users 
+  },
+];
+
+const availableAmenities = [
+  'WiFi',
+  'Kitchen',
+  'Parking',
+  'Pool',
+  'Hot Tub',
+  'Gym',
+  'Air Conditioning',
+  'Heating',
+  'TV',
+  'Washer/Dryer',
+  'Pet Friendly',
+  'Workspace',
+  'Fireplace',
+  'Beach Access',
+  'Mountain View',
+  'Garden',
+  'BBQ',
+  'Balcony',
+];
+
 export default function NewPropertyPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  
+  // Form state
   const [formData, setFormData] = useState({
+    propertyType: '',
+    guestAccessType: '',
     name: '',
     description: '',
     location: '',
     bedrooms: 1,
     bathrooms: 1,
+    beds: 1,
     guests: 2,
     price: 100,
-    type: 'Entire House',
     wellnessFriendly: false,
     smokeFriendly: false,
     allowExtraGuests: false,
@@ -39,26 +134,10 @@ export default function NewPropertyPage() {
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
+  
   const [rooms, setRooms] = useState<Room[]>([
-    { id: Date.now().toString(), name: 'Unit 1', price: 100, guests: 2, images: [], imagePreviewUrls: [] },
+    { id: Date.now().toString(), name: 'Main Photos', price: 100, guests: 2, images: [], imagePreviewUrls: [] },
   ]);
-  const [isMultiUnit, setIsMultiUnit] = useState(false);
-
-  const availableAmenities = [
-    'WiFi',
-    'Kitchen',
-    'Parking',
-    'Pool',
-    'Hot Tub',
-    'Gym',
-    'Air Conditioning',
-    'Heating',
-    'TV',
-    'Washer/Dryer',
-    'Pet Friendly',
-    'Workspace',
-    'Fireplace',
-  ];
 
   useEffect(() => {
     if (!loading && !user) {
@@ -66,28 +145,44 @@ export default function NewPropertyPage() {
     }
   }, [user, loading, router]);
 
-  const addRoom = () => {
-    const unitNumber = rooms.length + 1;
-    setRooms([
-      ...rooms,
-      { id: Date.now().toString(), name: `Unit ${unitNumber}`, price: formData.price, guests: formData.guests, images: [], imagePreviewUrls: [] },
-    ]);
-  };
+  // Step definitions
+  const steps = [
+    { id: 'welcome', title: 'Get Started' },
+    { id: 'property-type', title: 'Property Type' },
+    { id: 'guest-access', title: 'Guest Access' },
+    { id: 'location', title: 'Location' },
+    { id: 'basics', title: 'Basic Details' },
+    { id: 'amenities', title: 'Amenities' },
+    { id: 'photos', title: 'Photos' },
+    { id: 'pricing', title: 'Pricing' },
+    { id: 'review', title: 'Review' },
+  ];
 
-  const removeRoom = (roomId: string) => {
-    if (rooms.length === 1) {
-      toast.error('At least one unit is required');
-      return;
+  const canProceed = () => {
+    switch (currentStep) {
+      case 0: return true; // Welcome
+      case 1: return !!formData.propertyType; // Property type
+      case 2: return !!formData.guestAccessType; // Guest access
+      case 3: return !!formData.location && !!formData.coordinates; // Location
+      case 4: return !!formData.name && formData.guests > 0; // Basics
+      case 5: return true; // Amenities (optional)
+      case 6: return rooms.some(r => r.imagePreviewUrls.length > 0); // Photos
+      case 7: return formData.price > 0; // Pricing
+      case 8: return true; // Review
+      default: return true;
     }
-    setRooms(rooms.filter((r) => r.id !== roomId));
   };
 
-  const updateRoom = (roomId: string, updates: Partial<Room>) => {
-    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, ...updates } : r)));
+  const nextStep = () => {
+    if (canProceed() && currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
   };
 
-  const updateRoomName = (roomId: string, name: string) => {
-    setRooms(rooms.map((r) => (r.id === roomId ? { ...r, name } : r)));
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
   const handleImageUpload = async (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,13 +192,12 @@ export default function NewPropertyPage() {
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
-    const toastId = toast.loading('Applying watermarks...', { id: 'watermark-toast' });
+    const toastId = toast.loading('Processing images...', { id: 'image-toast' });
 
     try {
       const watermarkedPreviews: string[] = [];
       
       for (const file of files) {
-        // Apply watermark and get data URL
         const watermarkedUrl = await applyWatermark(file);
         watermarkedPreviews.push(watermarkedUrl);
       }
@@ -116,10 +210,10 @@ export default function NewPropertyPage() {
         )
       );
       
-      toast.success('Images watermarked and uploaded!', { id: 'watermark-toast' });
+      toast.success('Images added!', { id: 'image-toast' });
     } catch (error) {
-      console.error('Error watermarking images:', error);
-      toast.error('Failed to apply watermark to some images.', { id: 'watermark-toast' });
+      console.error('Error processing images:', error);
+      toast.error('Failed to process some images.', { id: 'image-toast' });
     }
   };
 
@@ -138,6 +232,20 @@ export default function NewPropertyPage() {
     );
   };
 
+  const reorderImages = (roomId: string, newImageUrls: string[]) => {
+    setRooms(
+      rooms.map((r) => {
+        if (r.id === roomId) {
+          return {
+            ...r,
+            imagePreviewUrls: newImageUrls,
+          };
+        }
+        return r;
+      })
+    );
+  };
+
   const toggleAmenity = (amenity: string) => {
     setFormData({
       ...formData,
@@ -147,27 +255,7 @@ export default function NewPropertyPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name.trim()) {
-      toast.error('Property name is required');
-      return;
-    }
-
-    // Validate rooms
-    const allRoomsValid = rooms.every((r) => r.name.trim() !== '');
-    if (!allRoomsValid) {
-      toast.error('Please provide a name for all rooms');
-      return;
-    }
-
-    const totalImages = rooms.reduce((sum, r) => sum + r.imagePreviewUrls.length, 0);
-    if (totalImages === 0) {
-      toast.error('Please add at least one image');
-      return;
-    }
-
+  const handleSubmit = async () => {
     setSaving(true);
 
     try {
@@ -186,259 +274,96 @@ export default function NewPropertyPage() {
         supabaseKey !== '' &&
         supabaseKey !== 'placeholder-key';
 
-      // Wait for session to be available (important after sign-in)
       let supabaseUser = null;
-      let retries = 0;
-      const maxRetries = 5;
-
       if (isSupabaseConfigured) {
-        while (retries < maxRetries && !supabaseUser) {
-          const { data: { user: userData }, error: authError } = await supabase.auth.getUser();
-
-          if (userData) {
-            supabaseUser = userData;
-            console.log('[New Property] Session loaded successfully, user ID:', supabaseUser.id);
-            break;
-          }
-
-          if (authError) {
-            console.log('[New Property] Auth error (attempt', retries + 1, '):', authError.message);
-          }
-
-          // If no user found, wait a bit and retry (session might still be loading)
-          if (retries < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-          retries++;
-        }
-
-        if (!supabaseUser) {
-          console.warn('[New Property] No Supabase session available after', maxRetries, 'attempts. Will save to localStorage only.');
-        }
+        const { data: { user: userData } } = await supabase.auth.getUser();
+        supabaseUser = userData;
       }
 
-      // Convert all room images to data URLs for storage
+      // Collect all images
       const allImageUrls: string[] = [];
-      const roomsData: any[] = [];
-
       for (const room of rooms) {
-        const roomImages: string[] = [];
-        for (const previewUrl of room.imagePreviewUrls) {
-          // If it's already a data URL, use it; otherwise convert the file
-          if (previewUrl.startsWith('data:')) {
-            roomImages.push(previewUrl);
-            allImageUrls.push(previewUrl);
-          } else {
-            // Find the corresponding file
-            const fileIndex = room.imagePreviewUrls.indexOf(previewUrl);
-            if (fileIndex < room.images.length) {
-              const reader = new FileReader();
-              const dataUrl = await new Promise<string>((resolve, reject) => {
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(room.images[fileIndex]);
-              });
-              roomImages.push(dataUrl);
-              allImageUrls.push(dataUrl);
-            }
-          }
-        }
-        roomsData.push({
-          id: room.id,
-          name: room.name,
-          price: isMultiUnit ? room.price : formData.price,
-          guests: isMultiUnit ? room.guests : formData.guests,
-          images: roomImages,
-        });
+        allImageUrls.push(...room.imagePreviewUrls);
       }
 
-      // Use Supabase user ID if available, otherwise use demo user ID
-      // This ensures properties are correctly associated with the right host
       const userId = supabaseUser?.id || user.id;
       const propertyId = `${userId}_${Date.now()}`;
 
+      // Get the display type from property type
+      const propertyTypeLabel = PROPERTY_TYPES.find(t => t.id === formData.propertyType)?.label || formData.propertyType;
+      const accessTypeLabel = GUEST_ACCESS_TYPES.find(t => t.id === formData.guestAccessType)?.label || formData.guestAccessType;
+
+      const propertyData = {
+        id: propertyId,
+        host_id: userId,
+        name: formData.name,
+        title: formData.name,
+        description: formData.description,
+        location: formData.location,
+        price: formData.price,
+        images: allImageUrls,
+        amenities: formData.amenities,
+        bedrooms: formData.bedrooms,
+        bathrooms: formData.bathrooms,
+        beds: formData.beds,
+        guests: formData.guests,
+        status: 'pending_approval', // Requires admin approval
+        type: propertyTypeLabel,
+        guest_access_type: accessTypeLabel,
+        wellness_friendly: formData.wellnessFriendly,
+        smoke_friendly: formData.smokeFriendly,
+        allow_extra_guests: formData.allowExtraGuests,
+        extra_guest_price: formData.extraGuestPrice,
+        latitude: formData.coordinates?.lat,
+        longitude: formData.coordinates?.lng,
+        google_maps_url: formData.coordinates
+          ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
+          : null,
+      };
+
       if (isSupabaseConfigured && supabaseUser) {
-        // Verify session is still valid before inserting
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-
-        if (!currentSession || sessionError) {
-          console.error('[New Property] Session not available when attempting insert:', sessionError);
-          console.error('[New Property] Falling back to localStorage');
-          toast.error('Session expired. Please sign in again.');
-
-          // Save to localStorage as fallback
-          const savedProperties = localStorage.getItem(`properties_${userId}`);
-          const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-          const backupProperty = {
-            id: propertyId,
-            name: formData.name,
-            description: formData.description,
-            location: formData.location,
-            bedrooms: formData.bedrooms,
-            bathrooms: formData.bathrooms,
-            guests: formData.guests,
-            price: formData.price,
-            type: formData.type,
-            wellnessFriendly: formData.wellnessFriendly,
-            amenities: formData.amenities,
-            images: allImageUrls,
-            rooms: roomsData,
-            status: 'draft',
-          };
-          parsedProperties.push(backupProperty);
-          localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
-          setSaving(false);
-          return;
-        }
-
-        console.log('[New Property] Session verified, saving property with host_id:', supabaseUser.id);
-        console.log('[New Property] Session token exists:', !!currentSession.access_token);
-        console.log('[New Property] Property data:', {
-          id: propertyId,
-          name: formData.name,
-          location: formData.location,
-          price: formData.price,
-          host_id: supabaseUser.id,
-        });
-
-        const { data: insertedProperty, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('properties')
-          .insert({
-            id: propertyId,
-            host_id: supabaseUser.id, // Always use Supabase user ID when saving to Supabase
-            name: formData.name,
-            title: formData.name,
-            description: formData.description,
-            location: formData.location,
-            price: formData.price,
-            images: allImageUrls,
-            rooms: roomsData,
-            amenities: formData.amenities,
-            bedrooms: formData.bedrooms,
-            bathrooms: formData.bathrooms,
-            guests: formData.guests,
-            status: 'draft',
-            type: formData.type,
-            wellness_friendly: formData.wellnessFriendly,
-            smoke_friendly: formData.smokeFriendly,
-            allow_extra_guests: formData.allowExtraGuests,
-            extra_guest_price: formData.extraGuestPrice,
-            google_maps_url: formData.coordinates
-              ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
-              : null,
-            latitude: formData.coordinates?.lat,
-            longitude: formData.coordinates?.lng,
-          })
-          .select()
-          .single();
+          .insert(propertyData);
 
         if (insertError) {
-          console.error('[New Property] Error saving property to Supabase:', insertError);
-          console.error('[New Property] Error details:', {
-            code: insertError.code,
-            message: insertError.message,
-            details: insertError.details,
-            hint: insertError.hint,
-          });
-          toast.error(`Failed to save property to database: ${insertError.message}. Check console for details.`);
-
-          // Still save to localStorage as backup even if Supabase fails
-          const savedProperties = localStorage.getItem(`properties_${userId}`);
-          const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-          const backupProperty = {
-            id: propertyId,
-            name: formData.name,
-            description: formData.description,
-            location: formData.location,
-            bedrooms: formData.bedrooms,
-            bathrooms: formData.bathrooms,
-            guests: formData.guests,
-            price: formData.price,
-            type: formData.type,
-            wellnessFriendly: formData.wellnessFriendly,
-            smokeFriendly: formData.smokeFriendly,
-            allowExtraGuests: formData.allowExtraGuests,
-            extraGuestPrice: formData.extraGuestPrice,
-            amenities: formData.amenities,
-            images: allImageUrls,
-            rooms: roomsData,
-            status: 'draft',
-            google_maps_url: formData.coordinates
-              ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
-              : null,
-            latitude: formData.coordinates?.lat,
-            longitude: formData.coordinates?.lng,
-          };
-          parsedProperties.push(backupProperty);
-          localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
-          console.log('[New Property] Property saved to localStorage as backup due to Supabase error');
-
+          console.error('Error saving property:', insertError);
+          toast.error(`Failed to save: ${insertError.message}`);
           throw insertError;
         }
 
-        console.log('[New Property] Property saved successfully to Supabase:', insertedProperty);
-        console.log('[New Property] Property ID:', insertedProperty?.id);
-        console.log('[New Property] Host ID:', insertedProperty?.host_id);
+        // Create admin notification
+        try {
+          await supabase.from('notifications').insert({
+            user_id: supabaseUser.id,
+            type: 'property_submitted',
+            title: 'Property Submitted for Review',
+            message: `Your property "${formData.name}" has been submitted and is pending admin approval.`,
+            related_property_id: propertyId,
+          });
+        } catch (e) {
+          console.warn('Could not create notification:', e);
+        }
 
-        // Also save to localStorage as backup
-        const savedProperties = localStorage.getItem(`properties_${userId}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        const backupProperty = {
-          id: propertyId,
-          name: formData.name,
-          description: formData.description,
-          location: formData.location,
-          bedrooms: formData.bedrooms,
-          bathrooms: formData.bathrooms,
-          guests: formData.guests,
-          price: formData.price,
-          wellnessFriendly: formData.wellnessFriendly,
-          smokeFriendly: formData.smokeFriendly,
-          allowExtraGuests: formData.allowExtraGuests,
-          extraGuestPrice: formData.extraGuestPrice,
-          amenities: formData.amenities,
-          images: allImageUrls,
-          rooms: roomsData,
-          status: 'draft',
-        };
-        parsedProperties.push(backupProperty);
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
-        console.log('[New Property] Property also saved to localStorage as backup');
-
-        toast.success('Property added successfully!');
+        toast.success('Property submitted for approval! Our team will review it shortly.', { duration: 5000 });
         router.push('/host/properties');
       } else {
-        // Fallback to localStorage (for demo accounts)
-        const newProperty = {
-          id: propertyId,
-          name: formData.name,
-          description: formData.description,
-          location: formData.location,
-          bedrooms: formData.bedrooms,
-          bathrooms: formData.bathrooms,
-          guests: formData.guests,
-          price: formData.price,
-          wellnessFriendly: formData.wellnessFriendly,
-          smokeFriendly: formData.smokeFriendly,
-          allowExtraGuests: formData.allowExtraGuests,
-          extraGuestPrice: formData.extraGuestPrice,
-          amenities: formData.amenities,
-          images: allImageUrls,
-          rooms: roomsData,
-          status: 'draft',
-        };
-
+        // Fallback to localStorage
         const savedProperties = localStorage.getItem(`properties_${userId}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        parsedProperties.push(newProperty);
+        parsedProperties.push({
+          ...propertyData,
+          wellnessFriendly: formData.wellnessFriendly,
+          smokeFriendly: formData.smokeFriendly,
+        });
         localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
 
-        toast.success('Property added successfully!');
+        toast.success('Property submitted for approval!');
         router.push('/host/properties');
       }
     } catch (error: any) {
       console.error('Error creating property:', error);
-      toast.error(error.message || 'Failed to add property. Please try again.');
+      toast.error(error.message || 'Failed to submit property. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -452,451 +377,689 @@ export default function NewPropertyPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-950 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/host/properties"
-            className="text-emerald-500 hover:text-emerald-400 mb-4 inline-flex items-center gap-2"
-          >
-            <ArrowLeft size={20} />
-            Back to Properties
-          </Link>
-          <h1 className="text-4xl font-bold text-white mb-2">Add New Property</h1>
-          <p className="text-gray-400">Fill in the details to list your property</p>
+  // Welcome Screen (Step 0)
+  const renderWelcome = () => (
+    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+      <div className="max-w-lg w-full">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-8 leading-tight">
+          It's easy to get started on VibesBnB
+        </h1>
+
+        <div className="space-y-8 mb-12">
+          <div className="flex gap-6">
+            <div className="flex-shrink-0 w-8 text-2xl font-bold text-white">1</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold text-white mb-1">Tell us about your place</h3>
+              <p className="text-gray-400">
+                Share some basic info, such as where it is and how many guests can stay.
+              </p>
+            </div>
+            <div className="w-20 h-20 flex-shrink-0 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 rounded-2xl flex items-center justify-center">
+              <Home className="w-10 h-10 text-emerald-400" />
+            </div>
+          </div>
+
+          <div className="flex gap-6">
+            <div className="flex-shrink-0 w-8 text-2xl font-bold text-white">2</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold text-white mb-1">Make it stand out</h3>
+              <p className="text-gray-400">
+                Add 5 or more photos plus a title and description — we'll help you out.
+              </p>
+            </div>
+            <div className="w-20 h-20 flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-2xl flex items-center justify-center">
+              <Upload className="w-10 h-10 text-purple-400" />
+            </div>
+          </div>
+
+          <div className="flex gap-6">
+            <div className="flex-shrink-0 w-8 text-2xl font-bold text-white">3</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold text-white mb-1">Finish up and publish</h3>
+              <p className="text-gray-400">
+                Choose if you'd like to start with an experienced guest, set a starting price, and publish your listing.
+              </p>
+            </div>
+            <div className="w-20 h-20 flex-shrink-0 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-2xl flex items-center justify-center">
+              <CheckCircle2 className="w-10 h-10 text-blue-400" />
+            </div>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Info */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Basic Information</h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Property Type *
-                </label>
-                <select
-                  required
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
-                >
-                  <option value="Entire House">Entire House</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Condo">Condo</option>
-                  <option value="Private Rooms">Private Rooms</option>
-                  <option value="Room inside property">Room inside property</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Property Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                  placeholder="e.g., Mountain View Cabin"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                  placeholder="Describe your property, amenities, and what makes it special..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Location *
-                </label>
-                <LocationPicker
-                  location={formData.location}
-                  coordinates={formData.coordinates}
-                  onLocationChange={(location, coordinates) => {
-                    setFormData({
-                      ...formData,
-                      location,
-                      coordinates,
-                    });
-                  }}
-                  className="mb-2"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Bedrooms
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.bedrooms}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bedrooms: parseInt(e.target.value) })
-                    }
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Bathrooms
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.bathrooms}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bathrooms: parseInt(e.target.value) })
-                    }
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Guests</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.guests}
-                    onChange={(e) =>
-                      setFormData({ ...formData, guests: parseInt(e.target.value) })
-                    }
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Price/Night ($)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price: parseInt(e.target.value) })
-                    }
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
-                  />
-                </div>
-              </div>
+        {/* Bulk Upload Option */}
+        <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-purple-500/30 rounded-2xl p-6 mb-8">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <FileSpreadsheet className="text-purple-400" size={24} />
             </div>
-          </div>
-
-          {/* Property Features */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Property Features</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
-                className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
-                  formData.wellnessFriendly
-                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_8px_20px_rgba(16,185,129,0.25)]'
-                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50 hover:bg-gray-800'
-                }`}
+            <div className="flex-1">
+              <h3 className="text-white font-semibold text-lg mb-1">Have multiple properties?</h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Use our bulk upload feature to import multiple properties at once from a spreadsheet or external listing.
+              </p>
+              <Link
+                href="/host/properties/bulk-import"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-sm transition"
               >
-                <span className="text-2xl">🧘</span>
-                <span>Wellness-Friendly</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, smokeFriendly: !formData.smokeFriendly })}
-                className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
-                  formData.smokeFriendly
-                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_8px_20px_rgba(16,185,129,0.25)]'
-                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50 hover:bg-gray-800'
-                }`}
-              >
-                <span className="text-2xl">🌿</span>
-                <span>Smoke-Friendly</span>
-              </button>
+                <Upload size={16} />
+                Bulk Upload Properties
+              </Link>
             </div>
           </div>
+        </div>
 
-          {/* Guest Policy */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold text-white">Extra Guest Policy</h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  Allow guests to bring more people than the base capacity for an extra fee
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, allowExtraGuests: !formData.allowExtraGuests })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.allowExtraGuests ? 'bg-emerald-600' : 'bg-gray-700'
-                }`}
-              >
-                <div
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    formData.allowExtraGuests ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {formData.allowExtraGuests && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="max-w-xs">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Price per Extra Guest ($)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.extraGuestPrice}
-                      onChange={(e) => setFormData({ ...formData, extraGuestPrice: parseInt(e.target.value) || 0 })}
-                      className="w-full pl-8 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
-                      placeholder="e.g., 50"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5 bg-white/5 p-2 rounded-lg border border-white/5">
-                    <span className="text-emerald-500">💡</span>
-                    Fee is charged per extra guest, per night.
-                  </p>
-                </div>
-              </div>
-            )}
+        {/* Admin Approval Notice */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-8">
+          <div className="flex items-center gap-3">
+            <Sparkles className="text-amber-500 flex-shrink-0" size={20} />
+            <p className="text-amber-200 text-sm">
+              All properties are reviewed by our team before going live to ensure quality and compliance.
+            </p>
           </div>
+        </div>
 
-          {/* Multi-Unit Configuration */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold text-white">Multiple Units</h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  Enable this if your property has multiple bookable units (e.g., 5 apartments in one building)
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsMultiUnit(!isMultiUnit)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isMultiUnit ? 'bg-emerald-600' : 'bg-gray-700'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    isMultiUnit ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {isMultiUnit && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-gray-300 text-sm">
-                    Configure each unit with its own name, price, and guest capacity. Guests will be able to select which units they want to book.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={addRoom}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm"
-                  >
-                    <Plus size={18} />
-                    Add Unit
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {rooms.map((room, index) => (
-                    <div key={room.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Unit Name</label>
-                          <input
-                            type="text"
-                            value={room.name}
-                            onChange={(e) => updateRoom(room.id, { name: e.target.value })}
-                            placeholder="e.g., Studio A, Suite 101"
-                            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500 text-sm"
-                          />
-                        </div>
-                        <div className="w-28">
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Price/Night</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={room.price}
-                              onChange={(e) => updateRoom(room.id, { price: parseInt(e.target.value) || 0 })}
-                              className="w-full pl-7 pr-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div className="w-24">
-                          <label className="block text-xs font-medium text-gray-400 mb-1">Max Guests</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={room.guests}
-                            onChange={(e) => updateRoom(room.id, { guests: parseInt(e.target.value) || 1 })}
-                            className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white text-sm"
-                          />
-                        </div>
-                        {rooms.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeRoom(room.id)}
-                            className="p-2 text-red-500 hover:text-red-400 transition mt-5"
-                            title="Remove unit"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="text-xs text-gray-500 mt-2">
-                  💡 Tip: You can add photos for each unit in the "Photos by Room" section below
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Amenities */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Amenities</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableAmenities.map((amenity) => (
-                <button
-                  key={amenity}
-                  type="button"
-                  onClick={() => toggleAmenity(amenity)}
-                  className={`px-4 py-3 rounded-lg border transition ${formData.amenities.includes(amenity)
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                    }`}
-                >
-                  {amenity}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Images by Room */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white">Photos by Room</h2>
-              <button
-                type="button"
-                onClick={addRoom}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-              >
-                <Plus size={20} />
-                Add Room
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {rooms.map((room, roomIndex) => (
-                <div key={room.id} className="border border-gray-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <input
-                      type="text"
-                      value={room.name}
-                      onChange={(e) => updateRoomName(room.id, e.target.value)}
-                      placeholder="Room name (e.g., Living Room, Bedroom 1, Kitchen)"
-                      className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                      required
-                    />
-                    {rooms.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeRoom(room.id)}
-                        className="ml-3 p-2 text-red-500 hover:text-red-400 transition"
-                        title="Remove room"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    )}
-                  </div>
-
-                  <label className="block border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-emerald-500 transition">
-                    <Upload size={32} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-white text-sm mb-1">Click to upload images for {room.name || 'this room'}</p>
-                    <p className="text-xs text-gray-500">Unlimited images (JPG, PNG)</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => handleImageUpload(room.id, e)}
-                      className="hidden"
-                    />
-                  </label>
-
-                  {room.imagePreviewUrls.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      {room.imagePreviewUrls.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`${room.name} - Image ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(room.id, index)}
-                            className="absolute top-2 right-2 p-1 bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition"
-                          >
-                            <X size={16} className="text-white" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Submit */}
-          <div className="flex gap-4">
-            <Link
-              href="/host/properties"
-              className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition text-center"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : 'Add Property'}
-            </button>
-          </div>
-        </form>
+        <button
+          onClick={nextStep}
+          className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-lg transition flex items-center justify-center gap-2"
+        >
+          Get started
+          <ChevronRight size={20} />
+        </button>
       </div>
     </div>
   );
+
+  // Property Type Selection (Step 1)
+  const renderPropertyType = () => (
+    <div className="max-w-3xl mx-auto px-4">
+      <div className="mb-8">
+        <p className="text-gray-400 text-sm font-medium mb-2">Step 1</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+          Tell us about your place
+        </h1>
+        <p className="text-gray-400">
+          In this step, we'll ask you which type of property you have and if guests will book the entire place or just a room.
+        </p>
+      </div>
+
+      <h2 className="text-xl font-semibold text-white mb-6">
+        Which of these best describes your place?
+      </h2>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {PROPERTY_TYPES.map((type) => {
+          const Icon = type.icon;
+          const isSelected = formData.propertyType === type.id;
+          return (
+            <button
+              key={type.id}
+              onClick={() => setFormData({ ...formData, propertyType: type.id })}
+              className={`p-4 rounded-xl border-2 transition-all text-left ${
+                isSelected
+                  ? 'border-white bg-white/10'
+                  : 'border-gray-700 hover:border-gray-500'
+              }`}
+            >
+              <Icon size={28} className={isSelected ? 'text-white' : 'text-gray-400'} />
+              <p className={`mt-2 font-medium ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                {type.label}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // Guest Access Type (Step 2)
+  const renderGuestAccess = () => (
+    <div className="max-w-2xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          What type of place will guests have?
+        </h1>
+      </div>
+
+      <div className="space-y-4">
+        {GUEST_ACCESS_TYPES.map((type) => {
+          const Icon = type.icon;
+          const isSelected = formData.guestAccessType === type.id;
+          return (
+            <button
+              key={type.id}
+              onClick={() => setFormData({ ...formData, guestAccessType: type.id })}
+              className={`w-full p-6 rounded-xl border-2 transition-all text-left flex items-start gap-4 ${
+                isSelected
+                  ? 'border-white bg-white/10'
+                  : 'border-gray-700 hover:border-gray-500'
+              }`}
+            >
+              <div className="flex-1">
+                <p className={`text-lg font-semibold ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                  {type.label}
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  {type.description}
+                </p>
+              </div>
+              <Icon size={32} className={isSelected ? 'text-white' : 'text-gray-500'} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // Location (Step 3)
+  const renderLocation = () => (
+    <div className="max-w-2xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          Where's your place located?
+        </h1>
+        <p className="text-gray-400">
+          Your address is only shared with guests after they've made a reservation.
+        </p>
+      </div>
+
+      <LocationPicker
+        location={formData.location}
+        coordinates={formData.coordinates}
+        onLocationChange={(location, coordinates) => {
+          setFormData({
+            ...formData,
+            location,
+            coordinates,
+          });
+        }}
+        className="mb-4"
+      />
+
+      {formData.coordinates && (
+        <div className="mt-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <CheckCircle2 size={20} />
+            <span className="font-medium">Location confirmed</span>
+          </div>
+          <p className="text-gray-400 text-sm mt-1">{formData.location}</p>
+        </div>
+      )}
+    </div>
+  );
+
+  // Basic Details (Step 4)
+  const renderBasics = () => (
+    <div className="max-w-2xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          Share some basics about your place
+        </h1>
+        <p className="text-gray-400">
+          You'll add more details later, like bed types and listing description.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <label className="block text-white font-medium mb-2">Property Name *</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+            placeholder="Give your place a catchy name"
+          />
+        </div>
+
+        <div>
+          <label className="block text-white font-medium mb-2">Description</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={4}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+            placeholder="Tell guests what makes your place special..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-gray-400 text-sm mb-2">Guests</label>
+            <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, guests: Math.max(1, formData.guests - 1) })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                −
+              </button>
+              <span className="text-white font-medium">{formData.guests}</span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, guests: formData.guests + 1 })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-sm mb-2">Bedrooms</label>
+            <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, bedrooms: Math.max(0, formData.bedrooms - 1) })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                −
+              </button>
+              <span className="text-white font-medium">{formData.bedrooms}</span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, bedrooms: formData.bedrooms + 1 })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-sm mb-2">Beds</label>
+            <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, beds: Math.max(1, formData.beds - 1) })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                −
+              </button>
+              <span className="text-white font-medium">{formData.beds}</span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, beds: formData.beds + 1 })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-400 text-sm mb-2">Bathrooms</label>
+            <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, bathrooms: Math.max(0, formData.bathrooms - 1) })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                −
+              </button>
+              <span className="text-white font-medium">{formData.bathrooms}</span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, bathrooms: formData.bathrooms + 1 })}
+                className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Property Features */}
+        <div className="pt-6 border-t border-gray-800">
+          <h3 className="text-white font-medium mb-4">Special Features</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
+              className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
+                formData.wellnessFriendly
+                  ? 'bg-emerald-600 border-emerald-500 text-white'
+                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50'
+              }`}
+            >
+              <span className="text-2xl">🧘</span>
+              <span>Wellness-Friendly</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, smokeFriendly: !formData.smokeFriendly })}
+              className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
+                formData.smokeFriendly
+                  ? 'bg-emerald-600 border-emerald-500 text-white'
+                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50'
+              }`}
+            >
+              <span className="text-2xl">🌿</span>
+              <span>Smoke-Friendly</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Amenities (Step 5)
+  const renderAmenities = () => (
+    <div className="max-w-3xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          Tell guests what your place has to offer
+        </h1>
+        <p className="text-gray-400">
+          You can add more amenities after you publish.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {availableAmenities.map((amenity) => {
+          const isSelected = formData.amenities.includes(amenity);
+          return (
+            <button
+              key={amenity}
+              type="button"
+              onClick={() => toggleAmenity(amenity)}
+              className={`px-4 py-4 rounded-xl border-2 transition text-left ${
+                isSelected
+                  ? 'bg-white/10 border-white text-white'
+                  : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:border-gray-500'
+              }`}
+            >
+              {amenity}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // Photos (Step 6)
+  const renderPhotos = () => (
+    <div className="max-w-3xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          Add some photos of your place
+        </h1>
+        <p className="text-gray-400">
+          You'll need at least 1 photo to get started. Drag to reorder — the first image will be your cover photo.
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {rooms.map((room) => (
+          <div key={room.id} className="border border-gray-700 rounded-xl p-6 bg-gray-900/50">
+            <label className="block border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-500 transition mb-6">
+              <Upload size={40} className="mx-auto text-gray-400 mb-3" />
+              <p className="text-white font-medium mb-1">Click to upload photos</p>
+              <p className="text-gray-500 text-sm">or drag and drop</p>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handleImageUpload(room.id, e)}
+                className="hidden"
+              />
+            </label>
+
+            {room.imagePreviewUrls.length > 0 && (
+              <ImageReorder
+                images={room.imagePreviewUrls}
+                onReorder={(newImages) => reorderImages(room.id, newImages)}
+                onRemove={(index) => removeImage(room.id, index)}
+                roomName="Property"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Pricing (Step 7)
+  const renderPricing = () => (
+    <div className="max-w-xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          Now, set your price
+        </h1>
+        <p className="text-gray-400">
+          You can change it anytime.
+        </p>
+      </div>
+
+      <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <span className="text-5xl font-bold text-white">$</span>
+          <input
+            type="number"
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
+            className="w-32 text-5xl font-bold text-white bg-transparent border-none focus:outline-none text-center"
+            min="0"
+          />
+        </div>
+        <p className="text-gray-400">per night</p>
+      </div>
+
+      {/* Extra Guest Policy */}
+      <div className="mt-8 p-6 bg-gray-900 border border-gray-800 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-white font-medium">Allow extra guests?</h3>
+            <p className="text-gray-400 text-sm">Charge extra for guests beyond base capacity</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, allowExtraGuests: !formData.allowExtraGuests })}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              formData.allowExtraGuests ? 'bg-emerald-600' : 'bg-gray-700'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                formData.allowExtraGuests ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+
+        {formData.allowExtraGuests && (
+          <div className="pt-4 border-t border-gray-800">
+            <label className="block text-gray-400 text-sm mb-2">Price per extra guest</label>
+            <div className="relative w-32">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+              <input
+                type="number"
+                value={formData.extraGuestPrice}
+                onChange={(e) => setFormData({ ...formData, extraGuestPrice: parseInt(e.target.value) || 0 })}
+                className="w-full pl-8 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                min="0"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Review (Step 8)
+  const renderReview = () => {
+    const propertyTypeLabel = PROPERTY_TYPES.find(t => t.id === formData.propertyType)?.label || formData.propertyType;
+    const accessTypeLabel = GUEST_ACCESS_TYPES.find(t => t.id === formData.guestAccessType)?.label || formData.guestAccessType;
+    const coverImage = rooms[0]?.imagePreviewUrls[0];
+
+    return (
+      <div className="max-w-2xl mx-auto px-4">
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Review your listing
+          </h1>
+          <p className="text-gray-400">
+            Here's what we'll show to guests. Make sure everything looks good.
+          </p>
+        </div>
+
+        {/* Preview Card */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mb-8">
+          {coverImage && (
+            <img src={coverImage} alt="Cover" className="w-full h-64 object-cover" />
+          )}
+          <div className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">{formData.name || 'Untitled Property'}</h2>
+                <p className="text-gray-400">{formData.location}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-white">${formData.price}</p>
+                <p className="text-gray-400 text-sm">per night</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 text-gray-300 text-sm mb-4">
+              <span>{propertyTypeLabel}</span>
+              <span>•</span>
+              <span>{accessTypeLabel}</span>
+              <span>•</span>
+              <span>{formData.guests} guests</span>
+              <span>•</span>
+              <span>{formData.bedrooms} bedrooms</span>
+              <span>•</span>
+              <span>{formData.beds} beds</span>
+              <span>•</span>
+              <span>{formData.bathrooms} bathrooms</span>
+            </div>
+
+            {formData.amenities.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.amenities.slice(0, 5).map((amenity) => (
+                  <span key={amenity} className="px-3 py-1 bg-gray-800 text-gray-300 rounded-full text-sm">
+                    {amenity}
+                  </span>
+                ))}
+                {formData.amenities.length > 5 && (
+                  <span className="px-3 py-1 text-gray-500 text-sm">
+                    +{formData.amenities.length - 5} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Admin Approval Notice */}
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <Sparkles className="text-amber-500 flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-amber-200 font-medium">Pending Admin Approval</p>
+              <p className="text-amber-200/70 text-sm mt-1">
+                Your listing will be reviewed by our team before going live. This usually takes 24-48 hours.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render current step content
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0: return renderWelcome();
+      case 1: return renderPropertyType();
+      case 2: return renderGuestAccess();
+      case 3: return renderLocation();
+      case 4: return renderBasics();
+      case 5: return renderAmenities();
+      case 6: return renderPhotos();
+      case 7: return renderPricing();
+      case 8: return renderReview();
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-950">
+      {/* Header */}
+      {currentStep > 0 && (
+        <header className="fixed top-0 left-0 right-0 h-16 bg-gray-950/95 backdrop-blur border-b border-gray-800 z-50 flex items-center justify-between px-6">
+          <Link href="/host/properties" className="text-white hover:text-gray-300">
+            <X size={24} />
+          </Link>
+          
+          <div className="flex items-center gap-4">
+            <button className="text-gray-400 hover:text-white flex items-center gap-2">
+              <HelpCircle size={18} />
+              Questions?
+            </button>
+            <button
+              onClick={() => {
+                toast.success('Progress saved!');
+              }}
+              className="px-4 py-2 border border-gray-700 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+            >
+              Save & exit
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* Progress Bar */}
+      {currentStep > 0 && (
+        <div className="fixed top-16 left-0 right-0 h-1 bg-gray-800 z-40">
+          <div 
+            className="h-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${((currentStep) / (steps.length - 1)) * 100}%` }}
+          />
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className={currentStep > 0 ? 'pt-24 pb-32' : 'py-12'}>
+        {renderStepContent()}
+      </main>
+
+      {/* Footer Navigation */}
+      {currentStep > 0 && (
+        <footer className="fixed bottom-0 left-0 right-0 h-20 bg-gray-950 border-t border-gray-800 flex items-center justify-between px-6">
+          <button
+            onClick={prevStep}
+            className="px-6 py-3 text-white font-semibold underline hover:text-gray-300 transition"
+          >
+            Back
+          </button>
+
+          {currentStep < steps.length - 1 ? (
+            <button
+              onClick={nextStep}
+              disabled={!canProceed()}
+              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg font-semibold transition flex items-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit for Approval'
+              )}
+            </button>
+          )}
+        </footer>
+      )}
+    </div>
+  );
 }
-
-
-

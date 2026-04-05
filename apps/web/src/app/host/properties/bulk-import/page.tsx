@@ -1,431 +1,458 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Check, Loader2 } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Upload, 
+  FileSpreadsheet, 
+  CheckCircle2, 
+  AlertTriangle,
+  Download,
+  X,
+  Loader2,
+  ExternalLink
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
-interface ImportedProperty {
-  url: string;
-  status: 'pending' | 'importing' | 'success' | 'error';
-  data?: any;
-  error?: string;
+interface BulkProperty {
+  name: string;
+  type: string;
+  guestAccessType: string;
+  location: string;
+  guests: number;
+  bedrooms: number;
+  beds: number;
+  bathrooms: number;
+  price: number;
+  description?: string;
+  amenities?: string;
+  wellnessFriendly?: boolean;
+  smokeFriendly?: boolean;
+}
+
+interface ParsedResult {
+  success: boolean;
+  properties: BulkProperty[];
+  errors: string[];
 }
 
 export default function BulkImportPage() {
-  const router = useRouter();
   const { user, loading } = useAuth();
-  const [urls, setUrls] = useState<string[]>(['']);
+  const router = useRouter();
   const [importing, setImporting] = useState(false);
-  const [importedProperties, setImportedProperties] = useState<ImportedProperty[]>([]);
-  const [importingIndex, setImportingIndex] = useState(-1);
+  const [parsedData, setParsedData] = useState<ParsedResult | null>(null);
+  const [step, setStep] = useState<'upload' | 'review' | 'importing' | 'complete'>('upload');
+  const [importResults, setImportResults] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const addUrlField = () => {
-    setUrls([...urls, '']);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const result = parseCSV(text);
+      setParsedData(result);
+      if (result.success && result.properties.length > 0) {
+        setStep('review');
+      }
+    };
+    reader.readAsText(file);
   };
 
-  const removeUrlField = (index: number) => {
-    setUrls(urls.filter((_, i) => i !== index));
+  const parseCSV = (text: string): ParsedResult => {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) {
+      return { success: false, properties: [], errors: ['File must have a header row and at least one data row'] };
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+    const properties: BulkProperty[] = [];
+    const errors: string[] = [];
+
+    const requiredHeaders = ['name', 'type', 'location', 'price', 'guests'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      return { success: false, properties: [], errors: [`Missing required columns: ${missingHeaders.join(', ')}`] };
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      if (values.length < headers.length) {
+        errors.push(`Row ${i + 1}: Not enough columns`);
+        continue;
+      }
+
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => {
+        row[h] = values[idx] || '';
+      });
+
+      if (!row.name || !row.location || !row.price) {
+        errors.push(`Row ${i + 1}: Missing required fields (name, location, or price)`);
+        continue;
+      }
+
+      properties.push({
+        name: row.name,
+        type: row.type || 'House',
+        guestAccessType: row.guestaccesstype || row['guest access type'] || 'An entire place',
+        location: row.location,
+        guests: parseInt(row.guests) || 2,
+        bedrooms: parseInt(row.bedrooms) || 1,
+        beds: parseInt(row.beds) || 1,
+        bathrooms: parseInt(row.bathrooms) || 1,
+        price: parseFloat(row.price) || 100,
+        description: row.description || '',
+        amenities: row.amenities || '',
+        wellnessFriendly: row.wellnessfriendly?.toLowerCase() === 'true' || row.wellnessfriendly === '1',
+        smokeFriendly: row.smokefriendly?.toLowerCase() === 'true' || row.smokefriendly === '1',
+      });
+    }
+
+    return {
+      success: properties.length > 0,
+      properties,
+      errors
+    };
   };
 
-  const updateUrl = (index: number, value: string) => {
-    const newUrls = [...urls];
-    newUrls[index] = value;
-    setUrls(newUrls);
-  };
+  const handleImport = async () => {
+    if (!parsedData || !user) return;
 
-  const handleBulkImport = async () => {
-    // Filter out empty URLs
-    const validUrls = urls.filter(url => url.trim() !== '');
-    
-    if (validUrls.length === 0) {
-      toast.error('Please enter at least one URL');
-      return;
-    }
-
-    // Validate all URLs are Esca Management URLs
-    const invalidUrls = validUrls.filter(url => !url.includes('esca-management.com'));
-    if (invalidUrls.length > 0) {
-      toast.error('All URLs must be from esca-management.com');
-      return;
-    }
-
-    if (!user) {
-      toast.error('You must be logged in to import properties');
-      return;
-    }
-
+    setStep('importing');
     setImporting(true);
-    setImportedProperties(validUrls.map(url => ({ url, status: 'pending' })));
 
     const supabase = createClient();
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-    const userId = supabaseUser?.id || user.id;
+    let successCount = 0;
+    let failedCount = 0;
 
-    const importedData: any[] = [];
-
-    // Import each property sequentially
-    for (let i = 0; i < validUrls.length; i++) {
-      const url = validUrls[i];
-      setImportingIndex(i);
-      
-      setImportedProperties(prev => 
-        prev.map((item, idx) => 
-          idx === i ? { ...item, status: 'importing' } : item
-        )
-      );
-
+    for (const property of parsedData.properties) {
       try {
-        // Call the scraping API
-        const response = await fetch('/api/scrape-property', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ url }),
-        });
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        const userId = supabaseUser?.id || user.id;
+        const propertyId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Failed to import property');
-        }
-
-        const scrapedData = result.data;
-        
-        // Extract location from title if not found
-        let location = scrapedData.location || '';
-        if (!location && scrapedData.name) {
-          const locationMatch = scrapedData.name.match(/in\s+(.+?)(?:\s*·|$)/i);
-          if (locationMatch) {
-            location = locationMatch[1].trim();
-          }
-        }
-
-        // Normalize and validate image URLs
-        const normalizeImageUrl = (imgUrl: string): string | null => {
-          if (!imgUrl || typeof imgUrl !== 'string') return null;
-          
-          // If it's already a data URL or placeholder, return as-is
-          if (imgUrl.startsWith('data:') || imgUrl.startsWith('https://via.placeholder.com')) {
-            return imgUrl;
-          }
-          
-          // Try to make it an absolute URL
-          try {
-            const urlObj = new URL(imgUrl);
-            // Prefer HTTPS
-            if (urlObj.protocol === 'http:' && urlObj.hostname !== 'localhost') {
-              urlObj.protocol = 'https:';
-            }
-            return urlObj.href;
-          } catch (e) {
-            // Not absolute, try to make it absolute using the source URL
-            try {
-              const baseUrl = new URL(url);
-              const absoluteUrl = new URL(imgUrl, baseUrl.href);
-              if (absoluteUrl.protocol === 'http:' && absoluteUrl.hostname !== 'localhost') {
-                absoluteUrl.protocol = 'https:';
-              }
-              return absoluteUrl.href;
-            } catch (e2) {
-              console.warn(`[Bulk Import] Failed to normalize image URL: ${imgUrl}`, e2);
-              return null;
-            }
-          }
-        };
-
-        // Normalize all image URLs
-        let images = (scrapedData.images || [])
-          .map(normalizeImageUrl)
-          .filter((url: string | null): url is string => url !== null);
-        
-        // Ensure we have at least one image - add placeholder if none found
-        if (images.length === 0) {
-          console.warn(`[Bulk Import] No valid images found for ${scrapedData.name || url}, adding placeholder`);
-          images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
-        }
+        const amenitiesArray = property.amenities 
+          ? property.amenities.split(';').map(a => a.trim()).filter(Boolean)
+          : [];
 
         const propertyData = {
-          name: scrapedData.name || 'Imported Property',
-          description: scrapedData.description || '',
-          location: location || 'Location not found',
-          bedrooms: scrapedData.bedrooms || 1,
-          bathrooms: scrapedData.bathrooms || 1,
-          beds: scrapedData.beds || 1,
-          guests: scrapedData.guests || 2,
-          price: scrapedData.price || 100,
-          images: images, // Use the validated images array
-          amenities: scrapedData.amenities || [],
-          wellnessFriendly: scrapedData.wellnessFriendly || false,
-          smokeFriendly: false,
-          googleMapsUrl: scrapedData.googleMapsUrl,
-          coordinates: scrapedData.coordinates,
-          sourceUrl: url, // Store the original import URL
-          status: 'draft', // Always save as draft so host can review
+          id: propertyId,
+          host_id: userId,
+          name: property.name,
+          title: property.name,
+          description: property.description,
+          location: property.location,
+          price: property.price,
+          images: [],
+          amenities: amenitiesArray,
+          bedrooms: property.bedrooms,
+          bathrooms: property.bathrooms,
+          beds: property.beds,
+          guests: property.guests,
+          status: 'pending_approval',
+          type: property.type,
+          guest_access_type: property.guestAccessType,
+          wellness_friendly: property.wellnessFriendly,
+          smoke_friendly: property.smokeFriendly,
         };
-        
-        console.log(`[Bulk Import] Property ${propertyData.name} - Images: ${images.length}`);
 
-        importedData.push(propertyData);
+        const { error } = await supabase.from('properties').insert(propertyData);
 
-        setImportedProperties(prev => 
-          prev.map((item, idx) => 
-            idx === i ? { ...item, status: 'success', data: propertyData } : item
-          )
-        );
-      } catch (error: any) {
-        console.error(`Error importing ${url}:`, error);
-        setImportedProperties(prev => 
-          prev.map((item, idx) => 
-            idx === i ? { ...item, status: 'error', error: error.message } : item
-          )
-        );
-      }
-    }
-
-    setImportingIndex(-1);
-
-    if (importedData.length === 0) {
-      toast.error('No properties were successfully imported');
-      setImporting(false);
-      return;
-    }
-
-    // Save all imported properties
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const isSupabaseConfigured = supabaseUrl && 
-                                    supabaseUrl !== '' &&
-                                    supabaseUrl !== 'https://placeholder.supabase.co';
-      
-      if (isSupabaseConfigured && supabaseUser) {
-        // Save to Supabase
-        const propertiesToInsert = importedData.map((data, index) => ({
-          id: `${userId}_${Date.now()}_${index}`,
-          host_id: supabaseUser.id,
-          name: data.name,
-          title: data.name,
-          description: data.description,
-          location: data.location,
-          price: data.price,
-          images: data.images,
-          amenities: data.amenities,
-          guests: data.guests,
-          bedrooms: data.bedrooms,
-          bathrooms: data.bathrooms,
-          beds: data.beds,
-          status: 'draft',
-          wellness_friendly: data.wellnessFriendly,
-          smoke_friendly: data.smokeFriendly,
-          google_maps_url: data.googleMapsUrl,
-          latitude: data.coordinates?.lat,
-          longitude: data.coordinates?.lng,
-          source_url: data.sourceUrl || null,
-        }));
-
-        const { error: insertError } = await supabase
-          .from('properties')
-          .insert(propertiesToInsert);
-
-        if (insertError) {
-          throw insertError;
+        if (error) {
+          console.error('Error inserting property:', error);
+          failedCount++;
+        } else {
+          successCount++;
         }
-
-        // Also save to localStorage as backup
-        const savedProperties = localStorage.getItem(`properties_${userId}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        importedData.forEach((data, index) => {
-          parsedProperties.push({
-            id: `${userId}_${Date.now()}_${index}`,
-            ...data,
-          });
-        });
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
-      } else {
-        // Save to localStorage only
-        const savedProperties = localStorage.getItem(`properties_${userId}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        importedData.forEach((data, index) => {
-          parsedProperties.push({
-            id: `${userId}_${Date.now()}_${index}`,
-            ...data,
-          });
-        });
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+      } catch (error) {
+        console.error('Error importing property:', error);
+        failedCount++;
       }
-
-      toast.success(`Successfully imported ${importedData.length} property/properties! They are saved as drafts for review.`);
-      router.push('/host/properties');
-    } catch (error: any) {
-      console.error('Error saving imported properties:', error);
-      toast.error(`Failed to save properties: ${error.message}`);
-    } finally {
-      setImporting(false);
     }
+
+    setImportResults({ success: successCount, failed: failedCount });
+    setStep('complete');
+    setImporting(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} properties submitted for approval!`);
+    }
+    if (failedCount > 0) {
+      toast.error(`${failedCount} properties failed to import`);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'description', 'amenities', 'wellnessFriendly', 'smokeFriendly'];
+    const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false'];
+    
+    const csvContent = [headers.join(','), exampleRow.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vibesbnb-property-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
-        </div>
+        <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-950 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
+      <div className="container mx-auto px-4 max-w-3xl">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => router.push('/host/properties')}
+          <Link
+            href="/host/properties/new"
             className="text-emerald-500 hover:text-emerald-400 mb-4 inline-flex items-center gap-2"
           >
             <ArrowLeft size={20} />
-            Back to Properties
-          </button>
+            Back to New Property
+          </Link>
           <h1 className="text-4xl font-bold text-white mb-2">Bulk Import Properties</h1>
-          <p className="text-gray-400">Import multiple properties from Esca Management URLs</p>
+          <p className="text-gray-400">Import multiple properties at once from a CSV file</p>
         </div>
 
-        {/* URL Input Fields */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold text-white">Property URLs</h2>
-          </div>
-
-          <div className="space-y-3">
-            {urls.map((url, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="url"
-                  value={url}
-                  onChange={(e) => updateUrl(index, e.target.value)}
-                  placeholder="Paste property link here"
-                  className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-                  disabled={importing}
-                />
-                {urls.length > 1 && (
+        {/* Upload Step */}
+        {step === 'upload' && (
+          <div className="space-y-8">
+            {/* Template Download */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <FileSpreadsheet className="text-blue-400" size={24} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-white font-semibold text-lg mb-1">Download CSV Template</h3>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Start with our template to ensure your data is formatted correctly.
+                  </p>
                   <button
-                    onClick={() => removeUrlField(index)}
-                    className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                    disabled={importing}
+                    onClick={downloadTemplate}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-sm transition"
                   >
-                    <X size={20} />
+                    <Download size={16} />
+                    Download Template
                   </button>
-                )}
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-gray-400">
-              1 URL per line
-            </p>
-            <button
-              onClick={addUrlField}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
-              disabled={importing}
-            >
-              <Upload size={16} />
-              Add URL
-            </button>
-          </div>
-        </div>
+            {/* File Upload */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h3 className="text-white font-semibold text-lg mb-4">Upload Your CSV File</h3>
+              
+              <label className="block border-2 border-dashed border-gray-700 rounded-xl p-12 text-center cursor-pointer hover:border-emerald-500 transition">
+                <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+                <p className="text-white font-medium mb-2">Click to upload or drag and drop</p>
+                <p className="text-gray-500 text-sm">CSV files only (max 1MB)</p>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
 
-        {/* Import Status */}
-        {importedProperties.length > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
-            <h2 className="text-xl font-semibold text-white mb-4">Import Status</h2>
-            <div className="space-y-2">
-              {importedProperties.map((item, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg border ${
-                    item.status === 'success'
-                      ? 'bg-emerald-900/30 border-emerald-700'
-                      : item.status === 'error'
-                      ? 'bg-red-900/30 border-red-700'
-                      : item.status === 'importing'
-                      ? 'bg-blue-900/30 border-blue-700'
-                      : 'bg-gray-800 border-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-300 truncate">{item.url}</p>
-                      {item.data && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {item.data.name} - {item.data.location}
-                        </p>
-                      )}
-                      {item.error && (
-                        <p className="text-xs text-red-400 mt-1">{item.error}</p>
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      {item.status === 'pending' && (
-                        <div className="w-5 h-5 border-2 border-gray-500 rounded-full"></div>
-                      )}
-                      {item.status === 'importing' && (
-                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                      )}
-                      {item.status === 'success' && (
-                        <Check className="w-5 h-5 text-emerald-500" />
-                      )}
-                      {item.status === 'error' && (
-                        <X className="w-5 h-5 text-red-500" />
-                      )}
+              {parsedData && !parsedData.success && (
+                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                    <div>
+                      <p className="text-red-400 font-medium">Error parsing file</p>
+                      <ul className="text-red-400/80 text-sm mt-1 list-disc list-inside">
+                        {parsedData.errors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
+            </div>
+
+            {/* Required Fields Info */}
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+              <h3 className="text-white font-semibold mb-4">Required CSV Columns</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {['name', 'type', 'location', 'price', 'guests'].map((col) => (
+                  <div key={col} className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-500" />
+                    <span className="text-gray-300 text-sm">{col}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
+                <p className="text-gray-500 text-sm">
+                  bedrooms, beds, bathrooms, description, amenities (separated by ;), wellnessFriendly, smokeFriendly
+                </p>
+              </div>
+            </div>
+
+            {/* Admin Notice */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="text-amber-500 flex-shrink-0" size={20} />
+                <p className="text-amber-200 text-sm">
+                  All bulk-imported properties will be submitted for admin approval before going live.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 justify-end">
-          <button
-            onClick={() => router.push('/host/properties')}
-            disabled={importing}
-            className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleBulkImport}
-            disabled={importing || urls.filter(u => u.trim() !== '').length === 0}
-            className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {importing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload size={20} />
-                Import Properties
-              </>
-            )}
-          </button>
-        </div>
+        {/* Review Step */}
+        {step === 'review' && parsedData && (
+          <div className="space-y-6">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-white font-semibold text-lg">Review Properties</h3>
+                  <p className="text-gray-400 text-sm">
+                    {parsedData.properties.length} properties ready to import
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setParsedData(null);
+                    setStep('upload');
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {parsedData.errors.length > 0 && (
+                <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-amber-400 font-medium text-sm mb-2">
+                    {parsedData.errors.length} rows skipped due to errors:
+                  </p>
+                  <ul className="text-amber-400/80 text-xs list-disc list-inside max-h-24 overflow-auto">
+                    {parsedData.errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="space-y-3 max-h-96 overflow-auto">
+                {parsedData.properties.map((prop, index) => (
+                  <div key={index} className="p-4 bg-gray-800/50 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-white font-medium">{prop.name}</h4>
+                        <p className="text-gray-400 text-sm">{prop.location}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-emerald-400 font-medium">${prop.price}/night</p>
+                        <p className="text-gray-500 text-xs">{prop.type}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
+                      <span>{prop.guests} guests</span>
+                      <span>•</span>
+                      <span>{prop.bedrooms} bedrooms</span>
+                      <span>•</span>
+                      <span>{prop.beds} beds</span>
+                      <span>•</span>
+                      <span>{prop.bathrooms} bath</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setParsedData(null);
+                  setStep('upload');
+                }}
+                className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition font-semibold"
+              >
+                Import {parsedData.properties.length} Properties
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Importing Step */}
+        {step === 'importing' && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+            <Loader2 size={48} className="mx-auto text-emerald-500 animate-spin mb-4" />
+            <h3 className="text-white font-semibold text-xl mb-2">Importing Properties...</h3>
+            <p className="text-gray-400">Please wait while we import your properties</p>
+          </div>
+        )}
+
+        {/* Complete Step */}
+        {step === 'complete' && (
+          <div className="space-y-6">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+              <CheckCircle2 size={64} className="mx-auto text-emerald-500 mb-4" />
+              <h3 className="text-white font-semibold text-2xl mb-2">Import Complete!</h3>
+              <p className="text-gray-400 mb-6">
+                {importResults.success} properties submitted for approval
+                {importResults.failed > 0 && `, ${importResults.failed} failed`}
+              </p>
+              
+              <div className="flex gap-4 justify-center">
+                <Link
+                  href="/host/properties"
+                  className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition font-semibold"
+                >
+                  View My Properties
+                </Link>
+                <button
+                  onClick={() => {
+                    setParsedData(null);
+                    setStep('upload');
+                    setImportResults({ success: 0, failed: 0 });
+                  }}
+                  className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+                >
+                  Import More
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="text-amber-500 flex-shrink-0 mt-0.5" size={20} />
+                <div>
+                  <p className="text-amber-200 font-medium">Next Steps</p>
+                  <p className="text-amber-200/70 text-sm mt-1">
+                    Your properties are pending admin approval. You'll receive a notification once they're reviewed. 
+                    Don't forget to add photos to each property!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-

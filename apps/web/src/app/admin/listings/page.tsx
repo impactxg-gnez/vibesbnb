@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2 } from 'lucide-react';
+import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -131,6 +131,54 @@ export default function ManageListingsPage() {
   };
 
   const [syncing, setSyncing] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const handleApproveProperty = async (propertyId: string) => {
+    setApprovingId(propertyId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('properties')
+        .update({ status: 'active' })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+
+      toast.success('Property approved and published!');
+      loadProperties();
+    } catch (error: any) {
+      console.error('Error approving property:', error);
+      toast.error('Failed to approve property');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectProperty = async (propertyId: string) => {
+    const reason = prompt('Please provide a reason for rejection (optional):');
+    
+    setApprovingId(propertyId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('properties')
+        .update({ 
+          status: 'draft',
+          rejection_reason: reason || 'Property did not meet our listing requirements.'
+        })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+
+      toast.success('Property rejected and moved to draft');
+      loadProperties();
+    } catch (error: any) {
+      console.error('Error rejecting property:', error);
+      toast.error('Failed to reject property');
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   const handleSyncAllCoordinates = async () => {
     if (!confirm('This will attempt to find precise coordinates for ALL properties using their Google Maps URLs. Proceed?')) return;
@@ -188,6 +236,29 @@ export default function ManageListingsPage() {
           </button>
         </div>
 
+        {/* Pending Approval Alert */}
+        {properties.filter(p => p.status === 'pending_approval').length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-800">Properties Awaiting Approval</h3>
+                <p className="text-amber-600 text-sm">
+                  {properties.filter(p => p.status === 'pending_approval').length} properties need your review
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setFilters({ ...filters, status: 'pending_approval' })}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium"
+            >
+              View Pending
+            </button>
+          </div>
+        )}
+
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -228,6 +299,7 @@ export default function ManageListingsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
+                <option value="pending_approval">⏳ Pending Approval</option>
                 <option value="active">Active</option>
                 <option value="draft">Draft</option>
                 <option value="inactive">Inactive</option>
@@ -264,14 +336,17 @@ export default function ManageListingsPage() {
                   )}
                   <div className="absolute top-2 right-2">
                     <span
-                      className={`px-2 py-1 text-xs rounded-full ${property.status === 'active'
+                      className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${property.status === 'active'
                           ? 'bg-green-100 text-green-800'
-                          : property.status === 'draft'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
+                          : property.status === 'pending_approval'
+                            ? 'bg-amber-100 text-amber-800'
+                            : property.status === 'draft'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
                         }`}
                     >
-                      {property.status}
+                      {property.status === 'pending_approval' && <Clock className="w-3 h-3" />}
+                      {property.status === 'pending_approval' ? 'Pending Approval' : property.status}
                     </span>
                   </div>
                 </div>
@@ -325,8 +400,34 @@ export default function ManageListingsPage() {
                     </div>
                   )}
 
+                  {/* Approval Actions for Pending Properties */}
+                  {property.status === 'pending_approval' && (
+                    <div className="flex items-center gap-2 pt-3 border-t border-gray-200 mb-3">
+                      <button
+                        onClick={() => handleApproveProperty(property.id)}
+                        disabled={approvingId === property.id}
+                        className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        {approvingId === property.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectProperty(property.id)}
+                        disabled={approvingId === property.id}
+                        className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Reject
+                      </button>
+                    </div>
+                  )}
+
                   {/* Actions */}
-                  <div className="flex items-center gap-2 pt-3 border-t border-gray-200">
+                  <div className={`flex items-center gap-2 ${property.status !== 'pending_approval' ? 'pt-3 border-t border-gray-200' : ''}`}>
                     <Link
                       href={`/listings/${property.id}`}
                       target="_blank"
