@@ -594,15 +594,28 @@ export default function ListingDetailPage() {
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {reviewsData.slice(0, 4).map((review) => (
-                            <div key={review.id} className="bg-white/5 border border-white/5 rounded-2xl p-5">
+                            <div key={review.id} className={`bg-white/5 border rounded-2xl p-5 ${review.is_team_review ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/5'}`}>
                               <div className="flex items-center gap-3 mb-3">
-                                <img 
-                                  src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
-                                  className="w-10 h-10 rounded-full border border-white/10" 
-                                  alt="reviewer"
-                                />
+                                {review.is_team_review ? (
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center border border-purple-400/30">
+                                    <span className="text-white text-xs font-bold">VB</span>
+                                  </div>
+                                ) : (
+                                  <img 
+                                    src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
+                                    className="w-10 h-10 rounded-full border border-white/10" 
+                                    alt="reviewer"
+                                  />
+                                )}
                                 <div>
-                                  <div className="text-white font-bold text-sm">{review.profiles?.full_name || 'Guest'}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-bold text-sm ${review.is_team_review ? 'text-purple-400' : 'text-white'}`}>
+                                      {review.is_team_review ? (review.reviewer_name || 'VibesBNB Team') : (review.profiles?.full_name || 'Guest')}
+                                    </span>
+                                    {review.is_team_review && (
+                                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/20 text-purple-400 rounded">VERIFIED</span>
+                                    )}
+                                  </div>
                                   <div className="text-gray-500 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
                                 </div>
                                 <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
