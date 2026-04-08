@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS pending_host_applications (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add notes column if it doesn't exist (for existing tables)
+ALTER TABLE pending_host_applications ADD COLUMN IF NOT EXISTS notes TEXT;
+
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_pending_host_applications_status ON pending_host_applications(status);
 CREATE INDEX IF NOT EXISTS idx_pending_host_applications_email ON pending_host_applications(email);
@@ -30,6 +33,12 @@ CREATE INDEX IF NOT EXISTS idx_pending_host_applications_created_at ON pending_h
 
 -- Enable Row Level Security
 ALTER TABLE pending_host_applications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Admins can view all host applications" ON pending_host_applications;
+DROP POLICY IF EXISTS "Admins can update host applications" ON pending_host_applications;
+DROP POLICY IF EXISTS "Anyone can submit host application" ON pending_host_applications;
+DROP POLICY IF EXISTS "Users can view own application" ON pending_host_applications;
 
 -- Policy: Admins can view all applications
 CREATE POLICY "Admins can view all host applications"
