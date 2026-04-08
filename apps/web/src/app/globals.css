@@ -54,5 +54,70 @@
   scrollbar-color: rgba(16, 185, 129, 0.5) #0a0a0a;
 }
 
+/* Prevent layout shifts during hydration */
+@layer utilities {
+  .no-layout-shift {
+    contain: layout style;
+  }
+  
+  /* Stable container heights for loading states */
+  .min-h-content {
+    min-height: calc(100vh - 80px);
+  }
+  
+  /* Prevent flicker on images */
+  .no-flicker {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  
+  /* Smooth transitions without reflow */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform, opacity;
+  }
+}
 
+/* Ensure stable page container */
+main {
+  min-height: calc(100vh - 80px);
+}
 
+/* Prevent FOUC (Flash of Unstyled Content) */
+html {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Stable image containers */
+.aspect-square {
+  aspect-ratio: 1 / 1;
+}
+
+.aspect-video {
+  aspect-ratio: 16 / 9;
+}
+
+.aspect-property {
+  aspect-ratio: 4 / 3;
+}
+
+/* Custom scrollbar for chat windows to prevent flicker */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

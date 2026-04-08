@@ -15,6 +15,12 @@ export function Header() {
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<{ email: string; name: string; role: string }[]>([]);
   const [currentMode, setCurrentMode] = useState<'traveling' | 'hosting'>('traveling');
+  const [mounted, setMounted] = useState(false);
+
+  // Set mounted after hydration to prevent SSR/client mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Function to load saved accounts
   const loadAccounts = () => {
@@ -207,8 +213,8 @@ export function Header() {
               </svg>
               <span className="hidden sm:inline">Calendar</span>
             </Link>
-            {/* Mode Switcher Toggle */}
-            {user && (
+            {/* Mode Switcher Toggle - Only render after mount to prevent hydration mismatch */}
+            {user && mounted && (
               <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44 relative group">
                 <div 
                   className={`absolute h-[30px] w-[84px] bg-primary-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
@@ -234,6 +240,10 @@ export function Header() {
                   Hosting
                 </button>
               </div>
+            )}
+            {/* Placeholder for mode switcher before mount to prevent layout shift */}
+            {user && !mounted && (
+              <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44" />
             )}
 
             <button className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-400 transition-colors duration-300 group">

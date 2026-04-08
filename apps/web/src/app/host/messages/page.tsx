@@ -170,7 +170,7 @@ export default function HostMessagesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[75vh]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ minHeight: 'calc(100vh - 200px)', height: '75vh' }}>
           {/* Conversation List */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
@@ -185,11 +185,20 @@ export default function HostMessagesPage() {
               )}
             </div>
             
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
               {loadingList ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-                  <p className="text-gray-500 text-sm">Loading chats...</p>
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="animate-pulse bg-gray-800/50 rounded-xl p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gray-700 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-gray-700 rounded w-3/4" />
+                          <div className="h-3 bg-gray-700 rounded w-1/2" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : conversations.length === 0 ? (
                 <div className="text-center py-12">
