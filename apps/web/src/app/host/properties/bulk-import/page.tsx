@@ -13,7 +13,9 @@ import {
   Download,
   X,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Globe,
+  FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -32,6 +34,7 @@ interface BulkProperty {
   amenities?: string;
   wellnessFriendly?: boolean;
   smokeFriendly?: boolean;
+  imageUrls?: string[];
 }
 
 interface ParsedResult {
@@ -47,6 +50,9 @@ export default function BulkImportPage() {
   const [parsedData, setParsedData] = useState<ParsedResult | null>(null);
   const [step, setStep] = useState<'upload' | 'review' | 'importing' | 'complete'>('upload');
   const [importResults, setImportResults] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
+  const [importMode, setImportMode] = useState<'csv' | 'url'>('csv');
+  const [externalUrl, setExternalUrl] = useState('');
+  const [fetchingUrl, setFetchingUrl] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -97,6 +103,13 @@ export default function BulkImportPage() {
         continue;
       }
 
+      // Parse image URLs if present (pipe-separated)
+      const imageUrlsStr = row.image_urls || row.imageurls || row.images || '';
+      const imageUrls = imageUrlsStr
+        .split('|')
+        .map(url => url.trim())
+        .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')));
+
       properties.push({
         name: row.name,
         type: row.type || 'House',
@@ -111,6 +124,7 @@ export default function BulkImportPage() {
         amenities: row.amenities || '',
         wellnessFriendly: row.wellnessfriendly?.toLowerCase() === 'true' || row.wellnessfriendly === '1',
         smokeFriendly: row.smokefriendly?.toLowerCase() === 'true' || row.smokefriendly === '1',
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       });
     }
 
@@ -119,6 +133,39 @@ export default function BulkImportPage() {
       properties,
       errors
     };
+  };
+
+  const handleUrlFetch = async () => {
+    if (!externalUrl.trim()) {
+      toast.error('Please enter a URL');
+      return;
+    }
+
+    setFetchingUrl(true);
+    try {
+      // Fetch the CSV from the external URL
+      const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(externalUrl)}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch CSV from URL');
+      }
+
+      const text = await response.text();
+      const result = parseCSV(text);
+      setParsedData(result);
+      
+      if (result.success && result.properties.length > 0) {
+        setStep('review');
+        toast.success(`Loaded ${result.properties.length} properties from URL`);
+      } else {
+        toast.error('No valid properties found in the CSV');
+      }
+    } catch (error: any) {
+      console.error('Error fetching CSV:', error);
+      toast.error('Failed to fetch CSV from URL. Make sure it\'s a valid, publicly accessible CSV file.');
+    } finally {
+      setFetchingUrl(false);
+    }
   };
 
   const handleImport = async () => {
@@ -149,7 +196,7 @@ export default function BulkImportPage() {
           description: property.description,
           location: property.location,
           price: property.price,
-          images: [],
+          images: property.imageUrls || [],
           amenities: amenitiesArray,
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
@@ -189,8 +236,8 @@ export default function BulkImportPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'description', 'amenities', 'wellnessFriendly', 'smokeFriendly'];
-    const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false'];
+    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'description', 'amenities', 'wellnessFriendly', 'smokeFriendly', 'image_urls'];
+    const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false', 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800'];
     
     const csvContent = [headers.join(','), exampleRow.join(',')].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -230,6 +277,37 @@ export default function BulkImportPage() {
         {/* Upload Step */}
         {step === 'upload' && (
           <div className="space-y-8">
+            {/* Import Mode Selector */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h3 className="text-white font-semibold text-lg mb-4">Choose Import Method</h3>
+              <div className="flex gap-3 p-1 bg-gray-800 rounded-lg w-fit">
+                <button
+                  type="button"
+                  onClick={() => setImportMode('csv')}
+                  className={`px-4 py-2.5 rounded-lg font-medium transition flex items-center gap-2 ${
+                    importMode === 'csv'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <FileText size={18} />
+                  Upload CSV File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMode('url')}
+                  className={`px-4 py-2.5 rounded-lg font-medium transition flex items-center gap-2 ${
+                    importMode === 'url'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Globe size={18} />
+                  Import from URL
+                </button>
+              </div>
+            </div>
+
             {/* Template Download */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <div className="flex items-start gap-4">
@@ -239,7 +317,7 @@ export default function BulkImportPage() {
                 <div className="flex-1">
                   <h3 className="text-white font-semibold text-lg mb-1">Download CSV Template</h3>
                   <p className="text-gray-400 text-sm mb-4">
-                    Start with our template to ensure your data is formatted correctly.
+                    Start with our template to ensure your data is formatted correctly. Now supports image URLs!
                   </p>
                   <button
                     onClick={downloadTemplate}
@@ -252,38 +330,102 @@ export default function BulkImportPage() {
               </div>
             </div>
 
-            {/* File Upload */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 className="text-white font-semibold text-lg mb-4">Upload Your CSV File</h3>
-              
-              <label className="block border-2 border-dashed border-gray-700 rounded-xl p-12 text-center cursor-pointer hover:border-emerald-500 transition">
-                <Upload size={48} className="mx-auto text-gray-400 mb-4" />
-                <p className="text-white font-medium mb-2">Click to upload or drag and drop</p>
-                <p className="text-gray-500 text-sm">CSV files only (max 1MB)</p>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
+            {/* CSV File Upload */}
+            {importMode === 'csv' && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h3 className="text-white font-semibold text-lg mb-4">Upload Your CSV File</h3>
+                
+                <label className="block border-2 border-dashed border-gray-700 rounded-xl p-12 text-center cursor-pointer hover:border-emerald-500 transition">
+                  <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-white font-medium mb-2">Click to upload or drag and drop</p>
+                  <p className="text-gray-500 text-sm">CSV files only (max 1MB)</p>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
 
-              {parsedData && !parsedData.success && (
-                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
-                    <div>
-                      <p className="text-red-400 font-medium">Error parsing file</p>
-                      <ul className="text-red-400/80 text-sm mt-1 list-disc list-inside">
-                        {parsedData.errors.map((err, i) => (
-                          <li key={i}>{err}</li>
-                        ))}
-                      </ul>
+                {parsedData && !parsedData.success && (
+                  <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                      <div>
+                        <p className="text-red-400 font-medium">Error parsing file</p>
+                        <ul className="text-red-400/80 text-sm mt-1 list-disc list-inside">
+                          {parsedData.errors.map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* URL Import */}
+            {importMode === 'url' && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h3 className="text-white font-semibold text-lg mb-2">Import from External URL</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  Enter the URL of a publicly accessible CSV file (Google Sheets, Dropbox, etc.)
+                </p>
+                
+                <div className="flex gap-3">
+                  <input
+                    type="url"
+                    value={externalUrl}
+                    onChange={(e) => setExternalUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
+                    className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  <button
+                    onClick={handleUrlFetch}
+                    disabled={fetchingUrl || !externalUrl.trim()}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition flex items-center gap-2"
+                  >
+                    {fetchingUrl ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Fetching...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink size={18} />
+                        Fetch CSV
+                      </>
+                    )}
+                  </button>
                 </div>
-              )}
-            </div>
+
+                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-blue-200 text-sm font-medium mb-2">Tips for external URLs:</p>
+                  <ul className="text-blue-200/70 text-xs space-y-1 list-disc list-inside">
+                    <li><strong>Google Sheets:</strong> File → Share → Publish to web → CSV format</li>
+                    <li><strong>Dropbox:</strong> Use the direct download link (change dl=0 to dl=1)</li>
+                    <li><strong>Direct:</strong> Any publicly accessible .csv file URL</li>
+                  </ul>
+                </div>
+
+                {parsedData && !parsedData.success && (
+                  <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                      <div>
+                        <p className="text-red-400 font-medium">Error parsing file</p>
+                        <ul className="text-red-400/80 text-sm mt-1 list-disc list-inside">
+                          {parsedData.errors.map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Required Fields Info */}
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
@@ -300,6 +442,9 @@ export default function BulkImportPage() {
                 <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
                 <p className="text-gray-500 text-sm">
                   bedrooms, beds, bathrooms, description, amenities (separated by ;), wellnessFriendly, smokeFriendly
+                </p>
+                <p className="text-emerald-400/80 text-sm mt-2">
+                  <strong>image_urls</strong> - Pipe-separated image URLs (e.g., https://url1.jpg|https://url2.jpg)
                 </p>
               </div>
             </div>
@@ -372,6 +517,12 @@ export default function BulkImportPage() {
                       <span>{prop.beds} beds</span>
                       <span>•</span>
                       <span>{prop.bathrooms} bath</span>
+                      {prop.imageUrls && prop.imageUrls.length > 0 && (
+                        <>
+                          <span>•</span>
+                          <span className="text-emerald-400">{prop.imageUrls.length} images</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
