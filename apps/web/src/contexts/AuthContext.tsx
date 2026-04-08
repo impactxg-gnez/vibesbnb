@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: any; data?: any }>;
-  signOut: () => Promise<void>;
+  signOut: (options?: { preserveSavedAccounts?: boolean }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithGithub: () => Promise<void>;
 }
@@ -352,19 +352,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error, data };
   };
 
-  const signOut = async () => {
+  const signOut = async (options?: { preserveSavedAccounts?: boolean }) => {
+    const preserveAccounts = options?.preserveSavedAccounts ?? false;
+    
     if (!useSupabase) {
       // Demo mode - clear localStorage
       localStorage.removeItem('demoUser');
-      localStorage.removeItem('userRoles');
+      if (!preserveAccounts) {
+        localStorage.removeItem('userRoles');
+      }
       setUser(null);
       setSession(null);
       router.push('/');
       router.refresh();
     } else {
-      // Supabase authentication
-      await supabase.auth.signOut();
-      localStorage.removeItem('userRoles');
+      // Supabase authentication - use local scope to only sign out this browser
+      await supabase.auth.signOut({ scope: 'local' });
+      if (!preserveAccounts) {
+        localStorage.removeItem('userRoles');
+      }
       router.push('/');
       router.refresh();
     }

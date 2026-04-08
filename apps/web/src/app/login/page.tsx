@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -11,18 +12,32 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signInWithGoogle, signInWithGithub } = useAuth();
+  const [isPreparingSwitch, setIsPreparingSwitch] = useState(false);
+  const { signIn, signInWithGoogle, signInWithGithub, user } = useAuth();
   const hasProcessedSwitch = useRef(false);
+  const supabase = createClient();
 
-  // Handle account switching - pre-fill email from URL
+  // Handle account switching - sign out current user first, then pre-fill email
   useEffect(() => {
     const emailParam = searchParams.get('email');
+    const isSwitch = searchParams.get('switch') === 'true';
     
     if (emailParam && !hasProcessedSwitch.current) {
-      setEmail(decodeURIComponent(emailParam));
       hasProcessedSwitch.current = true;
+      setEmail(decodeURIComponent(emailParam));
+      
+      // If switching and there's a current user, sign them out silently
+      if (isSwitch && user) {
+        setIsPreparingSwitch(true);
+        // Sign out without clearing saved accounts
+        supabase.auth.signOut({ scope: 'local' }).then(() => {
+          setIsPreparingSwitch(false);
+        }).catch(() => {
+          setIsPreparingSwitch(false);
+        });
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, user, supabase.auth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,10 +147,10 @@ export default function LoginPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isPreparingSwitch}
               className="btn-primary w-full !py-5 text-lg shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isPreparingSwitch ? 'Preparing...' : isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 

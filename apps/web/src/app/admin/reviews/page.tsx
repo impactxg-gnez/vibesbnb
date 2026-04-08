@@ -37,6 +37,8 @@ export default function ReviewsManagementPage() {
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [propertyFilter, setPropertyFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'user' | 'team'>('all');
   const [loadingReviews, setLoadingReviews] = useState(true);
   
   // Team review form state
@@ -82,8 +84,18 @@ export default function ReviewsManagementPage() {
       filtered = filtered.filter((r) => r.status === statusFilter);
     }
 
+    if (propertyFilter !== 'all') {
+      filtered = filtered.filter((r) => r.property_id === propertyFilter);
+    }
+
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter((r) => 
+        typeFilter === 'team' ? r.is_team_review : !r.is_team_review
+      );
+    }
+
     setFilteredReviews(filtered);
-  }, [searchQuery, statusFilter, reviews]);
+  }, [searchQuery, statusFilter, propertyFilter, typeFilter, reviews]);
 
   const loadProperties = async () => {
     try {
@@ -297,8 +309,8 @@ export default function ReviewsManagementPage() {
 
         {/* Search and Filter */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-2 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
@@ -308,6 +320,27 @@ export default function ReviewsManagementPage() {
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
             </div>
+            <select
+              value={propertyFilter}
+              onChange={(e) => setPropertyFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Properties</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Types</option>
+              <option value="user">User Reviews</option>
+              <option value="team">Team Reviews</option>
+            </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}

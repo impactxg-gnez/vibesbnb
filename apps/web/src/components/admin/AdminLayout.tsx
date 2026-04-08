@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard,
   Users,
@@ -21,6 +22,8 @@ import {
   LogOut,
   Globe,
   Leaf,
+  Building,
+  UserPlus,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -39,13 +42,47 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [pendingPropertyCount, setPendingPropertyCount] = useState(0);
+  const [pendingHostCount, setPendingHostCount] = useState(0);
+
+  // Fetch pending counts
+  useEffect(() => {
+    const fetchPendingCounts = async () => {
+      try {
+        const supabase = createClient();
+        
+        // Count pending properties
+        const { count: propertyCount } = await supabase
+          .from('properties')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending_approval');
+        
+        setPendingPropertyCount(propertyCount || 0);
+
+        // Count pending host applications
+        const { count: hostCount } = await supabase
+          .from('pending_host_applications')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        
+        setPendingHostCount(hostCount || 0);
+      } catch (error) {
+        console.error('Error fetching pending counts:', error);
+      }
+    };
+
+    fetchPendingCounts();
+    // Refresh counts every 30 seconds
+    const interval = setInterval(fetchPendingCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { label: 'Host Applications', href: '/admin/hosts', icon: <Home className="w-5 h-5" /> },
+    { label: 'Host Registrations', href: '/admin/hosts', icon: <UserPlus className="w-5 h-5" /> },
     { label: 'Dispensary Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
     { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
-    { label: 'Manage listings', href: '/admin/listings', icon: <Home className="w-5 h-5" /> },
+    { label: 'Property Approvals', href: '/admin/listings', icon: <Building className="w-5 h-5" /> },
     { label: 'Manage Reservations', href: '/admin/reservations', icon: <Calendar className="w-5 h-5" /> },
     { label: 'Reviews Management', href: '/admin/reviews', icon: <Star className="w-5 h-5" /> },
     {
@@ -65,6 +102,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Upload Hero Image', href: '/admin/upload-hero-image', icon: <Upload className="w-5 h-5" /> },
     { label: 'Change Password', href: '/admin/change-password', icon: <Lock className="w-5 h-5" /> },
   ];
+
+  // Get badge count for a nav item
+  const getBadgeCount = (label: string): number => {
+    if (label === 'Property Approvals') return pendingPropertyCount;
+    if (label === 'Host Registrations') return pendingHostCount;
+    return 0;
+  };
 
   const toggleExpanded = (label: string) => {
     setExpandedItems((prev) =>
@@ -146,12 +190,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               ) : (
                 <Link
                   href={item.href || '#'}
-                  className={`flex items-center space-x-3 px-4 py-3 hover:bg-purple-700 transition ${
+                  className={`flex items-center justify-between px-4 py-3 hover:bg-purple-700 transition ${
                     isActive(item.href) ? 'bg-purple-700 border-r-2 border-white' : ''
                   }`}
                 >
-                  {item.icon}
-                  <span className="text-sm">{item.label}</span>
+                  <div className="flex items-center space-x-3">
+                    {item.icon}
+                    <span className="text-sm">{item.label}</span>
+                  </div>
+                  {getBadgeCount(item.label) > 0 && (
+                    <span className="bg-amber-500 text-black text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                      {getBadgeCount(item.label)}
+                    </span>
+                  )}
                 </Link>
               )}
             </div>
