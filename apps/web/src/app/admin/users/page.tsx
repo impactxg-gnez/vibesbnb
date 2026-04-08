@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, User, Mail, Calendar, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download } from 'lucide-react';
+import { Search, User, Mail, Calendar, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
@@ -17,6 +17,9 @@ interface UserData {
   enabled: boolean;
   bookings_count: number;
   total_spent: number;
+  properties_count?: number;
+  total_earnings?: number;
+  avatar_url?: string;
 }
 
 interface Booking {
@@ -45,6 +48,7 @@ export default function ManageUsersPage() {
   const [userBookings, setUserBookings] = useState<Booking[]>([]);
   const [showBookings, setShowBookings] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'hosts' | 'travellers'>('all');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -62,52 +66,138 @@ export default function ManageUsersPage() {
   }, [user]);
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(users);
-    } else {
+    filterUsers();
+  }, [searchQuery, users, activeTab]);
+
+  const filterUsers = () => {
+    let filtered = users;
+
+    // Filter by role/tab
+    if (activeTab === 'hosts') {
+      filtered = filtered.filter(u => u.role === 'host');
+    } else if (activeTab === 'travellers') {
+      filtered = filtered.filter(u => u.role === 'traveller' || u.role === 'user');
+    }
+
+    // Filter by search query
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
-      setFilteredUsers(
-        users.filter(
-          (u) =>
-            u.email.toLowerCase().includes(query) ||
-            u.name.toLowerCase().includes(query) ||
-            u.role.toLowerCase().includes(query)
-        )
+      filtered = filtered.filter(
+        (u) =>
+          u.email.toLowerCase().includes(query) ||
+          u.name.toLowerCase().includes(query) ||
+          u.role.toLowerCase().includes(query)
       );
     }
-  }, [searchQuery, users]);
+
+    setFilteredUsers(filtered);
+  };
 
   const loadUsers = async () => {
     setLoadingUsers(true);
     try {
       const supabase = createClient();
       
-      // Get all bookings to extract unique user IDs
+      // Get all profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) {
+        console.error('Profiles error:', profilesError);
+      }
+
+      // Get all bookings to calculate stats
       const { data: bookingsData } = await supabase
         .from('bookings')
-        .select('user_id, total_price, created_at');
+        .select('user_id, total_price, host_id');
 
-      // Get unique user IDs and their data
-      const userIds = new Set(bookingsData?.map((b) => b.user_id) || []);
+      // Get all properties to calculate host stats
+      const { data: propertiesData } = await supabase
+        .from('properties')
+        .select('host_id, id');
+
+      // Build user data from profiles
       const usersData: UserData[] = [];
+      const seenIds = new Set<string>();
 
-      // For each user, get their bookings stats
-      for (const userId of userIds) {
-        const userBookings = bookingsData?.filter((b) => b.user_id === userId) || [];
-        const totalSpent = userBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+      // Add users from profiles
+      if (profilesData) {
+        for (const profile of profilesData) {
+          if (seenIds.has(profile.id)) continue;
+          seenIds.add(profile.id);
 
-        // Try to get user email from auth (this might not work without service role)
-        // For now, we'll use a placeholder approach
-        usersData.push({
-          id: userId,
-          email: `user-${userId.substring(0, 8)}@example.com`, // Placeholder
-          name: `User ${userId.substring(0, 8)}`,
-          role: 'traveller', // Default
-          created_at: userBookings[0]?.created_at || new Date().toISOString(),
-          enabled: true, // Default
-          bookings_count: userBookings.length,
-          total_spent: totalSpent,
-        });
+          const userBookings = bookingsData?.filter((b) => b.user_id === profile.id) || [];
+          const totalSpent = userBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+
+          const userProperties = propertiesData?.filter((p) => p.host_id === profile.id) || [];
+          const hostEarnings = bookingsData?.filter((b) => b.host_id === profile.id)
+            .reduce((sum, b) => sum + Number(b.total_price || 0), 0) || 0;
+
+          usersData.push({
+            id: profile.id,
+            email: profile.email || `user-${profile.id.substring(0, 8)}`,
+            name: profile.full_name || profile.name || 'Anonymous User',
+            role: profile.role || 'traveller',
+            created_at: profile.created_at || new Date().toISOString(),
+            enabled: profile.enabled !== false,
+            bookings_count: userBookings.length,
+            total_spent: totalSpent,
+            properties_count: userProperties.length,
+            total_earnings: hostEarnings,
+            avatar_url: profile.avatar_url,
+          });
+        }
+      }
+
+      // Also check for users with bookings who might not have profiles
+      if (bookingsData) {
+        const bookingUserIds = new Set(bookingsData.map(b => b.user_id).filter(Boolean));
+        for (const userId of bookingUserIds) {
+          if (seenIds.has(userId)) continue;
+          seenIds.add(userId);
+
+          const userBookingsList = bookingsData.filter((b) => b.user_id === userId);
+          const totalSpent = userBookingsList.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+
+          usersData.push({
+            id: userId,
+            email: `user-${userId.substring(0, 8)}`,
+            name: `User ${userId.substring(0, 8)}`,
+            role: 'traveller',
+            created_at: new Date().toISOString(),
+            enabled: true,
+            bookings_count: userBookingsList.length,
+            total_spent: totalSpent,
+          });
+        }
+      }
+
+      // Check for hosts from properties who might not have profiles
+      if (propertiesData) {
+        const hostIds = new Set(propertiesData.map(p => p.host_id).filter(Boolean));
+        for (const hostId of hostIds) {
+          if (seenIds.has(hostId)) continue;
+          seenIds.add(hostId);
+
+          const hostProperties = propertiesData.filter((p) => p.host_id === hostId);
+          const hostEarnings = bookingsData?.filter((b) => b.host_id === hostId)
+            .reduce((sum, b) => sum + Number(b.total_price || 0), 0) || 0;
+
+          usersData.push({
+            id: hostId,
+            email: `host-${hostId.substring(0, 8)}`,
+            name: `Host ${hostId.substring(0, 8)}`,
+            role: 'host',
+            created_at: new Date().toISOString(),
+            enabled: true,
+            bookings_count: 0,
+            total_spent: 0,
+            properties_count: hostProperties.length,
+            total_earnings: hostEarnings,
+          });
+        }
       }
 
       setUsers(usersData);
@@ -139,9 +229,13 @@ export default function ManageUsersPage() {
 
   const handleToggleUser = async (userId: string, currentStatus: boolean) => {
     try {
-      // In a real app, you'd update this in Supabase
+      const supabase = createClient();
+      await supabase
+        .from('profiles')
+        .update({ enabled: !currentStatus })
+        .eq('id', userId);
+
       setUsers(users.map((u) => (u.id === userId ? { ...u, enabled: !currentStatus } : u)));
-      setFilteredUsers(filteredUsers.map((u) => (u.id === userId ? { ...u, enabled: !currentStatus } : u)));
       toast.success(`User ${!currentStatus ? 'enabled' : 'disabled'}`);
     } catch (error) {
       toast.error('Failed to update user status');
@@ -154,9 +248,10 @@ export default function ManageUsersPage() {
     }
 
     try {
-      // In a real app, you'd delete from Supabase
+      const supabase = createClient();
+      await supabase.from('profiles').delete().eq('id', userId);
+      
       setUsers(users.filter((u) => u.id !== userId));
-      setFilteredUsers(filteredUsers.filter((u) => u.id !== userId));
       toast.success('User deleted');
     } catch (error) {
       toast.error('Failed to delete user');
@@ -170,9 +265,14 @@ export default function ManageUsersPage() {
   };
 
   const exportInvoices = (userId: string) => {
-    // In a real app, this would generate and download invoices
     toast.success('Invoices export feature coming soon');
   };
+
+  // Stats
+  const hostCount = users.filter(u => u.role === 'host').length;
+  const travellerCount = users.filter(u => u.role === 'traveller' || u.role === 'user').length;
+  const totalBookings = users.reduce((sum, u) => sum + u.bookings_count, 0);
+  const totalRevenue = users.reduce((sum, u) => sum + u.total_spent, 0);
 
   if (loading || loadingUsers) {
     return (
@@ -207,6 +307,90 @@ export default function ManageUsersPage() {
           </div>
         </div>
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Total Users</p>
+                <p className="text-xl font-bold text-gray-900">{users.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <Building className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Hosts</p>
+                <p className="text-xl font-bold text-gray-900">{hostCount}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Plane className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Travellers</p>
+                <p className="text-xl font-bold text-gray-900">{travellerCount}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Total Revenue</p>
+                <p className="text-xl font-bold text-gray-900">${totalRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              activeTab === 'all'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            All Users ({users.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('hosts')}
+            className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
+              activeTab === 'hosts'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            Hosts ({hostCount})
+          </button>
+          <button
+            onClick={() => setActiveTab('travellers')}
+            className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
+              activeTab === 'travellers'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <Plane className="w-4 h-4" />
+            Travellers ({travellerCount})
+          </button>
+        </div>
+
         {/* Users Table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -219,12 +403,26 @@ export default function ManageUsersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bookings
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Spent
-                  </th>
+                  {activeTab !== 'hosts' && (
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bookings
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Spent
+                      </th>
+                    </>
+                  )}
+                  {activeTab !== 'travellers' && (
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Properties
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Earnings
+                      </th>
+                    </>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
@@ -236,41 +434,67 @@ export default function ManageUsersPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                       {loadingUsers ? 'Loading users...' : 'No users found'}
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                  filteredUsers.map((userData) => (
+                    <tr key={userData.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-purple-600" />
+                          <div className="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
+                            {userData.avatar_url ? (
+                              <img src={userData.avatar_url} alt={userData.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-5 h-5 text-purple-600" />
+                            )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
+                            <div className="text-sm font-medium text-gray-900">{userData.name}</div>
+                            <div className="text-sm text-gray-500">{userData.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {user.role}
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          userData.role === 'host' 
+                            ? 'bg-emerald-100 text-emerald-800' 
+                            : userData.role === 'admin'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {userData.role === 'host' && <Building className="w-3 h-3 mr-1" />}
+                          {(userData.role === 'traveller' || userData.role === 'user') && <Plane className="w-3 h-3 mr-1" />}
+                          {userData.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.bookings_count}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${user.total_spent.toFixed(2)}
-                      </td>
+                      {activeTab !== 'hosts' && (
+                        <>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {userData.bookings_count}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${userData.total_spent.toFixed(2)}
+                          </td>
+                        </>
+                      )}
+                      {activeTab !== 'travellers' && (
+                        <>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {userData.properties_count || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${(userData.total_earnings || 0).toFixed(2)}
+                          </td>
+                        </>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => handleToggleUser(user.id, user.enabled)}
+                          onClick={() => handleToggleUser(userData.id, userData.enabled)}
                           className="flex items-center"
                         >
-                          {user.enabled ? (
+                          {userData.enabled ? (
                             <ToggleRight className="w-6 h-6 text-green-500" />
                           ) : (
                             <ToggleLeft className="w-6 h-6 text-gray-400" />
@@ -280,21 +504,21 @@ export default function ManageUsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleViewBookings(user)}
+                            onClick={() => handleViewBookings(userData)}
                             className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
                           >
                             <Eye className="w-4 h-4" />
                             View
                           </button>
                           <button
-                            onClick={() => exportInvoices(user.id)}
+                            onClick={() => exportInvoices(userData.id)}
                             className="text-green-600 hover:text-green-900 flex items-center gap-1"
                           >
                             <Download className="w-4 h-4" />
                             Invoices
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(user.id)}
+                            onClick={() => handleDeleteUser(userData.id)}
                             className="text-red-600 hover:text-red-900 flex items-center gap-1"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -318,7 +542,7 @@ export default function ManageUsersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
-                      Bookings for {selectedUser.name}
+                      {selectedUser.role === 'host' ? 'Properties & Bookings' : 'Bookings'} for {selectedUser.name}
                     </h2>
                     <p className="text-sm text-gray-500">{selectedUser.email}</p>
                   </div>
@@ -380,4 +604,3 @@ export default function ManageUsersPage() {
     </AdminLayout>
   );
 }
-
