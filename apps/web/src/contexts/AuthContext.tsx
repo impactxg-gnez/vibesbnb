@@ -223,6 +223,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
     
+    // If there's a current session with a different email, sign out first
+    // This ensures clean account switching
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (currentSession && currentSession.user?.email !== email) {
+      console.log('[Auth] Switching accounts - signing out current user first');
+      await supabase.auth.signOut({ scope: 'local' });
+      // Small delay to ensure signout is processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     // Supabase authentication for non-demo accounts
     const { error, data } = await supabase.auth.signInWithPassword({
       email,
