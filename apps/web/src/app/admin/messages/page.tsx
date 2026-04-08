@@ -35,41 +35,56 @@ export default function MessagesPage() {
   );
   const [searchQuery, setSearchQuery] = useState('');
 
+  const isAdmin = user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin';
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdmin) {
       router.push('/');
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isAdmin]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdmin) {
       loadConversations();
     }
-  }, [user]);
+  }, [user, isAdmin]);
 
   const loadConversations = async () => {
     try {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[Admin Messages] Session error:', sessionError);
+        throw new Error('Failed to get session');
+      }
+      
+      if (!session?.access_token) {
+        console.error('[Admin Messages] No access token in session');
+        throw new Error('No valid session');
+      }
       
       const response = await fetch('/api/admin/conversations', {
         headers: {
-          'Authorization': `Bearer ${session?.access_token || ''}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
       });
       const data = await response.json();
+      
       if (!response.ok) {
+        console.error('[Admin Messages] API error:', data);
         throw new Error(data.error || 'Failed to load conversations');
       }
+      
       setConversations(data.conversations || []);
       if (data.conversations?.length) {
         setSelectedConversation(data.conversations[0]);
       }
     } catch (error: any) {
-      console.error('Failed to load conversations', error);
+      console.error('[Admin Messages] Failed to load conversations', error);
       toast.error(error.message || 'Failed to load conversations');
     }
   };
@@ -96,7 +111,7 @@ export default function MessagesPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdmin) {
     return null;
   }
 

@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
+      console.error('[Admin Conversations] No token provided');
       return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
     }
 
@@ -26,13 +27,26 @@ export async function GET(request: NextRequest) {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (authError) {
+      console.error('[Admin Conversations] Auth error:', authError);
+      return NextResponse.json({ error: 'Unauthorized - Auth failed' }, { status: 401 });
+    }
+    
+    if (!user) {
+      console.error('[Admin Conversations] No user found');
+      return NextResponse.json({ error: 'Unauthorized - No user' }, { status: 401 });
     }
 
-    // Check for admin role
+    // Check for admin role in both metadata locations
     const isAdmin = user.user_metadata?.role === 'admin' || 
                     user.app_metadata?.role === 'admin';
+
+    console.log('[Admin Conversations] User check:', { 
+      userId: user.id, 
+      userMetaRole: user.user_metadata?.role,
+      appMetaRole: user.app_metadata?.role,
+      isAdmin 
+    });
 
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
