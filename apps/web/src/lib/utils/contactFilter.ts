@@ -71,53 +71,52 @@ const EMOJI_NUMBERS: Record<string, string> = {
   '5⃣': '5', '6⃣': '6', '7⃣': '7', '8⃣': '8', '9⃣': '9',
 };
 
-// Spelled-out numbers in multiple languages
+// Spelled-out numbers in multiple languages (unique keys only)
 const WORD_TO_DIGIT: Record<string, string> = {
   // English
   'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
   'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
   'ten': '10',
   
-  // Spanish
+  // Spanish (excluding duplicates)
   'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
   'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9',
   'diez': '10',
   
-  // French
+  // French (excluding 'six' - same as English)
   'zéro': '0', 'un': '1', 'deux': '2', 'trois': '3', 'quatre': '4',
-  'cinq': '5', 'six': '6', 'sept': '7', 'huit': '8', 'neuf': '9',
-  'dix': '10',
+  'cinq': '5', 'sept': '7', 'huit': '8', 'neuf': '9', 'dix': '10',
   
-  // German
-  'null': '0', 'eins': '1', 'zwei': '2', 'drei': '3', 'vier': '4',
+  // German (excluding 'null' conflicts with programming)
+  'eins': '1', 'zwei': '2', 'drei': '3', 'vier': '4',
   'fünf': '5', 'funf': '5', 'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9',
   'zehn': '10',
   
-  // Italian
-  'zero': '0', 'una': '1', 'due': '2', 'tre': '3', 'quattro': '4',
+  // Italian (excluding 'zero' - same as English)
+  'una': '1', 'due': '2', 'tre': '3', 'quattro': '4',
   'cinque': '5', 'sei': '6', 'sette': '7', 'otto': '8', 'nove': '9',
   'dieci': '10',
   
-  // Portuguese
+  // Portuguese (unique entries only)
   'um': '1', 'dois': '2', 'duas': '2', 'três': '3', 'quatro': '4',
-  'sete': '7', 'oito': '8', 'dez': '10',
+  'oito': '8', 'dez': '10',
   
-  // Hindi (transliterated)
-  'ek': '1', 'do': '2', 'teen': '3', 'chaar': '4', 'char': '4',
+  // Hindi (transliterated, excluding 'do' - too common)
+  'ek': '1', 'teen': '3', 'chaar': '4', 'char': '4',
   'paanch': '5', 'panch': '5', 'chhah': '6', 'saat': '7', 'sat': '7',
   'aath': '8', 'nau': '9', 'das': '10',
   
   // Arabic (transliterated)
   'sifr': '0', 'wahid': '1', 'ithnan': '2', 'thalatha': '3', 'arba': '4',
-  'khamsa': '5', 'sitta': '6', 'saba': '7', 'thamania': '8', 'tisa': '9',
+  'khamsa': '5', 'sitta': '6', 'thamania': '8', 'tisa': '9',
   
-  // Chinese (pinyin)
-  'ling': '0', 'yi': '1', 'er': '2', 'san': '3', 'si': '4',
-  'wu': '5', 'liu': '6', 'qi': '7', 'ba': '8', 'jiu': '9', 'shi': '10',
+  // Chinese (pinyin, excluding short common words)
+  'ling': '0', 'er': '2', 'san': '3',
+  'wu': '5', 'liu': '6', 'qi': '7', 'jiu': '9',
   
   // Japanese (romaji)
-  'rei': '0', 'ichi': '1', 'ni': '2', 'yon': '4', 'go': '5',
-  'roku': '6', 'nana': '7', 'hachi': '8', 'kyuu': '9', 'kyuuu': '9', 'juu': '10',
+  'rei': '0', 'ichi': '1', 'yon': '4',
+  'roku': '6', 'nana': '7', 'hachi': '8', 'kyuu': '9',
 };
 
 // Common word substitutions for symbols
