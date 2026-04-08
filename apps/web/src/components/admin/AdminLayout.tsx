@@ -24,6 +24,7 @@ import {
   Leaf,
   Building,
   UserPlus,
+  Image,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -44,6 +45,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [pendingPropertyCount, setPendingPropertyCount] = useState(0);
   const [pendingHostCount, setPendingHostCount] = useState(0);
+  const [pendingPictureCount, setPendingPictureCount] = useState(0);
 
   // Fetch pending counts
   useEffect(() => {
@@ -66,6 +68,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           .eq('status', 'pending');
         
         setPendingHostCount(hostCount || 0);
+
+        // Count pending profile pictures
+        const { count: pictureCount } = await supabase
+          .from('pending_profile_pictures')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        
+        setPendingPictureCount(pictureCount || 0);
       } catch (error) {
         console.error('Error fetching pending counts:', error);
       }
@@ -83,6 +93,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Dispensary Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
     { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
     { label: 'Property Approvals', href: '/admin/listings', icon: <Building className="w-5 h-5" /> },
+    { label: 'Profile Pictures', href: '/admin/profile-pictures', icon: <Image className="w-5 h-5" /> },
     { label: 'Manage Reservations', href: '/admin/reservations', icon: <Calendar className="w-5 h-5" /> },
     { label: 'Reviews Management', href: '/admin/reviews', icon: <Star className="w-5 h-5" /> },
     {
@@ -107,6 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const getBadgeCount = (label: string): number => {
     if (label === 'Property Approvals') return pendingPropertyCount;
     if (label === 'Host Registrations') return pendingHostCount;
+    if (label === 'Profile Pictures') return pendingPictureCount;
     return 0;
   };
 

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle, Camera, Loader2, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 
@@ -13,6 +13,13 @@ export default function ProfilePage() {
   const userRole = user?.user_metadata?.role || 'traveller';
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Profile picture state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [pendingAvatarUrl, setPendingAvatarUrl] = useState<string | null>(null);
+  const [avatarStatus, setAvatarStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -79,8 +86,126 @@ export default function ProfilePage() {
         });
         setHasPayoutSetup(!!payoutInfo.account_number_masked);
       }
+
+      // Load avatar status
+      loadAvatarStatus();
     }
   }, [user]);
+
+  const loadAvatarStatus = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const supabase = createClient();
+      
+      // Get profile with avatar info
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('avatar_url, avatar_status, pending_avatar_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile) {
+        setAvatarUrl(profile.avatar_url);
+        setPendingAvatarUrl(profile.pending_avatar_url);
+        setAvatarStatus(profile.avatar_status || 'none');
+      }
+      
+      // Also check user metadata for avatar
+      if (user.user_metadata?.avatar_url && !profile?.avatar_url) {
+        setAvatarUrl(user.user_metadata.avatar_url);
+      }
+    } catch (error) {
+      console.error('Error loading avatar status:', error);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const supabase = createClient();
+      
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      // Upload to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profile-pictures')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        // If bucket doesn't exist, show helpful message
+        if (uploadError.message.includes('Bucket not found')) {
+          toast.error('Storage not configured. Please contact admin.');
+          return;
+        }
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-pictures')
+        .getPublicUrl(fileName);
+
+      // Create pending profile picture record
+      const { error: insertError } = await supabase
+        .from('pending_profile_pictures')
+        .insert({
+          user_id: user.id,
+          image_url: publicUrl,
+          status: 'pending'
+        });
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        // Still update profiles table even if pending_profile_pictures fails
+      }
+
+      // Update profiles table with pending status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          pending_avatar_url: publicUrl,
+          avatar_status: 'pending',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+      }
+
+      setPendingAvatarUrl(publicUrl);
+      setAvatarStatus('pending');
+      toast.success('Profile picture submitted for admin approval!');
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast.error(error.message || 'Failed to upload profile picture');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchHostStats = async () => {
@@ -395,11 +520,53 @@ export default function ProfilePage() {
           <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 p-8">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-6">
-                {/* Avatar */}
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center">
-                  <span className="text-4xl font-bold text-emerald-600">
-                    {formData.fullName?.[0]?.toUpperCase() || formData.email?.[0]?.toUpperCase() || 'U'}
-                  </span>
+                {/* Avatar with Upload */}
+                <div className="relative group">
+                  <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden">
+                    {avatarUrl && avatarStatus === 'approved' ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt="Profile" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-4xl font-bold text-emerald-600">
+                        {formData.fullName?.[0]?.toUpperCase() || formData.email?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Upload Button Overlay */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    {uploadingAvatar ? (
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-white" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                  
+                  {/* Status Badge */}
+                  {avatarStatus === 'pending' && (
+                    <div className="absolute -bottom-1 -right-1 bg-amber-500 rounded-full p-1" title="Pending approval">
+                      <Clock className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                  {avatarStatus === 'rejected' && (
+                    <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-1" title="Rejected">
+                      <X className="w-4 h-4 text-white" />
+                    </div>
+                  )}
                 </div>
                 
                 {/* User Info */}
@@ -412,6 +579,19 @@ export default function ProfilePage() {
                     <span>•</span>
                     <span>Member since {memberSince}</span>
                   </div>
+                  {/* Avatar Status Message */}
+                  {avatarStatus === 'pending' && (
+                    <div className="mt-2 flex items-center gap-2 text-amber-200 text-sm">
+                      <Clock size={14} />
+                      <span>Profile picture sent to admin for approval</span>
+                    </div>
+                  )}
+                  {avatarStatus === 'rejected' && (
+                    <div className="mt-2 flex items-center gap-2 text-red-200 text-sm">
+                      <AlertTriangle size={14} />
+                      <span>Profile picture was rejected. Please upload a different one.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
