@@ -15,7 +15,9 @@ import {
   Loader2,
   ExternalLink,
   Globe,
-  FileText
+  FileText,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -35,12 +37,21 @@ interface BulkProperty {
   wellnessFriendly?: boolean;
   smokeFriendly?: boolean;
   imageUrls?: string[];
+  sourceUrl?: string;
 }
 
 interface ParsedResult {
   success: boolean;
   properties: BulkProperty[];
   errors: string[];
+}
+
+interface UrlEntry {
+  id: string;
+  url: string;
+  status: 'pending' | 'loading' | 'success' | 'error';
+  propertyCount?: number;
+  error?: string;
 }
 
 export default function BulkImportPage() {
@@ -51,8 +62,8 @@ export default function BulkImportPage() {
   const [step, setStep] = useState<'upload' | 'review' | 'importing' | 'complete'>('upload');
   const [importResults, setImportResults] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
   const [importMode, setImportMode] = useState<'csv' | 'url'>('csv');
-  const [externalUrl, setExternalUrl] = useState('');
-  const [fetchingUrl, setFetchingUrl] = useState(false);
+  const [urlEntries, setUrlEntries] = useState<UrlEntry[]>([{ id: '1', url: '', status: 'pending' }]);
+  const [fetchingUrls, setFetchingUrls] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,7 +81,7 @@ export default function BulkImportPage() {
     reader.readAsText(file);
   };
 
-  const parseCSV = (text: string): ParsedResult => {
+  const parseCSV = (text: string, sourceUrl?: string): ParsedResult => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) {
       return { success: false, properties: [], errors: ['File must have a header row and at least one data row'] };
@@ -125,6 +136,7 @@ export default function BulkImportPage() {
         wellnessFriendly: row.wellnessfriendly?.toLowerCase() === 'true' || row.wellnessfriendly === '1',
         smokeFriendly: row.smokefriendly?.toLowerCase() === 'true' || row.smokefriendly === '1',
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+        sourceUrl,
       });
     }
 
@@ -135,37 +147,115 @@ export default function BulkImportPage() {
     };
   };
 
+  const addUrlEntry = () => {
+    setUrlEntries(prev => [...prev, { 
+      id: Date.now().toString(), 
+      url: '', 
+      status: 'pending' 
+    }]);
+  };
+
+  const removeUrlEntry = (id: string) => {
+    if (urlEntries.length > 1) {
+      setUrlEntries(prev => prev.filter(entry => entry.id !== id));
+    }
+  };
+
+  const updateUrlEntry = (id: string, url: string) => {
+    setUrlEntries(prev => prev.map(entry => 
+      entry.id === id ? { ...entry, url, status: 'pending' as const } : entry
+    ));
+  };
+
   const handleUrlFetch = async () => {
-    if (!externalUrl.trim()) {
-      toast.error('Please enter a URL');
+    const validUrls = urlEntries.filter(entry => entry.url.trim());
+    
+    if (validUrls.length === 0) {
+      toast.error('Please enter at least one URL');
       return;
     }
 
-    setFetchingUrl(true);
-    try {
-      // Fetch the CSV from the external URL
-      const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(externalUrl)}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch CSV from URL');
-      }
+    setFetchingUrls(true);
+    
+    // Reset all statuses to loading
+    setUrlEntries(prev => prev.map(entry => ({
+      ...entry,
+      status: entry.url.trim() ? 'loading' as const : 'pending' as const,
+      propertyCount: undefined,
+      error: undefined
+    })));
 
-      const text = await response.text();
-      const result = parseCSV(text);
-      setParsedData(result);
-      
-      if (result.success && result.properties.length > 0) {
-        setStep('review');
-        toast.success(`Loaded ${result.properties.length} properties from URL`);
-      } else {
-        toast.error('No valid properties found in the CSV');
+    const allProperties: BulkProperty[] = [];
+    const allErrors: string[] = [];
+    let successCount = 0;
+
+    // Fetch all URLs in parallel
+    const fetchPromises = validUrls.map(async (entry) => {
+      try {
+        const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(entry.url)}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch CSV');
+        }
+
+        const text = await response.text();
+        const result = parseCSV(text, entry.url);
+        
+        if (result.success && result.properties.length > 0) {
+          allProperties.push(...result.properties);
+          successCount++;
+          
+          setUrlEntries(prev => prev.map(e => 
+            e.id === entry.id 
+              ? { ...e, status: 'success' as const, propertyCount: result.properties.length }
+              : e
+          ));
+        } else {
+          const errorMsg = result.errors.length > 0 ? result.errors[0] : 'No valid properties found';
+          allErrors.push(`${entry.url}: ${errorMsg}`);
+          
+          setUrlEntries(prev => prev.map(e => 
+            e.id === entry.id 
+              ? { ...e, status: 'error' as const, error: errorMsg }
+              : e
+          ));
+        }
+        
+        if (result.errors.length > 0) {
+          allErrors.push(...result.errors.map(err => `${entry.url}: ${err}`));
+        }
+      } catch (error: any) {
+        const errorMsg = error.message || 'Failed to fetch';
+        allErrors.push(`${entry.url}: ${errorMsg}`);
+        
+        setUrlEntries(prev => prev.map(e => 
+          e.id === entry.id 
+            ? { ...e, status: 'error' as const, error: errorMsg }
+            : e
+        ));
       }
-    } catch (error: any) {
-      console.error('Error fetching CSV:', error);
-      toast.error('Failed to fetch CSV from URL. Make sure it\'s a valid, publicly accessible CSV file.');
-    } finally {
-      setFetchingUrl(false);
+    });
+
+    await Promise.all(fetchPromises);
+
+    if (allProperties.length > 0) {
+      setParsedData({
+        success: true,
+        properties: allProperties,
+        errors: allErrors
+      });
+      setStep('review');
+      toast.success(`Loaded ${allProperties.length} properties from ${successCount} URL(s)`);
+    } else {
+      setParsedData({
+        success: false,
+        properties: [],
+        errors: allErrors.length > 0 ? allErrors : ['No valid properties found in any URL']
+      });
+      toast.error('No valid properties found in any of the URLs');
     }
+
+    setFetchingUrls(false);
   };
 
   const handleImport = async () => {
@@ -368,44 +458,100 @@ export default function BulkImportPage() {
             {/* URL Import */}
             {importMode === 'url' && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h3 className="text-white font-semibold text-lg mb-2">Import from External URL</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-white font-semibold text-lg">Import from External URLs</h3>
+                  <span className="text-emerald-400 text-sm font-medium">
+                    {urlEntries.filter(e => e.url.trim()).length} URL(s)
+                  </span>
+                </div>
                 <p className="text-gray-400 text-sm mb-4">
-                  Enter the URL of a publicly accessible CSV file (Google Sheets, Dropbox, etc.)
+                  Add multiple CSV URLs to import properties from different sources simultaneously. No limits!
                 </p>
                 
-                <div className="flex gap-3">
-                  <input
-                    type="url"
-                    value={externalUrl}
-                    onChange={(e) => setExternalUrl(e.target.value)}
-                    placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv"
-                    className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
+                <div className="space-y-3 mb-4">
+                  {urlEntries.map((entry, index) => (
+                    <div key={entry.id} className="flex gap-3 items-center">
+                      <div className="flex-1 relative">
+                        <input
+                          type="url"
+                          value={entry.url}
+                          onChange={(e) => updateUrlEntry(entry.id, e.target.value)}
+                          placeholder={`URL ${index + 1}: https://docs.google.com/spreadsheets/d/.../export?format=csv`}
+                          disabled={fetchingUrls}
+                          className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50 ${
+                            entry.status === 'success' 
+                              ? 'border-emerald-500' 
+                              : entry.status === 'error' 
+                                ? 'border-red-500' 
+                                : 'border-gray-700'
+                          }`}
+                        />
+                        {entry.status === 'loading' && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <Loader2 size={18} className="text-emerald-500 animate-spin" />
+                          </div>
+                        )}
+                        {entry.status === 'success' && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            <span className="text-emerald-400 text-xs">{entry.propertyCount} properties</span>
+                            <CheckCircle2 size={18} className="text-emerald-500" />
+                          </div>
+                        )}
+                        {entry.status === 'error' && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <AlertTriangle size={18} className="text-red-500" />
+                          </div>
+                        )}
+                      </div>
+                      {urlEntries.length > 1 && (
+                        <button
+                          onClick={() => removeUrlEntry(entry.id)}
+                          disabled={fetchingUrls}
+                          className="p-2 text-gray-400 hover:text-red-400 disabled:opacity-50 transition"
+                          title="Remove URL"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-3 mb-4">
+                  <button
+                    onClick={addUrlEntry}
+                    disabled={fetchingUrls}
+                    className="flex-1 px-4 py-2.5 border-2 border-dashed border-gray-700 hover:border-emerald-500 text-gray-400 hover:text-emerald-400 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Plus size={18} />
+                    Add Another URL
+                  </button>
                   <button
                     onClick={handleUrlFetch}
-                    disabled={fetchingUrl || !externalUrl.trim()}
-                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition flex items-center gap-2"
+                    disabled={fetchingUrls || urlEntries.every(e => !e.url.trim())}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition flex items-center gap-2"
                   >
-                    {fetchingUrl ? (
+                    {fetchingUrls ? (
                       <>
                         <Loader2 size={18} className="animate-spin" />
-                        Fetching...
+                        Fetching All...
                       </>
                     ) : (
                       <>
                         <ExternalLink size={18} />
-                        Fetch CSV
+                        Fetch All CSVs
                       </>
                     )}
                   </button>
                 </div>
 
-                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <p className="text-blue-200 text-sm font-medium mb-2">Tips for external URLs:</p>
                   <ul className="text-blue-200/70 text-xs space-y-1 list-disc list-inside">
                     <li><strong>Google Sheets:</strong> File → Share → Publish to web → CSV format</li>
                     <li><strong>Dropbox:</strong> Use the direct download link (change dl=0 to dl=1)</li>
                     <li><strong>Direct:</strong> Any publicly accessible .csv file URL</li>
+                    <li><strong>No limits:</strong> Import as many properties as you need from multiple sources</li>
                   </ul>
                 </div>
 
@@ -414,8 +560,8 @@ export default function BulkImportPage() {
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
                       <div>
-                        <p className="text-red-400 font-medium">Error parsing file</p>
-                        <ul className="text-red-400/80 text-sm mt-1 list-disc list-inside">
+                        <p className="text-red-400 font-medium">Errors encountered</p>
+                        <ul className="text-red-400/80 text-sm mt-1 list-disc list-inside max-h-32 overflow-auto">
                           {parsedData.errors.map((err, i) => (
                             <li key={i}>{err}</li>
                           ))}
@@ -476,6 +622,7 @@ export default function BulkImportPage() {
                   onClick={() => {
                     setParsedData(null);
                     setStep('upload');
+                    setUrlEntries([{ id: '1', url: '', status: 'pending' }]);
                   }}
                   className="text-gray-400 hover:text-white"
                 >
@@ -534,6 +681,7 @@ export default function BulkImportPage() {
                 onClick={() => {
                   setParsedData(null);
                   setStep('upload');
+                  setUrlEntries([{ id: '1', url: '', status: 'pending' }]);
                 }}
                 className="flex-1 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
               >
@@ -581,6 +729,7 @@ export default function BulkImportPage() {
                     setParsedData(null);
                     setStep('upload');
                     setImportResults({ success: 0, failed: 0 });
+                    setUrlEntries([{ id: '1', url: '', status: 'pending' }]);
                   }}
                   className="px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
                 >
