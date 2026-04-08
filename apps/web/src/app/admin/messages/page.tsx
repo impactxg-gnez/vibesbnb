@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { MessageSquare, Search, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 
 interface Message {
   id: string;
@@ -44,12 +45,21 @@ export default function MessagesPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    loadConversations();
-  }, []);
+    if (user && user.user_metadata?.role === 'admin') {
+      loadConversations();
+    }
+  }, [user]);
 
   const loadConversations = async () => {
     try {
-      const response = await fetch('/api/admin/conversations');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/api/admin/conversations', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load conversations');
