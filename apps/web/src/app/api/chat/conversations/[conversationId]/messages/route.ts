@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 
 function containsContactInfo(message: string) {
@@ -14,18 +15,34 @@ function containsContactInfo(message: string) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { conversationId: string } }
 ) {
   try {
-    const supabase = createClient();
     const serviceSupabase = createServiceClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    
+    // Try to get user from Authorization header first
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    let user = null;
+    let supabase;
+    
+    if (token) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data } = await supabase.auth.getUser(token);
+      user = data.user;
+    } else {
+      supabase = createServerClient();
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -102,14 +119,30 @@ export async function POST(
   { params }: { params: { conversationId: string } }
 ) {
   try {
-    const supabase = createClient();
     const serviceSupabase = createServiceClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    
+    // Try to get user from Authorization header first
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    
+    let user = null;
+    let supabase;
+    
+    if (token) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data } = await supabase.auth.getUser(token);
+      user = data.user;
+    } else {
+      supabase = createServerClient();
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

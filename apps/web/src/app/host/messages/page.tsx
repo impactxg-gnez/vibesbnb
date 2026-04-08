@@ -53,7 +53,14 @@ export default function HostMessagesPage() {
     if (!user) return;
     if (showLoading) setLoadingList(true);
     try {
-      const response = await fetch('/api/chat/conversations');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/api/chat/conversations', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load conversations');

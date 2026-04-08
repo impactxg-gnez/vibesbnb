@@ -48,8 +48,16 @@ export default function ChatWindow({
   const loadMessages = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch(
-        `/api/chat/conversations/${conversationId}/messages`
+        `/api/chat/conversations/${conversationId}/messages`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+          },
+        }
       );
       const data = await response.json();
       if (!response.ok) {
@@ -114,8 +122,14 @@ export default function ChatWindow({
     
     const markRead = async () => {
       try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
         await fetch(`/api/chat/conversations/${conversationId}/read`, {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+          },
         });
         hasMarkedRead.current = true;
         // Call callback via ref to avoid re-renders
@@ -159,11 +173,17 @@ export default function ChatWindow({
     }
     setSending(true);
     try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch(
         `/api/chat/conversations/${conversationId}/messages`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+          },
           body: JSON.stringify({ message: input.trim() }),
         }
       );
