@@ -84,44 +84,19 @@ export default function MessagesPage() {
     }
   }, [user, preselectedId]);
 
-  // Initial load and real-time subscription
+  // Initial load and periodic refresh (no real-time to reduce connections)
   useEffect(() => {
     if (!user) return;
 
     loadConversations(true);
 
-    // Set up real-time subscription for conversation updates
-    const supabase = createClient();
-    const channel = supabase
-      .channel('conversations-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations',
-        },
-        () => {
-          // Silently refresh conversations without showing loading
-          loadConversations(false);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        },
-        () => {
-          // Update conversation list when new message arrives
-          loadConversations(false);
-        }
-      )
-      .subscribe();
+    // Periodic refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadConversations(false);
+    }, 30000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [user, loadConversations]);
 

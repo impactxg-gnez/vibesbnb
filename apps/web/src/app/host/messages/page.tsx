@@ -91,42 +91,19 @@ export default function HostMessagesPage() {
     }
   }, [user, preselectedId]);
 
-  // Initial load and real-time subscription
+  // Initial load and periodic refresh (no real-time to reduce connections)
   useEffect(() => {
     if (!user) return;
 
     loadConversations(true);
 
-    // Set up real-time subscription
-    const supabase = createClient();
-    const channel = supabase
-      .channel('host-conversations-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations',
-        },
-        () => {
-          loadConversations(false);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        },
-        () => {
-          loadConversations(false);
-        }
-      )
-      .subscribe();
+    // Periodic refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadConversations(false);
+    }, 30000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [user, loadConversations]);
 

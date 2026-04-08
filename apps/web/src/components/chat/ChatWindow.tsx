@@ -39,16 +39,29 @@ export default function ChatWindow({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const onMessagesReadRef = useRef(onMessagesRead);
   const hasMarkedRead = useRef(false);
+  const isLoadingRef = useRef(false);
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
   // Keep the ref updated
   useEffect(() => {
     onMessagesReadRef.current = onMessagesRead;
   }, [onMessagesRead]);
 
+  // Initialize supabase client once
+  useEffect(() => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+  }, []);
+
   const loadMessages = useCallback(async (showLoading = true) => {
+    // Prevent concurrent requests
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    
     if (showLoading) setLoading(true);
     try {
-      const supabase = createClient();
+      const supabase = supabaseRef.current || createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(
@@ -70,6 +83,7 @@ export default function ChatWindow({
         toast.error(error.message || 'Failed to load messages');
       }
     } finally {
+      isLoadingRef.current = false;
       if (showLoading) setLoading(false);
       scrollToBottom();
     }
@@ -77,42 +91,57 @@ export default function ChatWindow({
 
   // Initial load and real-time subscription
   useEffect(() => {
-    loadMessages(true);
-    hasMarkedRead.current = false;
+    let isMounted = true;
+    let interval: NodeJS.Timeout | null = null;
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null;
 
-    // Set up Supabase real-time subscription
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          // Add new message to the list
-          const newMessage = payload.new as Message;
-          setMessages((prev) => {
-            // Check if message already exists
-            if (prev.some((m) => m.id === newMessage.id)) {
-              return prev;
-            }
-            return [...prev, newMessage];
-          });
-          scrollToBottom();
-        }
-      )
-      .subscribe();
+    const setup = async () => {
+      if (!isMounted) return;
+      
+      await loadMessages(true);
+      hasMarkedRead.current = false;
 
-    // Fallback polling every 15 seconds (in case real-time fails)
-    const interval = setInterval(() => loadMessages(false), 15000);
+      // Set up Supabase real-time subscription
+      const supabase = supabaseRef.current || createClient();
+      channel = supabase
+        .channel(`messages:${conversationId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            if (!isMounted) return;
+            const newMessage = payload.new as Message;
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMessage.id)) {
+                return prev;
+              }
+              return [...prev, newMessage];
+            });
+            scrollToBottom();
+          }
+        )
+        .subscribe();
+
+      // Fallback polling every 30 seconds (less frequent)
+      interval = setInterval(() => {
+        if (isMounted) loadMessages(false);
+      }, 30000);
+    };
+
+    setup();
 
     return () => {
-      clearInterval(interval);
-      supabase.removeChannel(channel);
+      isMounted = false;
+      if (interval) clearInterval(interval);
+      if (channel) {
+        const supabase = supabaseRef.current;
+        if (supabase) supabase.removeChannel(channel);
+      }
     };
   }, [conversationId, loadMessages]);
 
@@ -122,7 +151,7 @@ export default function ChatWindow({
     
     const markRead = async () => {
       try {
-        const supabase = createClient();
+        const supabase = supabaseRef.current || createClient();
         const { data: { session } } = await supabase.auth.getSession();
         
         await fetch(`/api/chat/conversations/${conversationId}/read`, {
@@ -140,7 +169,7 @@ export default function ChatWindow({
     };
     
     // Delay slightly to avoid race conditions
-    const timeout = setTimeout(markRead, 500);
+    const timeout = setTimeout(markRead, 1000);
     return () => clearTimeout(timeout);
   }, [conversationId]);
 
@@ -173,7 +202,7 @@ export default function ChatWindow({
     }
     setSending(true);
     try {
-      const supabase = createClient();
+      const supabase = supabaseRef.current || createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(
@@ -193,6 +222,7 @@ export default function ChatWindow({
       }
       setInput('');
       setMessages((prev) => [...prev, data.message]);
+      scrollToBottom();
     } catch (error: any) {
       console.error('[ChatWindow] send error', error);
       toast.error(error.message || 'Failed to send message');
