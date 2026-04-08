@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { MessageCircle, Bed, Home, Building, Trees, Sparkles, Plane, Briefcase, Plus, X, Check } from 'lucide-react';
@@ -9,10 +9,12 @@ import { MessageCircle, Bed, Home, Building, Trees, Sparkles, Plane, Briefcase, 
 export function Header() {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<{ email: string; name: string; role: string }[]>([]);
+  const [currentMode, setCurrentMode] = useState<'traveling' | 'hosting'>('traveling');
 
   // Function to load saved accounts
   const loadAccounts = () => {
@@ -72,12 +74,35 @@ export function Header() {
   }, [user]);
 
   // User is a host if either user_metadata says so OR localStorage has 'host' role
-  const isHost = userRole === 'host' || storedRoles.includes('host');
+  const hasHostRole = userRole === 'host' || storedRoles.includes('host');
   const isAdmin = userRole === 'admin' || storedRoles.includes('admin');
-  const isTraveller = !isHost && !isAdmin;
-
-  // hasHostRole determines if the Hosting button goes to dashboard or registration
-  const hasHostRole = isHost;
+  
+  // Determine current mode based on URL path
+  const isOnHostPage = pathname?.startsWith('/host');
+  const isOnAdminPage = pathname?.startsWith('/admin');
+  
+  // Update current mode based on pathname
+  useEffect(() => {
+    if (isOnHostPage) {
+      setCurrentMode('hosting');
+      localStorage.setItem('vibesbnb_mode', 'hosting');
+    } else if (!isOnAdminPage) {
+      setCurrentMode('traveling');
+      localStorage.setItem('vibesbnb_mode', 'traveling');
+    }
+  }, [pathname, isOnHostPage, isOnAdminPage]);
+  
+  // Initialize mode from localStorage on mount
+  useEffect(() => {
+    const savedMode = localStorage.getItem('vibesbnb_mode') as 'traveling' | 'hosting' | null;
+    if (savedMode && (savedMode === 'traveling' || savedMode === 'hosting')) {
+      setCurrentMode(savedMode);
+    }
+  }, []);
+  
+  // For menu display purposes
+  const isInHostingMode = currentMode === 'hosting';
+  const isTraveller = !hasHostRole && !isAdmin;
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -105,11 +130,15 @@ export function Header() {
   }, [user]);
 
   const switchToTraveler = () => {
+    setCurrentMode('traveling');
+    localStorage.setItem('vibesbnb_mode', 'traveling');
     router.push('/search');
     setShowUserMenu(false);
   };
 
   const switchToHost = () => {
+    setCurrentMode('hosting');
+    localStorage.setItem('vibesbnb_mode', 'hosting');
     router.push('/host/properties');
     setShowUserMenu(false);
   };
@@ -124,7 +153,7 @@ export function Header() {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link href={isHost ? "/host/properties" : "/"} className="flex items-center space-x-2 group">
+          <Link href={isInHostingMode ? "/host/properties" : "/"} className="flex items-center space-x-2 group">
             <div className="w-10 h-10 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">
               <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
@@ -183,25 +212,25 @@ export function Header() {
               <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44 relative group">
                 <div 
                   className={`absolute h-[30px] w-[84px] bg-primary-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
-                    isHost ? 'translate-x-[86px]' : 'translate-x-0'
+                    isInHostingMode ? 'translate-x-[86px]' : 'translate-x-0'
                   }`}
                 />
                 <button
                   onClick={switchToTraveler}
                   className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
-                    !isHost ? 'text-black' : 'text-gray-400 hover:text-gray-200'
+                    !isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
-                  <Plane size={14} className={!isHost ? 'text-black' : 'text-gray-500'} />
+                  <Plane size={14} className={!isInHostingMode ? 'text-black' : 'text-gray-500'} />
                   Traveling
                 </button>
                 <button
                   onClick={hasHostRole ? switchToHost : registerAsHost}
                   className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
-                    isHost ? 'text-black' : 'text-gray-400 hover:text-gray-200'
+                    isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
-                  <Building size={14} className={isHost ? 'text-black' : 'text-gray-500'} />
+                  <Building size={14} className={isInHostingMode ? 'text-black' : 'text-gray-500'} />
                   Hosting
                 </button>
               </div>
@@ -250,14 +279,14 @@ export function Header() {
                               Profile
                             </Link>
                             <Link
-                              href={isHost ? "/host/messages" : "/messages"}
+                              href={isInHostingMode ? "/host/messages" : "/messages"}
                               className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
                             >
                               <span>Messages</span>
                               {unreadMessages > 0 && <span className="bg-emerald-500 text-black text-[10px] font-bold rounded-full px-1.5 py-0.5 ml-auto">{unreadMessages}</span>}
                             </Link>
-                            {isTraveller && (
+                            {!isInHostingMode && (
                               <Link
                                 href="/bookings"
                                 className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
@@ -266,7 +295,7 @@ export function Header() {
                                 My Bookings
                               </Link>
                             )}
-                            {isHost && (
+                            {hasHostRole && isInHostingMode && (
                               <Link
                                 href="/host/properties"
                                 className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
@@ -275,7 +304,7 @@ export function Header() {
                                 My Properties
                               </Link>
                             )}
-                            {isTraveller && (
+                            {!isInHostingMode && (
                               <Link
                                 href="/favorites"
                                 className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
