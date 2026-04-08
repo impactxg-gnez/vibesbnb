@@ -1,15 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signInWithGoogle, signInWithGithub } = useAuth();
+  const { signIn, signOut, signInWithGoogle, signInWithGithub, user } = useAuth();
+
+  // Handle account switching - pre-fill email and sign out current user
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    const isSwitch = searchParams.get('switch') === 'true';
+    
+    if (emailParam) {
+      setEmail(decodeURIComponent(emailParam));
+    }
+    
+    // If switching accounts, sign out the current user first
+    if (isSwitch && user) {
+      signOut();
+    }
+  }, [searchParams, user, signOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

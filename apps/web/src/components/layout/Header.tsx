@@ -324,10 +324,14 @@ export function Header() {
                                 <button
                                   onClick={() => {
                                     if (account.email !== user?.email) {
-                                      signOut();
-                                      router.push(`/login?email=${encodeURIComponent(account.email)}`);
+                                      // Don't sign out first - let the login page handle it
+                                      // This preserves saved accounts in localStorage
+                                      setShowAccountSwitcher(false);
+                                      setShowUserMenu(false);
+                                      router.push(`/login?email=${encodeURIComponent(account.email)}&switch=true`);
+                                    } else {
+                                      setShowAccountSwitcher(false);
                                     }
-                                    setShowAccountSwitcher(false);
                                   }}
                                   className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 border ${
                                     account.email === user?.email 
