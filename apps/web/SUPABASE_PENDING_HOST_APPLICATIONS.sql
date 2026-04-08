@@ -23,8 +23,13 @@ CREATE TABLE IF NOT EXISTS pending_host_applications (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Add notes column if it doesn't exist (for existing tables)
+-- Add missing columns if they don't exist (for existing tables)
 ALTER TABLE pending_host_applications ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE pending_host_applications ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE pending_host_applications ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Create index on user_id for faster lookups
+CREATE INDEX IF NOT EXISTS idx_pending_host_applications_user_id ON pending_host_applications(user_id);
 
 -- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_pending_host_applications_status ON pending_host_applications(status);
@@ -39,6 +44,7 @@ DROP POLICY IF EXISTS "Admins can view all host applications" ON pending_host_ap
 DROP POLICY IF EXISTS "Admins can update host applications" ON pending_host_applications;
 DROP POLICY IF EXISTS "Anyone can submit host application" ON pending_host_applications;
 DROP POLICY IF EXISTS "Users can view own application" ON pending_host_applications;
+DROP POLICY IF EXISTS "Users can view own application by user_id" ON pending_host_applications;
 
 -- Policy: Admins can view all applications (using JWT metadata)
 CREATE POLICY "Admins can view all host applications"
@@ -56,11 +62,11 @@ CREATE POLICY "Admins can update host applications"
     (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
--- Policy: Anyone can insert (submit application)
+-- Policy: Authenticated users can insert (submit application)
 CREATE POLICY "Anyone can submit host application"
   ON pending_host_applications
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Policy: Users can view their own application by email
 CREATE POLICY "Users can view own application"
@@ -68,6 +74,14 @@ CREATE POLICY "Users can view own application"
   FOR SELECT
   USING (
     email = (auth.jwt() ->> 'email')
+  );
+
+-- Policy: Users can view their own application by user_id
+CREATE POLICY "Users can view own application by user_id"
+  ON pending_host_applications
+  FOR SELECT
+  USING (
+    user_id = auth.uid()
   );
 
 -- Function to update the updated_at timestamp

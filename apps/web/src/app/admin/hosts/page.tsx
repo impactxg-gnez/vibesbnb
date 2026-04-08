@@ -10,12 +10,17 @@ import toast from 'react-hot-toast';
 
 interface HostApplication {
   id: string;
+  user_id: string | null;
   email: string;
   name: string;
   phone: string | null;
   location: string | null;
+  property_name: string | null;
+  property_type: string | null;
+  description: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  submitted_at: string | null;
   notes: string | null;
 }
 
@@ -66,27 +71,27 @@ export default function AdminHostsPage() {
 
   const handleApprove = async (application: HostApplication) => {
     try {
-      // 1. Update application status
-      const { error: updateError } = await supabase
-        .from('pending_host_applications')
-        .update({ 
-          status: 'approved',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id
-        })
-        .eq('id', application.id);
+      // Call the API to approve and grant host role
+      const response = await fetch('/api/admin/approve-host', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId: application.id,
+          userId: application.user_id,
+          email: application.email,
+        }),
+      });
 
-      if (updateError) throw updateError;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to approve host');
+      }
 
-      // 2. Create user account via Supabase Auth Admin API (would need server-side)
-      // For now, we'll just mark as approved - the user can sign up again with the same email
-      // and be automatically approved, or you can send them an invite link
-
-      toast.success(`Host application approved! An invite will be sent to ${application.email}`);
+      toast.success(`Host application approved! ${application.name} is now a host.`);
       fetchApplications();
     } catch (error: any) {
       console.error('Error approving application:', error);
-      toast.error('Failed to approve application');
+      toast.error(error.message || 'Failed to approve application');
     }
   };
 

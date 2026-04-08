@@ -103,6 +103,30 @@ export async function GET() {
       console.warn('pending_host_applications table not found');
     }
 
+    // Get pending property approvals
+    let pendingPropertyApprovals = 0;
+    try {
+      const { count: pendingProps } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending_approval');
+      pendingPropertyApprovals = pendingProps || 0;
+    } catch (e) {
+      console.warn('Error getting pending property count');
+    }
+
+    // Get pending profile pictures
+    let pendingProfilePictures = 0;
+    try {
+      const { count: pendingPics } = await supabase
+        .from('pending_profile_pictures')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      pendingProfilePictures = pendingPics || 0;
+    } catch (e) {
+      console.warn('pending_profile_pictures table not found');
+    }
+
     return NextResponse.json({
       users: {
         total: totalUsersCount || 0,
@@ -113,6 +137,7 @@ export async function GET() {
         total: totalListings || 0,
         last24Hours: listings24h || 0,
         last30Days: listings30d || 0,
+        pendingApproval: pendingPropertyApprovals,
       },
       reservations: {
         total: totalReservations || 0,
@@ -126,6 +151,9 @@ export async function GET() {
       hosts: {
         total: totalHostApplications,
         pending: pendingHostApplications,
+      },
+      profilePictures: {
+        pending: pendingProfilePictures,
       },
     });
   } catch (error: any) {

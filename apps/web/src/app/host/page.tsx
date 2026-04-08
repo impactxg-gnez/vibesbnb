@@ -51,63 +51,81 @@ export default function HostPage() {
         return;
       }
 
-      // Update user role to host in Supabase
       const supabase = createClient();
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (supabaseUser) {
-        // Update user metadata to include host role
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: {
-            role: 'host',
-            ...user?.user_metadata,
-          },
-        });
+        // Check if user already has a pending application
+        const { data: existingApp } = await supabase
+          .from('pending_host_applications')
+          .select('id, status')
+          .eq('user_id', supabaseUser.id)
+          .single();
 
-        if (updateError) {
-          throw updateError;
-        }
+        if (existingApp) {
+          if (existingApp.status === 'pending') {
+            toast.error('You already have a pending host application. Please wait for admin review.');
+            setIsRegistering(false);
+            return;
+          } else if (existingApp.status === 'rejected') {
+            // Allow resubmission - update existing application
+            const { error: updateError } = await supabase
+              .from('pending_host_applications')
+              .update({
+                name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'Host',
+                email: supabaseUser.email,
+                phone: supabaseUser.user_metadata?.phone || null,
+                location: formData.location,
+                property_name: formData.propertyName,
+                property_type: formData.propertyType,
+                description: formData.description,
+                status: 'pending',
+                submitted_at: new Date().toISOString(),
+              })
+              .eq('id', existingApp.id);
 
-        // Refresh the user session to get updated metadata
-        const { data: { user: updatedUser } } = await supabase.auth.getUser();
-        
-        // Also update localStorage for demo mode compatibility
-        const rolesStr = localStorage.getItem('userRoles');
-        const roles = rolesStr ? JSON.parse(rolesStr) : [];
-        if (!roles.includes('host')) {
-          roles.push('host');
-          localStorage.setItem('userRoles', JSON.stringify(roles));
-        }
+            if (updateError) throw updateError;
 
-        toast.success('Successfully registered as a host!');
-        
-        // Force a page refresh to reload user data
-        window.location.href = '/host/properties';
-      } else {
-        // Fallback for demo mode
-        const demoUser = localStorage.getItem('demoUser');
-        if (demoUser) {
-          const parsedUser = JSON.parse(demoUser);
-          parsedUser.user_metadata = {
-            ...parsedUser.user_metadata,
-            role: 'host',
-          };
-          localStorage.setItem('demoUser', JSON.stringify(parsedUser));
-          
-          const rolesStr = localStorage.getItem('userRoles');
-          const roles = rolesStr ? JSON.parse(rolesStr) : [];
-          if (!roles.includes('host')) {
-            roles.push('host');
-            localStorage.setItem('userRoles', JSON.stringify(roles));
+            toast.success('Your host application has been resubmitted for review!', { duration: 5000 });
+            router.push('/');
+            return;
           }
         }
-        
-        toast.success('Successfully registered as a host!');
-        router.push('/host/properties');
+
+        // Create a new pending host application
+        const { error: insertError } = await supabase
+          .from('pending_host_applications')
+          .insert({
+            user_id: supabaseUser.id,
+            email: supabaseUser.email,
+            name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'Host',
+            phone: supabaseUser.user_metadata?.phone || null,
+            location: formData.location,
+            property_name: formData.propertyName,
+            property_type: formData.propertyType,
+            description: formData.description,
+            status: 'pending',
+          });
+
+        if (insertError) {
+          if (insertError.code === '23505') {
+            toast.error('You already have a pending host application.');
+          } else {
+            throw insertError;
+          }
+          return;
+        }
+
+        toast.success('Your host application has been submitted! Our team will review it within 24-48 hours.', { duration: 5000 });
+        router.push('/');
+      } else {
+        // Fallback for demo mode - still require approval concept
+        toast.success('Your host application has been submitted for review!', { duration: 5000 });
+        router.push('/');
       }
     } catch (error: any) {
-      console.error('Error registering as host:', error);
-      toast.error(error.message || 'Failed to register as host. Please try again.');
+      console.error('Error submitting host application:', error);
+      toast.error(error.message || 'Failed to submit application. Please try again.');
     } finally {
       setIsRegistering(false);
     }

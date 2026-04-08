@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck, Building, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface DashboardStats {
@@ -17,6 +17,7 @@ interface DashboardStats {
     total: number;
     last24Hours: number;
     last30Days: number;
+    pendingApproval?: number;
   };
   reservations: {
     total: number;
@@ -29,6 +30,9 @@ interface DashboardStats {
   };
   hosts?: {
     total: number;
+    pending: number;
+  };
+  profilePictures?: {
     pending: number;
   };
 }
@@ -204,10 +208,11 @@ Check browser console for full details and property data.`;
 
   const statsData = stats || {
     users: { total: 0, last24Hours: 0, last30Days: 0 },
-    listings: { total: 0, last24Hours: 0, last30Days: 0 },
+    listings: { total: 0, last24Hours: 0, last30Days: 0, pendingApproval: 0 },
     reservations: { total: 0, last24Hours: 0, last30Days: 0 },
     dispensaries: { total: 0, pending: 0 },
     hosts: { total: 0, pending: 0 },
+    profilePictures: { pending: 0 },
   };
 
   return (
@@ -316,7 +321,7 @@ Check browser console for full details and property data.`;
         </div>
         
         {/* Pending Applications - URGENT ACTION */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           {/* Pending Host Applications */}
           <div 
             onClick={() => router.push('/admin/hosts')}
@@ -338,6 +343,27 @@ Check browser console for full details and property data.`;
             <p className="mt-4 text-xs text-gray-500">New hosts waiting to be approved</p>
           </div>
 
+          {/* Pending Property Approvals */}
+          <div 
+            onClick={() => router.push('/admin/listings?status=pending_approval')}
+            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-amber-100 hover:border-amber-500 transition-all relative overflow-hidden"
+          >
+            {(statsData.listings?.pendingApproval ?? 0) > 0 && (
+              <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
+                ACTION REQUIRED
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-500 transition-colors">
+                <Building className="w-6 h-6 text-amber-600 group-hover:text-white" />
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transform group-hover:translate-x-1 transition-all" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.listings?.pendingApproval || 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Pending Property Approvals</div>
+            <p className="mt-4 text-xs text-gray-500">Properties waiting for review</p>
+          </div>
+
           {/* Pending Dispensary Applications */}
           <div 
             onClick={() => router.push('/admin/dispensaries?filter=pending')}
@@ -355,8 +381,29 @@ Check browser console for full details and property data.`;
               <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transform group-hover:translate-x-1 transition-all" />
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.dispensaries?.pending || 0}</div>
-            <div className="text-sm text-gray-600 font-medium">Pending Dispensary Applications</div>
-            <p className="mt-4 text-xs text-gray-500">New shops waiting to join the platform</p>
+            <div className="text-sm text-gray-600 font-medium">Pending Dispensaries</div>
+            <p className="mt-4 text-xs text-gray-500">New shops waiting to join</p>
+          </div>
+
+          {/* Pending Profile Pictures */}
+          <div 
+            onClick={() => router.push('/admin/profile-pictures')}
+            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-purple-100 hover:border-purple-500 transition-all relative overflow-hidden"
+          >
+            {(statsData.profilePictures?.pending ?? 0) > 0 && (
+              <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
+                ACTION REQUIRED
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-500 transition-colors">
+                <Camera className="w-6 h-6 text-purple-600 group-hover:text-white" />
+              </div>
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-purple-500 transform group-hover:translate-x-1 transition-all" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.profilePictures?.pending || 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Pending Profile Pictures</div>
+            <p className="mt-4 text-xs text-gray-500">User photos awaiting review</p>
           </div>
         </div>
 

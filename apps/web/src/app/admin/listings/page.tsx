@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -34,6 +34,7 @@ interface Property {
 export default function ManageListingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +42,7 @@ export default function ManageListingsPage() {
     city: '',
     minPrice: '',
     maxPrice: '',
-    status: 'all',
+    status: searchParams.get('status') || 'all',
   });
   const [loadingProperties, setLoadingProperties] = useState(true);
 
