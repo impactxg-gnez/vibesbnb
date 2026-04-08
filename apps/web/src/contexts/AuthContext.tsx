@@ -51,6 +51,7 @@ const DEMO_ACCOUNTS = {
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const SAVED_SESSIONS_KEY = 'vibes_saved_sessions';
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -67,6 +68,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const useSupabase = isSupabaseConfigured();
 
+  const persistSavedSession = (session: Session | null) => {
+    if (!session?.user?.email || typeof window === 'undefined') return;
+
+    try {
+      const saved = localStorage.getItem(SAVED_SESSIONS_KEY);
+      const sessions = saved ? JSON.parse(saved) : {};
+
+      sessions[session.user.email] = {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      };
+
+      localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(sessions));
+    } catch (error) {
+      console.error('[AuthContext] Failed to persist saved session', error);
+    }
+  };
+
   useEffect(() => {
     if (useSupabase) {
       // Get initial session from Supabase with retry logic
@@ -81,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (session && !error) {
               setSession(session);
               setUser(session?.user ?? null);
+              persistSavedSession(session);
               
               // Sync roles from user metadata to localStorage
               if (session?.user?.user_metadata?.role) {
@@ -130,6 +150,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
+        if (session) {
+          persistSavedSession(session);
+        }
         
         // Sync roles from user metadata to localStorage
         if (session?.user?.user_metadata?.role) {

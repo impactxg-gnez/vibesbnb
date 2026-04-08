@@ -4,18 +4,21 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import { MessageCircle, Bed, Home, Building, Trees, Sparkles, Plane, Briefcase, Plus, X, Check } from 'lucide-react';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const supabase = createClient();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<{ email: string; name: string; role: string }[]>([]);
   const [currentMode, setCurrentMode] = useState<'traveling' | 'hosting'>('traveling');
   const [mounted, setMounted] = useState(false);
+  const [switchingEmail, setSwitchingEmail] = useState<string | null>(null);
 
   // Set mounted after hydration to prevent SSR/client mismatch
   useEffect(() => {
@@ -152,6 +155,56 @@ export function Header() {
   const registerAsHost = () => {
     router.push('/host');
     setShowUserMenu(false);
+  };
+
+  const handleSavedAccountSwitch = async (account: { email: string; name: string; role: string }) => {
+    if (account.email === user?.email) {
+      setShowAccountSwitcher(false);
+      return;
+    }
+
+    try {
+      setSwitchingEmail(account.email);
+
+      const saved = localStorage.getItem('vibes_saved_sessions');
+      const savedSessions = saved ? JSON.parse(saved) : {};
+      const accountSession = savedSessions[account.email];
+
+      if (accountSession?.access_token && accountSession?.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accountSession.access_token,
+          refresh_token: accountSession.refresh_token,
+        });
+
+        if (!error) {
+          setShowAccountSwitcher(false);
+          setShowUserMenu(false);
+
+          if (account.role === 'admin') {
+            router.push('/admin');
+          } else if (account.role === 'host') {
+            localStorage.setItem('vibesbnb_mode', 'hosting');
+            router.push('/host/properties');
+          } else {
+            localStorage.setItem('vibesbnb_mode', 'traveling');
+            router.push('/');
+          }
+          router.refresh();
+          return;
+        }
+      }
+
+      setShowAccountSwitcher(false);
+      setShowUserMenu(false);
+      router.push(`/login?email=${encodeURIComponent(account.email)}&switch=true`);
+    } catch (error) {
+      console.error('Failed to switch saved account', error);
+      setShowAccountSwitcher(false);
+      setShowUserMenu(false);
+      router.push(`/login?email=${encodeURIComponent(account.email)}&switch=true`);
+    } finally {
+      setSwitchingEmail(null);
+    }
   };
 
   return (
@@ -374,17 +427,8 @@ export function Header() {
                             {savedAccounts.map((account) => (
                               <div key={account.email} className="group relative">
                                 <button
-                                  onClick={() => {
-                                    if (account.email !== user?.email) {
-                                      // Don't sign out first - let the login page handle it
-                                      // This preserves saved accounts in localStorage
-                                      setShowAccountSwitcher(false);
-                                      setShowUserMenu(false);
-                                      router.push(`/login?email=${encodeURIComponent(account.email)}&switch=true`);
-                                    } else {
-                                      setShowAccountSwitcher(false);
-                                    }
-                                  }}
+                                  onClick={() => handleSavedAccountSwitch(account)}
+                                  disabled={switchingEmail === account.email}
                                   className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 border ${
                                     account.email === user?.email 
                                       ? 'bg-primary-500/10 border-primary-500/30' 
@@ -400,6 +444,7 @@ export function Header() {
                                     <div className="flex items-center gap-2">
                                       <p className="text-sm font-bold text-white truncate">{account.name}</p>
                                       {account.email === user?.email && <span className="bg-primary-500 text-[8px] text-black font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Current</span>}
+                                      {switchingEmail === account.email && <span className="bg-white/10 text-[8px] text-white font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Switching</span>}
                                     </div>
                                     <p className="text-[10px] text-gray-500 truncate uppercase tracking-widest mt-0.5 font-bold">{account.role} • {account.email}</p>
                                   </div>
