@@ -69,6 +69,28 @@ interface Property {
   }>;
 }
 
+// Helper to get general area from location (hide exact address)
+const getGeneralLocation = (location: string): string => {
+  if (!location) return '';
+  // Split by comma and take last 2-3 parts (city, state, country)
+  const parts = location.split(',').map(p => p.trim());
+  if (parts.length <= 2) return location;
+  // Return city, state/country (last 2 parts)
+  return parts.slice(-2).join(', ');
+};
+
+// Helper to add some randomness to coordinates for privacy (within ~500m)
+const obfuscateCoordinates = (lat?: number, lng?: number): { lat?: number; lng?: number } => {
+  if (!lat || !lng) return { lat: undefined, lng: undefined };
+  // Add random offset of up to ~500 meters (0.005 degrees ≈ 500m)
+  const latOffset = (Math.random() - 0.5) * 0.01;
+  const lngOffset = (Math.random() - 0.5) * 0.01;
+  return {
+    lat: lat + latOffset,
+    lng: lng + lngOffset
+  };
+};
+
 const amenityIcons: { [key: string]: any } = {
   'WiFi': Wifi,
   'Parking': Car,
@@ -373,7 +395,7 @@ export default function ListingDetailPage() {
             <h1 className="text-4xl font-bold text-white mb-2">{property.name}</h1>
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
               <p className="text-emerald-400 font-semibold tracking-wide">
-                {property.type ? `${property.type} in ` : ''}{property.location}
+                {property.type ? `${property.type} in ` : ''}{getGeneralLocation(property.location)}
               </p>
               <span className="hidden md:block text-gray-700">•</span>
               <button 
@@ -451,16 +473,26 @@ export default function ListingDetailPage() {
             )}
           </div>
 
-          {/* Map */}
-          {property.latitude && property.longitude && (
-            <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800">
-              <PropertyMap
-                latitude={property.latitude}
-                longitude={property.longitude}
-                propertyName={property.name}
-              />
-            </div>
-          )}
+          {/* Map - Shows approximate location only */}
+          {property.latitude && property.longitude && (() => {
+            const approxCoords = obfuscateCoordinates(property.latitude, property.longitude);
+            return (
+              <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800 relative">
+                <PropertyMap
+                  latitude={approxCoords.lat!}
+                  longitude={approxCoords.lng!}
+                  propertyName={property.name}
+                />
+                {/* Privacy notice overlay */}
+                <div className="absolute bottom-4 left-4 right-4 bg-gray-900/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-700">
+                  <p className="text-sm text-gray-300 flex items-center gap-2">
+                    <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
+                    <span>Approximate location shown. Exact address provided after booking confirmation.</span>
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -528,7 +560,7 @@ export default function ListingDetailPage() {
                       </div>
                       <p className="text-gray-300 text-sm leading-relaxed relative z-10">
                         {property.description.length > 100 
-                          ? `${property.description.substring(0, 120)}... This ${property.type?.toLowerCase() || 'retreat'} offers a blend of comfort and style, perfect for those seeking a unique ${property.wellnessFriendly ? 'wellness-oriented' : ''} stay in ${property.location.split(',')[0]}.`
+                          ? `${property.description.substring(0, 120)}... This ${property.type?.toLowerCase() || 'retreat'} offers a blend of comfort and style, perfect for those seeking a unique ${property.wellnessFriendly ? 'wellness-oriented' : ''} stay in ${getGeneralLocation(property.location).split(',')[0]}.`
                           : "This property is highly recommended for its excellent location and premium amenities."}
                       </p>
                     </div>
@@ -644,11 +676,11 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Nearby Dispensaries */}
+            {/* Nearby Dispensaries - Uses general area for privacy */}
             {property.location && (
               <NearbyDispensaries 
-                propertyLocation={property.location}
-                propertyCoordinates={property.latitude && property.longitude ? { lat: property.latitude, lng: property.longitude } : undefined}
+                propertyLocation={getGeneralLocation(property.location)}
+                propertyCoordinates={undefined}
                 propertyId={property.id}
                 propertyName={property.name}
                 onAddItem={handleAddToWellnessCart}
