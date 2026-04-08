@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS pending_host_applications (
   property_type TEXT,
   location TEXT,
   description TEXT,
+  notes TEXT,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   reviewed_at TIMESTAMPTZ,
   reviewed_by UUID REFERENCES auth.users(id),
