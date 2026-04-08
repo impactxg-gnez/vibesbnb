@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
-
-function containsContactInfo(message: string) {
-  const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
-  const phoneRegex = /(\+?\d[\d\s().-]{7,})/;
-  const urlRegex = /(https?:\/\/|www\.)/i;
-  return (
-    emailRegex.test(message) ||
-    phoneRegex.test(message) ||
-    urlRegex.test(message)
-  );
-}
+import { validateMessage } from '@/lib/utils/contactFilter';
 
 export async function GET(
   request: NextRequest,
@@ -156,12 +146,18 @@ export async function POST(
       );
     }
 
-    if (containsContactInfo(message)) {
+    // Server-side validation for contact information
+    const validation = validateMessage(message, user.id);
+    if (!validation.allowed) {
+      const errorMessages: Record<string, string> = {
+        'email': 'Email addresses are not allowed. Please keep communication on VibesBNB.',
+        'phone': 'Phone numbers are not allowed. Please keep communication on VibesBNB.',
+        'url': 'Links and URLs are not allowed. Please keep communication on VibesBNB.',
+        'social_media': 'Social media references are not allowed. Please keep communication on VibesBNB.',
+        'contact_solicitation': 'Sharing contact details outside the platform is not allowed.',
+      };
       return NextResponse.json(
-        {
-          error:
-            'Please keep communication on VibesBNB. Sharing phone numbers, emails, or links is not allowed.',
-        },
+        { error: errorMessages[validation.reason || 'email'] || 'Contact details are not allowed.' },
         { status: 400 }
       );
     }

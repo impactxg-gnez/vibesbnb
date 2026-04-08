@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { containsContactInfo } from '@/lib/utils/contactFilter';
 import toast from 'react-hot-toast';
 
 interface Message {
@@ -183,21 +184,20 @@ export default function ChatWindow({
     scrollToBottom();
   }, [messages]);
 
-  const blockContactInfo = (text: string) => {
-    const emailRegex = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
-    const phoneRegex = /(\+?\d[\d\s().-]{7,})/;
-    const urlRegex = /(https?:\/\/|www\.)/i;
-    return (
-      emailRegex.test(text) || phoneRegex.test(text) || urlRegex.test(text)
-    );
-  };
-
   const handleSend = async () => {
     if (!input.trim()) return;
-    if (blockContactInfo(input)) {
-      toast.error(
-        'Please keep communication on VibesBNB. Contact details are not allowed.'
-      );
+    
+    // Check for contact information using comprehensive filter
+    const contactCheck = containsContactInfo(input);
+    if (contactCheck.blocked) {
+      const messages: Record<string, string> = {
+        'email': 'Email addresses are not allowed. Please keep communication on VibesBNB.',
+        'phone': 'Phone numbers are not allowed. Please keep communication on VibesBNB.',
+        'url': 'Links and URLs are not allowed. Please keep communication on VibesBNB.',
+        'social_media': 'Social media references are not allowed. Please keep communication on VibesBNB.',
+        'contact_solicitation': 'Sharing contact details outside the platform is not allowed.',
+      };
+      toast.error(messages[contactCheck.reason || 'email'] || 'Contact details are not allowed.');
       return;
     }
     setSending(true);
