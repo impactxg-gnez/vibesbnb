@@ -56,14 +56,27 @@ export function Header() {
   }, []);
 
   const userRole = user?.user_metadata?.role || 'traveller';
-  const isHost = userRole === 'host';
-  const isAdmin = userRole === 'admin';
-  const isTraveller = userRole === 'traveller' || (!isHost && !isAdmin);
+  
+  // Check both user_metadata and localStorage for roles
+  const [storedRoles, setStoredRoles] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const rolesStr = localStorage.getItem('userRoles');
+    if (rolesStr) {
+      try {
+        setStoredRoles(JSON.parse(rolesStr));
+      } catch (e) {
+        setStoredRoles([]);
+      }
+    }
+  }, [user]);
 
+  // User is a host if either user_metadata says so OR localStorage has 'host' role
+  const isHost = userRole === 'host' || storedRoles.includes('host');
+  const isAdmin = userRole === 'admin' || storedRoles.includes('admin');
+  const isTraveller = !isHost && !isAdmin;
 
-
-  // If the user's role is 'host', isHost is true, and they'll get the host menus.
-  // If they are a 'traveller', they must register as a host.
+  // hasHostRole determines if the Hosting button goes to dashboard or registration
   const hasHostRole = isHost;
 
   useEffect(() => {
