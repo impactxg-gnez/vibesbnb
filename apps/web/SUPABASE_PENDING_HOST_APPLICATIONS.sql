@@ -40,16 +40,12 @@ DROP POLICY IF EXISTS "Admins can update host applications" ON pending_host_appl
 DROP POLICY IF EXISTS "Anyone can submit host application" ON pending_host_applications;
 DROP POLICY IF EXISTS "Users can view own application" ON pending_host_applications;
 
--- Policy: Admins can view all applications
+-- Policy: Admins can view all applications (using JWT metadata)
 CREATE POLICY "Admins can view all host applications"
   ON pending_host_applications
   FOR SELECT
   USING (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE auth.users.id = auth.uid()
-      AND auth.users.raw_user_meta_data->>'role' = 'admin'
-    )
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 -- Policy: Admins can update applications (approve/reject)
@@ -57,11 +53,7 @@ CREATE POLICY "Admins can update host applications"
   ON pending_host_applications
   FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE auth.users.id = auth.uid()
-      AND auth.users.raw_user_meta_data->>'role' = 'admin'
-    )
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 -- Policy: Anyone can insert (submit application)
@@ -75,7 +67,7 @@ CREATE POLICY "Users can view own application"
   ON pending_host_applications
   FOR SELECT
   USING (
-    email = (SELECT email FROM auth.users WHERE id = auth.uid())
+    email = (auth.jwt() ->> 'email')
   );
 
 -- Function to update the updated_at timestamp
