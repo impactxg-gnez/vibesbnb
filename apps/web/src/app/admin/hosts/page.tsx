@@ -49,21 +49,19 @@ export default function AdminHostsPage() {
   const fetchApplications = async () => {
     setIsLoading(true);
     try {
-      let query = supabase
-        .from('pending_host_applications')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (filterStatus !== 'all') {
-        query = query.eq('status', filterStatus);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setApplications(data || []);
+      const { data: { session } } = await supabase.auth.getSession();
+      const statusQuery = filterStatus !== 'all' ? `?status=${filterStatus}` : '';
+      const response = await fetch(`/api/admin/host-applications${statusQuery}`, {
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load applications');
+      setApplications(data.applications || []);
     } catch (error: any) {
       console.error('Error fetching host applications:', error);
-      toast.error('Failed to load applications');
+      toast.error(error.message || 'Failed to load applications');
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +72,10 @@ export default function AdminHostsPage() {
       // Call the API to approve and grant host role
       const response = await fetch('/api/admin/approve-host', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+        },
         body: JSON.stringify({
           applicationId: application.id,
           userId: application.user_id,
@@ -97,21 +98,25 @@ export default function AdminHostsPage() {
 
   const handleReject = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('pending_host_applications')
-        .update({ 
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/admin/host-applications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          applicationId: id,
           status: 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id
-        })
-        .eq('id', id);
-
-      if (error) throw error;
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to reject application');
       
       toast.success('Application rejected');
       fetchApplications();
     } catch (error: any) {
-      toast.error('Failed to reject application');
+      toast.error(error.message || 'Failed to reject application');
     }
   };
 

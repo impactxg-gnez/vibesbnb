@@ -1,11 +1,41 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const authSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+
+    const { data: { user }, error: authError } = await authSupabase.auth.getUser(token);
+    const isAdmin = user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin';
+
+    if (authError || !user || !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
+    const supabase = createServiceClient();
 
     // Note: We can't directly query auth.users table from the client
     // In production, you'd want to create a users table or use a database function
@@ -158,24 +188,9 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error('Error fetching admin stats:', error);
-    // Return mock data if there's an error (for development)
     return NextResponse.json({
-      users: {
-        total: 1788,
-        last24Hours: 1,
-        last30Days: 27,
-      },
-      listings: {
-        total: 272,
-        last24Hours: 0,
-        last30Days: 2,
-      },
-      reservations: {
-        total: 351,
-        last24Hours: 0,
-        last30Days: 7,
-      },
-    });
+      error: error.message || 'Failed to load admin stats',
+    }, { status: 500 });
   }
 }
 

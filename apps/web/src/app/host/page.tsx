@@ -52,68 +52,28 @@ export default function HostPage() {
       }
 
       const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (supabaseUser) {
-        // Check if user already has a pending application
-        const { data: existingApp } = await supabase
-          .from('pending_host_applications')
-          .select('id, status')
-          .eq('user_id', supabaseUser.id)
-          .single();
-
-        if (existingApp) {
-          if (existingApp.status === 'pending') {
-            toast.error('You already have a pending host application. Please wait for admin review.');
-            setIsRegistering(false);
-            return;
-          } else if (existingApp.status === 'rejected') {
-            // Allow resubmission - update existing application
-            const { error: updateError } = await supabase
-              .from('pending_host_applications')
-              .update({
-                name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'Host',
-                email: supabaseUser.email,
-                phone: supabaseUser.user_metadata?.phone || null,
-                location: formData.location,
-                property_name: formData.propertyName,
-                property_type: formData.propertyType,
-                description: formData.description,
-                status: 'pending',
-                submitted_at: new Date().toISOString(),
-              })
-              .eq('id', existingApp.id);
-
-            if (updateError) throw updateError;
-
-            toast.success('Your host application has been resubmitted for review!', { duration: 5000 });
-            router.push('/');
-            return;
-          }
-        }
-
-        // Create a new pending host application
-        const { error: insertError } = await supabase
-          .from('pending_host_applications')
-          .insert({
-            user_id: supabaseUser.id,
-            email: supabaseUser.email,
-            name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'Host',
-            phone: supabaseUser.user_metadata?.phone || null,
+        const response = await fetch('/api/host/application', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({
+            propertyName: formData.propertyName,
+            propertyType: formData.propertyType,
             location: formData.location,
-            property_name: formData.propertyName,
-            property_type: formData.propertyType,
             description: formData.description,
-            status: 'pending',
-          });
+          }),
+        });
 
-        if (insertError) {
-          if (insertError.code === '23505') {
-            toast.error('You already have a pending host application.');
-          } else {
-            throw insertError;
-          }
-          return;
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to submit host application');
         }
 
         toast.success('Your host application has been submitted! Our team will review it within 24-48 hours.', { duration: 5000 });

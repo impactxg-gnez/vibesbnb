@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { createClient } from '@/lib/supabase/client';
 import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck, Building, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -63,16 +64,27 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/admin/stats');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/admin/stats', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+      });
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch stats');
+      }
       setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      // Use fallback data
       setStats({
-        users: { total: 1788, last24Hours: 1, last30Days: 27 },
-        listings: { total: 272, last24Hours: 0, last30Days: 2 },
-        reservations: { total: 351, last24Hours: 0, last30Days: 7 },
+        users: { total: 0, last24Hours: 0, last30Days: 0 },
+        listings: { total: 0, last24Hours: 0, last30Days: 0, pendingApproval: 0 },
+        reservations: { total: 0, last24Hours: 0, last30Days: 0 },
+        dispensaries: { total: 0, pending: 0 },
+        hosts: { total: 0, pending: 0 },
+        profilePictures: { pending: 0 },
       });
     } finally {
       setLoadingStats(false);

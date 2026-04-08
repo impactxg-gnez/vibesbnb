@@ -1,29 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createClient as createServerClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin authentication
-    const serverSupabase = createServerClient();
-    const { data: { user: adminUser } } = await serverSupabase.auth.getUser();
-    
-    if (!adminUser || adminUser.user_metadata?.role !== 'admin') {
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    const authSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+
+    const { data: { user: adminUser }, error: authError } = await authSupabase.auth.getUser(token);
+    const isAdmin = adminUser?.user_metadata?.role === 'admin' || adminUser?.app_metadata?.role === 'admin';
+
+    if (authError || !adminUser || !isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { applicationId, userId, email } = await req.json();
+    const { applicationId, userId } = await req.json();
 
     if (!applicationId) {
       return NextResponse.json({ error: 'Application ID is required' }, { status: 400 });
-    }
-
-    // Create service role client to update user metadata
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
@@ -47,9 +60,12 @@ export async function POST(req: NextRequest) {
 
     // If we have a user_id, update their role to host
     if (userId) {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const existingMetadata = existingUser?.user?.user_metadata || {};
+
       const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
-        { user_metadata: { role: 'host' } }
+        { user_metadata: { ...existingMetadata, role: 'host' } }
       );
 
       if (updateUserError) {

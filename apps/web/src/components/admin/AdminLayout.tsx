@@ -52,30 +52,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const fetchPendingCounts = async () => {
       try {
         const supabase = createClient();
-        
-        // Count pending properties
-        const { count: propertyCount } = await supabase
-          .from('properties')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending_approval');
-        
-        setPendingPropertyCount(propertyCount || 0);
+        const { data: { session } } = await supabase.auth.getSession();
 
-        // Count pending host applications
-        const { count: hostCount } = await supabase
-          .from('pending_host_applications')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
-        
-        setPendingHostCount(hostCount || 0);
+        const response = await fetch('/api/admin/stats', {
+          headers: {
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+        });
 
-        // Count pending profile pictures
-        const { count: pictureCount } = await supabase
-          .from('pending_profile_pictures')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
-        
-        setPendingPictureCount(pictureCount || 0);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch pending counts');
+        }
+
+        setPendingPropertyCount(data.listings?.pendingApproval || 0);
+        setPendingHostCount(data.hosts?.pending || 0);
+        setPendingPictureCount(data.profilePictures?.pending || 0);
       } catch (error) {
         console.error('Error fetching pending counts:', error);
       }

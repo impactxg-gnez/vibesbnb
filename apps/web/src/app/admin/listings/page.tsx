@@ -102,13 +102,19 @@ export default function ManageListingsPage() {
     setLoadingProperties(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.from('properties').select('*').order('created_at', { ascending: false });
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/admin/properties', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+      });
+      const payload = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) throw new Error(payload.error || 'Failed to load properties');
 
       // For each property, try to get host info
       const propertiesWithHosts = await Promise.all(
-        (data || []).map(async (property) => {
+        (payload.properties || []).map(async (property: any) => {
           let hostInfo = {};
           if (property.host_id) {
             // In a real app, you'd fetch host details from auth.users or a users table
@@ -138,12 +144,20 @@ export default function ManageListingsPage() {
     setApprovingId(propertyId);
     try {
       const supabase = createClient();
-      const { error } = await supabase
-        .from('properties')
-        .update({ status: 'active' })
-        .eq('id', propertyId);
-
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/admin/properties', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          propertyId,
+          status: 'active',
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to approve property');
 
       toast.success('Property approved and published!');
       loadProperties();
@@ -161,15 +175,21 @@ export default function ManageListingsPage() {
     setApprovingId(propertyId);
     try {
       const supabase = createClient();
-      const { error } = await supabase
-        .from('properties')
-        .update({ 
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/admin/properties', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({
+          propertyId,
           status: 'draft',
-          rejection_reason: reason || 'Property did not meet our listing requirements.'
-        })
-        .eq('id', propertyId);
-
-      if (error) throw error;
+          rejectionReason: reason || 'Property did not meet our listing requirements.',
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to reject property');
 
       toast.success('Property rejected and moved to draft');
       loadProperties();
