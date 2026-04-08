@@ -78,7 +78,14 @@ export default function ManageReservationsPage() {
   const loadReservations = async () => {
     setLoadingReservations(true);
     try {
-      const response = await fetch('/api/admin/bookings');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/api/admin/bookings', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load bookings');
