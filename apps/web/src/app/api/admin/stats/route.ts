@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,9 +30,8 @@ export async function GET(request: NextRequest) {
     });
 
     const { data: { user }, error: authError } = await authSupabase.auth.getUser(token);
-    const isAdmin = user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin';
 
-    if (authError || !user || !isAdmin) {
+    if (authError || !user || !isAdminUser(user)) {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 

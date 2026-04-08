@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck, Building, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -51,13 +52,13 @@ export default function AdminDashboard() {
       router.push('/login');
     }
     // Check if user is admin
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdminUser(user)) {
       fetchStats();
     }
   }, [user]);
@@ -214,7 +215,7 @@ Check browser console for full details and property data.`;
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

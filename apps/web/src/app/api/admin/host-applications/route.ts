@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 async function authenticateAdmin(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -31,8 +32,7 @@ async function authenticateAdmin(request: NextRequest) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const isAdmin = user.user_metadata?.role === 'admin' || user.app_metadata?.role === 'admin';
-  if (!isAdmin) {
+  if (!isAdminUser(user)) {
     return { error: NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 }) };
   }
 

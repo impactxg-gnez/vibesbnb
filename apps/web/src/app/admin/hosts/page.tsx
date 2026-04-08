@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { Home, Check, X, MapPin, Mail, User, Search, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -37,7 +38,7 @@ export default function AdminHostsPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);

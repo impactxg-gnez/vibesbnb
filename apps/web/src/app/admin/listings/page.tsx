@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -50,13 +51,13 @@ export default function ManageListingsPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdminUser(user)) {
       loadProperties();
     }
   }, [user]);
@@ -238,7 +239,7 @@ export default function ManageListingsPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

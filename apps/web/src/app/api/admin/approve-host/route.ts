@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,9 +28,8 @@ export async function POST(req: NextRequest) {
     });
 
     const { data: { user: adminUser }, error: authError } = await authSupabase.auth.getUser(token);
-    const isAdmin = adminUser?.user_metadata?.role === 'admin' || adminUser?.app_metadata?.role === 'admin';
 
-    if (authError || !adminUser || !isAdmin) {
+    if (authError || !adminUser || !isAdminUser(adminUser)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
