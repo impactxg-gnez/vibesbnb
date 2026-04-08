@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
 import toast from 'react-hot-toast';
 
@@ -38,6 +39,7 @@ export default function MessagesPage() {
     null
   );
   const [loadingList, setLoadingList] = useState(true);
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -45,9 +47,9 @@ export default function MessagesPage() {
     }
   }, [loading, user, router]);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async (showLoading = true) => {
     if (!user) return;
-    setLoadingList(true);
+    if (showLoading) setLoadingList(true);
     try {
       const response = await fetch('/api/chat/conversations');
       const data = await response.json();
@@ -55,23 +57,71 @@ export default function MessagesPage() {
         throw new Error(data.error || 'Failed to load conversations');
       }
       setConversations(data.conversations || []);
-      if (preselectedId) {
-        setSelectedConversation(preselectedId);
-      } else if (!selectedConversation && data.conversations?.length) {
-        setSelectedConversation(data.conversations[0].id);
+      
+      // Only auto-select on initial load
+      if (!initialLoadDone.current) {
+        if (preselectedId) {
+          setSelectedConversation(preselectedId);
+        } else if (data.conversations?.length) {
+          setSelectedConversation(data.conversations[0].id);
+        }
+        initialLoadDone.current = true;
       }
     } catch (error: any) {
       console.error('[MessagesPage] load error', error);
-      toast.error(error.message || 'Failed to load conversations');
+      if (showLoading) {
+        toast.error(error.message || 'Failed to load conversations');
+      }
     } finally {
-      setLoadingList(false);
+      if (showLoading) setLoadingList(false);
     }
-  };
-
-  useEffect(() => {
-    loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, preselectedId]);
+
+  // Initial load and real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    loadConversations(true);
+
+    // Set up real-time subscription for conversation updates
+    const supabase = createClient();
+    const channel = supabase
+      .channel('conversations-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+        },
+        () => {
+          // Silently refresh conversations without showing loading
+          loadConversations(false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          // Update conversation list when new message arrives
+          loadConversations(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadConversations]);
+
+  // Memoized callback for ChatWindow
+  const handleMessagesRead = useCallback(() => {
+    loadConversations(false);
+  }, [loadConversations]);
 
   const selectedConversationObj = conversations.find(
     (conv) => conv.id === selectedConversation
@@ -180,7 +230,7 @@ export default function MessagesPage() {
                 title={selectedConversationObj.properties?.name || 'Chat'}
                 counterpartName={getCounterpartName(selectedConversationObj)}
                 counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
-                onMessagesRead={loadConversations}
+                onMessagesRead={handleMessagesRead}
               />
             ) : (
               <div className="h-full border border-gray-800 rounded-xl bg-gray-900 flex items-center justify-center text-gray-500">

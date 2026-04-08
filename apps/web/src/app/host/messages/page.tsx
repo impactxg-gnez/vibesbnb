@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
 import toast from 'react-hot-toast';
 import { MessageSquare, Calendar, Home, ArrowLeft } from 'lucide-react';
@@ -40,6 +41,7 @@ export default function HostMessagesPage() {
     null
   );
   const [loadingList, setLoadingList] = useState(true);
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -47,42 +49,83 @@ export default function HostMessagesPage() {
     }
   }, [loading, user, router]);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async (showLoading = true) => {
     if (!user) return;
-    setLoadingList(true);
+    if (showLoading) setLoadingList(true);
     try {
-      // Fetch only where user is host
       const response = await fetch('/api/chat/conversations');
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load conversations');
       }
       
-      // Filter for host conversations specifically if needed, 
-      // but usually the main API covers both. This page is for the host panel.
       const hostConvs = (data.conversations || []).filter(
         (c: Conversation) => c.host_id === user.id
       );
       
       setConversations(hostConvs);
       
-      if (preselectedId) {
-        setSelectedConversation(preselectedId);
-      } else if (!selectedConversation && hostConvs.length > 0) {
-        setSelectedConversation(hostConvs[0].id);
+      // Only auto-select on initial load
+      if (!initialLoadDone.current) {
+        if (preselectedId) {
+          setSelectedConversation(preselectedId);
+        } else if (hostConvs.length > 0) {
+          setSelectedConversation(hostConvs[0].id);
+        }
+        initialLoadDone.current = true;
       }
     } catch (error: any) {
       console.error('[HostMessagesPage] load error', error);
-      toast.error(error.message || 'Failed to load conversations');
+      if (showLoading) {
+        toast.error(error.message || 'Failed to load conversations');
+      }
     } finally {
-      setLoadingList(false);
+      if (showLoading) setLoadingList(false);
     }
-  };
-
-  useEffect(() => {
-    loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, preselectedId]);
+
+  // Initial load and real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    loadConversations(true);
+
+    // Set up real-time subscription
+    const supabase = createClient();
+    const channel = supabase
+      .channel('host-conversations-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+        },
+        () => {
+          loadConversations(false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          loadConversations(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loadConversations]);
+
+  const handleMessagesRead = useCallback(() => {
+    loadConversations(false);
+  }, [loadConversations]);
 
   const selectedConversationObj = conversations.find(
     (conv) => conv.id === selectedConversation
@@ -236,7 +279,7 @@ export default function HostMessagesPage() {
                 title={selectedConversationObj.properties?.name || 'Chat'}
                 counterpartName={getCounterpartName(selectedConversationObj)}
                 counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
-                onMessagesRead={loadConversations}
+                onMessagesRead={handleMessagesRead}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-gray-900/50">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
 
 interface Message {
@@ -36,9 +37,16 @@ export default function ChatWindow({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const onMessagesReadRef = useRef(onMessagesRead);
+  const hasMarkedRead = useRef(false);
 
-  const loadMessages = async () => {
-    setLoading(true);
+  // Keep the ref updated
+  useEffect(() => {
+    onMessagesReadRef.current = onMessagesRead;
+  }, [onMessagesRead]);
+
+  const loadMessages = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const response = await fetch(
         `/api/chat/conversations/${conversationId}/messages`
@@ -50,29 +58,77 @@ export default function ChatWindow({
       setMessages(data.messages || []);
     } catch (error: any) {
       console.error('[ChatWindow] load error', error);
-      toast.error(error.message || 'Failed to load messages');
+      if (showLoading) {
+        toast.error(error.message || 'Failed to load messages');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
       scrollToBottom();
     }
-  };
-
-  useEffect(() => {
-    loadMessages();
-    const interval = setInterval(loadMessages, 8000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
+  // Initial load and real-time subscription
   useEffect(() => {
-    const markRead = async () => {
-      await fetch(`/api/chat/conversations/${conversationId}/read`, {
-        method: 'POST',
-      });
-      onMessagesRead?.();
+    loadMessages(true);
+    hasMarkedRead.current = false;
+
+    // Set up Supabase real-time subscription
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          // Add new message to the list
+          const newMessage = payload.new as Message;
+          setMessages((prev) => {
+            // Check if message already exists
+            if (prev.some((m) => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+          scrollToBottom();
+        }
+      )
+      .subscribe();
+
+    // Fallback polling every 15 seconds (in case real-time fails)
+    const interval = setInterval(() => loadMessages(false), 15000);
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
     };
-    markRead();
-  }, [conversationId, onMessagesRead]);
+  }, [conversationId, loadMessages]);
+
+  // Mark as read only once when conversation changes
+  useEffect(() => {
+    if (hasMarkedRead.current) return;
+    
+    const markRead = async () => {
+      try {
+        await fetch(`/api/chat/conversations/${conversationId}/read`, {
+          method: 'POST',
+        });
+        hasMarkedRead.current = true;
+        // Call callback via ref to avoid re-renders
+        onMessagesReadRef.current?.();
+      } catch (error) {
+        console.error('Failed to mark as read:', error);
+      }
+    };
+    
+    // Delay slightly to avoid race conditions
+    const timeout = setTimeout(markRead, 500);
+    return () => clearTimeout(timeout);
+  }, [conversationId]);
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
