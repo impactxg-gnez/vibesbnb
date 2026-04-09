@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Image, Search, Check, X, Loader2, User, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface PendingPicture {
   id: string;
@@ -23,8 +24,7 @@ interface PendingPicture {
 export default function ProfilePicturesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const supabase = createClient();
-  
+
   const [pictures, setPictures] = useState<PendingPicture[]>([]);
   const [filteredPictures, setFilteredPictures] = useState<PendingPicture[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,22 +33,20 @@ export default function ProfilePicturesPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  const isAdmin = user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin';
-
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && !isAdmin) {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
-  }, [user, loading, router, isAdmin]);
+  }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user && isAdminUser(user)) {
       loadPictures();
     }
-  }, [user, isAdmin]);
+  }, [user]);
 
   useEffect(() => {
     let filtered = pictures;
@@ -72,43 +70,24 @@ export default function ProfilePicturesPage() {
   const loadPictures = async () => {
     setLoadingPictures(true);
     try {
-      // Get pending profile pictures
-      const { data: picturesData, error: picturesError } = await supabase
-        .from('pending_profile_pictures')
-        .select('*')
-        .order('submitted_at', { ascending: false });
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
 
-      if (picturesError) {
-        console.error('Error loading pictures:', picturesError);
-        // If table doesn't exist, show empty state
-        if (picturesError.message.includes('does not exist')) {
-          setPictures([]);
-          setFilteredPictures([]);
-          return;
-        }
-        throw picturesError;
+      const response = await fetch('/api/admin/pending-profile-pictures', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load profile pictures');
       }
 
-      // Get user profiles for names
-      const userIds = [...new Set((picturesData || []).map(p => p.user_id))];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']);
-
-      const profileMap = new Map((profilesData || []).map(p => [p.id, p.full_name]));
-
-      const enrichedPictures: PendingPicture[] = (picturesData || []).map(pic => ({
-        ...pic,
-        user_name: profileMap.get(pic.user_id) || 'Unknown User',
-        user_email: `User ${pic.user_id.substring(0, 8)}`,
-      }));
-
+      const enrichedPictures: PendingPicture[] = data.pictures || [];
       setPictures(enrichedPictures);
-      setFilteredPictures(enrichedPictures.filter(p => statusFilter === 'all' || p.status === statusFilter));
     } catch (error) {
       console.error('Error loading pictures:', error);
-      toast.error('Failed to load profile pictures');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to load profile pictures'
+      );
     } finally {
       setLoadingPictures(false);
     }
@@ -117,42 +96,35 @@ export default function ProfilePicturesPage() {
   const handleApprove = async (pictureId: string, userId: string, imageUrl: string) => {
     setProcessingId(pictureId);
     try {
-      // Update the pending picture status
-      const { error: updateError } = await supabase
-        .from('pending_profile_pictures')
-        .update({
-          status: 'approved',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id
-        })
-        .eq('id', pictureId);
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
 
-      if (updateError) throw updateError;
+      const response = await fetch('/api/admin/pending-profile-pictures', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pictureId,
+          userId,
+          action: 'approve',
+          imageUrl,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to approve');
 
-      // Update the user's profile with approved avatar
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          avatar_url: imageUrl,
-          avatar_status: 'approved',
-          pending_avatar_url: null,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // Update local state
-      setPictures(prev => prev.map(p => 
-        p.id === pictureId ? { ...p, status: 'approved' as const } : p
-      ));
+      setPictures((prev) =>
+        prev.map((p) => (p.id === pictureId ? { ...p, status: 'approved' as const } : p))
+      );
 
       toast.success('Profile picture approved!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error approving picture:', error);
-      toast.error('Failed to approve profile picture');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to approve profile picture'
+      );
     } finally {
       setProcessingId(null);
     }
@@ -160,45 +132,47 @@ export default function ProfilePicturesPage() {
 
   const handleReject = async (pictureId: string, userId: string) => {
     const reason = prompt('Please provide a reason for rejection (optional):');
-    
+
     setProcessingId(pictureId);
     try {
-      // Update the pending picture status
-      const { error: updateError } = await supabase
-        .from('pending_profile_pictures')
-        .update({
-          status: 'rejected',
-          rejection_reason: reason || 'Image does not meet our community guidelines.',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user?.id
-        })
-        .eq('id', pictureId);
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
 
-      if (updateError) throw updateError;
+      const response = await fetch('/api/admin/pending-profile-pictures', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pictureId,
+          userId,
+          action: 'reject',
+          rejectionReason:
+            reason || 'Image does not meet our community guidelines.',
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to reject');
 
-      // Update the user's profile status
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          avatar_status: 'rejected',
-          pending_avatar_url: null,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-      }
-
-      // Update local state
-      setPictures(prev => prev.map(p => 
-        p.id === pictureId ? { ...p, status: 'rejected' as const, rejection_reason: reason || undefined } : p
-      ));
+      setPictures((prev) =>
+        prev.map((p) =>
+          p.id === pictureId
+            ? {
+                ...p,
+                status: 'rejected' as const,
+                rejection_reason: reason || undefined,
+              }
+            : p
+        )
+      );
 
       toast.success('Profile picture rejected');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error rejecting picture:', error);
-      toast.error('Failed to reject profile picture');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to reject profile picture'
+      );
     } finally {
       setProcessingId(null);
     }
@@ -219,7 +193,7 @@ export default function ProfilePicturesPage() {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

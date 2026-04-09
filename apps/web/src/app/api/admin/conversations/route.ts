@@ -1,56 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the auth token from the Authorization header
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      console.error('[Admin Conversations] No token provided');
-      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
-    }
-
-    // Create a Supabase client with the token
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError) {
-      console.error('[Admin Conversations] Auth error:', authError);
-      return NextResponse.json({ error: 'Unauthorized - Auth failed' }, { status: 401 });
-    }
-    
-    if (!user) {
-      console.error('[Admin Conversations] No user found');
-      return NextResponse.json({ error: 'Unauthorized - No user' }, { status: 401 });
-    }
-
-    // Check for admin role in both metadata locations
-    const isAdmin = user.user_metadata?.role === 'admin' || 
-                    user.app_metadata?.role === 'admin';
-
-    console.log('[Admin Conversations] User check:', { 
-      userId: user.id, 
-      userMetaRole: user.user_metadata?.role,
-      appMetaRole: user.app_metadata?.role,
-      isAdmin 
-    });
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const auth = await authenticateAdminRequest(request);
+    if ('response' in auth) return auth.response;
 
     const serviceSupabase = createServiceClient();
     const { data: conversations, error } = await serviceSupabase

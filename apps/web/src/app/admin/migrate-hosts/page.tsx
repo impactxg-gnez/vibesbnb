@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export default function MigrateHostsPage() {
   const { user, loading } = useAuth();
@@ -19,7 +20,7 @@ export default function MigrateHostsPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
@@ -34,7 +35,7 @@ export default function MigrateHostsPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

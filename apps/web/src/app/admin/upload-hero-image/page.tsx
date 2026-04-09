@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Upload, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export default function UploadHeroImagePage() {
   const { user, loading } = useAuth();
@@ -24,7 +25,7 @@ export default function UploadHeroImagePage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     router.push('/');
     return null;
   }
@@ -56,7 +57,8 @@ export default function UploadHeroImagePage() {
       const formData = new FormData();
       formData.append('file', file);
       // Pass user role for demo account support
-      const userRole = user?.user_metadata?.role || 'admin';
+      const userRole =
+        user?.user_metadata?.role || user?.app_metadata?.role || 'admin';
       formData.append('userRole', userRole);
 
       const response = await fetch('/api/upload-hero-image', {

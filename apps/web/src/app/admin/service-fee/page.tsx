@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DollarSign, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export default function ManageServiceFeePage() {
   const { user, loading } = useAuth();
@@ -17,7 +18,7 @@ export default function ManageServiceFeePage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
@@ -53,7 +54,7 @@ export default function ManageServiceFeePage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 
@@ -79,7 +80,7 @@ export default function ManageServiceFeePage() {
                   step="0.1"
                   value={serviceFee}
                   onChange={(e) => setServiceFee(Number(e.target.value))}
-                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
                 <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500">

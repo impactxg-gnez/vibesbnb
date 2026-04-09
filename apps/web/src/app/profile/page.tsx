@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle, Camera, Loader2, Clock } from 'lucide-react';
@@ -20,6 +20,13 @@ export default function ProfilePage() {
   const [avatarStatus, setAvatarStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [verificationDocType, setVerificationDocType] = useState('ID');
+  const [uploadingVerificationDoc, setUploadingVerificationDoc] = useState(false);
+  const [myVerificationDocs, setMyVerificationDocs] = useState<
+    { id: string; doc_type: string; status: string; submitted_at: string }[]
+  >([]);
+  const verificationFileRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -206,6 +213,99 @@ export default function ProfilePage() {
       }
     }
   };
+
+  const loadMyVerificationDocs = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('host_verification_documents')
+        .select('id, doc_type, status, submitted_at')
+        .eq('user_id', user.id)
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        if (
+          error.message?.includes('does not exist') ||
+          error.code === '42P01'
+        ) {
+          setMyVerificationDocs([]);
+          return;
+        }
+        throw error;
+      }
+      setMyVerificationDocs(data || []);
+    } catch (e) {
+      console.warn('Verification docs load:', e);
+      setMyVerificationDocs([]);
+    }
+  }, [user?.id]);
+
+  const handleVerificationDocUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    const max = 15 * 1024 * 1024;
+    if (file.size > max) {
+      toast.error('File must be under 15MB');
+      return;
+    }
+
+    setUploadingVerificationDoc(true);
+    try {
+      const supabase = createClient();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${user.id}/${Date.now()}-${safeName}`;
+
+      const { error: upErr } = await supabase.storage
+        .from('host-verification-docs')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+
+      if (upErr) {
+        if (upErr.message.includes('Bucket not found')) {
+          toast.error(
+            'Verification storage is not set up. Create bucket host-verification-docs in Supabase.'
+          );
+          return;
+        }
+        throw upErr;
+      }
+
+      const { error: insErr } = await supabase
+        .from('host_verification_documents')
+        .insert({
+          user_id: user.id,
+          doc_type: verificationDocType,
+          storage_path: path,
+          file_name: file.name,
+          status: 'pending',
+        });
+
+      if (insErr) {
+        await supabase.storage.from('host-verification-docs').remove([path]);
+        throw insErr;
+      }
+
+      toast.success('Document uploaded for admin review');
+      loadMyVerificationDocs();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      toast.error(msg);
+    } finally {
+      setUploadingVerificationDoc(false);
+      if (verificationFileRef.current) {
+        verificationFileRef.current.value = '';
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id && userRole === 'host') {
+      loadMyVerificationDocs();
+    }
+  }, [user?.id, userRole, loadMyVerificationDocs]);
 
   useEffect(() => {
     const fetchHostStats = async () => {
@@ -791,6 +891,70 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Host verification documents */}
+        {userRole === 'host' && (
+          <div className="mt-8 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                  <Shield size={24} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Verification documents</h2>
+                  <p className="text-emerald-100 text-sm">
+                    Upload ID, licenses, or ownership docs for admin review
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Document type</label>
+                  <select
+                    value={verificationDocType}
+                    onChange={(e) => setVerificationDocType(e.target.value)}
+                    className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                  >
+                    <option value="ID">ID</option>
+                    <option value="Business License">Business License</option>
+                    <option value="Property Ownership">Property Ownership</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <input
+                  ref={verificationFileRef}
+                  type="file"
+                  accept="image/*,.pdf,application/pdf"
+                  className="hidden"
+                  onChange={handleVerificationDocUpload}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingVerificationDoc}
+                  onClick={() => verificationFileRef.current?.click()}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {uploadingVerificationDoc ? 'Uploading…' : 'Choose file'}
+                </button>
+              </div>
+              {myVerificationDocs.length > 0 && (
+                <ul className="space-y-2 text-sm text-gray-300">
+                  {myVerificationDocs.map((d) => (
+                    <li
+                      key={d.id}
+                      className="flex justify-between border border-gray-700 rounded-lg px-3 py-2"
+                    >
+                      <span>{d.doc_type}</span>
+                      <span className="text-gray-500 capitalize">{d.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Payout Setup Section (for hosts only) */}
         {userRole === 'host' && (

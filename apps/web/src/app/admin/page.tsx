@@ -2,10 +2,11 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck, Building, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [cleaningUp, setCleaningUp] = useState(false);
   const [grabbingImages, setGrabbingImages] = useState(false);
@@ -57,40 +59,69 @@ export default function AdminDashboard() {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (user && isAdminUser(user)) {
-      fetchStats();
-    }
-  }, [user]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      setStatsError(null);
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) {
+        throw new Error('No valid session — please sign in again.');
+      }
       const response = await fetch('/api/admin/stats', {
         headers: {
-          Authorization: `Bearer ${session?.access_token || ''}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch stats');
       }
-      setStats(data);
+      setStats(data as DashboardStats);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      setStats({
-        users: { total: 0, last24Hours: 0, last30Days: 0 },
-        listings: { total: 0, last24Hours: 0, last30Days: 0, pendingApproval: 0 },
-        reservations: { total: 0, last24Hours: 0, last30Days: 0 },
-        dispensaries: { total: 0, pending: 0 },
-        hosts: { total: 0, pending: 0 },
-        profilePictures: { pending: 0 },
-      });
+      const msg =
+        error instanceof Error ? error.message : 'Failed to fetch stats';
+      setStatsError(msg);
+      toast.error(msg);
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user && isAdminUser(user)) {
+      fetchStats();
+    }
+  }, [user, fetchStats]);
+
+  useEffect(() => {
+    if (!user || !isAdminUser(user)) return;
+    const supabase = createClient();
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    const scheduleRefresh = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => fetchStats(), 500);
+    };
+    const channel = supabase.channel('admin-dashboard-stats');
+    const tables = [
+      'bookings',
+      'properties',
+      'pending_host_applications',
+      'pending_profile_pictures',
+      'dispensaries',
+    ];
+    for (const table of tables) {
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table },
+        scheduleRefresh
+      );
+    }
+    channel.subscribe();
+    return () => {
+      clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchStats]);
 
   const handleCleanupProperties = async () => {
     if (!confirm('This will clean up all property names (remove "Property Listing" prefix) and ensure all properties have at least 1 photo. Continue?')) {
@@ -231,6 +262,14 @@ Check browser console for full details and property data.`;
   return (
     <AdminLayout>
       <div>
+        {statsError && (
+          <div
+            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            role="alert"
+          >
+            {statsError} — counts below may be stale or empty. Try refreshing after signing in again.
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <div className="flex gap-3">

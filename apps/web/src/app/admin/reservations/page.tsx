@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Calendar, Search, Filter, Eye, Edit, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -43,13 +45,13 @@ export default function ManageReservationsPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdminUser(user)) {
       loadReservations();
     }
   }, [user]);
@@ -78,12 +80,12 @@ export default function ManageReservationsPage() {
   const loadReservations = async () => {
     setLoadingReservations(true);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+
       const response = await fetch('/api/admin/bookings', {
         headers: {
-          'Authorization': `Bearer ${session?.access_token || ''}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
@@ -153,7 +155,7 @@ export default function ManageReservationsPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

@@ -31,7 +31,8 @@ interface Property {
   guests: number;
   price: number;
   wellnessFriendly: boolean;
-  smokeFriendly?: boolean;
+  smokingInsideAllowed: boolean;
+  smokingOutsideAllowed: boolean;
   allowExtraGuests: boolean;
   extraGuestPrice: number;
   amenities: string[];
@@ -60,7 +61,8 @@ export default function EditPropertyPage() {
     guests: 2,
     price: 100,
     wellnessFriendly: false,
-    smokeFriendly: false,
+    smokingInsideAllowed: false,
+    smokingOutsideAllowed: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
     amenities: [],
@@ -136,6 +138,11 @@ export default function EditPropertyPage() {
           }
 
           if (propertyData) {
+            let smokingInside = propertyData.smoking_inside_allowed === true;
+            let smokingOutside = propertyData.smoking_outside_allowed === true;
+            if (!smokingInside && !smokingOutside && propertyData.smoke_friendly) {
+              smokingOutside = true;
+            }
             const loadedProperty: Property = {
               id: propertyData.id,
               name: propertyData.name || propertyData.title || '',
@@ -146,7 +153,8 @@ export default function EditPropertyPage() {
               guests: propertyData.guests || 0,
               price: propertyData.price ? Number(propertyData.price) : 0,
               wellnessFriendly: propertyData.wellness_friendly || false,
-              smokeFriendly: propertyData.smoke_friendly || false,
+              smokingInsideAllowed: smokingInside,
+              smokingOutsideAllowed: smokingOutside,
               allowExtraGuests: propertyData.allow_extra_guests || false,
               extraGuestPrice: propertyData.extra_guest_price ? Number(propertyData.extra_guest_price) : 50,
               amenities: propertyData.amenities || [],
@@ -200,6 +208,11 @@ export default function EditPropertyPage() {
             const property = parsedProperties.find((p: any) => p.id === params.id);
             
             if (property) {
+              let smokingInside = property.smokingInsideAllowed === true;
+              let smokingOutside = property.smokingOutsideAllowed === true;
+              if (!smokingInside && !smokingOutside && property.smokeFriendly) {
+                smokingOutside = true;
+              }
               const loadedProperty: Property = {
                 id: property.id,
                 name: property.name || '',
@@ -210,7 +223,8 @@ export default function EditPropertyPage() {
                 guests: property.guests || 0,
                 price: property.price || 0,
                 wellnessFriendly: property.wellnessFriendly || false,
-                smokeFriendly: property.smokeFriendly || false,
+                smokingInsideAllowed: smokingInside,
+                smokingOutsideAllowed: smokingOutside,
                 allowExtraGuests: property.allowExtraGuests || false,
                 extraGuestPrice: property.extraGuestPrice || 50,
                 amenities: property.amenities || [],
@@ -464,7 +478,10 @@ export default function EditPropertyPage() {
             price: formData.price,
             type: formData.type,
             wellness_friendly: formData.wellnessFriendly,
-            smoke_friendly: formData.smokeFriendly || false,
+            smoking_inside_allowed: formData.smokingInsideAllowed,
+            smoking_outside_allowed: formData.smokingOutsideAllowed,
+            smoke_friendly:
+              formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             amenities: formData.amenities,
@@ -499,7 +516,10 @@ export default function EditPropertyPage() {
                 guests: formData.guests,
                 price: formData.price,
                 wellnessFriendly: formData.wellnessFriendly,
-                smokeFriendly: formData.smokeFriendly || false,
+                smokingInsideAllowed: formData.smokingInsideAllowed,
+                smokingOutsideAllowed: formData.smokingOutsideAllowed,
+                smokeFriendly:
+                  formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -531,7 +551,10 @@ export default function EditPropertyPage() {
                 guests: formData.guests,
                 price: formData.price,
                 wellnessFriendly: formData.wellnessFriendly,
-                smokeFriendly: formData.smokeFriendly || false,
+                smokingInsideAllowed: formData.smokingInsideAllowed,
+                smokingOutsideAllowed: formData.smokingOutsideAllowed,
+                smokeFriendly:
+                  formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -744,8 +767,8 @@ export default function EditPropertyPage() {
 
           {/* Property Features */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Property Features</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <h2 className="text-xl font-semibold text-white mb-2">Property Features</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
@@ -758,18 +781,46 @@ export default function EditPropertyPage() {
                 <span className="text-lg">🧘</span>
                 <span>Wellness-Friendly</span>
               </button>
-
+            </div>
+            <p className="text-sm text-gray-400 mt-6 mb-3">Smoking policy (shown to guests on your listing)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, smokeFriendly: !(formData.smokeFriendly || false) })}
-                className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
-                  formData.smokeFriendly
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)]'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    smokingInsideAllowed: !formData.smokingInsideAllowed,
+                  })
+                }
+                className={`px-4 py-3 rounded-lg border text-left transition flex flex-col gap-1 ${
+                  formData.smokingInsideAllowed
+                    ? 'bg-amber-600/20 border-amber-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
                 }`}
               >
-                <span className="text-lg">🌿</span>
-                <span>Smoke-Friendly</span>
+                <span className="font-semibold">Smoking allowed inside</span>
+                <span className="text-xs text-gray-400 font-normal">
+                  e.g. designated indoor smoking areas
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    smokingOutsideAllowed: !formData.smokingOutsideAllowed,
+                  })
+                }
+                className={`px-4 py-3 rounded-lg border text-left transition flex flex-col gap-1 ${
+                  formData.smokingOutsideAllowed
+                    ? 'bg-slate-700 border-white/20 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
+                }`}
+              >
+                <span className="font-semibold">Smoking allowed outside</span>
+                <span className="text-xs text-gray-400 font-normal">
+                  Patio, balcony, yard, etc.
+                </span>
               </button>
             </div>
           </div>

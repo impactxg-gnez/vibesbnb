@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Search, Save, Sparkles, RefreshCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export default function SearchSettingsPage() {
   const { user, loading } = useAuth();
@@ -41,7 +42,7 @@ export default function SearchSettingsPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     router.push('/');
     return null;
   }

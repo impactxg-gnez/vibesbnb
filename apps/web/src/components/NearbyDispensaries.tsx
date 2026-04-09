@@ -66,14 +66,16 @@ export default function NearbyDispensaries({
   const [dispensaries, setDispensaries] = useState<Dispensary[]>([]);
   const [selectedDispensary, setSelectedDispensary] = useState<Dispensary | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(propertyCoordinates));
   const [requesting, setRequesting] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
-    if (propertyCoordinates) {
-      fetchDispensaries();
+    if (!propertyCoordinates) {
+      setLoading(false);
+      return;
     }
+    fetchDispensaries();
   }, [propertyCoordinates]);
 
   const fetchDispensaries = async () => {
@@ -149,6 +151,10 @@ export default function NearbyDispensaries({
       setRequesting(false);
     }
   };
+
+  if (!propertyCoordinates) {
+    return null;
+  }
 
   if (loading) {
     return (

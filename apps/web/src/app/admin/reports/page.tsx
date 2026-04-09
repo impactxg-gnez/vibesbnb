@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DollarSign, TrendingUp, TrendingDown, Calendar, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface ReportData {
   period: string;
@@ -33,82 +35,70 @@ export default function ReportManagementPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
-      loadReports();
-    }
-  }, [user, period]);
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     setLoadingReports(true);
     try {
-      const supabase = createClient();
-      const now = new Date();
-      let startDate: Date;
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
 
-      if (period === 'day') {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      } else if (period === 'week') {
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - 7);
-      } else {
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const response = await fetch(
+        `/api/admin/reports?period=${encodeURIComponent(period)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load reports');
       }
 
-      const { data: bookingsData, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const breakdown: { [key: string]: { income: number; refunds: number; bookings: number } } = {};
-
-      let totalIncome = 0;
-      let totalRefunds = 0;
-
-      bookingsData?.forEach((booking) => {
-        const date = new Date(booking.created_at).toLocaleDateString();
-        if (!breakdown[date]) {
-          breakdown[date] = { income: 0, refunds: 0, bookings: 0 };
-        }
-
-        if (booking.status === 'cancelled') {
-          breakdown[date].refunds += Number(booking.total_price || 0);
-          totalRefunds += Number(booking.total_price || 0);
-        } else {
-          breakdown[date].income += Number(booking.total_price || 0);
-          totalIncome += Number(booking.total_price || 0);
-        }
-        breakdown[date].bookings += 1;
-      });
-
-      const breakdownArray = Object.entries(breakdown).map(([date, data]) => ({
-        date,
-        ...data,
-      }));
-
       setReportData({
-        period: period,
-        total_income: totalIncome,
-        total_refunds: totalRefunds,
-        net_income: totalIncome - totalRefunds,
-        bookings_count: bookingsData?.length || 0,
-        breakdown: breakdownArray,
+        period: data.period,
+        total_income: data.total_income,
+        total_refunds: data.total_refunds,
+        net_income: data.net_income,
+        bookings_count: data.bookings_count,
+        breakdown: data.breakdown || [],
       });
     } catch (error) {
       console.error('Error loading reports:', error);
-      toast.error('Failed to load reports');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to load reports'
+      );
     } finally {
       setLoadingReports(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    if (user && isAdminUser(user)) {
+      loadReports();
+    }
+  }, [user, loadReports]);
+
+  useEffect(() => {
+    if (!user || !isAdminUser(user)) return;
+    const supabase = createClient();
+    let t: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      clearTimeout(t);
+      t = setTimeout(() => loadReports(), 500);
+    };
+    const ch = supabase.channel('admin-reports-bookings');
+    ch.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'bookings' },
+      schedule
+    );
+    ch.subscribe();
+    return () => {
+      clearTimeout(t);
+      supabase.removeChannel(ch);
+    };
+  }, [user, loadReports]);
 
   const handleExport = () => {
     if (!reportData) return;
@@ -126,7 +116,7 @@ export default function ReportManagementPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 
@@ -139,7 +129,7 @@ export default function ReportManagementPage() {
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value as 'day' | 'week' | 'month')}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               <option value="day">Today</option>
               <option value="week">Last 7 Days</option>

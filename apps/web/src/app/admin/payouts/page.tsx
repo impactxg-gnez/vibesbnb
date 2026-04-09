@@ -6,14 +6,16 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DollarSign, Check, X, Eye, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Payout {
   id: string;
   host_id: string;
   host_name: string;
   host_email: string;
-  booking_id: string;
   property_name: string;
+  bank_name?: string;
   amount: number;
   status: 'pending' | 'approved' | 'rejected';
   requested_at: string;
@@ -32,7 +34,7 @@ export default function ManagePayoutPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
@@ -62,65 +64,93 @@ export default function ManagePayoutPage() {
   }, [searchQuery, statusFilter, payouts]);
 
   const loadPayouts = async () => {
-    // In a real app, you'd fetch from a payouts table
-    const mockPayouts: Payout[] = [
-      {
-        id: 'payout1',
-        host_id: 'host1',
-        host_name: 'Jane Host',
-        host_email: 'jane@example.com',
-        booking_id: 'booking1',
-        property_name: 'Cozy Mountain Cabin',
-        amount: 850.0,
-        status: 'pending',
-        requested_at: new Date().toISOString(),
-      },
-      {
-        id: 'payout2',
-        host_id: 'host2',
-        host_name: 'John Host',
-        host_email: 'john@example.com',
-        booking_id: 'booking2',
-        property_name: 'Beachfront Villa',
-        amount: 1200.0,
-        status: 'approved',
-        requested_at: new Date(Date.now() - 86400000).toISOString(),
-      },
-    ];
-    setPayouts(mockPayouts);
-    setFilteredPayouts(mockPayouts);
+    try {
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+
+      const response = await fetch('/api/admin/payouts', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load payouts');
+      }
+
+      const list: Payout[] = data.payouts || [];
+      setPayouts(list);
+      setFilteredPayouts(list);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : 'Failed to load payouts');
+      setPayouts([]);
+      setFilteredPayouts([]);
+    }
   };
 
   const handleApprovePayout = async (payoutId: string) => {
     try {
-      setPayouts(payouts.map((p) => (p.id === payoutId ? { ...p, status: 'approved' as const } : p)));
-      setFilteredPayouts(
-        filteredPayouts.map((p) => (p.id === payoutId ? { ...p, status: 'approved' as const } : p))
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+
+      const response = await fetch('/api/admin/payouts', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ payoutAccountId: payoutId, status: 'approved' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to approve');
+
+      setPayouts((prev) =>
+        prev.map((p) => (p.id === payoutId ? { ...p, status: 'approved' as const } : p))
       );
-      toast.success('Payout approved');
+      setFilteredPayouts((prev) =>
+        prev.map((p) => (p.id === payoutId ? { ...p, status: 'approved' as const } : p))
+      );
+      toast.success('Payout account verified');
     } catch (error) {
-      toast.error('Failed to approve payout');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to approve payout'
+      );
     }
   };
 
   const handleRejectPayout = async (payoutId: string) => {
-    const reason = prompt('Please provide a reason for rejection:');
+    const reason = prompt('Please provide a reason for suspension:');
     if (!reason) return;
 
     try {
-      setPayouts(
-        payouts.map((p) =>
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+
+      const response = await fetch('/api/admin/payouts', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ payoutAccountId: payoutId, status: 'rejected' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update');
+
+      setPayouts((prev) =>
+        prev.map((p) =>
           p.id === payoutId ? { ...p, status: 'rejected' as const, reason } : p
         )
       );
-      setFilteredPayouts(
-        filteredPayouts.map((p) =>
+      setFilteredPayouts((prev) =>
+        prev.map((p) =>
           p.id === payoutId ? { ...p, status: 'rejected' as const, reason } : p
         )
       );
-      toast.success('Payout rejected');
+      toast.success('Payout account suspended');
     } catch (error) {
-      toast.error('Failed to reject payout');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to reject payout'
+      );
     }
   };
 
@@ -134,7 +164,7 @@ export default function ManagePayoutPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 
@@ -155,13 +185,13 @@ export default function ManagePayoutPage() {
                 placeholder="Search payouts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
             </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -181,10 +211,13 @@ export default function ManagePayoutPage() {
                     Host
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Property
+                    Bank
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
+                    Scope
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Earnings
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Requested
@@ -200,7 +233,7 @@ export default function ManagePayoutPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredPayouts.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                       No payouts found
                     </td>
                   </tr>
@@ -214,6 +247,9 @@ export default function ManagePayoutPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {payout.bank_name || '—'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {payout.property_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">

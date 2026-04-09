@@ -1,21 +1,19 @@
-const ADMIN_EMAILS = new Set(['admin@vibesbnb.com']);
+import type { User } from '@supabase/supabase-js';
 
-type AdminCandidate = {
-  email?: string | null;
-  user_metadata?: { role?: string | null } | null;
-  app_metadata?: { role?: string | null } | null;
-} | null | undefined;
+const ADMIN_EMAILS = new Set(['admin@vibesbnb.com']);
 
 export function isAdminEmail(email?: string | null) {
   return Boolean(email && ADMIN_EMAILS.has(email.toLowerCase()));
 }
 
-export function isAdminUser(user: AdminCandidate) {
+export function isAdminUser(user: User | null | undefined) {
   if (!user) return false;
+
+  const appRole = (user.app_metadata as { role?: string } | null | undefined)?.role;
 
   return (
     user.user_metadata?.role === 'admin' ||
-    user.app_metadata?.role === 'admin' ||
+    appRole === 'admin' ||
     isAdminEmail(user.email)
   );
 }

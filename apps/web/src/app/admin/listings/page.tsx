@@ -7,7 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createClient } from '@/lib/supabase/client';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 import Link from 'next/link';
 
 interface Property {
@@ -102,11 +102,11 @@ export default function ManageListingsPage() {
   const loadProperties = async () => {
     setLoadingProperties(true);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties', {
         headers: {
-          Authorization: `Bearer ${session?.access_token || ''}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       const payload = await response.json();
@@ -144,13 +144,13 @@ export default function ManageListingsPage() {
   const handleApproveProperty = async (propertyId: string) => {
     setApprovingId(propertyId);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token || ''}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           propertyId,
@@ -175,13 +175,13 @@ export default function ManageListingsPage() {
     
     setApprovingId(propertyId);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token || ''}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           propertyId,

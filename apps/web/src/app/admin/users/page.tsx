@@ -7,6 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Search, User, Mail, Calendar, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 interface UserData {
   id: string;
@@ -54,13 +55,13 @@ export default function ManageUsersPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdminUser(user)) {
       loadUsers();
     }
   }, [user]);
@@ -284,7 +285,7 @@ export default function ManageUsersPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

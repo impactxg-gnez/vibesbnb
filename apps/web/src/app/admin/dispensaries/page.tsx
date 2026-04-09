@@ -10,6 +10,7 @@ import {
   Pause, Play, Trash2, Package, Eye, Edit, Mail, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 interface Dispensary {
   id: string;
@@ -69,7 +70,7 @@ export default function AdminDispensariesPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);

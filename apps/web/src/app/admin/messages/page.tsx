@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { MessageSquare, Search, User } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Message {
   id: string;
@@ -35,41 +36,31 @@ export default function MessagesPage() {
   );
   const [searchQuery, setSearchQuery] = useState('');
 
-  const isAdmin = user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin';
-
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && !isAdmin) {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
-  }, [user, loading, router, isAdmin]);
+  }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user && isAdminUser(user)) {
       loadConversations();
     }
-  }, [user, isAdmin]);
+  }, [user]);
 
   const loadConversations = async () => {
     try {
-      const supabase = createClient();
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('[Admin Messages] Session error:', sessionError);
-        throw new Error('Failed to get session');
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) {
+        throw new Error('No valid session — please sign in again.');
       }
-      
-      if (!session?.access_token) {
-        console.error('[Admin Messages] No access token in session');
-        throw new Error('No valid session');
-      }
-      
+
       const response = await fetch('/api/admin/conversations', {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
@@ -111,7 +102,7 @@ export default function MessagesPage() {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 

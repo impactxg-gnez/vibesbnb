@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import {
   LayoutDashboard,
   Users,
@@ -46,38 +48,68 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingPropertyCount, setPendingPropertyCount] = useState(0);
   const [pendingHostCount, setPendingHostCount] = useState(0);
   const [pendingPictureCount, setPendingPictureCount] = useState(0);
+  const [pendingDispensaryCount, setPendingDispensaryCount] = useState(0);
 
-  // Fetch pending counts
-  useEffect(() => {
-    const fetchPendingCounts = async () => {
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
+  const fetchPendingCounts = useCallback(async () => {
+    try {
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) return;
 
-        const response = await fetch('/api/admin/stats', {
-          headers: {
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-        });
+      const response = await fetch('/api/admin/stats', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch pending counts');
-        }
-
-        setPendingPropertyCount(data.listings?.pendingApproval || 0);
-        setPendingHostCount(data.hosts?.pending || 0);
-        setPendingPictureCount(data.profilePictures?.pending || 0);
-      } catch (error) {
-        console.error('Error fetching pending counts:', error);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch pending counts');
       }
-    };
 
-    fetchPendingCounts();
-    // Refresh counts every 30 seconds
-    const interval = setInterval(fetchPendingCounts, 30000);
-    return () => clearInterval(interval);
+      setPendingPropertyCount(data.listings?.pendingApproval || 0);
+      setPendingHostCount(data.hosts?.pending || 0);
+      setPendingPictureCount(data.profilePictures?.pending || 0);
+      setPendingDispensaryCount(data.dispensaries?.pending || 0);
+    } catch (error) {
+      console.error('Error fetching pending counts:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPendingCounts();
+    const interval = setInterval(fetchPendingCounts, 10000);
+    return () => clearInterval(interval);
+  }, [fetchPendingCounts]);
+
+  useEffect(() => {
+    if (!user || !isAdminUser(user)) return;
+    const supabase = createClient();
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => fetchPendingCounts(), 500);
+    };
+    const channel = supabase.channel('admin-layout-badges');
+    const tables = [
+      'bookings',
+      'properties',
+      'pending_host_applications',
+      'pending_profile_pictures',
+      'dispensaries',
+    ];
+    for (const table of tables) {
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table },
+        schedule
+      );
+    }
+    channel.subscribe();
+    return () => {
+      clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchPendingCounts]);
 
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -111,6 +143,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     if (label === 'Property Approvals') return pendingPropertyCount;
     if (label === 'Host Registrations') return pendingHostCount;
     if (label === 'Profile Pictures') return pendingPictureCount;
+    if (label === 'Dispensary Applications') return pendingDispensaryCount;
     return 0;
   };
 

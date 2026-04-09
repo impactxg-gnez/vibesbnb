@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Star, Search, Check, X, Plus, MessageSquarePlus, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { createClient } from '@/lib/supabase/client';
 
 interface Review {
@@ -54,13 +55,13 @@ export default function ReviewsManagementPage() {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdminUser(user)) {
       loadReviews();
       loadProperties();
     }
@@ -269,7 +270,7 @@ export default function ReviewsManagementPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 
@@ -477,7 +478,7 @@ export default function ReviewsManagementPage() {
                   <select
                     value={teamReviewForm.property_id}
                     onChange={(e) => setTeamReviewForm({ ...teamReviewForm, property_id: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                   >
                     <option value="">Select a property</option>
@@ -522,7 +523,7 @@ export default function ReviewsManagementPage() {
                     value={teamReviewForm.comment}
                     onChange={(e) => setTeamReviewForm({ ...teamReviewForm, comment: e.target.value })}
                     rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                     placeholder="Write your review as the VibesBNB Team..."
                     required
                   />

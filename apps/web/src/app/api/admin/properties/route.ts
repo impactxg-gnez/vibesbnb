@@ -1,48 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
-import { isAdminUser } from '@/lib/auth/isAdmin';
-
-async function authenticateAdmin(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.replace('Bearer ', '');
-
-  if (!token) {
-    return { error: NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 }) };
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return { error: NextResponse.json({ error: 'Server configuration error' }, { status: 500 }) };
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-
-  if (error || !user) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  if (!isAdminUser(user)) {
-    return { error: NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 }) };
-  }
-
-  return { user };
-}
+import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await authenticateAdmin(request);
-    if ('error' in auth) return auth.error;
+    const auth = await authenticateAdminRequest(request);
+    if ('response' in auth) return auth.response;
 
     const status = request.nextUrl.searchParams.get('status') || 'all';
     const serviceSupabase = createServiceClient();
@@ -74,8 +37,8 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await authenticateAdmin(request);
-    if ('error' in auth) return auth.error;
+    const auth = await authenticateAdminRequest(request);
+    if ('response' in auth) return auth.response;
 
     const { propertyId, status, rejectionReason } = await request.json();
 

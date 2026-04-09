@@ -1,131 +1,171 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { FileText, Check, X, Plus, Trash2, Eye } from 'lucide-react';
+import { Check, X, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
 
-interface Document {
+interface HostDocumentRow {
   id: string;
-  type: string;
-  url: string;
+  user_id: string;
+  doc_type: string;
+  storage_path: string;
+  file_name: string | null;
   status: 'pending' | 'approved' | 'rejected';
-  uploaded_at: string;
-}
-
-interface PropertyDocument {
-  property_id: string;
-  property_name: string;
-  host_name: string;
-  host_email: string;
-  documents: Document[];
-  property_details: any;
+  submitted_at: string;
+  host_name?: string;
+  rejection_reason?: string | null;
 }
 
 export default function DocumentVerificationPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [propertyDocuments, setPropertyDocuments] = useState<PropertyDocument[]>([]);
-  const [requiredDocs, setRequiredDocs] = useState<string[]>(['ID', 'Business License', 'Property Ownership']);
-  const [newDocType, setNewDocType] = useState('');
-  const [selectedProperty, setSelectedProperty] = useState<PropertyDocument | null>(null);
+  const [documents, setDocuments] = useState<HostDocumentRow[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>(
+    'pending'
+  );
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [openingDocId, setOpeningDocId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    // Load property documents
-    loadPropertyDocuments();
-  }, []);
+  const loadDocuments = async () => {
+    setLoadingDocs(true);
+    try {
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
 
-  const loadPropertyDocuments = async () => {
-    // In a real app, you'd fetch from database
-    const mockData: PropertyDocument[] = [
-      {
-        property_id: 'prop1',
-        property_name: 'Cozy Mountain Cabin',
-        host_name: 'John Host',
-        host_email: 'john@example.com',
-        documents: [
-          {
-            id: 'doc1',
-            type: 'ID',
-            url: '/placeholder-doc.pdf',
-            status: 'pending',
-            uploaded_at: new Date().toISOString(),
-          },
-          {
-            id: 'doc2',
-            type: 'Business License',
-            url: '/placeholder-doc.pdf',
-            status: 'approved',
-            uploaded_at: new Date().toISOString(),
-          },
-        ],
-        property_details: {
-          location: 'Mountain View, CA',
-          bedrooms: 3,
-          bathrooms: 2,
-        },
-      },
-    ];
-    setPropertyDocuments(mockData);
-  };
-
-  const handleApproveDocument = async (propertyId: string, docId: string) => {
-    setPropertyDocuments(
-      propertyDocuments.map((pd) =>
-        pd.property_id === propertyId
-          ? {
-              ...pd,
-              documents: pd.documents.map((d) =>
-                d.id === docId ? { ...d, status: 'approved' as const } : d
-              ),
-            }
-          : pd
-      )
-    );
-    toast.success('Document approved');
-  };
-
-  const handleRejectDocument = async (propertyId: string, docId: string) => {
-    setPropertyDocuments(
-      propertyDocuments.map((pd) =>
-        pd.property_id === propertyId
-          ? {
-              ...pd,
-              documents: pd.documents.map((d) =>
-                d.id === docId ? { ...d, status: 'rejected' as const } : d
-              ),
-            }
-          : pd
-      )
-    );
-    toast.success('Document rejected');
-  };
-
-  const handleAddRequiredDoc = () => {
-    if (newDocType.trim() && !requiredDocs.includes(newDocType.trim())) {
-      setRequiredDocs([...requiredDocs, newDocType.trim()]);
-      setNewDocType('');
-      toast.success('Required document added');
+      const response = await fetch('/api/admin/host-documents', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load documents');
+      }
+      setDocuments(data.documents || []);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : 'Failed to load documents');
+      setDocuments([]);
+    } finally {
+      setLoadingDocs(false);
     }
   };
 
-  const handleRemoveRequiredDoc = (docType: string) => {
-    setRequiredDocs(requiredDocs.filter((d) => d !== docType));
-    toast.success('Required document removed');
+  useEffect(() => {
+    if (user && isAdminUser(user)) {
+      loadDocuments();
+    }
+  }, [user]);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === 'all') return documents;
+    return documents.filter((d) => d.status === statusFilter);
+  }, [documents, statusFilter]);
+
+  const openDocument = async (doc: HostDocumentRow) => {
+    if (!doc.storage_path) {
+      toast.error('No file path for this document');
+      return;
+    }
+    setOpeningDocId(doc.id);
+    try {
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+      const response = await fetch(
+        `/api/admin/host-documents/signed-url?documentId=${encodeURIComponent(doc.id)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not open file');
+      }
+      window.open(data.url as string, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not open file');
+    } finally {
+      setOpeningDocId(null);
+    }
   };
 
-  if (loading) {
+  const approve = async (doc: HostDocumentRow) => {
+    setProcessingId(doc.id);
+    try {
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+      const response = await fetch('/api/admin/host-documents', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ documentId: doc.id, status: 'approved' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to approve');
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === doc.id ? { ...d, status: 'approved' as const } : d))
+      );
+      toast.success('Document approved');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to approve');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const reject = async (doc: HostDocumentRow) => {
+    const reason = prompt('Reason for rejection (optional):');
+    setProcessingId(doc.id);
+    try {
+      const token = await getAccessTokenForAdminFetch();
+      if (!token) throw new Error('No valid session — please sign in again.');
+      const response = await fetch('/api/admin/host-documents', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          documentId: doc.id,
+          status: 'rejected',
+          rejectionReason: reason || undefined,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to reject');
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === doc.id
+            ? {
+                ...d,
+                status: 'rejected' as const,
+                rejection_reason: reason || d.rejection_reason,
+              }
+            : d
+        )
+      );
+      toast.success('Document rejected');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to reject');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  if (loading || loadingDocs) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -135,7 +175,7 @@ export default function DocumentVerificationPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 
@@ -144,170 +184,140 @@ export default function DocumentVerificationPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Document Verification</h1>
-          <p className="text-gray-500 mt-1">Review and verify property owner documents</p>
+          <p className="text-gray-500 mt-1">
+            Review host-uploaded verification files. The storage bucket should be{' '}
+            <strong>private</strong>; admins open files via short-lived signed URLs.
+          </p>
         </div>
 
-        {/* Required Documents Management */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Required Documents</h2>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {requiredDocs.map((doc) => (
-              <span
-                key={doc}
-                className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm flex items-center gap-2"
-              >
-                {doc}
-                <button
-                  onClick={() => handleRemoveRequiredDoc(doc)}
-                  className="text-purple-600 hover:text-purple-800"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Add new required document type"
-              value={newDocType}
-              onChange={(e) => setNewDocType(e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-            <button
-              onClick={handleAddRequiredDoc}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Add
-            </button>
-          </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 flex flex-wrap gap-4 items-center">
+          <label className="text-sm text-gray-700">Filter</label>
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as typeof statusFilter)
+            }
+            className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => loadDocuments()}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+          >
+            Refresh
+          </button>
         </div>
 
-        {/* Property Documents List */}
-        <div className="space-y-4">
-          {propertyDocuments.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No property documents pending verification</p>
-            </div>
-          ) : (
-            propertyDocuments.map((property) => (
-              <div
-                key={property.property_id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{property.property_name}</h3>
-                    <p className="text-sm text-gray-500">
-                      Host: {property.host_name} ({property.host_email})
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Location: {property.property_details.location}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedProperty(property)}
-                    className="text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                  >
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {property.documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-900">{doc.type}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(doc.uploaded_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Host
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Submitted
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    File
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
+                      No documents in this view. Hosts upload from Profile → Verification
+                      documents.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">
+                        <div className="font-medium text-gray-900">{doc.host_name}</div>
+                        <div className="text-gray-500 text-xs">{doc.user_id}</div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{doc.doc_type}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {new Date(doc.submitted_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3">
                         <span
                           className={`px-2 py-1 text-xs rounded-full ${
                             doc.status === 'approved'
                               ? 'bg-green-100 text-green-800'
                               : doc.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
                           }`}
                         >
                           {doc.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <button
+                          type="button"
+                          disabled={openingDocId === doc.id || !doc.storage_path}
+                          onClick={() => openDocument(doc)}
+                          className="text-purple-600 hover:text-purple-800 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          {openingDocId === doc.id ? 'Opening…' : 'Open'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right">
                         {doc.status === 'pending' && (
-                          <>
+                          <div className="flex justify-end gap-2">
                             <button
-                              onClick={() => handleApproveDocument(property.property_id, doc.id)}
-                              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
+                              type="button"
+                              disabled={processingId === doc.id}
+                              onClick={() => approve(doc)}
+                              className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50"
+                              title="Approve"
                             >
                               <Check className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleRejectDocument(property.property_id, doc.id)}
-                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                              type="button"
+                              disabled={processingId === doc.id}
+                              onClick={() => reject(doc)}
+                              className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50"
+                              title="Reject"
                             >
                               <X className="w-4 h-4" />
                             </button>
-                          </>
+                          </div>
                         )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Property Details Modal */}
-        {selectedProperty && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">Property Details</h2>
-                  <button
-                    onClick={() => setSelectedProperty(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Property Information</h3>
-                    <p className="text-gray-600">{selectedProperty.property_name}</p>
-                    <p className="text-gray-600">{selectedProperty.property_details.location}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Host Information</h3>
-                    <p className="text-gray-600">{selectedProperty.host_name}</p>
-                    <p className="text-gray-600">{selectedProperty.host_email}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Property Details</h3>
-                    <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-auto">
-                      {JSON.stringify(selectedProperty.property_details, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            </div>
+                        {doc.status === 'rejected' && doc.rejection_reason && (
+                          <p className="text-xs text-red-600 text-left max-w-xs ml-auto">
+                            {doc.rejection_reason}
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
       </div>
     </AdminLayout>
   );
 }
-

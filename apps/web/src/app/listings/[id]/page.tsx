@@ -49,6 +49,8 @@ interface Property {
   images: string[];
   amenities: string[];
   wellnessFriendly: boolean;
+  smokingInsideAllowed: boolean;
+  smokingOutsideAllowed: boolean;
   rating: number;
   reviews: number;
   latitude?: number;
@@ -90,6 +92,23 @@ const obfuscateCoordinates = (lat?: number, lng?: number): { lat?: number; lng?:
     lng: lng + lngOffset
   };
 };
+
+/** Derive smoking flags from DB + legacy smoke_friendly / localStorage. */
+function resolveSmokingFlags(row: Record<string, unknown>): {
+  inside: boolean;
+  outside: boolean;
+} {
+  let inside =
+    row.smoking_inside_allowed === true || row.smokingInsideAllowed === true;
+  let outside =
+    row.smoking_outside_allowed === true || row.smokingOutsideAllowed === true;
+  if (!inside && !outside) {
+    const legacy =
+      row.smoke_friendly === true || row.smokeFriendly === true;
+    if (legacy) outside = true;
+  }
+  return { inside, outside };
+}
 
 const amenityIcons: { [key: string]: any } = {
   'WiFi': Wifi,
@@ -256,6 +275,7 @@ export default function ListingDetailPage() {
           ? Number((reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
           : 0;
 
+        const smoking = resolveSmokingFlags(propertyData);
         const loadedProperty: Property = {
           id: propertyData.id,
           name: propertyData.name || propertyData.title || 'Untitled Property',
@@ -268,6 +288,8 @@ export default function ListingDetailPage() {
           images: propertyData.images || [],
           amenities: propertyData.amenities || [],
           wellnessFriendly: propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
+          smokingInsideAllowed: smoking.inside,
+          smokingOutsideAllowed: smoking.outside,
           rating: avgRating || Number(propertyData.rating || 0),
           reviews: reviews.length,
           hostId: propertyData.host_id || '',
@@ -317,10 +339,6 @@ export default function ListingDetailPage() {
   };
 
   const handleBooking = () => {
-    if (property?.rooms && property.rooms.length > 0 && selectedRoomIds.length === 0) {
-      toast.error('Please select at least one room/unit to book');
-      return;
-    }
     const selectedRoomsParam = selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
     const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
     router.push(`/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`);
@@ -439,11 +457,25 @@ export default function ListingDetailPage() {
               className="w-full h-full object-cover"
             />
 
-            {property.wellnessFriendly && (
-              <div className="absolute top-4 left-4 bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold">
-                🧘 Wellness-Friendly
-              </div>
-            )}
+            <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 items-start max-w-[min(100%,18rem)]">
+              {property.wellnessFriendly && (
+                <div className="bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
+                  🧘 Wellness-Friendly
+                </div>
+              )}
+              {property.smokingInsideAllowed && (
+                <div className="flex items-center gap-2 bg-amber-600/95 text-white px-3 py-2 rounded-full text-sm font-semibold shadow-lg border border-amber-400/30">
+                  <span className="shrink-0" aria-hidden>🔥</span>
+                  Smoking allowed inside
+                </div>
+              )}
+              {property.smokingOutsideAllowed && (
+                <div className="flex items-center gap-2 bg-slate-700/95 text-white px-3 py-2 rounded-full text-sm font-semibold shadow-lg border border-white/15">
+                  <span className="shrink-0" aria-hidden>🔥</span>
+                  Smoking allowed outside
+                </div>
+              )}
+            </div>
 
             {property.images.length > 1 && (
               <>
@@ -514,6 +546,25 @@ export default function ListingDetailPage() {
                   <span className="text-white">{property.bathrooms} bathrooms</span>
                 </div>
               </div>
+              {(property.smokingInsideAllowed || property.smokingOutsideAllowed) && (
+                <div className="flex flex-wrap items-center gap-2 mt-5 pt-5 border-t border-white/10">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 mr-1">
+                    Smoking
+                  </span>
+                  {property.smokingInsideAllowed && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-600/20 text-amber-300 px-3 py-1 text-sm font-medium border border-amber-500/30">
+                      <span aria-hidden>🔥</span>
+                      Inside OK
+                    </span>
+                  )}
+                  {property.smokingOutsideAllowed && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-gray-200 px-3 py-1 text-sm font-medium border border-white/15">
+                      <span aria-hidden>🔥</span>
+                      Outside OK
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Amenities - Moved to top */}
@@ -531,6 +582,48 @@ export default function ListingDetailPage() {
                 })}
               </div>
             </div>
+
+            {/* Room/Unit Selection — optional; whole-property pricing applies when none selected */}
+            {property.rooms && property.rooms.length > 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold text-white mb-2">Available Units</h2>
+                <p className="text-sm text-gray-400 mb-6">
+                  Optional — select specific units or continue without selection to use the listing&apos;s base nightly rate.
+                </p>
+                <div className="space-y-4">
+                  {property.rooms.map((room) => (
+                    <div
+                      key={room.id}
+                      onClick={() => toggleRoomSelection(room.id)}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${selectedRoomIds.includes(room.id)
+                          ? 'bg-emerald-600/10 border-emerald-500'
+                          : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'
+                        }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition ${selectedRoomIds.includes(room.id)
+                            ? 'bg-emerald-500 border-emerald-500'
+                            : 'bg-transparent border-gray-600'
+                          }`}>
+                          {selectedRoomIds.includes(room.id) && <Check size={16} className="text-white" />}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-semibold">{room.name}</h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <Users size={14} />
+                            <span>Up to {room.guests} guests</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white font-bold">${room.price}</div>
+                        <div className="text-xs text-gray-400">per night</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* About this place */}
             <div id="about-section" className="bg-gray-900 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.3)]">
@@ -676,16 +769,21 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Nearby Dispensaries - Uses general area for privacy */}
-            {property.location && (
-              <NearbyDispensaries 
-                propertyLocation={getGeneralLocation(property.location)}
-                propertyCoordinates={undefined}
-                propertyId={property.id}
-                propertyName={property.name}
-                onAddItem={handleAddToWellnessCart}
-              />
-            )}
+            {/* Wellness supplies / nearby dispensaries — needs lat/lng to match delivery radius */}
+            {property.location &&
+              property.latitude != null &&
+              property.longitude != null && (
+                <NearbyDispensaries
+                  propertyLocation={getGeneralLocation(property.location)}
+                  propertyCoordinates={{
+                    lat: property.latitude,
+                    lng: property.longitude,
+                  }}
+                  propertyId={property.id}
+                  propertyName={property.name}
+                  onAddItem={handleAddToWellnessCart}
+                />
+              )}
 
             {/* Host Info */}
             <div className="bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
@@ -735,45 +833,6 @@ export default function ListingDetailPage() {
               </div>
             </div>
           </div>
-
-            {/* Room/Unit Selection */}
-            {property.rooms && property.rooms.length > 0 && (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold text-white mb-6">Available Units</h2>
-                <div className="space-y-4">
-                  {property.rooms.map((room) => (
-                    <div
-                      key={room.id}
-                      onClick={() => toggleRoomSelection(room.id)}
-                      className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${selectedRoomIds.includes(room.id)
-                          ? 'bg-emerald-600/10 border-emerald-500'
-                          : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'
-                        }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition ${selectedRoomIds.includes(room.id)
-                            ? 'bg-emerald-500 border-emerald-500'
-                            : 'bg-transparent border-gray-600'
-                          }`}>
-                          {selectedRoomIds.includes(room.id) && <Check size={16} className="text-white" />}
-                        </div>
-                        <div>
-                          <h3 className="text-white font-semibold">{room.name}</h3>
-                          <div className="flex items-center gap-2 text-sm text-gray-400">
-                            <Users size={14} />
-                            <span>Up to {room.guests} guests</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-white font-bold">${room.price}</div>
-                        <div className="text-xs text-gray-400">per night</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Booking Card */}

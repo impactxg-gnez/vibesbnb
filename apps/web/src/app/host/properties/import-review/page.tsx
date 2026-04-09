@@ -60,7 +60,8 @@ export default function ImportReviewPage() {
     extraGuestPrice: 50,
     type: 'Entire House',
   });
-  const [smokeFriendly, setSmokeFriendly] = useState(false);
+  const [smokingInsideAllowed, setSmokingInsideAllowed] = useState(false);
+  const [smokingOutsideAllowed, setSmokingOutsideAllowed] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([
     { id: Date.now().toString(), name: 'All Photos', images: [], imagePreviewUrls: [] },
   ]);
@@ -163,6 +164,12 @@ export default function ImportReviewPage() {
 
         console.log('[Import Review] Final location after processing:', data.location);
         setFormData(data);
+
+        let inside = data.smokingInsideAllowed === true;
+        let outside = data.smokingOutsideAllowed === true;
+        if (!inside && !outside && data.smokeFriendly) outside = true;
+        setSmokingInsideAllowed(inside);
+        setSmokingOutsideAllowed(outside);
 
         // Normalize and filter imported images
         const importedImages = (data.images || []).map((url: string) => {
@@ -437,7 +444,9 @@ export default function ImportReviewPage() {
             beds: formData.beds,
             status: status,
             wellness_friendly: formData.wellnessFriendly,
-            smoke_friendly: smokeFriendly,
+            smoking_inside_allowed: smokingInsideAllowed,
+            smoking_outside_allowed: smokingOutsideAllowed,
+            smoke_friendly: smokingInsideAllowed || smokingOutsideAllowed,
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             google_maps_url: formData.googleMapsUrl,
@@ -478,6 +487,9 @@ export default function ImportReviewPage() {
             guests: formData.guests,
             price: formData.price,
             wellnessFriendly: formData.wellnessFriendly,
+            smokingInsideAllowed,
+            smokingOutsideAllowed,
+            smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -513,7 +525,9 @@ export default function ImportReviewPage() {
           guests: formData.guests,
           price: formData.price,
           wellnessFriendly: formData.wellnessFriendly,
-          smokeFriendly: smokeFriendly,
+          smokingInsideAllowed,
+          smokingOutsideAllowed,
+          smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -542,7 +556,9 @@ export default function ImportReviewPage() {
           guests: formData.guests,
           price: formData.price,
           wellnessFriendly: formData.wellnessFriendly,
-          smokeFriendly: smokeFriendly,
+          smokingInsideAllowed,
+          smokingOutsideAllowed,
+          smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -765,14 +781,25 @@ export default function ImportReviewPage() {
 
               <button
                 type="button"
-                onClick={() => setSmokeFriendly(!smokeFriendly)}
-                className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${smokeFriendly
-                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)]'
-                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                onClick={() => setSmokingInsideAllowed(!smokingInsideAllowed)}
+                className={`px-4 py-3 rounded-lg border transition flex flex-col items-stretch text-left gap-0.5 ${smokingInsideAllowed
+                  ? 'bg-amber-600/20 border-amber-500 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
                   }`}
               >
-                <span className="text-lg">🌿</span>
-                <span>Smoke-Friendly</span>
+                <span className="text-sm font-semibold">Smoking inside</span>
+                <span className="text-[11px] text-gray-400 font-normal">Indoor allowed</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmokingOutsideAllowed(!smokingOutsideAllowed)}
+                className={`px-4 py-3 rounded-lg border transition flex flex-col items-stretch text-left gap-0.5 ${smokingOutsideAllowed
+                  ? 'bg-slate-700 border-white/20 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
+                  }`}
+              >
+                <span className="text-sm font-semibold">Smoking outside</span>
+                <span className="text-[11px] text-gray-400 font-normal">Patio, balcony, yard</span>
               </button>
             </div>
           </div>

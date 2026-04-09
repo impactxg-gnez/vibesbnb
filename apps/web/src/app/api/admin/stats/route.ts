@@ -1,109 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
-import { isAdminUser } from '@/lib/auth/isAdmin';
+import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
-    }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    const authSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-
-    const { data: { user }, error: authError } = await authSupabase.auth.getUser(token);
-
-    if (authError || !user || !isAdminUser(user)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const auth = await authenticateAdminRequest(request);
+    if ('response' in auth) return auth.response;
 
     const supabase = createServiceClient();
 
-    // Note: We can't directly query auth.users table from the client
-    // In production, you'd want to create a users table or use a database function
-    // For now, we'll estimate from bookings and provide fallback data
-    
-    // Get users from bookings (unique user_ids)
-    const { data: bookingsData } = await supabase
-      .from('bookings')
-      .select('user_id');
-
-    const uniqueUserIds = new Set(bookingsData?.map(b => b.user_id) || []);
-    const totalUsersCount = uniqueUserIds.size;
-
-    // Get users from last 24 hours (from bookings)
     const last24Hours = new Date();
     last24Hours.setHours(last24Hours.getHours() - 24);
-    
-    const { data: bookings24h } = await supabase
-      .from('bookings')
-      .select('user_id')
-      .gte('created_at', last24Hours.toISOString());
 
-    const uniqueUsers24h = new Set(bookings24h?.map(b => b.user_id) || []);
-    const users24hCount = uniqueUsers24h.size;
-
-    // Get users from last 30 days
     const last30Days = new Date();
     last30Days.setDate(last30Days.getDate() - 30);
-    
-    const { data: bookings30d } = await supabase
-      .from('bookings')
-      .select('user_id')
-      .gte('created_at', last30Days.toISOString());
 
-    const uniqueUsers30d = new Set(bookings30d?.map(b => b.user_id) || []);
-    const users30dCount = uniqueUsers30d.size;
+    const iso24 = last24Hours.toISOString();
+    const iso30 = last30Days.toISOString();
 
-    // Get listings stats
-    const { count: totalListings } = await supabase
+    // Registered users from profiles (not booking-derived)
+    const { count: totalUsersCount, error: profilesTotalErr } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: users24h, error: profiles24Err } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', iso24);
+
+    const { count: users30d, error: profiles30Err } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', iso30);
+
+    if (profilesTotalErr) console.error('[admin/stats] profiles total:', profilesTotalErr);
+    if (profiles24Err) console.error('[admin/stats] profiles 24h:', profiles24Err);
+    if (profiles30Err) console.error('[admin/stats] profiles 30d:', profiles30Err);
+
+    const { count: totalListings, error: listTotalErr } = await supabase
       .from('properties')
       .select('*', { count: 'exact', head: true });
 
-    const { count: listings24h } = await supabase
+    const { count: listings24h, error: list24Err } = await supabase
       .from('properties')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', last24Hours.toISOString());
+      .gte('created_at', iso24);
 
-    const { count: listings30d } = await supabase
+    const { count: listings30d, error: list30Err } = await supabase
       .from('properties')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', last30Days.toISOString());
+      .gte('created_at', iso30);
 
-    // Get reservations stats
-    const { count: totalReservations } = await supabase
+    if (listTotalErr || list24Err || list30Err) {
+      console.error('[admin/stats] listings count error:', listTotalErr || list24Err || list30Err);
+    }
+
+    const { count: totalReservations, error: resTotalErr } = await supabase
       .from('bookings')
       .select('*', { count: 'exact', head: true });
 
-    const { count: reservations24h } = await supabase
+    const { count: reservations24h, error: res24Err } = await supabase
       .from('bookings')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', last24Hours.toISOString());
+      .gte('created_at', iso24);
 
-    const { count: reservations30d } = await supabase
+    const { count: reservations30d, error: res30Err } = await supabase
       .from('bookings')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', last30Days.toISOString());
+      .gte('created_at', iso30);
 
-    // Get dispensaries stats
+    if (resTotalErr || res24Err || res30Err) {
+      console.error('[admin/stats] bookings count error:', resTotalErr || res24Err || res30Err);
+    }
+
     const { count: totalDispensaries } = await supabase
       .from('dispensaries')
       .select('*', { count: 'exact', head: true });
@@ -113,70 +84,62 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
 
-    // Get host applications stats
     let totalHostApplications = 0;
     let pendingHostApplications = 0;
-    
-    try {
-      const { count: totalHosts } = await supabase
-        .from('pending_host_applications')
-        .select('*', { count: 'exact', head: true });
-      totalHostApplications = totalHosts || 0;
 
-      const { count: pendingHosts } = await supabase
-        .from('pending_host_applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      pendingHostApplications = pendingHosts || 0;
-    } catch (e) {
-      // Table might not exist yet
-      console.warn('pending_host_applications table not found');
-    }
+    const { count: totalHosts, error: hostTotalErr } = await supabase
+      .from('pending_host_applications')
+      .select('*', { count: 'exact', head: true });
 
-    // Get pending property approvals
+    if (!hostTotalErr) totalHostApplications = totalHosts || 0;
+    else console.warn('[admin/stats] pending_host_applications total:', hostTotalErr.message);
+
+    const { count: pendingHosts, error: hostPendingErr } = await supabase
+      .from('pending_host_applications')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    if (!hostPendingErr) pendingHostApplications = pendingHosts || 0;
+    else console.warn('[admin/stats] pending_host_applications pending:', hostPendingErr.message);
+
     let pendingPropertyApprovals = 0;
-    try {
-      const { count: pendingProps } = await supabase
-        .from('properties')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending_approval');
-      pendingPropertyApprovals = pendingProps || 0;
-    } catch (e) {
-      console.warn('Error getting pending property count');
-    }
+    const { count: pendingProps, error: propPendingErr } = await supabase
+      .from('properties')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending_approval');
 
-    // Get pending profile pictures
+    if (!propPendingErr) pendingPropertyApprovals = pendingProps || 0;
+    else console.warn('[admin/stats] pending properties:', propPendingErr.message);
+
     let pendingProfilePictures = 0;
-    try {
-      const { count: pendingPics } = await supabase
-        .from('pending_profile_pictures')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      pendingProfilePictures = pendingPics || 0;
-    } catch (e) {
-      console.warn('pending_profile_pictures table not found');
-    }
+    const { count: pendingPics, error: picErr } = await supabase
+      .from('pending_profile_pictures')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    if (!picErr) pendingProfilePictures = pendingPics || 0;
+    else console.warn('[admin/stats] pending_profile_pictures:', picErr.message);
 
     return NextResponse.json({
       users: {
-        total: totalUsersCount || 0,
-        last24Hours: users24hCount || 0,
-        last30Days: users30dCount || 0,
+        total: totalUsersCount ?? 0,
+        last24Hours: users24h ?? 0,
+        last30Days: users30d ?? 0,
       },
       listings: {
-        total: totalListings || 0,
-        last24Hours: listings24h || 0,
-        last30Days: listings30d || 0,
+        total: totalListings ?? 0,
+        last24Hours: listings24h ?? 0,
+        last30Days: listings30d ?? 0,
         pendingApproval: pendingPropertyApprovals,
       },
       reservations: {
-        total: totalReservations || 0,
-        last24Hours: reservations24h || 0,
-        last30Days: reservations30d || 0,
+        total: totalReservations ?? 0,
+        last24Hours: reservations24h ?? 0,
+        last30Days: reservations30d ?? 0,
       },
       dispensaries: {
-        total: totalDispensaries || 0,
-        pending: pendingDispensaries || 0,
+        total: totalDispensaries ?? 0,
+        pending: pendingDispensaries ?? 0,
       },
       hosts: {
         total: totalHostApplications,
@@ -186,11 +149,9 @@ export async function GET(request: NextRequest) {
         pending: pendingProfilePictures,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching admin stats:', error);
-    return NextResponse.json({
-      error: error.message || 'Failed to load admin stats',
-    }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to load admin stats';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

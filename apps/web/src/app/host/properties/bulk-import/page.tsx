@@ -296,7 +296,9 @@ export default function BulkImportPage() {
           type: property.type,
           guest_access_type: property.guestAccessType,
           wellness_friendly: property.wellnessFriendly,
-          smoke_friendly: property.smokeFriendly,
+          smoking_inside_allowed: false,
+          smoking_outside_allowed: property.smokeFriendly || false,
+          smoke_friendly: property.smokeFriendly || false,
         };
 
         const { error } = await supabase.from('properties').insert(propertyData);

@@ -1,36 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { isAdminUser } from '@/lib/auth/isAdmin';
+import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized - No token provided' }, { status: 401 });
-    }
+    const auth = await authenticateAdminRequest(req);
+    if ('response' in auth) return auth.response;
+    const adminUser = auth.user;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    const authSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-
-    const { data: { user: adminUser }, error: authError } = await authSupabase.auth.getUser(token);
-
-    if (authError || !adminUser || !isAdminUser(adminUser)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const { applicationId, userId } = await req.json();

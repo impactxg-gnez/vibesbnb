@@ -112,7 +112,8 @@ export default function NewPropertyPage() {
     guests: 2,
     price: 100,
     wellnessFriendly: false,
-    smokeFriendly: false,
+    smokingInsideAllowed: false,
+    smokingOutsideAllowed: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
     amenities: [] as string[],
@@ -295,7 +296,10 @@ export default function NewPropertyPage() {
         type: propertyTypeLabel,
         guest_access_type: accessTypeLabel,
         wellness_friendly: formData.wellnessFriendly,
-        smoke_friendly: formData.smokeFriendly,
+        smoking_inside_allowed: formData.smokingInsideAllowed,
+        smoking_outside_allowed: formData.smokingOutsideAllowed,
+        smoke_friendly:
+          formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
         allow_extra_guests: formData.allowExtraGuests,
         extra_guest_price: formData.extraGuestPrice,
         latitude: formData.coordinates?.lat,
@@ -338,7 +342,10 @@ export default function NewPropertyPage() {
         parsedProperties.push({
           ...propertyData,
           wellnessFriendly: formData.wellnessFriendly,
-          smokeFriendly: formData.smokeFriendly,
+          smokingInsideAllowed: formData.smokingInsideAllowed,
+          smokingOutsideAllowed: formData.smokingOutsideAllowed,
+          smokeFriendly:
+            formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
         });
         localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
 
@@ -693,33 +700,55 @@ export default function NewPropertyPage() {
         </div>
 
         {/* Property Features */}
-        <div className="pt-6 border-t border-gray-800">
-          <h3 className="text-white font-medium mb-4">Special Features</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="pt-6 border-t border-gray-800 space-y-4">
+          <h3 className="text-white font-medium">Special Features</h3>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
+            className={`w-full px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
+              formData.wellnessFriendly
+                ? 'bg-emerald-600 border-emerald-500 text-white'
+                : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50'
+            }`}
+          >
+            <span className="text-2xl">🧘</span>
+            <span>Wellness-Friendly</span>
+          </button>
+          <p className="text-sm text-gray-400">Smoking policy (shown on your listing)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
-              className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
-                formData.wellnessFriendly
-                  ? 'bg-emerald-600 border-emerald-500 text-white'
-                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50'
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  smokingInsideAllowed: !formData.smokingInsideAllowed,
+                })
+              }
+              className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
+                formData.smokingInsideAllowed
+                  ? 'bg-amber-600/20 border-amber-500 text-white'
+                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
               }`}
             >
-              <span className="text-2xl">🧘</span>
-              <span>Wellness-Friendly</span>
+              <span className="font-bold">Inside OK</span>
+              <span className="text-xs text-gray-500 font-normal">Indoor smoking allowed</span>
             </button>
-
             <button
               type="button"
-              onClick={() => setFormData({ ...formData, smokeFriendly: !formData.smokeFriendly })}
-              className={`px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
-                formData.smokeFriendly
-                  ? 'bg-emerald-600 border-emerald-500 text-white'
-                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50'
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  smokingOutsideAllowed: !formData.smokingOutsideAllowed,
+                })
+              }
+              className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
+                formData.smokingOutsideAllowed
+                  ? 'bg-slate-700 border-white/20 text-white'
+                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
               }`}
             >
-              <span className="text-2xl">🌿</span>
-              <span>Smoke-Friendly</span>
+              <span className="font-bold">Outside OK</span>
+              <span className="text-xs text-gray-500 font-normal">Patio, balcony, yard</span>
             </button>
           </div>
         </div>
@@ -917,6 +946,21 @@ export default function NewPropertyPage() {
               <span>•</span>
               <span>{formData.bathrooms} bathrooms</span>
             </div>
+
+            {(formData.smokingInsideAllowed || formData.smokingOutsideAllowed) && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {formData.smokingInsideAllowed && (
+                  <span className="px-3 py-1 bg-amber-600/20 text-amber-200 border border-amber-500/30 rounded-full text-sm">
+                    Smoking inside OK
+                  </span>
+                )}
+                {formData.smokingOutsideAllowed && (
+                  <span className="px-3 py-1 bg-white/10 text-gray-200 border border-white/15 rounded-full text-sm">
+                    Smoking outside OK
+                  </span>
+                )}
+              </div>
+            )}
 
             {formData.amenities.length > 0 && (
               <div className="flex flex-wrap gap-2">

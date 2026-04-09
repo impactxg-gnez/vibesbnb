@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Star, Search, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { createClient } from '@/lib/supabase/client';
 
 interface Review {
   id: string;
   property_id: string;
   property_name: string;
-  user_id: string;
+  user_id: string | null;
   user_name: string;
   rating: number;
   comment: string;
@@ -25,18 +27,19 @@ export default function PendingReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
-    if (!loading && user && user.user_metadata?.role !== 'admin') {
+    if (!loading && user && !isAdminUser(user)) {
       router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.user_metadata?.role === 'admin') {
+    if (user && isAdminUser(user)) {
       loadReviews();
     }
   }, [user]);
@@ -58,49 +61,101 @@ export default function PendingReviewsPage() {
   }, [searchQuery, reviews]);
 
   const loadReviews = async () => {
-    // In a real app, you'd fetch from a reviews table with status='pending'
-    const mockReviews: Review[] = [
-      {
-        id: '2',
-        property_id: 'prop2',
-        property_name: 'Beachfront Villa',
-        user_id: 'user2',
-        user_name: 'Jane Smith',
-        rating: 4,
-        comment: 'Great location, but could use better WiFi.',
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      },
-    ];
-    setReviews(mockReviews);
-    setFilteredReviews(mockReviews);
+    setLoadingReviews(true);
+    const supabase = createClient();
+    try {
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (reviewsError) throw reviewsError;
+
+      const propertyIds = [...new Set((reviewsData || []).map((r) => r.property_id))];
+      const { data: propertiesData } = await supabase
+        .from('properties')
+        .select('id, name')
+        .in('id', propertyIds.length > 0 ? propertyIds : ['00000000-0000-0000-0000-000000000000']);
+
+      const userIds = [
+        ...new Set(
+          (reviewsData || [])
+            .filter((r) => r.user_id)
+            .map((r) => r.user_id as string)
+        ),
+      ];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']);
+
+      const propertyMap = new Map((propertiesData || []).map((p) => [p.id, p.name]));
+      const userMap = new Map((profilesData || []).map((u) => [u.id, u.full_name]));
+
+      const enriched: Review[] = (reviewsData || []).map((review) => ({
+        id: review.id,
+        property_id: review.property_id,
+        property_name: propertyMap.get(review.property_id) || 'Unknown Property',
+        user_id: review.user_id,
+        user_name: review.is_team_review
+          ? review.reviewer_name || 'VibesBNB Team'
+          : userMap.get(review.user_id) || 'Anonymous User',
+        rating: review.rating,
+        comment: review.comment,
+        status: review.status,
+        created_at: review.created_at,
+      }));
+
+      setReviews(enriched);
+      setFilteredReviews(enriched);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load pending reviews');
+      setReviews([]);
+      setFilteredReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
   };
 
   const handleApproveReview = async (reviewId: string) => {
+    const supabase = createClient();
     try {
-      setReviews(reviews.map((r) => (r.id === reviewId ? { ...r, status: 'approved' as const } : r)));
-      setFilteredReviews(
-        filteredReviews.map((r) => (r.id === reviewId ? { ...r, status: 'approved' as const } : r))
-      );
+      const { error } = await supabase
+        .from('reviews')
+        .update({ status: 'approved' })
+        .eq('id', reviewId);
+
+      if (error) throw error;
+
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      setFilteredReviews((prev) => prev.filter((r) => r.id !== reviewId));
       toast.success('Review approved');
-    } catch (error) {
+    } catch {
       toast.error('Failed to approve review');
     }
   };
 
   const handleRejectReview = async (reviewId: string) => {
+    const supabase = createClient();
     try {
-      setReviews(reviews.map((r) => (r.id === reviewId ? { ...r, status: 'rejected' as const } : r)));
-      setFilteredReviews(
-        filteredReviews.map((r) => (r.id === reviewId ? { ...r, status: 'rejected' as const } : r))
-      );
+      const { error } = await supabase
+        .from('reviews')
+        .update({ status: 'rejected' })
+        .eq('id', reviewId);
+
+      if (error) throw error;
+
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      setFilteredReviews((prev) => prev.filter((r) => r.id !== reviewId));
       toast.success('Review rejected');
-    } catch (error) {
+    } catch {
       toast.error('Failed to reject review');
     }
   };
 
-  if (loading) {
+  if (loading || loadingReviews) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -110,7 +165,7 @@ export default function PendingReviewsPage() {
     );
   }
 
-  if (!user || user.user_metadata?.role !== 'admin') {
+  if (!user || !isAdminUser(user)) {
     return null;
   }
 
@@ -129,7 +184,7 @@ export default function PendingReviewsPage() {
               placeholder="Search pending reviews..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
         </div>
