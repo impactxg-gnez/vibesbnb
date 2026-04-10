@@ -1,31 +1,84 @@
 <!--
-  VibesBNB — Supabase Auth email HTML (reference)
-  Paste into Supabase Dashboard → Authentication → Email Templates.
+  ╔══════════════════════════════════════════════════════════════════════════╗
+  ║  THIS IS HTML — NOT SQL. DO NOT PASTE THIS FILE INTO THE SUPABASE SQL     ║
+  ║  EDITOR. Running it there causes: syntax error at or near "<!"            ║
+  ║                                                                          ║
+  ║  Instead: Dashboard → Authentication → Email Templates → pick template  ║
+  ║  (e.g. "Confirm signup") → paste ONLY the HTML below into the body.      ║
+  ╚══════════════════════════════════════════════════════════════════════════╝
 
-  Replace {{ .ConfirmationURL }}, {{ .Token }}, {{ .SiteURL }}, {{ .Email }} per Supabase variables.
+  VibesBNB — Supabase Auth email HTML (reference)
+
+  Variables (Supabase / Go templates): {{ .ConfirmationURL }}, {{ .Token }},
+  {{ .TokenHash }}, {{ .SiteURL }}, {{ .Email }}, {{ .RedirectTo }} — see
+  https://supabase.com/docs/guides/auth/auth-email-templates
+
+  Templates in Dashboard:
+    • Confirm signup  → block below (Confirm signup)
+    • Reset password  → block below (Reset password / Recovery)
 -->
 
-<!-- Confirm signup -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f12;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<!-- ========== Confirm signup — paste from next line through </table> into "Confirm signup" ========== -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(165deg,#0c0a14 0%,#12101c 40%,#0a1620 100%);padding:40px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <tr><td align="center">
-    <table role="presentation" width="100%" style="max-width:560px;background:#1a1a20;border-radius:20px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
-      <tr><td style="padding:28px;text-align:center;background:linear-gradient(135deg,rgba(91,33,182,0.35),transparent);">
-        <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">VibesBNB</p>
-        <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.5);">Catch a vibe</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;border-radius:24px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
+      <tr><td style="padding:0;background:linear-gradient(135deg,#5b21b6 0%,#047857 50%,#0d9488 100%);text-align:center;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:32px 28px 24px;">
+          <p style="margin:0 0 8px;font-size:28px;line-height:1.2;letter-spacing:0.02em;">🎉 ✨ 🏡 ✨ 🎉</p>
+          <p style="margin:0;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.03em;text-shadow:0 2px 20px rgba(0,0,0,0.25);">VibesBNB</p>
+          <p style="margin:8px 0 0;font-size:13px;font-weight:600;color:rgba(255,255,255,0.88);letter-spacing:0.12em;text-transform:uppercase;">Catch a vibe</p>
+        </td></tr></table>
       </td></tr>
-      <tr><td style="padding:8px 28px 28px;">
-        <h1 style="margin:0 0 12px;font-size:20px;color:#ffffff;">Confirm your email</h1>
-        <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:rgba(255,255,255,0.72);">
-          Welcome to VibesBNB. Confirm your address to finish setting up your account.
+      <tr><td style="padding:36px 32px 40px;background:#14141a;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#fbbf24;">You made it</p>
+        <h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;font-weight:800;color:#ffffff;">Pop the confetti — confirm your email</h1>
+        <p style="margin:0 0 24px;font-size:16px;line-height:1.65;color:rgba(255,255,255,0.78);">
+          Welcome to the crew! One tap below activates your account so you can explore wellness-friendly stays, message hosts, and book your next escape.
         </p>
-        <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#00E676;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">
-          Confirm email
-        </a>
-        <p style="margin:24px 0 0;font-size:12px;color:rgba(255,255,255,0.4);">
-          If you didn’t sign up, you can ignore this message.
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td style="border-radius:14px;background:linear-gradient(180deg,#34d399 0%,#00E676 100%);box-shadow:0 8px 28px rgba(0,230,118,0.35);">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 36px;font-size:16px;font-weight:800;color:#052e16;text-decoration:none;border-radius:14px;">
+            Confirm my email — let&apos;s go
+          </a>
+        </td></tr></table>
+        <p style="margin:28px 0 0;font-size:13px;line-height:1.55;color:rgba(255,255,255,0.45);">
+          Didn&apos;t create a VibesBNB account? You can ignore this — no vibes will be caught.
         </p>
       </td></tr>
     </table>
-    <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.35);">Sent by VibesBNB</p>
+    <p style="margin:24px 0 0;font-size:11px;color:rgba(255,255,255,0.3);">Sent with love by VibesBNB</p>
+  </td></tr>
+</table>
+
+<!-- ========== Reset password (Recovery) — paste from next line through </table> into "Reset password" ========== -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(165deg,#0c0a14 0%,#12101c 50%,#0f172a 100%);padding:40px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;border-radius:24px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
+      <tr><td style="padding:0;background:linear-gradient(120deg,#4c1d95 0%,#1e3a5f 100%);text-align:center;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 24px 22px;">
+          <p style="margin:0 0 6px;font-size:22px;">🔐 ✨</p>
+          <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">VibesBNB</p>
+          <p style="margin:6px 0 0;font-size:12px;font-weight:600;color:rgba(255,255,255,0.75);letter-spacing:0.1em;text-transform:uppercase;">Account security</p>
+        </td></tr></table>
+      </td></tr>
+      <tr><td style="padding:36px 32px 40px;background:#14141a;border:1px solid rgba(255,255,255,0.06);border-top:none;">
+        <h1 style="margin:0 0 14px;font-size:22px;font-weight:800;color:#ffffff;">Fresh start — reset your password</h1>
+        <p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:rgba(255,255,255,0.75);">
+          We got a request to reset the password for <span style="color:#a7f3d0;font-weight:600;">{{ .Email }}</span>. Tap the button and pick a strong new password — you&apos;ll be back to browsing in no time.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 20px;"><tr><td style="border-radius:14px;background:linear-gradient(180deg,#34d399 0%,#00E676 100%);box-shadow:0 8px 24px rgba(0,230,118,0.28);">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:15px 32px;font-size:15px;font-weight:800;color:#052e16;text-decoration:none;border-radius:14px;">
+            Reset my password
+          </a>
+        </td></tr></table>
+        <p style="margin:0;font-size:12px;line-height:1.6;color:rgba(255,255,255,0.4);">
+          Link expires soon for your safety. If the button doesn&apos;t work, paste this URL into your browser:<br />
+          <span style="word-break:break-all;color:rgba(52,211,153,0.85);font-size:11px;">{{ .ConfirmationURL }}</span>
+        </p>
+        <p style="margin:22px 0 0;font-size:13px;line-height:1.55;color:rgba(255,255,255,0.45);">
+          If this wasn&apos;t you, relax — your password is unchanged. Maybe treat yourself to a vibe check anyway.
+        </p>
+      </td></tr>
+    </table>
+    <p style="margin:24px 0 0;font-size:11px;color:rgba(255,255,255,0.3);">Sent by VibesBNB</p>
   </td></tr>
 </table>

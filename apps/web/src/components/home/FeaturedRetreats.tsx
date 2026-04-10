@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { FeaturedPropertyCardCarousel } from '@/components/home/FeaturedPropertyCardCarousel';
+import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 
 interface Retreat {
   id: string;
@@ -147,26 +147,19 @@ export function FeaturedRetreats() {
           >
             <div className="group block h-full">
               <div className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col">
-                <div className="relative overflow-hidden">
-                  <FeaturedPropertyCardCarousel
+                <div className="relative overflow-hidden group/media">
+                  <PropertyCardMedia
                     images={retreat.images}
                     alt={retreat.name}
                     listingHref={`/listings/${retreat.id}`}
+                    propertyId={retreat.id}
+                    showWellnessPill
+                    mainHeightClass="h-56 md:h-64"
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                  <div className="pointer-events-none absolute top-6 right-6 z-[4] flex flex-col items-end gap-1">
-                    <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-                      <span className="text-lg">🌿</span>
-                      <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                        <span className="flex items-center gap-1">
-                          INDOOR <span className="text-green-400">✓</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          OUTDOOR <span className="text-green-400">✓</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  <div
+                    className="pointer-events-none absolute left-0 right-0 top-0 h-56 md:h-64 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover/media:opacity-100"
+                    aria-hidden
+                  />
                 </div>
 
                 <div className="p-8 flex-1 flex flex-col">

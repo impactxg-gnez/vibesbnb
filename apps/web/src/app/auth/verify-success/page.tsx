@@ -1,110 +1,154 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { CheckCircle2 } from 'lucide-react';
+import { Sparkles, PartyPopper } from 'lucide-react';
+import { useVerificationConfetti } from '@/components/auth/useVerificationConfetti';
 
-export default function VerifySuccessPage() {
+function safeNextPath(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null;
+  return raw;
+}
+
+function VerifySuccessInner() {
+  useVerificationConfetti();
   const router = useRouter();
-  const { user } = useAuth();
-  const [countdown, setCountdown] = useState(5);
+  const searchParams = useSearchParams();
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    // Countdown timer to auto-redirect
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (countdown === 0 && user) {
-      const userRole = user?.user_metadata?.role;
-      if (userRole === 'admin') {
-        router.push('/admin');
-      } else if (userRole === 'host_pending') {
-        router.push('/host/properties/new');
-      } else if (userRole === 'host') {
-        router.push('/host/properties');
-      } else {
-        router.push('/');
-      }
-    }
-  }, [countdown, user, router]);
+  const nextPath = useMemo(() => safeNextPath(searchParams.get('next')), [searchParams]);
 
-  const handleContinue = () => {
-    if (user) {
-      const userRole = user?.user_metadata?.role;
-      if (userRole === 'admin') {
-        router.push('/admin');
-      } else if (userRole === 'host_pending') {
-        router.push('/host/properties/new');
-      } else if (userRole === 'host') {
-        router.push('/host/properties');
-      } else {
-        router.push('/');
-      }
-    } else {
-      router.push('/login');
-    }
+  const destinationForRole = useCallback(() => {
+    if (nextPath) return nextPath;
+    const role = user?.user_metadata?.role;
+    if (role === 'admin') return '/admin';
+    if (role === 'host_pending') return '/host/properties/new';
+    if (role === 'host') return '/host/properties';
+    return '/';
+  }, [user, nextPath]);
+
+  const handleBrowse = () => {
+    router.push(destinationForRole());
+  };
+
+  const handleBrowseHome = () => {
+    router.push('/');
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 py-12 relative overflow-hidden">
-      <div className="absolute inset-0 bg-violet-900/10 blur-[100px] rounded-full pointer-events-none" />
-      <div className="max-w-md w-full text-center relative">
-        <div className="bg-gray-900/95 shadow-2xl rounded-3xl p-10 border border-gray-800">
-          <div className="flex justify-center mb-6">
-            <div className="rounded-2xl bg-violet-600/20 border border-violet-500/30 p-4">
-              <CheckCircle2 className="w-14 h-14 text-emerald-400" />
-            </div>
-          </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-8">
+      <div
+        className="absolute inset-0 bg-gray-950/85 backdrop-blur-md"
+        aria-hidden
+      />
 
-          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Email verified</h1>
-          <p className="text-gray-400 mb-6 leading-relaxed">
-            Your VibesBNB account is active. Continue to your dashboard below.
-          </p>
-
-          {user && (
-            <div className="mb-6 p-4 bg-gray-800/60 rounded-xl border border-gray-700/80">
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Signed in as</p>
-              <p className="text-white font-medium">{user.email}</p>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {user ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleContinue}
-                  className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-semibold hover:bg-emerald-500 transition"
-                >
-                  Continue
-                </button>
-                {countdown > 0 && (
-                  <p className="text-sm text-gray-500">
-                    Redirecting in {countdown}s…
-                  </p>
-                )}
-              </>
-            ) : (
-              <Link
-                href="/login"
-                className="block w-full bg-emerald-600 text-white py-3.5 rounded-xl font-semibold hover:bg-emerald-500 transition text-center"
-              >
-                Sign in
-              </Link>
-            )}
-          </div>
-
-          <p className="mt-8 text-sm text-gray-500">
-            Need help?{' '}
-            <Link href="/" className="text-emerald-400 hover:text-emerald-300 font-medium">
-              VibesBNB home
-            </Link>
-          </p>
-        </div>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <div className="absolute -top-20 left-1/4 h-64 w-64 rounded-full bg-emerald-500/20 blur-[80px]" />
+        <div className="absolute -bottom-10 right-1/4 h-72 w-72 rounded-full bg-violet-600/25 blur-[90px]" />
+        <div className="absolute top-1/3 right-10 h-40 w-40 rounded-full bg-amber-400/15 blur-[60px]" />
       </div>
+
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="verify-success-title"
+        initial={{ opacity: 0, scale: 0.92, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+        className="relative z-10 w-full max-w-md"
+      >
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 p-1 shadow-[0_32px_80px_rgba(0,0,0,0.55)]">
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-violet-500 to-amber-400" />
+
+          <div className="px-8 pb-8 pt-10 text-center">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/30 to-violet-600/30 ring-2 ring-emerald-400/40">
+              <PartyPopper className="h-10 w-10 text-emerald-300" strokeWidth={1.75} />
+            </div>
+
+            <div className="mb-2 flex items-center justify-center gap-2 text-amber-300/90">
+              <Sparkles className="h-5 w-5" />
+              <span className="text-xs font-bold uppercase tracking-[0.2em]">You&apos;re in</span>
+              <Sparkles className="h-5 w-5" />
+            </div>
+
+            <h1
+              id="verify-success-title"
+              className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl"
+            >
+              Email verified!
+            </h1>
+            <p className="mt-3 text-base leading-relaxed text-gray-400">
+              Welcome to VibesBNB — your account is live. Explore stays, catch a vibe, and make yourself at home.
+            </p>
+
+            {!loading && user && (
+              <p className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-300">
+                Signed in as{' '}
+                <span className="font-semibold text-white">{user.email}</span>
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-col gap-3">
+              {!loading && user ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleBrowse}
+                    className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-4 text-base font-bold text-gray-950 shadow-lg shadow-emerald-500/25 transition hover:from-emerald-400 hover:to-emerald-500"
+                  >
+                    {user.user_metadata?.role === 'host_pending'
+                      ? 'Continue — add your property'
+                      : user.user_metadata?.role === 'host'
+                        ? 'Go to host dashboard'
+                        : user.user_metadata?.role === 'admin'
+                          ? 'Open admin'
+                          : 'Start exploring'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBrowseHome}
+                    className="w-full rounded-xl border border-white/15 bg-white/5 py-3.5 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+                  >
+                    Browse the site
+                  </button>
+                </>
+              ) : !loading ? (
+                <Link
+                  href="/login"
+                  className="block w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-4 text-center text-base font-bold text-gray-950"
+                >
+                  Sign in to continue
+                </Link>
+              ) : (
+                <div className="h-12 animate-pulse rounded-xl bg-white/10" />
+              )}
+            </div>
+
+            <p className="mt-8 text-xs text-gray-500">
+              <Link href="/" className="text-emerald-400/90 hover:text-emerald-300">
+                VibesBNB home
+              </Link>
+            </p>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
 
+export default function VerifySuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-400">
+          Loading…
+        </div>
+      }
+    >
+      <VerifySuccessInner />
+    </Suspense>
+  );
+}

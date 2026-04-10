@@ -37,11 +37,11 @@ export async function GET(request: Request) {
           new Date(user.email_confirmed_at).getTime() > Date.now() - 5 * 60 * 1000);
 
       if (isEmailVerification) {
-        const r = user?.user_metadata?.role;
-        if (r === 'host_pending') {
-          return NextResponse.redirect(`${base}/host/properties/new`);
+        const celebrate = new URL('/auth/verify-success', base);
+        if (next) {
+          celebrate.searchParams.set('next', next);
         }
-        return NextResponse.redirect(home);
+        return NextResponse.redirect(celebrate.toString());
       }
 
       if (next) {

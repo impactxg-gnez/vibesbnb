@@ -1,6 +1,11 @@
 -- Smoking policy: host selects inside and/or outside. Run in Supabase SQL Editor.
--- Listing pages read smoking_inside_allowed / smoking_outside_allowed.
--- smoke_friendly is kept in sync as (inside OR outside) for older code paths.
+-- Fixes: "Could not find the 'smoking_inside_allowed' column of 'properties' in the schema cache"
+--
+-- After running: wait ~1 min or in Dashboard use API settings to refresh schema if inserts still fail.
+
+-- App still writes smoke_friendly alongside the granular flags; ensure column exists for legacy UPDATE below.
+ALTER TABLE properties
+  ADD COLUMN IF NOT EXISTS smoke_friendly BOOLEAN DEFAULT false;
 
 ALTER TABLE properties
   ADD COLUMN IF NOT EXISTS smoking_inside_allowed BOOLEAN NOT NULL DEFAULT false,

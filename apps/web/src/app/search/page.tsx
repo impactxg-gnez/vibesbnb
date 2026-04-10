@@ -2,16 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { SearchSection } from '@/components/home/SearchSection';
 import Filters from '@/components/search/Filters';
 import Link from 'next/link';
-import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { Heart } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import {
   enumerateStayNightsYmd,
   formatCalendarDate,
@@ -32,6 +29,10 @@ interface Listing {
   amenities?: string[];
   guests?: number;
   bedrooms?: number;
+  beds?: number;
+  host_id?: string;
+  hostName?: string;
+  hostAvatarUrl?: string;
   status?: 'active' | 'draft' | 'inactive';
   coordinates?: { lat: number; lng: number };
   isAvailable?: boolean;
@@ -46,81 +47,8 @@ function formatDateShort(dateStr: string): string {
   return formatCalendarDate(dateStr, { month: 'short', day: 'numeric' });
 }
 
-// Listing Card Component with Image Carousel
+// Listing card: shared media (thumbnails + heart) + host row in body
 function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing, onHover: (id: string | null) => void, checkIn?: string, checkOut?: string }) {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [loadingFavorite, setLoadingFavorite] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      checkIfFavorited();
-    }
-  }, [user, listing.id]);
-
-  const checkIfFavorited = async () => {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('favorites')
-        .select('id')
-        .eq('user_id', user?.id)
-        .eq('property_id', listing.id)
-        .single();
-      
-      if (data && !error) {
-        setIsFavorited(true);
-      }
-    } catch (error) {
-      // Not favorited or error
-    }
-  };
-
-  const toggleFavorite = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!user) {
-      toast.error('Please login to save favorites');
-      router.push('/login');
-      return;
-    }
-
-    setLoadingFavorite(true);
-    try {
-      const supabase = createClient();
-      if (isFavorited) {
-        const { error } = await supabase
-          .from('favorites')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('property_id', listing.id);
-        
-        if (error) throw error;
-        setIsFavorited(false);
-        toast.success('Removed from favorites');
-      } else {
-        const { error } = await supabase
-          .from('favorites')
-          .insert({
-            user_id: user.id,
-            property_id: listing.id
-          });
-        
-        if (error) throw error;
-        setIsFavorited(true);
-        toast.success('Added to favorites');
-      }
-    } catch (error: any) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorite');
-    } finally {
-      setLoadingFavorite(false);
-    }
-  };
-
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
   
   // Build the listing URL with date params if available
@@ -130,17 +58,34 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
   const nights = checkIn && checkOut ? calculateNights(checkIn, checkOut) : 0;
   const totalPrice = nights > 0 ? listing.price * nights : listing.price;
 
-  const nextImage = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev + 1) % images.length);
-  };
+  const availabilitySlot =
+    checkIn && checkOut && listing.isAvailable !== undefined ? (
+      <div
+        className={`backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-1.5 border text-xs font-bold ${
+          listing.isAvailable
+            ? 'bg-emerald-500/80 border-emerald-400/50 text-white'
+            : 'bg-red-500/80 border-red-400/50 text-white'
+        }`}
+      >
+        {listing.isAvailable ? (
+          <>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            Available
+          </>
+        ) : (
+          <>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Unavailable
+          </>
+        )}
+      </div>
+    ) : null;
 
-  const prevImage = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
+  const bedCount = listing.beds ?? listing.bedrooms ?? 1;
 
   return (
     <div
@@ -148,140 +93,56 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
       onMouseLeave={() => onHover(null)}
       className="group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors"
     >
-      <Link href={listingUrl} className="block relative">
-        <div className="relative h-64 bg-surface-light overflow-hidden">
-          <img
-            src={images[currentImageIndex]}
-            alt={listing.title || 'Property'}
-            className="w-full h-full object-cover transition-transform duration-500"
-          />
-          
-          {/* Navigation Arrows */}
-          {images.length > 1 && (
-            <>
-              <button 
-                onClick={prevImage}
-                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button 
-                onClick={nextImage}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </>
-          )}
+      <PropertyCardMedia
+        images={images}
+        alt={listing.title || 'Property'}
+        listingHref={listingUrl}
+        propertyId={listing.id}
+        showWellnessPill
+        topRightSlot={availabilitySlot}
+        mainHeightClass="h-64"
+      />
 
-          {/* Badges */}
-          {/* Heart Button */}
-          <button 
-            onClick={toggleFavorite}
-            disabled={loadingFavorite}
-            className={`absolute top-4 left-4 p-2.5 backdrop-blur-md rounded-full border transition-all duration-300 group/heart ${
-              isFavorited 
-                ? 'bg-rose-500 border-rose-400 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]' 
-                : 'bg-surface-dark/40 border-white/10 text-white hover:bg-rose-500/20 hover:border-rose-500/50'
-            }`}
-          >
-            <Heart 
-              size={18} 
-              className={`transition-all duration-300 ${isFavorited ? 'fill-current scale-110' : 'group-hover/heart:scale-110'}`} 
-            />
-          </button>
-          <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-            {/* Availability Badge - only show when dates are selected */}
-            {checkIn && checkOut && listing.isAvailable !== undefined && (
-              <div className={`backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-1.5 border text-xs font-bold ${
-                listing.isAvailable 
-                  ? 'bg-emerald-500/80 border-emerald-400/50 text-white' 
-                  : 'bg-red-500/80 border-red-400/50 text-white'
-              }`}>
-                {listing.isAvailable ? (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Available
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    Unavailable
-                  </>
-                )}
+      <Link href={listingUrl} className="flex-1 p-5">
+        <div className="flex gap-3 items-start mb-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={
+              listing.hostAvatarUrl ||
+              `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(listing.host_id || listing.hostName || 'Host')}`
+            }
+            alt={listing.hostName ? `Hosted by ${listing.hostName}` : 'Host'}
+            width={48}
+            height={48}
+            className="h-12 w-12 shrink-0 rounded-full object-cover border border-white/10 bg-white/5"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
+                  {listing.title}
+                </h3>
+                <p className="text-muted text-sm line-clamp-2">
+                  {listing.type ? `${listing.type} in ` : ''}{listing.location}
+                </p>
               </div>
-            )}
-            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-              <span className="text-lg">🌿</span>
-              <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                <span className="flex items-center gap-1">
-                  INDOOR <span className="text-green-400">✓</span>
+              <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
+                <span className={listing.reviews && listing.reviews > 0 ? 'text-primary-500 text-xs' : 'text-gray-500 text-xs'}>
+                  ★
                 </span>
-                <span className="flex items-center gap-1">
-                  OUTDOOR <span className="text-green-400">✓</span>
+                <span className="text-xs font-bold text-white">
+                  {listing.reviews && listing.reviews > 0 ? listing.rating?.toFixed(1) : 'New'}
                 </span>
               </div>
             </div>
-          </div>
-        </div>
-      </Link>
 
-      {/* Thumbnails */}
-      {images.length > 1 && (
-        <div className="flex gap-2 p-3 bg-surface-dark overflow-x-auto scrollbar-hide border-b border-white/5">
-          {images.slice(0, 5).map((img, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setCurrentImageIndex(idx);
-              }}
-              className={`relative w-16 h-12 flex-shrink-0 rounded-lg overflow-hidden transition-all ${
-                idx === currentImageIndex 
-                  ? 'ring-2 ring-primary-500 opacity-100' 
-                  : 'opacity-60 hover:opacity-100'
-              }`}
-            >
-              <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
-
-      <Link href={listingUrl} className="flex-1 p-5">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-1">
-              {listing.title}
-            </h3>
-            <p className="text-muted text-sm line-clamp-1">
-              {listing.type ? `${listing.type} in ` : ''}{listing.location}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
-            <span className={listing.reviews && listing.reviews > 0 ? "text-primary-500 text-xs" : "text-gray-500 text-xs"}>★</span>
-            <span className="text-xs font-bold text-white">
-              {listing.reviews && listing.reviews > 0 ? listing.rating?.toFixed(1) : 'New'}
-            </span>
-          </div>
-        </div>
-
-        {/* Beds and Guests Info */}
-        <div className="flex items-center gap-4 mt-3 text-muted text-sm">
+            {/* Beds and Guests Info */}
+            <div className="flex items-center gap-4 mt-3 text-muted text-sm">
           <span className="flex items-center gap-1.5">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            {listing.bedrooms || 1} {(listing.bedrooms || 1) === 1 ? 'bed' : 'beds'}
+            {bedCount} {bedCount === 1 ? 'bed' : 'beds'}
           </span>
           <span className="flex items-center gap-1.5">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,6 +150,8 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
             </svg>
             {listing.guests || 2} guests
           </span>
+            </div>
+          </div>
         </div>
 
         {/* Selected Dates Display */}
@@ -464,6 +327,24 @@ export default function SearchPage() {
           }
         };
 
+        let profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
+        if (isSupabaseConfigured && propertiesData.length > 0) {
+          const hostIds = [
+            ...new Set(
+              propertiesData.map((p: { host_id?: string }) => p.host_id).filter(Boolean)
+            ),
+          ] as string[];
+          if (hostIds.length > 0) {
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('id, avatar_url, full_name')
+              .in('id', hostIds);
+            (profs || []).forEach((row: { id: string; avatar_url: string | null; full_name: string | null }) => {
+              profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
+            });
+          }
+        }
+
         // Transform Supabase data to Listing format
         let filteredListings: Listing[] = (propertiesData || []).map((p: any) => {
           // Debug: Log coordinates extraction
@@ -486,6 +367,13 @@ export default function SearchPage() {
             ? normalizedImages
             : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
 
+          const hostId = typeof p.host_id === 'string' ? p.host_id : '';
+          const prof = hostId ? profileById[hostId] : undefined;
+          const hostName = ((prof?.full_name || 'Host').trim() || 'Host');
+          const hostAvatarUrl =
+            prof?.avatar_url ||
+            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostId || hostName)}`;
+
           return {
             id: p.id,
             name: p.name || p.title || 'Untitled Property',
@@ -499,6 +387,10 @@ export default function SearchPage() {
             amenities: p.amenities || [],
             guests: p.guests || 0,
             bedrooms: p.bedrooms || 0,
+            beds: p.beds != null ? Number(p.beds) : undefined,
+            host_id: hostId,
+            hostName,
+            hostAvatarUrl,
             status: p.status || 'active',
             coordinates: p.coordinates ? {
               lat: Number(p.coordinates.lat),
