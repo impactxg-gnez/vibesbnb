@@ -7,7 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Calendar, Search, Filter, Eye, Edit, Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -80,13 +80,12 @@ export default function ManageReservationsPage() {
   const loadReservations = async () => {
     setLoadingReservations(true);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/bookings', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { ...headers },
       });
       const data = await response.json();
       if (!response.ok) {

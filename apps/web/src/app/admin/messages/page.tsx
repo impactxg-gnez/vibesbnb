@@ -7,7 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { MessageSquare, Search, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Message {
   id: string;
@@ -53,15 +53,13 @@ export default function MessagesPage() {
 
   const loadConversations = async () => {
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) {
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
         throw new Error('No valid session — please sign in again.');
       }
 
       const response = await fetch('/api/admin/conversations', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { ...headers },
       });
       const data = await response.json();
       

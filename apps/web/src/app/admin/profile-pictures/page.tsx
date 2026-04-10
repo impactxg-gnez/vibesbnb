@@ -7,7 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Image, Search, Check, X, Loader2, User, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface PendingPicture {
   id: string;
@@ -70,11 +70,12 @@ export default function ProfilePicturesPage() {
   const loadPictures = async () => {
     setLoadingPictures(true);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/pending-profile-pictures', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...headers },
       });
       const data = await response.json();
       if (!response.ok) {
@@ -96,14 +97,15 @@ export default function ProfilePicturesPage() {
   const handleApprove = async (pictureId: string, userId: string, imageUrl: string) => {
     setProcessingId(pictureId);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/pending-profile-pictures', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({
           pictureId,
@@ -135,14 +137,15 @@ export default function ProfilePicturesPage() {
 
     setProcessingId(pictureId);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/pending-profile-pictures', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({
           pictureId,

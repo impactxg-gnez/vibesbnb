@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, type User } from '@supabase/supabase-js';
-import { isAdminUser } from '@/lib/auth/isAdmin';
+import { isAdminEmail, isAdminUser } from '@/lib/auth/isAdmin';
+import {
+  DEMO_ADMIN_ACCESS_TOKEN,
+  DEMO_ADMIN_API_EMAIL_ALLOWLIST,
+} from '@/lib/supabase/adminSession';
 
 export type AdminAuthResult =
   | { user: User }
   | { response: NextResponse };
+
+const allowDemoAdminApi =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_ADMIN_API === 'true';
 
 /**
  * Validates Bearer JWT and ensures the user is an admin (metadata, app_metadata, or allowlisted email).
@@ -22,6 +30,30 @@ export async function authenticateAdminRequest(
         { status: 401 }
       ),
     };
+  }
+
+  if (allowDemoAdminApi && token === DEMO_ADMIN_ACCESS_TOKEN) {
+    const email = request.headers
+      .get('x-vibes-demo-admin-email')
+      ?.toLowerCase()
+      .trim();
+    if (
+      !email ||
+      (!DEMO_ADMIN_API_EMAIL_ALLOWLIST.has(email) && !isAdminEmail(email))
+    ) {
+      return {
+        response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      };
+    }
+    const user = {
+      id: `demo-${email.replace(/[@.]/g, '-')}`,
+      email,
+      user_metadata: { role: 'admin' as const },
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+    } as User;
+    return { user };
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

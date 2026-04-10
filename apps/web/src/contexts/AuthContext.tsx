@@ -3,6 +3,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import {
+  buildDemoAdminSession,
+  isDemoAdminPersistedUser,
+} from '@/lib/supabase/adminSession';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -36,12 +40,8 @@ const DEMO_ACCOUNTS = {
     name: 'Demo Admin',
     email: 'demo@admin.com',
   },
-  'admin@vibesbnb.com': {
-    password: 'Vibes123!',
-    role: 'admin',
-    name: 'Admin',
-    email: 'admin@vibesbnb.com',
-  },
+  // admin@vibesbnb.com is not a demo shortcut when Supabase is configured — use real
+  // sign-in so the browser gets a JWT (required for Realtime postgres_changes).
   'esca@vibesbnb.com': {
     password: 'Esca123!',
     role: 'host',
@@ -138,6 +138,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // If no session after retries, set loading to false
         console.warn('[AuthContext] No session found after', maxRetries, 'attempts');
+
+        const demoRaw =
+          typeof window !== 'undefined' ? localStorage.getItem('demoUser') : null;
+        if (demoRaw) {
+          try {
+            const parsedUser = JSON.parse(demoRaw);
+            setUser(parsedUser as User);
+            if (isDemoAdminPersistedUser(parsedUser)) {
+              setSession(buildDemoAdminSession(parsedUser));
+            } else {
+              setSession(null);
+            }
+            if (parsedUser.user_metadata?.role) {
+              const role = parsedUser.user_metadata.role;
+              const rolesStr = localStorage.getItem('userRoles');
+              const roles = rolesStr ? JSON.parse(rolesStr) : [];
+              if (!roles.includes(role)) {
+                roles.push(role);
+                localStorage.setItem('userRoles', JSON.stringify(roles));
+              }
+            }
+          } catch {
+            localStorage.removeItem('demoUser');
+          }
+        }
+
         setLoading(false);
       };
       
@@ -152,6 +178,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         if (session) {
           persistSavedSession(session);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('demoUser');
+          }
         }
         
         // Sync roles from user metadata to localStorage
@@ -176,7 +205,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsedUser = JSON.parse(demoUser);
           setUser(parsedUser as any);
-          
+          if (isDemoAdminPersistedUser(parsedUser)) {
+            setSession(buildDemoAdminSession(parsedUser));
+          }
+
           // Sync roles from demo user metadata to localStorage
           if (parsedUser.user_metadata?.role) {
             const role = parsedUser.user_metadata.role;
@@ -216,7 +248,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(mockUser as any);
       localStorage.setItem('demoUser', JSON.stringify(mockUser));
-      
+      if (isDemoAdminPersistedUser(mockUser)) {
+        setSession(buildDemoAdminSession(mockUser));
+      } else {
+        setSession(null);
+      }
+
       // Sync role to localStorage
       const rolesStr = localStorage.getItem('userRoles');
       const roles = rolesStr ? JSON.parse(rolesStr) : [];
@@ -224,7 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         roles.push(demoAccount.role);
         localStorage.setItem('userRoles', JSON.stringify(roles));
       }
-      
+
       // Redirect based on role
       if (demoAccount.role === 'admin') {
         router.push('/admin');
@@ -241,7 +278,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!useSupabase) {
       return { 
         error: { 
-          message: 'Invalid email or password. Try demo@traveller.com, demo@host.com, demo@admin.com (password: password), admin@vibesbnb.com (password: Vibes123!) or esca@vibesbnb.com (password: Esca123!)' 
+          message:
+            'Invalid email or password. Try demo@traveller.com, demo@host.com, demo@admin.com (password: password), esca@vibesbnb.com (password: Esca123!), or sign in as admin@vibesbnb.com with your Supabase password (Realtime requires a real session).' 
         } 
       };
     }
@@ -263,6 +301,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (!error && data.user) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('demoUser');
+      }
+
       // Ensure session is properly set
       if (data.session) {
         // Session is already available from signInWithPassword
@@ -400,6 +442,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.refresh();
     } else {
       // Supabase authentication - use local scope to only sign out this browser
+      localStorage.removeItem('demoUser');
       await supabase.auth.signOut({ scope: 'local' });
       if (!preserveAccounts) {
         localStorage.removeItem('userRoles');

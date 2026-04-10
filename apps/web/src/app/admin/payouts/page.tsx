@@ -7,7 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DollarSign, Check, X, Eye, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Payout {
   id: string;
@@ -65,11 +65,12 @@ export default function ManagePayoutPage() {
 
   const loadPayouts = async () => {
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/payouts', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...headers },
       });
       const data = await response.json();
       if (!response.ok) {
@@ -89,14 +90,15 @@ export default function ManagePayoutPage() {
 
   const handleApprovePayout = async (payoutId: string) => {
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/payouts', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({ payoutAccountId: payoutId, status: 'approved' }),
       });
@@ -122,14 +124,15 @@ export default function ManagePayoutPage() {
     if (!reason) return;
 
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/payouts', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({ payoutAccountId: payoutId, status: 'rejected' }),
       });

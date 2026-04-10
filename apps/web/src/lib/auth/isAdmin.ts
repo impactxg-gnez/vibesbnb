@@ -1,6 +1,11 @@
 import type { User } from '@supabase/supabase-js';
 
-const ADMIN_EMAILS = new Set(['admin@vibesbnb.com']);
+/** Lowercase. Keep in sync with `is_vibesbnb_admin_jwt()` in SUPABASE_ADMIN_REALTIME_RLS.sql */
+const ADMIN_EMAILS = new Set([
+  'admin@vibesbnb.com',
+  'keval65@gmail.com',
+  'mrdeonmack@gmail.com',
+]);
 
 export function isAdminEmail(email?: string | null) {
   return Boolean(email && ADMIN_EMAILS.has(email.toLowerCase()));

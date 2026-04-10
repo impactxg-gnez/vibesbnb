@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { Users, List, Bell, RefreshCw, Image, Leaf, ArrowRight, ShieldCheck, Building, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -62,14 +62,12 @@ export default function AdminDashboard() {
   const fetchStats = useCallback(async () => {
     try {
       setStatsError(null);
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) {
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
         throw new Error('No valid session — please sign in again.');
       }
       const response = await fetch('/api/admin/stats', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { ...headers },
       });
       const data = await response.json();
       if (!response.ok) {

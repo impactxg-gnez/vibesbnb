@@ -7,7 +7,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Check, X, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface HostDocumentRow {
   id: string;
@@ -44,11 +44,12 @@ export default function DocumentVerificationPage() {
   const loadDocuments = async () => {
     setLoadingDocs(true);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch('/api/admin/host-documents', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...headers },
       });
       const data = await response.json();
       if (!response.ok) {
@@ -82,11 +83,12 @@ export default function DocumentVerificationPage() {
     }
     setOpeningDocId(doc.id);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
       const response = await fetch(
         `/api/admin/host-documents/signed-url?documentId=${encodeURIComponent(doc.id)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { ...authHeaders } }
       );
       const data = await response.json();
       if (!response.ok) {
@@ -103,13 +105,14 @@ export default function DocumentVerificationPage() {
   const approve = async (doc: HostDocumentRow) => {
     setProcessingId(doc.id);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/host-documents', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({ documentId: doc.id, status: 'approved' }),
       });
@@ -130,13 +133,14 @@ export default function DocumentVerificationPage() {
     const reason = prompt('Reason for rejection (optional):');
     setProcessingId(doc.id);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/host-documents', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({
           documentId: doc.id,

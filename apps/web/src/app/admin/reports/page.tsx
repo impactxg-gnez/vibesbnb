@@ -8,7 +8,7 @@ import { DollarSign, TrendingUp, TrendingDown, Calendar, Download } from 'lucide
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface ReportData {
   period: string;
@@ -43,12 +43,13 @@ export default function ReportManagementPage() {
   const loadReports = useCallback(async () => {
     setLoadingReports(true);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization)
+        throw new Error('No valid session — please sign in again.');
 
       const response = await fetch(
         `/api/admin/reports?period=${encodeURIComponent(period)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { ...headers } }
       );
       const data = await response.json();
       if (!response.ok) {

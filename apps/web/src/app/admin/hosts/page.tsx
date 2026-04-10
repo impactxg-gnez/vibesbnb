@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { Home, Check, X, MapPin, Mail, User, Search, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -51,13 +51,12 @@ export default function AdminHostsPage() {
   const fetchApplications = async () => {
     setIsLoading(true);
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization)
+        throw new Error('No valid session — please sign in again.');
       const statusQuery = filterStatus !== 'all' ? `?status=${filterStatus}` : '';
       const response = await fetch(`/api/admin/host-applications${statusQuery}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { ...headers },
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to load applications');
@@ -72,13 +71,14 @@ export default function AdminHostsPage() {
 
   const handleApprove = async (application: HostApplication) => {
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/approve-host', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({
           applicationId: application.id,
@@ -102,13 +102,14 @@ export default function AdminHostsPage() {
 
   const handleReject = async (id: string) => {
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) throw new Error('No valid session — please sign in again.');
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization)
+        throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/host-applications', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({
           applicationId: id,

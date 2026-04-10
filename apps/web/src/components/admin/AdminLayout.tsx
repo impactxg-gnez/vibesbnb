@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAccessTokenForAdminFetch } from '@/lib/supabase/adminSession';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import {
@@ -52,13 +52,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const fetchPendingCounts = useCallback(async () => {
     try {
-      const token = await getAccessTokenForAdminFetch();
-      if (!token) return;
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) return;
 
       const response = await fetch('/api/admin/stats', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { ...headers },
       });
 
       const data = await response.json();
