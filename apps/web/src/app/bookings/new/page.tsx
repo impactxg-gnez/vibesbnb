@@ -7,6 +7,13 @@ import { Calendar, Users, DollarSign, ArrowLeft, CreditCard } from 'lucide-react
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import {
+  enumerateStayNightsYmd,
+  nightsBetweenYmd,
+  parseCalendarDate,
+  startOfTodayLocal,
+  todayLocalYmd,
+} from '@/lib/dateUtils';
 
 interface Property {
   id: string;
@@ -16,6 +23,7 @@ interface Property {
   images: string[];
   guests: number;
   host_id?: string;
+  cleaningFee?: number;
   rooms?: Array<{
     id: string;
     name: string;
@@ -27,6 +35,7 @@ interface Property {
 interface PriceBreakdown {
   nights: number;
   basePrice: number;
+  cleaningFee: number;
   serviceFee: number;
   total: number;
 }
@@ -94,6 +103,12 @@ export default function NewBookingPage() {
         images: propertyData.images || [],
         guests: propertyData.guests || 1,
         host_id: propertyData.host_id,
+        cleaningFee:
+          propertyData.cleaning_fee != null
+            ? Number(propertyData.cleaning_fee)
+            : propertyData.cleaningFee != null
+              ? Number(propertyData.cleaningFee)
+              : 0,
         rooms: propertyData.rooms || [],
       });
 
@@ -139,9 +154,7 @@ export default function NewBookingPage() {
   const calculateTotal = (): PriceBreakdown | null => {
     if (!property || !formData.checkIn || !formData.checkOut) return null;
 
-    const checkInDate = new Date(formData.checkIn);
-    const checkOutDate = new Date(formData.checkOut);
-    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    const nights = nightsBetweenYmd(formData.checkIn, formData.checkOut);
 
     if (nights <= 0) return null;
 
@@ -154,10 +167,12 @@ export default function NewBookingPage() {
 
     const dailyPrice = getDailyPrice();
     const basePrice = dailyPrice * nights;
-    const serviceFee = basePrice * 0.1; // 10% service fee
-    const total = basePrice + serviceFee;
+    const cleaningFee = property.cleaningFee || 0;
+    const preService = basePrice + cleaningFee;
+    const serviceFee = Math.round(preService * 0.1);
+    const total = preService + serviceFee;
 
-    return { nights, basePrice, serviceFee, total };
+    return { nights, basePrice, cleaningFee, serviceFee, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -171,17 +186,16 @@ export default function NewBookingPage() {
       return;
     }
 
-    const checkInDate = new Date(formData.checkIn);
-    const checkOutDate = new Date(formData.checkOut);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const checkInDate = parseCalendarDate(formData.checkIn);
+    const checkOutDate = parseCalendarDate(formData.checkOut);
+    const today = startOfTodayLocal();
 
-    if (checkInDate < today) {
+    if (!checkInDate || checkInDate < today) {
       toast.error('Check-in date cannot be in the past');
       return;
     }
 
-    if (checkOutDate <= checkInDate) {
+    if (!checkOutDate || checkOutDate.getTime() <= checkInDate.getTime()) {
       toast.error('Check-out date must be after check-in date');
       return;
     }
@@ -192,24 +206,16 @@ export default function NewBookingPage() {
     }
 
     const isRangeAvailable = () => {
-      const start = new Date(formData.checkIn);
-      const end = new Date(formData.checkOut);
-      for (
-        let cursor = new Date(start);
-        cursor < end;
-        cursor.setDate(cursor.getDate() + 1)
-      ) {
-        const key = cursor.toISOString().split('T')[0];
+      const nightKeys = enumerateStayNightsYmd(formData.checkIn, formData.checkOut);
+      for (const key of nightKeys) {
         const blockedUnits = availability[key] || [];
 
         if (blockedUnits.includes('PROPERTY_WIDE')) return false;
 
         if (selectedUnits.length > 0) {
-          // Check if any of our selected units are in the blocked list
           const isAnySelectedUnitBlocked = selectedUnits.some(unit => blockedUnits.includes(unit.id));
           if (isAnySelectedUnitBlocked) return false;
         } else {
-          // If no specific units selected, anything blocked means unavailable
           if (blockedUnits.length > 0) return false;
         }
       }
@@ -353,7 +359,7 @@ export default function NewBookingPage() {
                     type="date"
                     value={formData.checkIn}
                     onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={todayLocalYmd()}
                     required
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
@@ -367,7 +373,7 @@ export default function NewBookingPage() {
                     type="date"
                     value={formData.checkOut}
                     onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
-                    min={formData.checkIn || new Date().toISOString().split('T')[0]}
+                    min={formData.checkIn || todayLocalYmd()}
                     required
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
@@ -483,6 +489,13 @@ export default function NewBookingPage() {
                           Total for {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
                         </span>
                         <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {priceBreakdown.cleaningFee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Cleaning fee (per stay)</span>
+                        <span className="text-white">${priceBreakdown.cleaningFee.toFixed(2)}</span>
                       </div>
                     )}
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { hostApplicationApprovedEmailHtml } from '@/lib/email/hostApplicationApproved';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -39,7 +40,17 @@ interface BookingCancelledData {
   bookingId: string;
 }
 
-type EmailTemplateData = BookingRequestData | BookingConfirmationData | BookingRejectedData | BookingCancelledData;
+interface HostApplicationApprovedData {
+  hostName: string;
+  appUrl?: string;
+}
+
+type EmailTemplateData =
+  | BookingRequestData
+  | BookingConfirmationData
+  | BookingRejectedData
+  | BookingCancelledData
+  | HostApplicationApprovedData;
 
 function generateEmailHtml(template: string, data: EmailTemplateData): string {
   const baseStyles = `
@@ -252,6 +263,14 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
           </p>
         </div>
       `;
+    }
+
+    case 'host_application_approved': {
+      const d = data as HostApplicationApprovedData;
+      return hostApplicationApprovedEmailHtml({
+        hostName: d.hostName || 'there',
+        appUrl: d.appUrl || appUrl,
+      });
     }
 
     default:

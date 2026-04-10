@@ -1,0 +1,31 @@
+<!--
+  VibesBNB — Supabase Auth email HTML (reference)
+  Paste into Supabase Dashboard → Authentication → Email Templates.
+
+  Replace {{ .ConfirmationURL }}, {{ .Token }}, {{ .SiteURL }}, {{ .Email }} per Supabase variables.
+-->
+
+<!-- Confirm signup -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f12;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" style="max-width:560px;background:#1a1a20;border-radius:20px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
+      <tr><td style="padding:28px;text-align:center;background:linear-gradient(135deg,rgba(91,33,182,0.35),transparent);">
+        <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">VibesBNB</p>
+        <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.5);">Catch a vibe</p>
+      </td></tr>
+      <tr><td style="padding:8px 28px 28px;">
+        <h1 style="margin:0 0 12px;font-size:20px;color:#ffffff;">Confirm your email</h1>
+        <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:rgba(255,255,255,0.72);">
+          Welcome to VibesBNB. Confirm your address to finish setting up your account.
+        </p>
+        <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#00E676;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:14px 28px;border-radius:12px;">
+          Confirm email
+        </a>
+        <p style="margin:24px 0 0;font-size:12px;color:rgba(255,255,255,0.4);">
+          If you didn’t sign up, you can ignore this message.
+        </p>
+      </td></tr>
+    </table>
+    <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.35);">Sent by VibesBNB</p>
+  </td></tr>
+</table>

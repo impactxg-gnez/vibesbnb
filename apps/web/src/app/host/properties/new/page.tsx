@@ -116,6 +116,7 @@ export default function NewPropertyPage() {
     smokingOutsideAllowed: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
+    cleaningFee: 0,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
@@ -302,6 +303,7 @@ export default function NewPropertyPage() {
           formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
         allow_extra_guests: formData.allowExtraGuests,
         extra_guest_price: formData.extraGuestPrice,
+        cleaning_fee: formData.cleaningFee,
         latitude: formData.coordinates?.lat,
         longitude: formData.coordinates?.lng,
         google_maps_url: formData.coordinates
@@ -334,13 +336,14 @@ export default function NewPropertyPage() {
         }
 
         toast.success('Property submitted for approval! Our team will review it shortly.', { duration: 5000 });
-        router.push('/host/properties');
+        router.push('/host/application-submitted');
       } else {
         // Fallback to localStorage
         const savedProperties = localStorage.getItem(`properties_${userId}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
         parsedProperties.push({
           ...propertyData,
+          cleaningFee: formData.cleaningFee,
           wellnessFriendly: formData.wellnessFriendly,
           smokingInsideAllowed: formData.smokingInsideAllowed,
           smokingOutsideAllowed: formData.smokingOutsideAllowed,
@@ -350,7 +353,7 @@ export default function NewPropertyPage() {
         localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
 
         toast.success('Property submitted for approval!');
-        router.push('/host/properties');
+        router.push('/host/application-submitted');
       }
     } catch (error: any) {
       console.error('Error creating property:', error);
@@ -896,6 +899,26 @@ export default function NewPropertyPage() {
           </div>
         )}
       </div>
+
+      <div className="mt-8 p-6 bg-gray-900 border border-gray-800 rounded-xl">
+        <h3 className="text-white font-medium mb-1">Cleaning fee</h3>
+        <p className="text-gray-400 text-sm mb-4">
+          One-time fee per stay (not per night). Guests see it at checkout. Use $0 if you do not charge for cleaning.
+        </p>
+        <div className="relative w-40">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={formData.cleaningFee}
+            onChange={(e) =>
+              setFormData({ ...formData, cleaningFee: Math.max(0, parseInt(e.target.value, 10) || 0) })
+            }
+            className="w-full pl-8 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white"
+          />
+        </div>
+      </div>
     </div>
   );
 
@@ -930,6 +953,9 @@ export default function NewPropertyPage() {
               <div className="text-right">
                 <p className="text-2xl font-bold text-white">${formData.price}</p>
                 <p className="text-gray-400 text-sm">per night</p>
+                {formData.cleaningFee > 0 && (
+                  <p className="text-emerald-400/90 text-sm mt-1">+ ${formData.cleaningFee} cleaning / stay</p>
+                )}
               </div>
             </div>
 

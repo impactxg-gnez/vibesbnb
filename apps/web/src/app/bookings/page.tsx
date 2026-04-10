@@ -9,6 +9,7 @@ import { Calendar, MapPin, Users, Star, ChevronRight, CreditCard, AlertCircle, X
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
+import { formatCalendarDate } from '@/lib/dateUtils';
 
 interface Booking {
   id: string;
@@ -140,10 +141,8 @@ export default function BookingsPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  const formatDate = (dateString: string) =>
+    formatCalendarDate(dateString, { month: 'short', day: 'numeric', year: 'numeric' });
 
   const getStatusColor = (status: string) => {
     switch (status) {

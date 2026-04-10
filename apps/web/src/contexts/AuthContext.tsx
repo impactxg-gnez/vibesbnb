@@ -391,7 +391,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: null, data: { user: mockUser } };
     }
     
-    // Supabase authentication
+    // Host signup uses /signup + /api/auth/register-host (pre-confirmed session + listing flow)
+    if (normalizedRole === 'host') {
+      router.push('/signup?type=host');
+      return {
+        error: {
+          message:
+            'Host signup uses the Create Account page — choose “List my property” to add your property next.',
+        },
+        data: null,
+      };
+    }
+
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -405,21 +416,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (!error && data.user) {
-      // Sync role to localStorage
       const rolesStr = localStorage.getItem('userRoles');
       const roles = rolesStr ? JSON.parse(rolesStr) : [];
       if (!roles.includes(normalizedRole)) {
         roles.push(normalizedRole);
         localStorage.setItem('userRoles', JSON.stringify(roles));
       }
-      
-      // If host, redirect to host dashboard after email verification
-      // Otherwise, redirect to verify email page
-      if (normalizedRole === 'host') {
-        // For hosts, we might want to redirect them directly if email is already verified
-        // But typically, Supabase requires email verification first
-        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
-      } else if (normalizedRole !== 'dispensary') {
+
+      if (normalizedRole !== 'dispensary') {
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       }
     }

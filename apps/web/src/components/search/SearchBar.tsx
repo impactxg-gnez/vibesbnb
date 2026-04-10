@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { todayLocalYmd } from '@/lib/dateUtils';
 
 export function SearchBar() {
   const router = useRouter();
@@ -197,7 +198,7 @@ export function SearchBar() {
               id="checkIn"
               value={checkIn}
               onChange={(dateStr) => setCheckIn(dateStr)}
-              min={new Date().toISOString().split('T')[0]}
+              min={todayLocalYmd()}
               className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
             />
           </div>
@@ -213,7 +214,7 @@ export function SearchBar() {
               id="checkOut"
               value={checkOut}
               onChange={(dateStr) => setCheckOut(dateStr)}
-              min={checkIn || new Date().toISOString().split('T')[0]}
+              min={checkIn || todayLocalYmd()}
               className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all text-gray-900"
             />
           </div>

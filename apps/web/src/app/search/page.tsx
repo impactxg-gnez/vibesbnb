@@ -12,6 +12,12 @@ import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  enumerateStayNightsYmd,
+  formatCalendarDate,
+  nightsBetweenYmd,
+  todayLocalYmd,
+} from '@/lib/dateUtils';
 
 interface Listing {
   id: string;
@@ -32,20 +38,12 @@ interface Listing {
   [key: string]: any;
 }
 
-// Helper to calculate nights between dates
 function calculateNights(checkIn: string, checkOut: string): number {
-  if (!checkIn || !checkOut) return 0;
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
-  const diffTime = end.getTime() - start.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return nightsBetweenYmd(checkIn, checkOut);
 }
 
-// Helper to format date for display
 function formatDateShort(dateStr: string): string {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatCalendarDate(dateStr, { month: 'short', day: 'numeric' });
 }
 
 // Listing Card Component with Image Carousel
@@ -538,13 +536,7 @@ export default function SearchPage() {
         // Check availability if dates are selected
         if (checkIn && checkOut && isSupabaseConfigured) {
           try {
-            // Get all dates in the range
-            const startDate = new Date(checkIn);
-            const endDate = new Date(checkOut);
-            const datesToCheck: string[] = [];
-            for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
-              datesToCheck.push(d.toISOString().split('T')[0]);
-            }
+            const datesToCheck = enumerateStayNightsYmd(checkIn, checkOut);
 
             if (datesToCheck.length > 0) {
               // Fetch blocked/booked dates for all properties in our list
@@ -757,7 +749,7 @@ export default function SearchPage() {
                               else params.delete('checkIn');
                               router.push(`/search?${params.toString()}`);
                             }}
-                            min={new Date().toISOString().split('T')[0]}
+                            min={todayLocalYmd()}
                             className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                           />
                         </div>
@@ -771,7 +763,7 @@ export default function SearchPage() {
                               else params.delete('checkOut');
                               router.push(`/search?${params.toString()}`);
                             }}
-                            min={searchParams.get('checkIn') || new Date().toISOString().split('T')[0]}
+                            min={searchParams.get('checkIn') || todayLocalYmd()}
                             className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                           />
                         </div>

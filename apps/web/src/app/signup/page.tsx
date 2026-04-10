@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
-import { Clock, CheckCircle, ArrowRight } from 'lucide-react';
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -16,10 +16,17 @@ export default function SignupPage() {
     accountType: 'traveler',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [showApprovalPending, setShowApprovalPending] = useState(false);
-  const [pendingRole, setPendingRole] = useState<string>('');
   const { signUp, signInWithGoogle, signInWithGithub } = useAuth();
+  const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = new URLSearchParams(window.location.search).get('type');
+    if (t === 'host') {
+      setFormData((f) => ({ ...f, accountType: 'host' }));
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,61 +47,46 @@ export default function SignupPage() {
     const role = formData.accountType === 'traveler' ? 'traveller' : formData.accountType;
 
     try {
-      // For hosts, submit to pending approvals (no email verification needed)
+      // Hosts: server creates pre-confirmed account, then sign in and go straight to listing flow
       if (role === 'host') {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.name,
-              role: 'host_pending',
-            },
-            emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
-          },
-        });
-
-        if (signUpError) {
-          if (
-            signUpError.message.toLowerCase().includes('already registered') ||
-            signUpError.message.toLowerCase().includes('already exists')
-          ) {
-            toast.error('user already registered as traveller, please register as a host from your profile');
-          } else {
-            toast.error(signUpError.message || 'Failed to create account');
-          }
-          setIsLoading(false);
-          return;
-        }
-
-        const res = await fetch('/api/host/application', {
+        const reg = await fetch('/api/auth/register-host', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
+            password: formData.password,
             name: formData.name,
           }),
         });
+        const regJson = await reg.json();
 
-        const data = await res.json();
-
-        if (!res.ok) {
-          // Check if it's a duplicate email
-          if (data.code === '23505') {
-            toast.error('An application with this email already exists');
+        if (!reg.ok) {
+          if (reg.status === 409) {
+            toast.error(
+              regJson.error ||
+                'An account with this email already exists. Sign in to continue, or use a different email.'
+            );
           } else {
-            console.error('Error submitting host application:', data.error);
-            toast.error(data.error || 'Failed to submit application. Please try again.');
+            toast.error(regJson.error || 'Failed to create host account');
           }
           setIsLoading(false);
           return;
         }
 
-        // Show approval pending screen
-        setPendingRole('host');
-        setShowApprovalPending(true);
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (signInError) {
+          toast.error(signInError.message || 'Account created but sign-in failed. Try logging in.');
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success("You're signed in — let's add your property.");
+        router.push('/host/properties/new');
+        router.refresh();
         setIsLoading(false);
         return;
       }
@@ -137,54 +129,6 @@ export default function SignupPage() {
       toast.error(error.message || 'Failed to sign in with GitHub');
     }
   };
-
-  // Show approval pending screen for hosts
-  if (showApprovalPending) {
-    return (
-      <div className="min-h-screen bg-surface-dark flex items-center justify-center px-6 py-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-primary-500/5 blur-[120px] rounded-full -translate-x-1/2 -translate-y-1/2" />
-        <div className="max-w-md w-full relative">
-          <div className="bg-surface shadow-[0_30px_60px_rgba(0,0,0,0.5)] rounded-[2.5rem] p-10 border border-white/5 text-center">
-            <div className="w-20 h-20 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Clock className="w-10 h-10 text-primary-500" />
-            </div>
-            
-            <h1 className="text-3xl font-bold text-white mb-4">
-              Application Submitted!
-            </h1>
-            
-            <div className="space-y-4 mb-8">
-              <p className="text-muted">
-                Your {pendingRole === 'host' ? 'host' : 'dispensary'} application has been sent to our admin team for review.
-              </p>
-              <div className="bg-primary-500/10 border border-primary-500/20 rounded-2xl p-4">
-                <div className="flex items-center justify-center gap-2 text-primary-500 font-semibold">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Pending Admin Approval</span>
-                </div>
-              </div>
-              <p className="text-sm text-muted">
-                You'll receive an email at <span className="text-white font-medium">{formData.email}</span> once your application is approved.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <Link 
-                href="/"
-                className="btn-primary w-full !py-4 flex items-center justify-center gap-2"
-              >
-                Return Home
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <p className="text-xs text-muted">
-                Questions? Contact us at support@vibesbnb.com
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-surface-dark flex items-center justify-center px-6 py-12 relative overflow-hidden">

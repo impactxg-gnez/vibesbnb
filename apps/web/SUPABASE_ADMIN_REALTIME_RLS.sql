@@ -26,6 +26,8 @@ AS $$
     OR (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
     OR lower(trim(coalesce(auth.jwt() ->> 'email', ''))) IN (
       'admin@vibesbnb.com',
+      'info@vibesbnb.com',
+      'vibewithdeon@vibesbnb.com',
       'keval65@gmail.com',
       'mrdeonmack@gmail.com'
     );

@@ -32,6 +32,7 @@ interface BulkProperty {
   beds: number;
   bathrooms: number;
   price: number;
+  cleaningFee?: number;
   description?: string;
   amenities?: string;
   wellnessFriendly?: boolean;
@@ -131,6 +132,7 @@ export default function BulkImportPage() {
         beds: parseInt(row.beds) || 1,
         bathrooms: parseInt(row.bathrooms) || 1,
         price: parseFloat(row.price) || 100,
+        cleaningFee: parseFloat(row.cleaningfee || row.cleaning_fee || row['cleaning fee'] || '0') || 0,
         description: row.description || '',
         amenities: row.amenities || '',
         wellnessFriendly: row.wellnessfriendly?.toLowerCase() === 'true' || row.wellnessfriendly === '1',
@@ -299,6 +301,7 @@ export default function BulkImportPage() {
           smoking_inside_allowed: false,
           smoking_outside_allowed: property.smokeFriendly || false,
           smoke_friendly: property.smokeFriendly || false,
+          cleaning_fee: property.cleaningFee ?? 0,
         };
 
         const { error } = await supabase.from('properties').insert(propertyData);
@@ -328,8 +331,8 @@ export default function BulkImportPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'description', 'amenities', 'wellnessFriendly', 'smokeFriendly', 'image_urls'];
-    const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false', 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800'];
+    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'cleaningFee', 'description', 'amenities', 'wellnessFriendly', 'smokeFriendly', 'image_urls'];
+    const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', '75', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false', 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800'];
     
     const csvContent = [headers.join(','), exampleRow.join(',')].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -589,7 +592,7 @@ export default function BulkImportPage() {
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
                 <p className="text-gray-500 text-sm">
-                  bedrooms, beds, bathrooms, description, amenities (separated by ;), wellnessFriendly, smokeFriendly
+                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly, smokeFriendly
                 </p>
                 <p className="text-emerald-400/80 text-sm mt-2">
                   <strong>image_urls</strong> - Pipe-separated image URLs (e.g., https://url1.jpg|https://url2.jpg)
@@ -655,6 +658,9 @@ export default function BulkImportPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-emerald-400 font-medium">${prop.price}/night</p>
+                        {(prop.cleaningFee ?? 0) > 0 && (
+                          <p className="text-gray-400 text-xs">+ ${prop.cleaningFee} cleaning / stay</p>
+                        )}
                         <p className="text-gray-500 text-xs">{prop.type}</p>
                       </div>
                     </div>

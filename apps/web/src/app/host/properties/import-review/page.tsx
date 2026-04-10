@@ -35,6 +35,7 @@ interface ImportedPropertyData {
   coordinates?: { lat: number; lng: number };
   allowExtraGuests: boolean;
   extraGuestPrice: number;
+  cleaningFee: number;
   type: string;
 }
 
@@ -58,6 +59,7 @@ export default function ImportReviewPage() {
     wellnessFriendly: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
+    cleaningFee: 0,
     type: 'Entire House',
   });
   const [smokingInsideAllowed, setSmokingInsideAllowed] = useState(false);
@@ -163,7 +165,10 @@ export default function ImportReviewPage() {
         }
 
         console.log('[Import Review] Final location after processing:', data.location);
-        setFormData(data);
+        setFormData({
+          ...data,
+          cleaningFee: data.cleaningFee ?? data.cleaning_fee ?? 0,
+        });
 
         let inside = data.smokingInsideAllowed === true;
         let outside = data.smokingOutsideAllowed === true;
@@ -449,6 +454,7 @@ export default function ImportReviewPage() {
             smoke_friendly: smokingInsideAllowed || smokingOutsideAllowed,
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
+            cleaning_fee: formData.cleaningFee,
             google_maps_url: formData.googleMapsUrl,
             type: formData.type,
             latitude: formData.coordinates?.lat,
@@ -490,6 +496,8 @@ export default function ImportReviewPage() {
             smokingInsideAllowed,
             smokingOutsideAllowed,
             smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
+            cleaning_fee: formData.cleaningFee,
+            cleaningFee: formData.cleaningFee,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -528,6 +536,8 @@ export default function ImportReviewPage() {
           smokingInsideAllowed,
           smokingOutsideAllowed,
           smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
+          cleaning_fee: formData.cleaningFee,
+          cleaningFee: formData.cleaningFee,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -559,6 +569,8 @@ export default function ImportReviewPage() {
           smokingInsideAllowed,
           smokingOutsideAllowed,
           smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
+          cleaning_fee: formData.cleaningFee,
+          cleaningFee: formData.cleaningFee,
           amenities: formData.amenities,
           images: allImageUrls,
           rooms: roomsData,
@@ -757,6 +769,27 @@ export default function ImportReviewPage() {
                       setFormData({ ...formData, price: parseInt(e.target.value) })
                     }
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Cleaning fee ($) — once per stay
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Not per night. Use 0 if you do not charge a cleaning fee.
+                  </p>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.cleaningFee}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cleaningFee: Math.max(0, parseInt(e.target.value, 10) || 0),
+                      })
+                    }
+                    className="w-full max-w-xs px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>
               </div>

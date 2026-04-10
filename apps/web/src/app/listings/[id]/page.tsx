@@ -36,6 +36,11 @@ import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
 import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
 import { DatePicker } from '@/components/ui/DatePicker';
+import {
+  formatCalendarDate,
+  nightsBetweenYmd,
+  todayLocalYmd,
+} from '@/lib/dateUtils';
 
 interface Property {
   id: string;
@@ -43,6 +48,7 @@ interface Property {
   location: string;
   description: string;
   price: number;
+  cleaningFee?: number;
   bedrooms: number;
   bathrooms: number;
   guests: number;
@@ -148,14 +154,7 @@ export default function ListingDetailPage() {
   const [checkOutDate, setCheckOutDate] = useState<string>(searchParams.get('checkOut') || '');
   
   // Calculate number of nights
-  const calculateNights = (): number => {
-    if (!checkInDate || !checkOutDate) return 0;
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    const diffTime = checkOut.getTime() - checkIn.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0;
-  };
+  const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
   
   const stayDuration = calculateNights();
 
@@ -282,6 +281,12 @@ export default function ListingDetailPage() {
           location: propertyData.location || '',
           description: propertyData.description || 'No description available.',
           price: propertyData.price ? Number(propertyData.price) : 0,
+          cleaningFee:
+            propertyData.cleaning_fee != null
+              ? Number(propertyData.cleaning_fee)
+              : propertyData.cleaningFee != null
+                ? Number(propertyData.cleaningFee)
+                : 0,
           bedrooms: propertyData.bedrooms || 0,
           bathrooms: propertyData.bathrooms || 0,
           guests: propertyData.guests || 0,
@@ -369,10 +374,11 @@ export default function ListingDetailPage() {
 
   const wellnessTotal = wellnessCart.reduce((sum, item) => sum + item.price, 0);
   const currentPrice = calculateTotalPrice();
-  const nights = stayDuration || 1; // Use 1 night for display if no dates selected
-  const stayTotal = currentPrice * nights;
-  const serviceFee = Math.round(stayTotal * 0.1);
-  const finalTotal = stayTotal + serviceFee + wellnessTotal;
+  const nightlySubtotal = stayDuration > 0 ? currentPrice * stayDuration : 0;
+  const cleaningFeeAmount = stayDuration > 0 ? property?.cleaningFee || 0 : 0;
+  const preServiceSubtotal = nightlySubtotal + cleaningFeeAmount;
+  const serviceFee = stayDuration > 0 ? Math.round(preServiceSubtotal * 0.1) : 0;
+  const finalTotal = stayDuration > 0 ? preServiceSubtotal + serviceFee + wellnessTotal : wellnessTotal;
 
   if (loading) {
     return (
@@ -860,7 +866,7 @@ export default function ListingDetailPage() {
                     <DatePicker
                       value={checkInDate}
                       onChange={(dateStr: string) => setCheckInDate(dateStr)}
-                      min={new Date().toISOString().split('T')[0]}
+                      min={todayLocalYmd()}
                       className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
                     />
                   </div>
@@ -869,7 +875,7 @@ export default function ListingDetailPage() {
                     <DatePicker
                       value={checkOutDate}
                       onChange={(dateStr: string) => setCheckOutDate(dateStr)}
-                      min={checkInDate || new Date().toISOString().split('T')[0]}
+                      min={checkInDate || todayLocalYmd()}
                       className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
                     />
                   </div>
@@ -880,7 +886,7 @@ export default function ListingDetailPage() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-emerald-400 font-medium flex items-center gap-2">
                         <Calendar size={14} />
-                        {new Date(checkInDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(checkOutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {formatCalendarDate(checkInDate, { month: 'short', day: 'numeric' })} - {formatCalendarDate(checkOutDate, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
                       <span className="text-emerald-400 font-semibold">{stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
                     </div>
@@ -910,8 +916,14 @@ export default function ListingDetailPage() {
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">${currentPrice} × {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
-                      <span className="text-white">${stayTotal}</span>
+                      <span className="text-white">${nightlySubtotal}</span>
                     </div>
+                    {cleaningFeeAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Cleaning fee (per stay)</span>
+                        <span className="text-white">${cleaningFeeAmount}</span>
+                      </div>
+                    )}
                     {wellnessCart.length > 0 && (
                       <div className="flex justify-between text-sm animate-in fade-in slide-in-from-left-2 transition-all">
                         <span className="text-primary-500 font-medium flex items-center gap-1">

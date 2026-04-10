@@ -35,6 +35,7 @@ interface Property {
   smokingOutsideAllowed: boolean;
   allowExtraGuests: boolean;
   extraGuestPrice: number;
+  cleaningFee: number;
   amenities: string[];
   images: File[];
   imagePreviewUrls: string[];
@@ -65,6 +66,7 @@ export default function EditPropertyPage() {
     smokingOutsideAllowed: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
+    cleaningFee: 0,
     amenities: [],
     images: [],
     imagePreviewUrls: [],
@@ -157,6 +159,7 @@ export default function EditPropertyPage() {
               smokingOutsideAllowed: smokingOutside,
               allowExtraGuests: propertyData.allow_extra_guests || false,
               extraGuestPrice: propertyData.extra_guest_price ? Number(propertyData.extra_guest_price) : 50,
+              cleaningFee: propertyData.cleaning_fee != null ? Number(propertyData.cleaning_fee) : 0,
               amenities: propertyData.amenities || [],
               images: [],
               imagePreviewUrls: propertyData.images || [],
@@ -227,6 +230,12 @@ export default function EditPropertyPage() {
                 smokingOutsideAllowed: smokingOutside,
                 allowExtraGuests: property.allowExtraGuests || false,
                 extraGuestPrice: property.extraGuestPrice || 50,
+                cleaningFee:
+                  property.cleaningFee != null
+                    ? Number(property.cleaningFee)
+                    : property.cleaning_fee != null
+                      ? Number(property.cleaning_fee)
+                      : 0,
                 amenities: property.amenities || [],
                 images: [],
                 imagePreviewUrls: property.images || [],
@@ -484,6 +493,7 @@ export default function EditPropertyPage() {
               formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
+            cleaning_fee: formData.cleaningFee,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -520,6 +530,8 @@ export default function EditPropertyPage() {
                 smokingOutsideAllowed: formData.smokingOutsideAllowed,
                 smokeFriendly:
                   formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+                cleaning_fee: formData.cleaningFee,
+                cleaningFee: formData.cleaningFee,
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -555,6 +567,8 @@ export default function EditPropertyPage() {
                 smokingOutsideAllowed: formData.smokingOutsideAllowed,
                 smokeFriendly:
                   formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+                cleaning_fee: formData.cleaningFee,
+                cleaningFee: formData.cleaningFee,
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -873,6 +887,26 @@ export default function EditPropertyPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-1">Cleaning fee</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              One-time fee per stay (not per night). Use $0 if you do not charge for cleaning.
+            </p>
+            <div className="relative max-w-xs">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+              <input
+                type="number"
+                min="0"
+                value={formData.cleaningFee}
+                onChange={(e) =>
+                  setFormData({ ...formData, cleaningFee: Math.max(0, parseInt(e.target.value, 10) || 0) })
+                }
+                className="w-full pl-8 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                placeholder="0"
+              />
+            </div>
           </div>
 
           {/* Multi-Unit Configuration */}

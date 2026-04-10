@@ -1,47 +1,64 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
+function baseUrl(request: Request): string {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '').trim();
+  if (fromEnv) return fromEnv;
+  return new URL(request.url).origin;
+}
+
+/** Internal path only; avoids open redirects and bad URLs that become 404s */
+function safeInternalPath(next: string | null): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
+  return next;
+}
+
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const base = baseUrl(request);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next');
-  const type = searchParams.get('type'); // Supabase includes type=signup for email verification
+  const next = safeInternalPath(searchParams.get('next'));
+  const type = searchParams.get('type');
+
+  const home = `${base}/`;
 
   if (code) {
     const supabase = createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Get the user to check their role and verification status
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Check if this is an email verification (type=signup or email_confirmed_at is recent)
-      const isEmailVerification = type === 'signup' || 
-        (user?.email_confirmed_at && 
-         new Date(user.email_confirmed_at).getTime() > Date.now() - 60000); // Verified within last minute
-      
-      // If this is an email verification, redirect to success page
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const isEmailVerification =
+        type === 'signup' ||
+        type === 'email' ||
+        (user?.email_confirmed_at &&
+          new Date(user.email_confirmed_at).getTime() > Date.now() - 5 * 60 * 1000);
+
       if (isEmailVerification) {
-        return NextResponse.redirect(`${origin}/auth/verify-success`);
+        const r = user?.user_metadata?.role;
+        if (r === 'host_pending') {
+          return NextResponse.redirect(`${base}/host/properties/new`);
+        }
+        return NextResponse.redirect(home);
       }
-      
-      // If next is specified, use it; otherwise redirect based on role
+
       if (next) {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${base}${next}`);
       }
-      
-      // Redirect based on user role
-      // Only redirect hosts to host dashboard, all others (including travellers) go to landing page
+
       const userRole = user?.user_metadata?.role;
-      if (userRole === 'host') {
-        return NextResponse.redirect(`${origin}/host/properties`);
+      if (userRole === 'host_pending') {
+        return NextResponse.redirect(`${base}/host/properties/new`);
       }
-      
-      // For travellers or any other role (or no role), redirect to landing page
-      return NextResponse.redirect(`${origin}/`);
+      if (userRole === 'host') {
+        return NextResponse.redirect(`${base}/host/properties`);
+      }
+
+      return NextResponse.redirect(home);
     }
   }
 
-  // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(home);
 }
-

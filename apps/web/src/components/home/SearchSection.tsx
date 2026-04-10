@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Bed, Home, Building, Trees, Sparkles } from 'lucide-react';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
 
 interface Property {
   id: string;
@@ -451,7 +452,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                         </svg>
                         <span className="text-white font-medium">
                           {checkIn && checkOut
-                            ? `${new Date(checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                            ? `${formatCalendarDate(checkIn, { month: 'short', day: 'numeric' })} - ${formatCalendarDate(checkOut, { month: 'short', day: 'numeric' })}`
                             : 'Choose when to wander'
                           }
                         </span>
@@ -468,7 +469,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                                   setCheckIn(dateStr);
                                   if (checkOut && dateStr >= checkOut) setCheckOut('');
                                 }}
-                                min={new Date().toISOString().split('T')[0]}
+                                min={todayLocalYmd()}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                               />
                             </div>
@@ -477,7 +478,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                               <DatePicker
                                 value={checkOut}
                                 onChange={(dateStr) => setCheckOut(dateStr)}
-                                min={checkIn || new Date().toISOString().split('T')[0]}
+                                min={checkIn || todayLocalYmd()}
                                 className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
                               />
                             </div>

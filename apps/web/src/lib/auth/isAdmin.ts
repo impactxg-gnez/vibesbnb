@@ -3,6 +3,8 @@ import type { User } from '@supabase/supabase-js';
 /** Lowercase. Keep in sync with `is_vibesbnb_admin_jwt()` in SUPABASE_ADMIN_REALTIME_RLS.sql */
 const ADMIN_EMAILS = new Set([
   'admin@vibesbnb.com',
+  'info@vibesbnb.com',
+  'vibewithdeon@vibesbnb.com',
   'keval65@gmail.com',
   'mrdeonmack@gmail.com',
 ]);

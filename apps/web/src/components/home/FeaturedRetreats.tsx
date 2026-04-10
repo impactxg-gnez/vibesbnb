@@ -2,23 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { FeaturedPropertyCardCarousel } from '@/components/home/FeaturedPropertyCardCarousel';
 
 interface Retreat {
   id: string;
   name: string;
   location: string;
+  description: string;
   rating: number;
   reviews: number;
   price: number;
-  image: string;
+  images: string[];
   amenities: string[];
   badge: string;
   bedrooms: number;
   guests: number;
   type?: string;
+  hostId: string;
+  hostName: string;
+  hostAvatarUrl: string;
 }
 
 export function FeaturedRetreats() {
@@ -44,20 +48,51 @@ export function FeaturedRetreats() {
           return;
         }
 
-        const featuredRetreats: Retreat[] = (propertiesData || []).map((p: any) => ({
-          id: p.id,
-          name: p.name || p.title || 'Property',
-          location: p.location || '',
-          rating: p.rating ? Number(p.rating) : 4.5,
-          reviews: 0, // TODO: Get from reviews table
-          price: p.price ? Number(p.price) : 0,
-          image: p.images && p.images.length > 0 ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
-          amenities: (p.amenities || []).slice(0, 2),
-          badge: 'Wellness-friendly',
-          bedrooms: p.bedrooms || 1,
-          guests: p.guests || 2,
-          type: p.type || '',
-        }));
+        const rows = propertiesData || [];
+        const hostIds = [...new Set(rows.map((p: { host_id?: string }) => p.host_id).filter(Boolean))] as string[];
+
+        let profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
+        if (hostIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, avatar_url, full_name')
+            .in('id', hostIds);
+          (profilesData || []).forEach((row: { id: string; avatar_url: string | null; full_name: string | null }) => {
+            profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
+          });
+        }
+
+        const featuredRetreats: Retreat[] = rows.map((p: any) => {
+          const hostId = p.host_id || '';
+          const prof = hostId ? profileById[hostId] : undefined;
+          const hostName = (prof?.full_name || 'Host').trim() || 'Host';
+          const hostAvatarUrl =
+            prof?.avatar_url ||
+            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostId || hostName)}`;
+
+          const rawDesc = typeof p.description === 'string' ? p.description.trim() : '';
+          const description =
+            rawDesc.length > 220 ? `${rawDesc.slice(0, 217).trimEnd()}…` : rawDesc;
+
+          return {
+            id: p.id,
+            name: p.name || p.title || 'Property',
+            location: p.location || '',
+            description,
+            rating: p.rating ? Number(p.rating) : 4.5,
+            reviews: 0,
+            price: p.price ? Number(p.price) : 0,
+            images: Array.isArray(p.images) ? p.images.filter(Boolean) : [],
+            amenities: (p.amenities || []).slice(0, 2),
+            badge: 'Wellness-friendly',
+            bedrooms: p.bedrooms || 1,
+            guests: p.guests || 2,
+            type: p.type || '',
+            hostId,
+            hostName,
+            hostAvatarUrl,
+          };
+        });
 
         setRetreats(featuredRetreats);
       } catch (error) {
@@ -110,17 +145,16 @@ export function FeaturedRetreats() {
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: index * 0.1 }}
           >
-            <Link href={`/listings/${retreat.id}`} className="group block h-full">
+            <div className="group block h-full">
               <div className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col">
-                <div className="relative h-72 overflow-hidden">
-                  <Image
-                    src={retreat.image}
+                <div className="relative overflow-hidden">
+                  <FeaturedPropertyCardCarousel
+                    images={retreat.images}
                     alt={retreat.name}
-                    fill
-                    className="object-cover group-hover:scale-110 transition duration-700"
+                    listingHref={`/listings/${retreat.id}`}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="absolute top-6 right-6 flex flex-col items-end gap-1">
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                  <div className="pointer-events-none absolute top-6 right-6 z-[4] flex flex-col items-end gap-1">
                     <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
                       <span className="text-lg">🌿</span>
                       <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
@@ -134,19 +168,35 @@ export function FeaturedRetreats() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="p-8 flex-1 flex flex-col">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-white font-bold text-2xl mb-2 group-hover:text-primary-500 transition-colors line-clamp-1">
-                        {retreat.name}
-                      </h3>
+                  <div className="flex gap-4 items-start mb-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={retreat.hostAvatarUrl}
+                      alt={`Hosted by ${retreat.hostName}`}
+                      width={56}
+                      height={56}
+                      className="h-14 w-14 shrink-0 rounded-full object-cover border border-white/10 bg-white/5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/listings/${retreat.id}`}
+                        className="block text-left"
+                      >
+                        <h3 className="text-white font-bold text-2xl mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
+                          {retreat.name}
+                        </h3>
+                      </Link>
+                      {retreat.description ? (
+                        <p className="text-muted text-sm leading-relaxed line-clamp-3 mb-2">{retreat.description}</p>
+                      ) : null}
                       <div className="flex items-center gap-2 text-muted text-sm font-medium">
-                        <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span>
+                        <span className="line-clamp-2">
                           {retreat.type ? `${retreat.type} in ` : ''}{retreat.location}
                         </span>
                       </div>
@@ -194,7 +244,7 @@ export function FeaturedRetreats() {
                   </div>
                 </div>
               </div>
-            </Link>
+            </div>
           </motion.div>
         ))}
       </div>

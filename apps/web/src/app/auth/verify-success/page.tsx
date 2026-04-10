@@ -17,10 +17,11 @@ export default function VerifySuccessPage() {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else if (countdown === 0 && user) {
-      // Auto-redirect based on user role
       const userRole = user?.user_metadata?.role;
       if (userRole === 'admin') {
         router.push('/admin');
+      } else if (userRole === 'host_pending') {
+        router.push('/host/properties/new');
       } else if (userRole === 'host') {
         router.push('/host/properties');
       } else {
@@ -34,6 +35,8 @@ export default function VerifySuccessPage() {
       const userRole = user?.user_metadata?.role;
       if (userRole === 'admin') {
         router.push('/admin');
+      } else if (userRole === 'host_pending') {
+        router.push('/host/properties/new');
       } else if (userRole === 'host') {
         router.push('/host/properties');
       } else {
@@ -45,63 +48,58 @@ export default function VerifySuccessPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full text-center">
-        <div className="bg-gray-900 shadow-lg rounded-xl p-8 border border-gray-800">
-          {/* Success Icon */}
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      <div className="absolute inset-0 bg-violet-900/10 blur-[100px] rounded-full pointer-events-none" />
+      <div className="max-w-md w-full text-center relative">
+        <div className="bg-gray-900/95 shadow-2xl rounded-3xl p-10 border border-gray-800">
           <div className="flex justify-center mb-6">
-            <div className="rounded-full bg-emerald-500/20 p-4">
-              <CheckCircle2 className="w-16 h-16 text-emerald-500" />
+            <div className="rounded-2xl bg-violet-600/20 border border-violet-500/30 p-4">
+              <CheckCircle2 className="w-14 h-14 text-emerald-400" />
             </div>
           </div>
 
-          {/* Success Message */}
-          <h1 className="text-3xl font-bold text-white mb-4">
-            Email Verified!
-          </h1>
-          <p className="text-gray-400 mb-6">
-            Your email address has been successfully verified. You can now access all features of your account.
+          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Email verified</h1>
+          <p className="text-gray-400 mb-6 leading-relaxed">
+            Your VibesBNB account is active. Continue to your dashboard below.
           </p>
 
-          {/* User Info */}
           {user && (
-            <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-              <p className="text-sm text-gray-500 mb-1">Signed in as</p>
+            <div className="mb-6 p-4 bg-gray-800/60 rounded-xl border border-gray-700/80">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Signed in as</p>
               <p className="text-white font-medium">{user.email}</p>
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="space-y-3">
             {user ? (
               <>
                 <button
+                  type="button"
                   onClick={handleContinue}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition"
+                  className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-semibold hover:bg-emerald-500 transition"
                 >
-                  Continue to Dashboard
+                  Continue
                 </button>
                 {countdown > 0 && (
                   <p className="text-sm text-gray-500">
-                    Redirecting automatically in {countdown} second{countdown !== 1 ? 's' : ''}...
+                    Redirecting in {countdown}s…
                   </p>
                 )}
               </>
             ) : (
               <Link
                 href="/login"
-                className="block w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition text-center"
+                className="block w-full bg-emerald-600 text-white py-3.5 rounded-xl font-semibold hover:bg-emerald-500 transition text-center"
               >
-                Sign In
+                Sign in
               </Link>
             )}
           </div>
 
-          {/* Help Text */}
-          <p className="mt-6 text-sm text-gray-500">
+          <p className="mt-8 text-sm text-gray-500">
             Need help?{' '}
-            <Link href="/contact" className="text-emerald-500 hover:text-emerald-400">
-              Contact Support
+            <Link href="/" className="text-emerald-400 hover:text-emerald-300 font-medium">
+              VibesBNB home
             </Link>
           </p>
         </div>
