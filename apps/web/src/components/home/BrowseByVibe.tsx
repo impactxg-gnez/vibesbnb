@@ -29,14 +29,14 @@ const vibes = [
 
 export function BrowseByVibe() {
   return (
-    <div className="container mx-auto px-6 pb-24">
-      <div className="flex items-center justify-between mb-10">
-        <h2 className="text-3xl font-bold text-white tracking-tight">
+    <div className="container mx-auto px-4 sm:px-6 pb-24">
+      <div className="flex items-center justify-between mb-6 sm:mb-10">
+        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
           Browse by <span className="text-primary-500 italic">Vibe</span>
         </h2>
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
         {vibes.map((vibe, index) => (
           <motion.div
             key={vibe.id}
@@ -47,7 +47,7 @@ export function BrowseByVibe() {
           >
             <Link
               href={`/search?vibe=${vibe.id}`}
-              className="group block relative h-48 rounded-[2rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500"
+              className="group block relative h-36 sm:h-44 md:h-48 rounded-2xl sm:rounded-[2rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500"
             >
               <Image
                 src={vibe.image}
@@ -56,8 +56,8 @@ export function BrowseByVibe() {
                 className="object-cover group-hover:scale-125 transition duration-1000"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent group-hover:from-primary-950/90 transition-colors duration-500" />
-              <div className="absolute bottom-6 left-6 right-6">
-                <h3 className="text-white font-bold text-xl mb-1 group-hover:text-primary-500 transition-colors">{vibe.name}</h3>
+              <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6">
+                <h3 className="text-white font-bold text-base sm:text-xl mb-1 group-hover:text-primary-500 transition-colors">{vibe.name}</h3>
                 <div className="w-8 h-1 bg-primary-500 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500" />
               </div>
             </Link>

@@ -24,7 +24,7 @@ export function Hero() {
     'https://okmudgacbpgycixtpoqx.supabase.co/storage/v1/object/public/hero-images/a7af8f52-573a-49db-a8a8-ee3cb49cbe69.jfif';
 
   return (
-    <div className="relative h-[600px] md:h-[700px] overflow-hidden">
+    <div className="relative h-[min(88dvh,620px)] sm:h-[580px] md:h-[700px] overflow-hidden">
       {/* Hero background - cover on mobile, contain on desktop to show full peace sign */}
       <div 
         className="absolute inset-0 bg-cover bg-center lg:bg-contain lg:bg-no-repeat lg:bg-right"
@@ -38,16 +38,16 @@ export function Hero() {
       <div className="absolute inset-0 bg-[#8B7355] -z-10" />
       <div className="absolute inset-0 bg-gradient-to-b from-surface-dark/40 via-transparent to-surface-dark" />
 
-      <div className="relative container mx-auto px-6 h-full flex flex-col justify-center pb-20 sm:pb-12 md:pb-0">
+      <div className="relative container mx-auto px-4 sm:px-6 h-full flex flex-col justify-center pb-24 sm:pb-16 md:pb-0">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
-          className="max-w-4xl"
+          className="max-w-4xl w-full min-w-0"
         >
 
 
-          <h1 className="text-6xl md:text-7xl font-bold text-white mb-12 tracking-tight leading-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-8 sm:mb-10 md:mb-12 tracking-tight leading-[1.08] sm:leading-tight">
             Find your <br />
             <span className="text-primary-500">wellness-friendly</span> <br />
             sanctuary

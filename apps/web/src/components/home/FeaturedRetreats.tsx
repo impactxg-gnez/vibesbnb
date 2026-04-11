@@ -115,10 +115,10 @@ export function FeaturedRetreats() {
   }
 
   return (
-    <div className="container mx-auto px-6 pb-24">
+    <div className="container mx-auto px-4 sm:px-6 pb-24">
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
-          <h2 className="text-4xl font-bold text-white mb-4 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
             Featured <span className="text-primary-500 italic">Retreats</span>
           </h2>
           <p className="text-muted max-w-xl">
@@ -162,7 +162,7 @@ export function FeaturedRetreats() {
                   />
                 </div>
 
-                <div className="p-8 flex-1 flex flex-col">
+                <div className="p-5 sm:p-8 flex-1 flex flex-col">
                   <div className="flex gap-4 items-start mb-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -177,7 +177,7 @@ export function FeaturedRetreats() {
                         href={`/listings/${retreat.id}`}
                         className="block text-left"
                       >
-                        <h3 className="text-white font-bold text-2xl mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
+                        <h3 className="text-white font-bold text-xl sm:text-2xl mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
                           {retreat.name}
                         </h3>
                       </Link>

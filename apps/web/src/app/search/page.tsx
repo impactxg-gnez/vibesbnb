@@ -629,7 +629,7 @@ export default function SearchPage() {
                     <span className="hidden sm:inline">Dates</span>
                   </button>
                   {showDatePicker && (
-                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 min-w-[280px]">
+                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 w-[min(calc(100vw-1.5rem),20rem)] min-w-0 sm:min-w-[280px] sm:w-auto">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs text-gray-400 mb-2">Check In</label>
@@ -683,7 +683,7 @@ export default function SearchPage() {
                     <span className="hidden sm:inline">Guests</span>
                   </button>
                   {showGuestPicker && (
-                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 min-w-[240px]">
+                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 w-[min(calc(100vw-1.5rem),18rem)] min-w-0 sm:min-w-[240px] sm:w-auto">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>

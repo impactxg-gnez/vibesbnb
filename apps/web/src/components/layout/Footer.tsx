@@ -16,7 +16,7 @@ export function Footer() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface-dark/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 bg-surface-dark/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden pb-[env(safe-area-inset-bottom,0px)]">
       <div className="grid grid-cols-5 h-20">
         {navItems.map((item) => {
           const isActive = pathname === item.href;

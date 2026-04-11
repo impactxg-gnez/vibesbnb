@@ -1,11 +1,18 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import { LayoutContent } from './LayoutContent';
 import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0a0a0a',
+};
 
 export const metadata: Metadata = {
   title: 'VibesBNB - Wellness-Friendly Vacation Rentals',

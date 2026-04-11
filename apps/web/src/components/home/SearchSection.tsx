@@ -242,9 +242,9 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative"
       >
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white">Find Your Perfect Stay</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 md:mb-6">
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
+            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white">Find Your Perfect Stay</h2>
             <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={() => setIsAiMode(false)}
@@ -263,7 +263,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
           </div>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="text-white hover:text-primary-500 transition-colors p-2"
+            className="text-white hover:text-primary-500 transition-colors p-2 shrink-0 self-end sm:self-start"
             aria-label={isCollapsed ? 'Expand search' : 'Collapse search'}
           >
             <svg
@@ -316,22 +316,24 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                     <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1 mb-3">Describe your vibe</label>
                     <div className="relative group">
                       <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-primary-500 rounded-2xl blur opacity-25 group-focus-within:opacity-50 transition duration-1000"></div>
-                      <div className="relative flex items-center bg-gray-900 rounded-2xl border border-white/10 overflow-hidden">
-                        <div className="pl-6 text-purple-500">
-                          <Sparkles size={20} />
+                      <div className="relative flex flex-col sm:flex-row sm:items-stretch bg-gray-900 rounded-2xl border border-white/10 overflow-hidden">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <div className="pl-4 sm:pl-6 text-purple-500 shrink-0">
+                            <Sparkles size={20} />
+                          </div>
+                          <input
+                            type="text"
+                            value={aiQuery}
+                            onChange={(e) => setAiQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
+                            placeholder="e.g. 'Looking for a peaceful mountain cabin for 4 with a hot tub and amazing views'"
+                            className="w-full min-w-0 bg-transparent px-3 sm:px-6 py-4 sm:py-5 text-white placeholder-white/20 focus:outline-none font-medium text-base"
+                          />
                         </div>
-                        <input
-                          type="text"
-                          value={aiQuery}
-                          onChange={(e) => setAiQuery(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
-                          placeholder="e.g. 'Looking for a peaceful mountain cabin for 4 with a hot tub and amazing views'"
-                          className="w-full bg-transparent px-6 py-5 text-white placeholder-white/20 focus:outline-none font-medium"
-                        />
                         <button
                           onClick={handleAiSearch}
                           disabled={isAiLoading || !aiQuery.trim()}
-                          className="mr-2 px-8 py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg flex items-center gap-2"
+                          className="m-2 sm:m-2 sm:ml-0 sm:self-center px-6 sm:px-8 py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 shrink-0"
                         >
                           {isAiLoading ? (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -459,7 +461,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                       </button>
 
                       {showDatePicker && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-6 min-w-[320px]">
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,24rem)] sm:max-w-none sm:min-w-[280px]">
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <label className="block text-xs font-bold text-muted uppercase">Check In</label>
@@ -518,7 +520,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                       </button>
 
                       {showGuestPicker && (
-                        <div className="absolute top-full right-0 lg:right-auto lg:left-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-6 min-w-[280px]">
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,20rem)] lg:left-0 lg:right-auto lg:w-max lg:max-w-none lg:min-w-[280px]">
                           <div className="space-y-6">
                             {/* Adults */}
                             <div className="flex items-center justify-between">

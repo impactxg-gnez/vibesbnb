@@ -13,7 +13,7 @@ export function LayoutContent({ children }: LayoutContentProps) {
     <div className="flex flex-col min-h-screen">
       <HostPendingBrowseModal />
       <Header />
-      <main className="flex-grow">
+      <main className="flex-grow pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
         {children}
       </main>
       <Footer />

@@ -209,14 +209,14 @@ export function Header() {
 
   return (
     <header className="bg-surface-dark/90 backdrop-blur-xl border-b border-primary-500/10 sticky top-0 z-50 shadow-[0_4px_30px_-10px_rgba(16,185,129,0.15)]">
-      <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between h-20">
+      <div className="container mx-auto px-3 sm:px-6 max-w-full">
+        <div className="flex items-center justify-between gap-2 h-16 sm:h-20 min-w-0">
           {/* Logo */}
-          <Link href={isInHostingMode ? "/host/properties" : "/"} className="flex items-center space-x-2 group">
-            <div className="w-10 h-10 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+          <Link href={isInHostingMode ? "/host/properties" : "/"} className="flex items-center space-x-1.5 sm:space-x-2 group shrink-0 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)] shrink-0">
               <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight group-hover:text-primary-400 transition-colors">VibesBNB</span>
+            <span className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-white tracking-tight group-hover:text-primary-400 transition-colors">VibesBNB</span>
           </Link>
 
           {/* Centered Navigation */}
@@ -247,7 +247,7 @@ export function Header() {
           </nav>
 
           {/* Right Side */}
-          <div className="flex items-center space-x-3 md:space-x-6">
+          <div className="flex items-center space-x-1.5 sm:space-x-3 md:space-x-6 shrink-0 min-w-0">
             <Link
               href="/favorites"
               className="text-gray-400 hover:text-primary-400 transition-colors duration-300 flex items-center gap-2 group"
@@ -299,11 +299,15 @@ export function Header() {
               <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44" />
             )}
 
-            <button className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-400 transition-colors duration-300 group">
+            <Link
+              href="/search"
+              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-400 transition-colors duration-300 group"
+              aria-label="Search properties"
+            >
               <svg className="w-5 h-5 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </button>
+            </Link>
 
             {!loading && (
               <>
@@ -327,7 +331,7 @@ export function Header() {
 
                       {/* Dropdown Menu */}
                       {showUserMenu && (
-                        <div className="absolute right-0 mt-2 w-56 bg-gray-950 border border-primary-500/20 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                        <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-1.5rem)] bg-gray-950 border border-primary-500/20 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
                           <div className="px-4 py-3 bg-white/5 border-b border-white/5">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Signed in as</p>
                             <p className="text-sm font-bold text-white truncate">{user.email}</p>
@@ -415,7 +419,7 @@ export function Header() {
 
                       {/* Account Switcher Sub-Menu */}
                       {showAccountSwitcher && (
-                        <div className="absolute right-0 mt-2 w-80 bg-gray-950 border border-primary-500/30 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] py-5 z-50 overflow-hidden transform transition-all animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] bg-gray-950 border border-primary-500/30 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] py-5 z-50 overflow-hidden transform transition-all animate-in fade-in slide-in-from-top-4 duration-300">
                           <div className="px-6 pb-4 border-b border-white/5 flex items-center justify-between">
                             <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Switch Account</h3>
                             <button onClick={() => setShowAccountSwitcher(false)} className="text-gray-500 hover:text-white transition-colors bg-white/5 p-1 rounded-full">
@@ -490,16 +494,16 @@ export function Header() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2 sm:space-x-4">
                     <Link
                       href="/login"
-                      className="text-gray-300 hover:text-primary-400 transition-colors text-sm font-semibold"
+                      className="text-gray-300 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
                     >
                       Log In
                     </Link>
                     <Link
                       href="/signup"
-                      className="bg-primary-500 text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-primary-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:-translate-y-0.5"
+                      className="bg-primary-500 text-black px-4 py-2 sm:px-6 rounded-full text-xs sm:text-sm font-bold hover:bg-primary-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:-translate-y-0.5 whitespace-nowrap"
                     >
                       Sign Up
                     </Link>

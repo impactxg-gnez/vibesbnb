@@ -3,8 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-surface-dark text-white transition-colors antialiased;
+    overflow-x: clip;
   }
 }
 
@@ -80,9 +85,15 @@
   }
 }
 
-/* Ensure stable page container */
+/* Ensure stable page container (header is h-16 on mobile, h-20 from sm+) */
 main {
-  min-height: calc(100vh - 80px);
+  min-height: calc(100dvh - 4rem);
+}
+
+@media (min-width: 640px) {
+  main {
+    min-height: calc(100dvh - 5rem);
+  }
 }
 
 /* Prevent FOUC (Flash of Unstyled Content) */
