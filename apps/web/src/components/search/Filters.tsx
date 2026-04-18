@@ -1,36 +1,104 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  X, Plus, Minus, Home, Building, Hotel, Warehouse, Wind, Wifi, 
-  Droplets, Tv, Shirt, Thermometer, Car, Dumbbell, Flame, 
-  Waves, Briefcase, Footprints, Bed, Bath, Search
+import { useState, useEffect } from 'react';
+import {
+  X,
+  Plus,
+  Minus,
+  Home,
+  Building,
+  Warehouse,
+  Wind,
+  Wifi,
+  Droplets,
+  Tv,
+  Shirt,
+  Car,
+  Dumbbell,
+  Flame,
+  Waves,
+  Briefcase,
+  Footprints,
+  Bed,
+  Search,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+export interface PriceDistribution {
+  min: number;
+  max: number;
+  buckets: number[];
+}
 
 interface FiltersProps {
   onApply: (filters: any) => void;
   onClose: () => void;
   initialFilters?: any;
+  priceDistribution: PriceDistribution;
+  onPriceRangeLive?: (min: number, max: number) => void;
 }
 
-export default function Filters({ onApply, onClose, initialFilters }: FiltersProps) {
+function fmtPrice(n: number) {
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+export default function Filters({
+  onApply,
+  onClose,
+  initialFilters,
+  priceDistribution,
+  onPriceRangeLive,
+}: FiltersProps) {
+  const floor = priceDistribution.min;
+  const ceil = priceDistribution.max;
+  const buckets = priceDistribution.buckets;
+  const binCount = Math.max(buckets.length, 1);
+
   const [typeOfPlace, setTypeOfPlace] = useState(initialFilters?.typeOfPlace || 'any');
-  const [minPrice, setMinPrice] = useState(initialFilters?.priceRange?.[0] || 0);
-  const [maxPrice, setMaxPrice] = useState(initialFilters?.priceRange?.[1] || 100000);
-  
+  const [minPrice, setMinPrice] = useState(() => initialFilters?.priceRange?.[0] ?? floor);
+  const [maxPrice, setMaxPrice] = useState(() => initialFilters?.priceRange?.[1] ?? ceil);
+
   const [rooms, setRooms] = useState(initialFilters?.rooms || 0);
   const [beds, setBeds] = useState(initialFilters?.beds || 0);
   const [bathrooms, setBathrooms] = useState(initialFilters?.bathrooms || 0);
-  
+
   const [propertyTypes, setPropertyTypes] = useState<string[]>(initialFilters?.propertyTypes || []);
   const [amenities, setAmenities] = useState<string[]>(initialFilters?.amenities || []);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
+  const [hoverBar, setHoverBar] = useState<number | null>(null);
 
-  /** Upper bound for nightly rate slider (USD, matches listing `price` field). */
-  const priceLimit = 100000;
+  useEffect(() => {
+    const r = initialFilters?.priceRange;
+    if (!r) return;
+    const lo = Math.max(floor, Math.min(ceil, r[0]));
+    const hi = Math.max(floor, Math.min(ceil, r[1]));
+    setMinPrice(Math.min(lo, hi));
+    setMaxPrice(Math.max(lo, hi));
+  }, [floor, ceil, initialFilters?.priceRange?.[0], initialFilters?.priceRange?.[1]]);
 
-  const clamp = (n: number) => Math.max(0, Math.min(priceLimit, Math.round(Number.isFinite(n) ? n : 0)));
+  const clamp = (n: number) =>
+    Math.max(floor, Math.min(ceil, Math.round(Number.isFinite(n) ? n : floor)));
+
+  const emitLive = (lo: number, hi: number) => {
+    if (!onPriceRangeLive) return;
+    const a = clamp(Math.min(lo, hi));
+    const b = clamp(Math.max(lo, hi));
+    onPriceRangeLive(a, b);
+  };
+
+  const span = Math.max(ceil - floor, 1);
+  const maxBucket = Math.max(...buckets, 1);
+
+  const bucketBoundaries = (i: number) => {
+    const bLo = floor + (i / binCount) * span;
+    const bHi = i === binCount - 1 ? ceil : floor + ((i + 1) / binCount) * span;
+    return { bLo, bHi };
+  };
+
+  const barOverlapsSelection = (i: number) => {
+    const { bLo, bHi } = bucketBoundaries(i);
+    return !(bHi < minPrice || bLo > maxPrice);
+  };
 
   const availablePropertyTypes = [
     { id: 'Entire House', label: 'Entire House', icon: <Home size={20} /> },
@@ -56,14 +124,12 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
   ];
 
   const togglePropertyType = (type: string) => {
-    setPropertyTypes(prev => 
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
+    setPropertyTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]));
   };
 
   const toggleAmenity = (amenity: string) => {
-    setAmenities(prev => 
-      prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
+    setAmenities((prev) =>
+      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
     );
   };
 
@@ -77,41 +143,39 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
       beds,
       bathrooms,
       propertyTypes,
-      amenities
+      amenities,
     });
   };
 
   const handleReset = () => {
     setTypeOfPlace('any');
-    setMinPrice(0);
-    setMaxPrice(priceLimit);
+    setMinPrice(floor);
+    setMaxPrice(ceil);
     setRooms(0);
     setBeds(0);
     setBathrooms(0);
     setPropertyTypes([]);
     setAmenities([]);
+    onPriceRangeLive?.(floor, ceil);
   };
 
-  // Realistic histogram heights for price range (as per the User provided image)
-  const histogramData = [
-    10, 15, 12, 18, 25, 45, 120, 150, 180, 200, 220, 230, 250, 260, 240, 220, 180, 140, 120, 100, 
-    80, 70, 60, 50, 40, 35, 30, 25, 20, 18, 15, 12, 10, 8, 6, 4, 3, 2, 1, 1
-  ];
+  const leftPct = ((minPrice - floor) / span) * 100;
+  const rightPct = 100 - ((maxPrice - floor) / span) * 100;
 
   return (
     <div className="flex flex-col h-full bg-gray-950 text-white overflow-hidden shadow-2xl">
-      {/* Header */}
       <div className="flex items-center justify-between p-6 border-b border-white/10 glass-morphism sticky top-0 z-10">
-        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90">
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90"
+        >
           <X size={24} />
         </button>
         <h2 className="text-xl font-black tracking-tight uppercase">Refine Selection</h2>
         <div className="w-10"></div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-6 space-y-12 scrollbar-hide">
-        {/* Type of place */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold flex items-center gap-2">
@@ -123,14 +187,14 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
             {[
               { id: 'any', label: 'Any type' },
               { id: 'room', label: 'Room' },
-              { id: 'entire', label: 'Entire home' }
+              { id: 'entire', label: 'Entire home' },
             ].map((type) => (
               <button
                 key={type.id}
                 onClick={() => setTypeOfPlace(type.id)}
                 className={`flex-1 py-4 rounded-xl text-sm font-black uppercase tracking-wider transition-all ${
-                  typeOfPlace === type.id 
-                    ? 'bg-primary-500 text-black shadow-[0_0_20px_rgba(0,230,118,0.3)]' 
+                  typeOfPlace === type.id
+                    ? 'bg-primary-500 text-black shadow-[0_0_20px_rgba(0,230,118,0.3)]'
                     : 'text-muted hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -140,70 +204,90 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
           </div>
         </section>
 
-        {/* Price range */}
         <section>
           <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
             <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
             Price range
           </h3>
-          <p className="text-muted text-sm mb-12 font-medium">Nightly rates, including all service fees.</p>
-          
-          <div className="relative pt-10 pb-8 px-4">
-            {/* Histogram Visualiser */}
-            <div className="relative h-20 flex items-end justify-between gap-[2px] mb-[-1px] group">
-              {histogramData.map((height, i) => {
-                const barPrice = (i / histogramData.length) * priceLimit;
-                const isActive = barPrice >= minPrice && barPrice <= maxPrice;
+          <p className="text-muted text-sm mb-12 font-medium">
+            Nightly rates (per night) for properties matching your search — min {fmtPrice(floor)}, max{' '}
+            {fmtPrice(ceil)}.
+          </p>
+
+          <div className="relative pt-12 pb-8 px-1">
+            <div className="relative h-24 flex items-end justify-between gap-[2px] mb-[-1px]">
+              {buckets.map((count, i) => {
+                const { bLo, bHi } = bucketBoundaries(i);
+                const pct = 6 + (count / maxBucket) * 94;
+                const active = barOverlapsSelection(i);
+                const loR = Math.round(bLo);
+                const hiR = Math.round(bHi);
+                const rangeLabel =
+                  loR === hiR ? fmtPrice(loR) : `${fmtPrice(bLo)}–${fmtPrice(bHi)}`;
                 return (
-                  <div 
-                    key={i} 
-                    className={`flex-1 rounded-t-[1px] transition-all duration-300 ${
-                      isActive 
-                        ? 'bg-rose-500' 
-                        : 'bg-white/10 opacity-30'
-                    }`} 
-                    style={{ height: `${(height / 260) * 100}%` }}
-                  ></div>
+                  <div
+                    key={i}
+                    className="relative flex-1 flex flex-col items-center justify-end h-full"
+                    onMouseEnter={() => setHoverBar(i)}
+                    onMouseLeave={() => setHoverBar(null)}
+                  >
+                    {hoverBar === i && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-20 whitespace-nowrap rounded-lg bg-gray-900 border border-white/15 px-2 py-1 text-[10px] font-bold text-white shadow-xl pointer-events-none">
+                        <span className="text-rose-300">{rangeLabel}</span>
+                        <span className="text-muted"> · {count} stay{count === 1 ? '' : 's'}</span>
+                      </div>
+                    )}
+                    <div
+                      className={`w-full rounded-t-[2px] transition-all duration-200 cursor-pointer ${
+                        active ? 'bg-rose-500' : 'bg-white/10 opacity-40 hover:opacity-70'
+                      }`}
+                      style={{ height: `${pct}%` }}
+                      title={`${rangeLabel} · ${count} properties`}
+                    />
+                  </div>
                 );
               })}
             </div>
 
-            {/* Slider Thumbs */}
             <div className="relative h-2 w-full bg-white/10 rounded-full mt-[-1px]">
-              {/* Active track */}
-              <div 
+              <div
                 className="absolute h-full bg-rose-500 rounded-full"
                 style={{
-                  left: `${(minPrice / priceLimit) * 100}%`,
-                  right: `${100 - (maxPrice / priceLimit) * 100}%`
+                  left: `${Math.min(100, Math.max(0, leftPct))}%`,
+                  right: `${Math.min(100, Math.max(0, rightPct))}%`,
                 }}
               />
-              
-              {/* Thumbs */}
+
               <input
                 type="range"
-                min="0"
-                max={priceLimit}
+                min={floor}
+                max={ceil}
+                step={1}
                 value={minPrice}
                 onChange={(e) => {
                   const v = clamp(Number(e.target.value));
-                  setMinPrice(Math.min(v, maxPrice - 1));
+                  const next = Math.min(v, maxPrice - 1);
+                  setMinPrice(next);
+                  emitLive(next, maxPrice);
                 }}
                 className="absolute w-full top-0 appearance-none bg-transparent pointer-events-none h-2 range-thumb-custom"
               />
               <input
                 type="range"
-                min="0"
-                max={priceLimit}
+                min={floor}
+                max={ceil}
+                step={1}
                 value={maxPrice}
                 onChange={(e) => {
                   const v = clamp(Number(e.target.value));
-                  setMaxPrice(Math.max(v, minPrice + 1));
+                  const next = Math.max(v, minPrice + 1);
+                  setMaxPrice(next);
+                  emitLive(minPrice, next);
                 }}
                 className="absolute w-full top-0 appearance-none bg-transparent pointer-events-none h-2 range-thumb-custom"
               />
             </div>
-            
+
             <style jsx>{`
               .range-thumb-custom::-webkit-slider-thumb {
                 appearance: none;
@@ -214,7 +298,9 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                 background: white;
                 border: 1px solid #e5e7eb;
                 cursor: pointer;
-                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+                box-shadow:
+                  0 4px 6px -1px rgb(0 0 0 / 0.1),
+                  0 2px 4px -2px rgb(0 0 0 / 0.1);
               }
               .range-thumb-custom::-moz-range-thumb {
                 appearance: none;
@@ -225,14 +311,18 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                 background: white;
                 border: 1px solid #e5e7eb;
                 cursor: pointer;
-                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+                box-shadow:
+                  0 4px 6px -1px rgb(0 0 0 / 0.1),
+                  0 2px 4px -2px rgb(0 0 0 / 0.1);
               }
             `}</style>
           </div>
 
           <div className="flex items-center justify-between gap-6 pt-4">
             <div className="flex-1 space-y-2">
-              <label className="text-[10px] text-muted uppercase font-black tracking-widest ml-1">Minimum</label>
+              <label className="text-[10px] text-muted uppercase font-black tracking-widest ml-1">
+                Minimum
+              </label>
               <div className="relative group p-4 border border-white/10 rounded-full bg-white/5 flex items-baseline gap-1 focus-within:ring-2 focus-within:ring-rose-500/50 transition-all">
                 <span className="text-white font-bold opacity-50">$</span>
                 <input
@@ -242,14 +332,18 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                     const raw = e.target.value;
                     if (raw === '') return;
                     const v = clamp(Number(raw));
-                    setMinPrice(Math.min(v, maxPrice - 1));
+                    const next = Math.min(v, maxPrice - 1);
+                    setMinPrice(next);
+                    emitLive(next, maxPrice);
                   }}
                   className="w-full bg-transparent text-white font-black text-lg focus:outline-none"
                 />
               </div>
             </div>
             <div className="flex-1 space-y-2 text-right">
-              <label className="text-[10px] text-muted uppercase font-black tracking-widest mr-1">Maximum</label>
+              <label className="text-[10px] text-muted uppercase font-black tracking-widest mr-1">
+                Maximum
+              </label>
               <div className="relative group p-4 border border-white/10 rounded-full bg-white/5 flex items-baseline gap-1 focus-within:ring-2 focus-within:ring-rose-500/50 transition-all">
                 <span className="text-white font-bold opacity-50 ml-auto">$</span>
                 <input
@@ -259,7 +353,9 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                     const raw = e.target.value;
                     if (raw === '') return;
                     const v = clamp(Number(raw));
-                    setMaxPrice(Math.max(v, minPrice + 1));
+                    const next = Math.max(v, minPrice + 1);
+                    setMaxPrice(next);
+                    emitLive(minPrice, next);
                   }}
                   className="w-full bg-transparent text-white font-black text-lg focus:outline-none text-right"
                 />
@@ -268,7 +364,6 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
           </div>
         </section>
 
-        {/* Property type */}
         <section>
           <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
             <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
@@ -285,7 +380,13 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                     : 'bg-white/5 border-white/5 text-muted hover:border-white/20 hover:text-white'
                 }`}
               >
-                <div className={`p-4 rounded-2xl ${propertyTypes.includes(type.id) ? 'bg-primary-500 text-black' : 'bg-white/10 text-primary-500'}`}>
+                <div
+                  className={`p-4 rounded-2xl ${
+                    propertyTypes.includes(type.id)
+                      ? 'bg-primary-500 text-black'
+                      : 'bg-white/10 text-primary-500'
+                  }`}
+                >
                   {type.icon}
                 </div>
                 <span className="text-xs font-black uppercase tracking-wider">{type.label}</span>
@@ -294,7 +395,6 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
           </div>
         </section>
 
-        {/* Rooms and beds */}
         <section>
           <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
             <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
@@ -308,8 +408,12 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
             ].map((field) => (
               <div key={field.id} className="flex items-center justify-between group">
                 <div>
-                  <span className="text-white font-bold text-lg group-hover:text-primary-500 transition-colors">{field.label}</span>
-                  <p className="text-[10px] text-muted uppercase tracking-widest font-black mt-0.5">Min required</p>
+                  <span className="text-white font-bold text-lg group-hover:text-primary-500 transition-colors">
+                    {field.label}
+                  </span>
+                  <p className="text-[10px] text-muted uppercase tracking-widest font-black mt-0.5">
+                    Min required
+                  </p>
                 </div>
                 <div className="flex items-center gap-4 bg-black/40 p-1.5 rounded-2xl border border-white/10 shadow-lg">
                   <button
@@ -334,7 +438,6 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
           </div>
         </section>
 
-        {/* Amenities */}
         <section>
           <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
             <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
@@ -352,13 +455,19 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={amenities.includes(amenity.id) ? 'text-primary-500 scale-110' : 'text-primary-500/60'}>
+                  <div
+                    className={
+                      amenities.includes(amenity.id)
+                        ? 'text-primary-500 scale-110'
+                        : 'text-primary-500/60'
+                    }
+                  >
                     {amenity.icon}
                   </div>
                   <span className="text-sm font-bold">{amenity.label}</span>
                 </div>
                 {amenities.includes(amenity.id) && (
-                  <motion.div 
+                  <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center shadow-lg"
@@ -371,27 +480,33 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
               </button>
             ))}
           </div>
-          <button 
+          <button
             onClick={() => setShowAllAmenities(!showAllAmenities)}
             className="mt-8 mx-auto btn-secondary !px-10 !py-4 rounded-2xl flex items-center gap-3 hover:bg-white/10 group transition-all"
           >
             {showAllAmenities ? 'Show less' : 'Explore all features'}
-            <svg className={`w-5 h-5 transition-transform duration-700 ${showAllAmenities ? 'rotate-180' : 'group-hover:translate-y-0.5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className={`w-5 h-5 transition-transform duration-700 ${
+                showAllAmenities ? 'rotate-180' : 'group-hover:translate-y-0.5'
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
         </section>
       </div>
 
-      {/* Footer */}
       <div className="p-10 border-t border-white/10 flex items-center justify-between glass-morphism backdrop-blur-3xl sticky bottom-0 z-10">
-        <button 
+        <button
           onClick={handleReset}
           className="text-white/40 font-black tracking-widest text-[10px] uppercase hover:text-white transition-all underline decoration-white/20 decoration-2 underline-offset-8"
         >
           Reset All
         </button>
-        <button 
+        <button
           onClick={handleApply}
           className="btn-primary !px-16 !py-6 font-black text-lg uppercase tracking-tight shadow-[0_25px_50px_rgba(0,230,118,0.3)] hover:scale-105 active:scale-95 flex items-center gap-4 rounded-[2rem]"
         >

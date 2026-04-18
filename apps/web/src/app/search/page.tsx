@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SearchSection } from '@/components/home/SearchSection';
 import Filters from '@/components/search/Filters';
@@ -45,6 +45,153 @@ function calculateNights(checkIn: string, checkOut: string): number {
 
 function formatDateShort(dateStr: string): string {
   return formatCalendarDate(dateStr, { month: 'short', day: 'numeric' });
+}
+
+const HISTOGRAM_BUCKET_COUNT = 40;
+
+type SearchModalFilters = {
+  typeOfPlace: string;
+  priceRange: [number, number];
+  rooms: number;
+  beds: number;
+  bathrooms: number;
+  propertyTypes: string[];
+  amenities: string[];
+};
+
+function applyNonPriceListingFilters(
+  listings: Listing[],
+  filters: SearchModalFilters
+): Listing[] {
+  let L = listings;
+
+  if (filters.rooms > 0) {
+    L = L.filter((listing) => (listing.bedrooms || 0) >= filters.rooms);
+  }
+  if (filters.beds > 0) {
+    L = L.filter((listing) => (listing.beds || listing.bedrooms || 0) >= filters.beds);
+  }
+  if (filters.bathrooms > 0) {
+    L = L.filter((listing) => (listing.bathrooms || 0) >= filters.bathrooms);
+  }
+
+  if (filters.propertyTypes?.length > 0) {
+    L = L.filter((listing) => {
+      const listingType = listing.type || 'Property';
+      return filters.propertyTypes.some((type: string) => {
+        if (type === 'House' || type === 'Entire House') {
+          return listingType.toLowerCase().includes('house') || listingType === 'Property';
+        }
+        if (type === 'Apartment') {
+          return listingType.toLowerCase().includes('apartment');
+        }
+        if (type === 'Condo') {
+          return listingType.toLowerCase().includes('condo');
+        }
+        if (type === 'Private Room') {
+          return (
+            listingType.toLowerCase().includes('private room') ||
+            listingType.toLowerCase().includes('private rooms')
+          );
+        }
+        return listingType === type;
+      });
+    });
+  }
+
+  if (filters.amenities?.length > 0) {
+    L = L.filter((listing) =>
+      filters.amenities.every((a: string) => listing.amenities?.includes(a))
+    );
+  }
+
+  if (filters.typeOfPlace === 'room') {
+    L = L.filter((listing) => listing.type?.toLowerCase().includes('room'));
+  } else if (filters.typeOfPlace === 'entire') {
+    L = L.filter(
+      (listing) =>
+        listing.type?.toLowerCase().includes('house') ||
+        listing.type?.toLowerCase().includes('apartment') ||
+        listing.type?.toLowerCase().includes('condo')
+    );
+  }
+
+  return L;
+}
+
+function applyPriceRangeFilter(
+  listings: Listing[],
+  priceRange: [number, number] | undefined
+): Listing[] {
+  const [priceMin, priceMax] = priceRange || [0, Number.MAX_SAFE_INTEGER];
+  const safeMin = Math.max(0, Number(priceMin) || 0);
+  const safeMax = Math.max(safeMin, Number(priceMax) || 0);
+  return listings.filter((listing) => listing.price >= safeMin && listing.price <= safeMax);
+}
+
+function computePriceDistribution(
+  listings: Listing[],
+  binCount: number
+): { min: number; max: number; buckets: number[] } {
+  const buckets = Array(binCount).fill(0);
+  const prices = listings
+    .map((l) => l.price)
+    .filter((p) => Number.isFinite(p) && p >= 0);
+  if (prices.length === 0) {
+    return { min: 0, max: 1, buckets };
+  }
+  let lo = Math.min(...prices);
+  let hi = Math.max(...prices);
+  if (hi <= lo) {
+    lo = Math.max(0, lo - 1);
+    hi = hi + 1;
+  }
+  const span = hi - lo;
+  for (const listing of listings) {
+    const p = listing.price;
+    if (!Number.isFinite(p)) continue;
+    const clamped = Math.min(hi, Math.max(lo, p));
+    const idx = Math.min(binCount - 1, Math.floor(((clamped - lo) / span) * binCount));
+    buckets[idx]++;
+  }
+  return { min: lo, max: hi, buckets };
+}
+
+function sortSearchListings(
+  listings: Listing[],
+  sortParam: string,
+  checkIn: string,
+  checkOut: string
+): Listing[] {
+  const copy = [...listings];
+  const dateSortActive = !!(checkIn && checkOut);
+
+  if (sortParam === 'low-high') {
+    copy.sort((a, b) => {
+      if (dateSortActive) {
+        if (a.isAvailable && !b.isAvailable) return -1;
+        if (!a.isAvailable && b.isAvailable) return 1;
+      }
+      return a.price - b.price;
+    });
+  } else if (sortParam === 'recent') {
+    copy.sort((a, b) => {
+      if (dateSortActive) {
+        if (a.isAvailable && !b.isAvailable) return -1;
+        if (!a.isAvailable && b.isAvailable) return 1;
+      }
+      return b.id.localeCompare(a.id);
+    });
+  } else {
+    copy.sort((a, b) => {
+      if (dateSortActive) {
+        if (a.isAvailable && !b.isAvailable) return -1;
+        if (!a.isAvailable && b.isAvailable) return 1;
+      }
+      return b.price - a.price;
+    });
+  }
+  return copy;
 }
 
 // Listing card: shared media (thumbnails + heart) + host row in body
@@ -189,7 +336,7 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [listings, setListings] = useState<Listing[]>([]);
+  const [baseListings, setBaseListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
@@ -197,7 +344,7 @@ export default function SearchPage() {
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [hideUnavailable, setHideUnavailable] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<any>({
+  const [activeFilters, setActiveFilters] = useState<SearchModalFilters>({
     typeOfPlace: 'any',
     priceRange: [0, 100000],
     rooms: 0,
@@ -206,8 +353,6 @@ export default function SearchPage() {
     propertyTypes: searchParams.get('categories')?.split(',').filter(Boolean) || [],
     amenities: []
   });
-  const activeFiltersRef = useRef(activeFilters);
-  activeFiltersRef.current = activeFilters;
   
   // Get selected dates from URL
   const checkIn = searchParams.get('checkIn') || '';
@@ -215,29 +360,19 @@ export default function SearchPage() {
   const hasDateFilter = !!(checkIn && checkOut);
   const nights = hasDateFilter ? calculateNights(checkIn, checkOut) : 0;
   
-  // Filter listings based on availability toggle
-  const displayedListings = hideUnavailable 
-    ? listings.filter(l => l.isAvailable !== false)
-    : listings;
-  
-  const availableCount = listings.filter(l => l.isAvailable !== false).length;
-  const unavailableCount = listings.filter(l => l.isAvailable === false).length;
-
   // Sync URL categories to activeFilters
   useEffect(() => {
     const categories = searchParams.get('categories')?.split(',').filter(Boolean) || [];
-    if (JSON.stringify(categories) !== JSON.stringify(activeFilters.propertyTypes)) {
-      setActiveFilters((prev: any) => ({
-        ...prev,
-        propertyTypes: categories
-      }));
-    }
+    setActiveFilters((prev) => {
+      if (JSON.stringify(categories) === JSON.stringify(prev.propertyTypes)) return prev;
+      return { ...prev, propertyTypes: categories };
+    });
   }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadAndFilterProperties = async () => {
+    const loadSearchBaseListings = async () => {
       setLoading(true);
 
       // Get search parameters
@@ -391,6 +526,7 @@ export default function SearchPage() {
             guests: p.guests || 0,
             bedrooms: p.bedrooms || 0,
             beds: p.beds != null ? Number(p.beds) : undefined,
+            bathrooms: p.bathrooms != null ? Number(p.bathrooms) : 0,
             host_id: hostId,
             hostName,
             hostAvatarUrl,
@@ -472,105 +608,12 @@ export default function SearchPage() {
           }
         }
 
-        // Use latest filters (avoids stale values if an older fetch finishes after a newer one)
-        const filters = activeFiltersRef.current;
-        const [priceMin, priceMax] = filters.priceRange || [0, 100000];
-        const safeMin = Math.max(0, Number(priceMin) || 0);
-        const safeMax = Math.max(safeMin, Number(priceMax) || 0);
-
-        // Filter by Price Range
-        filteredListings = filteredListings.filter(
-          (listing) => listing.price >= safeMin && listing.price <= safeMax
-        );
-
-        // Filter by Rooms/Beds/Baths
-        if (filters.rooms > 0) {
-          filteredListings = filteredListings.filter(listing => (listing.bedrooms || 0) >= filters.rooms);
-        }
-        if (filters.beds > 0) {
-          filteredListings = filteredListings.filter(listing => (listing.beds || listing.bedrooms || 0) >= filters.beds);
-        }
-        if (filters.bathrooms > 0) {
-          filteredListings = filteredListings.filter(listing => (listing.bathrooms || 0) >= filters.bathrooms);
-        }
-
-        // Filter by Property Type
-        // Filter by Property Type (Robust mapping between categories and property types)
-        if (filters.propertyTypes && filters.propertyTypes.length > 0) {
-          filteredListings = filteredListings.filter(listing => {
-            const listingType = listing.type || 'Property';
-            
-            // Exact match or mapped match
-            return filters.propertyTypes.some((type: string) => {
-              if (type === 'House' || type === 'Entire House') {
-                return listingType.toLowerCase().includes('house') || listingType === 'Property';
-              }
-              if (type === 'Apartment') {
-                return listingType.toLowerCase().includes('apartment');
-              }
-              if (type === 'Condo') {
-                return listingType.toLowerCase().includes('condo');
-              }
-              if (type === 'Private Room') {
-                return listingType.toLowerCase().includes('private room') || listingType.toLowerCase().includes('private rooms');
-              }
-              return listingType === type;
-            });
-          });
-        }
-
-        // Filter by Amenities
-        if (filters.amenities && filters.amenities.length > 0) {
-          filteredListings = filteredListings.filter(listing => 
-            filters.amenities.every((a: string) => listing.amenities?.includes(a))
-          );
-        }
-
-        // Filter by Type of Place
-        if (filters.typeOfPlace === 'room') {
-          filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('room'));
-        } else if (filters.typeOfPlace === 'entire') {
-          filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('house') || listing.type?.toLowerCase().includes('apartment') || listing.type?.toLowerCase().includes('condo'));
-        }
-
-        // Sort listings
-        const sortParam = searchParams.get('sort') || 'high-low';
-        if (sortParam === 'low-high') {
-          // Keep availability sorting as secondary, price as primary
-          filteredListings.sort((a, b) => {
-            if (checkIn && checkOut) {
-              if (a.isAvailable && !b.isAvailable) return -1;
-              if (!a.isAvailable && b.isAvailable) return 1;
-            }
-            return a.price - b.price;
-          });
-          setSortBy('Price: Low to High');
-        } else if (sortParam === 'high-low') {
-          filteredListings.sort((a, b) => {
-            if (checkIn && checkOut) {
-              if (a.isAvailable && !b.isAvailable) return -1;
-              if (!a.isAvailable && b.isAvailable) return 1;
-            }
-            return b.price - a.price;
-          });
-          setSortBy('Price: High to Low');
-        } else if (sortParam === 'recent') {
-          filteredListings.sort((a, b) => {
-            if (checkIn && checkOut) {
-              if (a.isAvailable && !b.isAvailable) return -1;
-              if (!a.isAvailable && b.isAvailable) return 1;
-            }
-            return b.id.localeCompare(a.id);
-          });
-          setSortBy('Most Recent');
-        }
-
         if (cancelled) return;
-        setListings(filteredListings);
+        setBaseListings(filteredListings);
       } catch (error) {
         console.error('Error loading properties:', error);
         if (!cancelled) {
-          setListings([]);
+          setBaseListings([]);
         }
       } finally {
         if (!cancelled) {
@@ -579,15 +622,67 @@ export default function SearchPage() {
       }
     };
 
-    loadAndFilterProperties();
+    loadSearchBaseListings();
     return () => {
       cancelled = true;
     };
-  }, [searchParams, activeFilters]);
+  }, [searchParams]);
 
-  const DEFAULT_PRICE_CAP = 100000;
-  const [priceRangeMin, priceRangeMax] = activeFilters.priceRange || [0, DEFAULT_PRICE_CAP];
-  const priceFilterActive = priceRangeMin > 0 || priceRangeMax < DEFAULT_PRICE_CAP;
+  const nonPriceFiltered = useMemo(
+    () => applyNonPriceListingFilters(baseListings, activeFilters),
+    [baseListings, activeFilters]
+  );
+
+  const priceDistribution = useMemo(
+    () => computePriceDistribution(nonPriceFiltered, HISTOGRAM_BUCKET_COUNT),
+    [nonPriceFiltered]
+  );
+
+  useEffect(() => {
+    const { min, max } = priceDistribution;
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return;
+    setActiveFilters((prev) => {
+      const lo = prev.priceRange[0];
+      const hi = prev.priceRange[1];
+      const nLo = Math.min(max, Math.max(min, lo));
+      const nHi = Math.min(max, Math.max(min, hi));
+      const adjLo = Math.min(nLo, nHi);
+      const adjHi = Math.max(nLo, nHi);
+      if (adjLo === lo && adjHi === hi) return prev;
+      return { ...prev, priceRange: [adjLo, adjHi] };
+    });
+  }, [priceDistribution.min, priceDistribution.max]);
+
+  const sortParam = searchParams.get('sort') || 'high-low';
+
+  const listings = useMemo(() => {
+    const priced = applyPriceRangeFilter(nonPriceFiltered, activeFilters.priceRange);
+    return sortSearchListings(priced, sortParam, checkIn, checkOut);
+  }, [nonPriceFiltered, activeFilters.priceRange, sortParam, checkIn, checkOut]);
+
+  useEffect(() => {
+    if (sortParam === 'low-high') setSortBy('Price: Low to High');
+    else if (sortParam === 'recent') setSortBy('Most Recent');
+    else setSortBy('Price: High to Low');
+  }, [sortParam]);
+
+  const displayedListings = hideUnavailable
+    ? listings.filter((l) => l.isAvailable !== false)
+    : listings;
+
+  const availableCount = listings.filter((l) => l.isAvailable !== false).length;
+  const unavailableCount = listings.filter((l) => l.isAvailable === false).length;
+
+  const [priceRangeMin, priceRangeMax] = activeFilters.priceRange;
+  const catalogMin = priceDistribution.min;
+  const catalogMax = priceDistribution.max;
+  const priceFilterActive =
+    Math.round(priceRangeMin) !== Math.round(catalogMin) ||
+    Math.round(priceRangeMax) !== Math.round(catalogMax);
+
+  const handlePriceRangeLive = useCallback((lo: number, hi: number) => {
+    setActiveFilters((prev) => ({ ...prev, priceRange: [lo, hi] }));
+  }, []);
   const filterChipCount =
     activeFilters.propertyTypes.length +
     activeFilters.amenities.length +
@@ -818,6 +913,8 @@ export default function SearchPage() {
                 <div className="relative w-full max-w-xl bg-gray-950 shadow-2xl animate-in slide-in-from-right duration-300">
                   <Filters 
                     initialFilters={activeFilters}
+                    priceDistribution={priceDistribution}
+                    onPriceRangeLive={handlePriceRangeLive}
                     onClose={() => setShowFiltersModal(false)}
                     onApply={(filters) => {
                       setActiveFilters(filters);
