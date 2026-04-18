@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { 
   X, Plus, Minus, Home, Building, Hotel, Warehouse, Wind, Wifi, 
   Droplets, Tv, Shirt, Thermometer, Car, Dumbbell, Flame, 
@@ -27,7 +27,10 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
   const [amenities, setAmenities] = useState<string[]>(initialFilters?.amenities || []);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
 
+  /** Upper bound for nightly rate slider (USD, matches listing `price` field). */
   const priceLimit = 100000;
+
+  const clamp = (n: number) => Math.max(0, Math.min(priceLimit, Math.round(Number.isFinite(n) ? n : 0)));
 
   const availablePropertyTypes = [
     { id: 'Entire House', label: 'Entire House', icon: <Home size={20} /> },
@@ -65,9 +68,11 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
   };
 
   const handleApply = () => {
+    const lo = clamp(Math.min(minPrice, maxPrice));
+    const hi = clamp(Math.max(minPrice, maxPrice));
     onApply({
       typeOfPlace,
-      priceRange: [minPrice, maxPrice],
+      priceRange: [lo, hi],
       rooms,
       beds,
       bathrooms,
@@ -180,7 +185,10 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                 min="0"
                 max={priceLimit}
                 value={minPrice}
-                onChange={(e) => setMinPrice(Math.min(Number(e.target.value), maxPrice - 500))}
+                onChange={(e) => {
+                  const v = clamp(Number(e.target.value));
+                  setMinPrice(Math.min(v, maxPrice - 1));
+                }}
                 className="absolute w-full top-0 appearance-none bg-transparent pointer-events-none h-2 range-thumb-custom"
               />
               <input
@@ -188,7 +196,10 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
                 min="0"
                 max={priceLimit}
                 value={maxPrice}
-                onChange={(e) => setMaxPrice(Math.max(Number(e.target.value), minPrice + 500))}
+                onChange={(e) => {
+                  const v = clamp(Number(e.target.value));
+                  setMaxPrice(Math.max(v, minPrice + 1));
+                }}
                 className="absolute w-full top-0 appearance-none bg-transparent pointer-events-none h-2 range-thumb-custom"
               />
             </div>
@@ -223,11 +234,16 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
             <div className="flex-1 space-y-2">
               <label className="text-[10px] text-muted uppercase font-black tracking-widest ml-1">Minimum</label>
               <div className="relative group p-4 border border-white/10 rounded-full bg-white/5 flex items-baseline gap-1 focus-within:ring-2 focus-within:ring-rose-500/50 transition-all">
-                <span className="text-white font-bold opacity-50">₹</span>
+                <span className="text-white font-bold opacity-50">$</span>
                 <input
                   type="number"
                   value={minPrice}
-                  onChange={(e) => setMinPrice(Number(e.target.value))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') return;
+                    const v = clamp(Number(raw));
+                    setMinPrice(Math.min(v, maxPrice - 1));
+                  }}
                   className="w-full bg-transparent text-white font-black text-lg focus:outline-none"
                 />
               </div>
@@ -235,11 +251,16 @@ export default function Filters({ onApply, onClose, initialFilters }: FiltersPro
             <div className="flex-1 space-y-2 text-right">
               <label className="text-[10px] text-muted uppercase font-black tracking-widest mr-1">Maximum</label>
               <div className="relative group p-4 border border-white/10 rounded-full bg-white/5 flex items-baseline gap-1 focus-within:ring-2 focus-within:ring-rose-500/50 transition-all">
-                <span className="text-white font-bold opacity-50 ml-auto">₹</span>
+                <span className="text-white font-bold opacity-50 ml-auto">$</span>
                 <input
                   type="number"
                   value={maxPrice}
-                  onChange={(e) => setMaxPrice(Number(e.target.value))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') return;
+                    const v = clamp(Number(raw));
+                    setMaxPrice(Math.max(v, minPrice + 1));
+                  }}
                   className="w-full bg-transparent text-white font-black text-lg focus:outline-none text-right"
                 />
               </div>

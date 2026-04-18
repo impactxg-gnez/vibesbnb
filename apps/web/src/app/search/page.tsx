@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SearchSection } from '@/components/home/SearchSection';
 import Filters from '@/components/search/Filters';
@@ -206,6 +206,8 @@ export default function SearchPage() {
     propertyTypes: searchParams.get('categories')?.split(',').filter(Boolean) || [],
     amenities: []
   });
+  const activeFiltersRef = useRef(activeFilters);
+  activeFiltersRef.current = activeFilters;
   
   // Get selected dates from URL
   const checkIn = searchParams.get('checkIn') || '';
@@ -233,7 +235,8 @@ export default function SearchPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    // ... existing useEffect logic ...
+    let cancelled = false;
+
     const loadAndFilterProperties = async () => {
       setLoading(true);
 
@@ -469,33 +472,36 @@ export default function SearchPage() {
           }
         }
 
+        // Use latest filters (avoids stale values if an older fetch finishes after a newer one)
+        const filters = activeFiltersRef.current;
+        const [priceMin, priceMax] = filters.priceRange || [0, 100000];
+        const safeMin = Math.max(0, Number(priceMin) || 0);
+        const safeMax = Math.max(safeMin, Number(priceMax) || 0);
+
         // Filter by Price Range
-        if (activeFilters.priceRange) {
-          filteredListings = filteredListings.filter(listing => 
-            listing.price >= activeFilters.priceRange[0] && 
-            listing.price <= activeFilters.priceRange[1]
-          );
-        }
+        filteredListings = filteredListings.filter(
+          (listing) => listing.price >= safeMin && listing.price <= safeMax
+        );
 
         // Filter by Rooms/Beds/Baths
-        if (activeFilters.rooms > 0) {
-          filteredListings = filteredListings.filter(listing => (listing.bedrooms || 0) >= activeFilters.rooms);
+        if (filters.rooms > 0) {
+          filteredListings = filteredListings.filter(listing => (listing.bedrooms || 0) >= filters.rooms);
         }
-        if (activeFilters.beds > 0) {
-          filteredListings = filteredListings.filter(listing => (listing.beds || listing.bedrooms || 0) >= activeFilters.beds);
+        if (filters.beds > 0) {
+          filteredListings = filteredListings.filter(listing => (listing.beds || listing.bedrooms || 0) >= filters.beds);
         }
-        if (activeFilters.bathrooms > 0) {
-          filteredListings = filteredListings.filter(listing => (listing.bathrooms || 0) >= activeFilters.bathrooms);
+        if (filters.bathrooms > 0) {
+          filteredListings = filteredListings.filter(listing => (listing.bathrooms || 0) >= filters.bathrooms);
         }
 
         // Filter by Property Type
         // Filter by Property Type (Robust mapping between categories and property types)
-        if (activeFilters.propertyTypes && activeFilters.propertyTypes.length > 0) {
+        if (filters.propertyTypes && filters.propertyTypes.length > 0) {
           filteredListings = filteredListings.filter(listing => {
             const listingType = listing.type || 'Property';
             
             // Exact match or mapped match
-            return activeFilters.propertyTypes.some((type: string) => {
+            return filters.propertyTypes.some((type: string) => {
               if (type === 'House' || type === 'Entire House') {
                 return listingType.toLowerCase().includes('house') || listingType === 'Property';
               }
@@ -514,16 +520,16 @@ export default function SearchPage() {
         }
 
         // Filter by Amenities
-        if (activeFilters.amenities && activeFilters.amenities.length > 0) {
+        if (filters.amenities && filters.amenities.length > 0) {
           filteredListings = filteredListings.filter(listing => 
-            activeFilters.amenities.every((a: string) => listing.amenities?.includes(a))
+            filters.amenities.every((a: string) => listing.amenities?.includes(a))
           );
         }
 
         // Filter by Type of Place
-        if (activeFilters.typeOfPlace === 'room') {
+        if (filters.typeOfPlace === 'room') {
           filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('room'));
-        } else if (activeFilters.typeOfPlace === 'entire') {
+        } else if (filters.typeOfPlace === 'entire') {
           filteredListings = filteredListings.filter(listing => listing.type?.toLowerCase().includes('house') || listing.type?.toLowerCase().includes('apartment') || listing.type?.toLowerCase().includes('condo'));
         }
 
@@ -559,17 +565,39 @@ export default function SearchPage() {
           setSortBy('Most Recent');
         }
 
+        if (cancelled) return;
         setListings(filteredListings);
       } catch (error) {
         console.error('Error loading properties:', error);
-        setListings([]);
+        if (!cancelled) {
+          setListings([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadAndFilterProperties();
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, activeFilters]);
+
+  const DEFAULT_PRICE_CAP = 100000;
+  const [priceRangeMin, priceRangeMax] = activeFilters.priceRange || [0, DEFAULT_PRICE_CAP];
+  const priceFilterActive = priceRangeMin > 0 || priceRangeMax < DEFAULT_PRICE_CAP;
+  const filterChipCount =
+    activeFilters.propertyTypes.length +
+    activeFilters.amenities.length +
+    (activeFilters.rooms > 0 ? 1 : 0) +
+    (priceFilterActive ? 1 : 0);
+  const showFilterChip =
+    activeFilters.rooms > 0 ||
+    activeFilters.propertyTypes.length > 0 ||
+    activeFilters.amenities.length > 0 ||
+    priceFilterActive;
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -771,9 +799,9 @@ export default function SearchPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                   </svg>
                   Filters
-                  {(activeFilters.rooms > 0 || activeFilters.propertyTypes.length > 0 || activeFilters.amenities.length > 0 || activeFilters.priceRange[0] > 0) && (
+                  {showFilterChip && (
                     <span className="w-5 h-5 bg-black text-primary-500 rounded-full text-[10px] flex items-center justify-center border border-primary-500/50">
-                      {(activeFilters.propertyTypes.length + activeFilters.amenities.length + (activeFilters.rooms > 0 ? 1 : 0))}
+                      {filterChipCount}
                     </span>
                   )}
                 </button>
