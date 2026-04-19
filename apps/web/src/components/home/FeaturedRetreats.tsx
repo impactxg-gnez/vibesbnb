@@ -22,6 +22,9 @@ interface Retreat {
   hostId: string;
   hostName: string;
   hostAvatarUrl: string;
+  wellnessFriendly?: boolean;
+  smokingInsideAllowed?: boolean;
+  smokingOutsideAllowed?: boolean;
 }
 
 export function FeaturedRetreats() {
@@ -98,7 +101,9 @@ export function FeaturedRetreats() {
                     alt={retreat.name}
                     listingHref={`/listings/${retreat.id}`}
                     propertyId={retreat.id}
-                    showWellnessPill
+                    wellnessFriendly={!!retreat.wellnessFriendly}
+                    smokingInsideAllowed={!!retreat.smokingInsideAllowed}
+                    smokingOutsideAllowed={!!retreat.smokingOutsideAllowed}
                     mainHeightClass="h-56 md:h-64"
                     priority={index < 3}
                   />

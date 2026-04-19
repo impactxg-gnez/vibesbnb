@@ -152,7 +152,7 @@ export default function NewPropertyPage() {
       case 1: return !!formData.propertyType; // Property type
       case 2: return !!formData.guestAccessType; // Guest access
       case 3: return !!formData.location && !!formData.coordinates; // Location
-      case 4: return !!formData.name && formData.guests > 0; // Basics
+      case 4: return !!formData.name && formData.guests > 0 && formData.bathrooms >= 1; // Basics
       case 5: return true; // Amenities (optional)
       case 6: return rooms.some(r => r.imagePreviewUrls.length > 0); // Photos
       case 7: return formData.price > 0; // Pricing
@@ -249,6 +249,12 @@ export default function NewPropertyPage() {
     try {
       if (!user) {
         toast.error('You must be logged in to create properties');
+        return;
+      }
+
+      if (!Number.isFinite(formData.bathrooms) || formData.bathrooms < 1) {
+        toast.error('Please enter at least 1 bathroom');
+        setSaving(false);
         return;
       }
 
@@ -704,11 +710,13 @@ export default function NewPropertyPage() {
           </div>
 
           <div>
-            <label className="block text-gray-400 text-sm mb-2">Bathrooms</label>
+            <label className="block text-gray-400 text-sm mb-2">
+              Bathrooms <span className="text-red-400">*</span>
+            </label>
             <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, bathrooms: Math.max(0, formData.bathrooms - 1) })}
+                onClick={() => setFormData({ ...formData, bathrooms: Math.max(1, formData.bathrooms - 1) })}
                 className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
               >
                 −

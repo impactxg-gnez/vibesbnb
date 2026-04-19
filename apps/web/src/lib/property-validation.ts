@@ -62,6 +62,11 @@ const MANDATORY_FIELDS: Array<{
     validate: (value) => typeof value === 'number' && value >= 0,
   },
   {
+    field: 'bathrooms',
+    displayName: 'Number of Bathrooms',
+    validate: (value) => typeof value === 'number' && value >= 1,
+  },
+  {
     field: 'coordinates',
     displayName: 'Map Location (coordinates)',
     validate: (value) => 
@@ -84,11 +89,6 @@ const RECOMMENDED_FIELDS: Array<{
     field: 'description',
     displayName: 'Property Description',
     validate: (value) => typeof value === 'string' && value.trim().length >= 50,
-  },
-  {
-    field: 'bathrooms',
-    displayName: 'Number of Bathrooms',
-    validate: (value) => typeof value === 'number' && value > 0,
   },
   {
     field: 'type',

@@ -44,9 +44,12 @@ export type PropertyCardMediaProps = {
   listingHref: string;
   /** When set, shows favorite heart and syncs with `favorites` table */
   propertyId?: string;
-  /** Top-right wellness pill (INDOOR / OUTDOOR) */
-  showWellnessPill?: boolean;
-  /** Extra badges top-right (e.g. availability), rendered before wellness pill */
+  /** Wellness-friendly listing — shows 🌿 indoor/outdoor vibe pill */
+  wellnessFriendly?: boolean;
+  /** Guest-facing smoking policy (from listing fields) */
+  smokingInsideAllowed?: boolean;
+  smokingOutsideAllowed?: boolean;
+  /** Extra badges top-right (e.g. availability), rendered before listing pills */
   topRightSlot?: React.ReactNode;
   /** Main image area height */
   mainHeightClass?: string;
@@ -60,7 +63,9 @@ export function PropertyCardMedia({
   alt,
   listingHref,
   propertyId,
-  showWellnessPill = false,
+  wellnessFriendly = false,
+  smokingInsideAllowed = false,
+  smokingOutsideAllowed = false,
   topRightSlot,
   mainHeightClass = 'h-64',
   className = '',
@@ -197,7 +202,7 @@ export function PropertyCardMedia({
 
         <div className="absolute right-3 top-3 z-[5] flex flex-col items-end gap-2">
           {topRightSlot}
-          {showWellnessPill && (
+          {wellnessFriendly && (
             <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
               <span className="text-lg" aria-hidden>
                 🌿
@@ -209,6 +214,28 @@ export function PropertyCardMedia({
                 <span className="flex items-center gap-1">
                   OUTDOOR <span className="text-emerald-400">✓</span>
                 </span>
+              </div>
+            </div>
+          )}
+          {(smokingInsideAllowed || smokingOutsideAllowed) && (
+            <div
+              className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-500/25"
+              title="Smoking policy"
+            >
+              <span className="text-lg" aria-hidden>
+                🚬
+              </span>
+              <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                {smokingInsideAllowed && (
+                  <span className="flex items-center gap-1">
+                    INSIDE <span className="text-amber-300">✓</span>
+                  </span>
+                )}
+                {smokingOutsideAllowed && (
+                  <span className="flex items-center gap-1">
+                    OUTSIDE <span className="text-amber-300">✓</span>
+                  </span>
+                )}
               </div>
             </div>
           )}

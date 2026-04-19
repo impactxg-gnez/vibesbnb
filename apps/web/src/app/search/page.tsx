@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
+import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import {
   enumerateStayNightsYmd,
   formatCalendarDate,
@@ -40,6 +41,9 @@ interface Listing {
   status?: 'active' | 'draft' | 'inactive';
   coordinates?: { lat: number; lng: number };
   isAvailable?: boolean;
+  wellnessFriendly?: boolean;
+  smokingInsideAllowed?: boolean;
+  smokingOutsideAllowed?: boolean;
   [key: string]: any;
 }
 
@@ -236,7 +240,9 @@ function ListingCard({
         alt={listing.title || 'Property'}
         listingHref={listingUrl}
         propertyId={listing.id}
-        showWellnessPill
+        wellnessFriendly={!!listing.wellnessFriendly}
+        smokingInsideAllowed={!!listing.smokingInsideAllowed}
+        smokingOutsideAllowed={!!listing.smokingOutsideAllowed}
         topRightSlot={availabilitySlot}
         mainHeightClass="h-64"
         priority={priorityImage}
@@ -289,6 +295,19 @@ function ListingCard({
             </svg>
             {listing.guests || 2} guests
           </span>
+          {(listing.bathrooms || 0) >= 1 && (
+            <span className="flex items-center gap-1.5">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M5 10V7a1 1 0 011-1h12a1 1 0 011 1v3M4 21h16a1 1 0 001-1v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a1 1 0 001 1z"
+                />
+              </svg>
+              {listing.bathrooms} bath{listing.bathrooms === 1 ? '' : 's'}
+            </span>
+          )}
             </div>
           </div>
         </div>
@@ -476,6 +495,7 @@ export default function SearchPage() {
 
         // Transform Supabase data to Listing format
         let filteredListings: Listing[] = (propertiesData || []).map((p: any) => {
+          const smoking = resolveSmokingFlags(p as Record<string, unknown>);
           // Debug: Log coordinates extraction
           if (p.latitude && p.longitude) {
             console.log('[Search] Property has coordinates:', {
@@ -518,6 +538,9 @@ export default function SearchPage() {
             bedrooms: p.bedrooms || 0,
             beds: p.beds != null ? Number(p.beds) : undefined,
             bathrooms: p.bathrooms != null ? Number(p.bathrooms) : 0,
+            wellnessFriendly: p.wellness_friendly === true,
+            smokingInsideAllowed: smoking.inside,
+            smokingOutsideAllowed: smoking.outside,
             host_id: hostId,
             hostName,
             hostAvatarUrl,

@@ -168,7 +168,7 @@ export default function EditPropertyPage() {
                 propertyData.beds != null && propertyData.beds !== ''
                   ? Number(propertyData.beds)
                   : null,
-              bathrooms: propertyData.bathrooms || 0,
+              bathrooms: Math.max(1, Number(propertyData.bathrooms) || 1),
               guests: propertyData.guests || 0,
               price: propertyData.price ? Number(propertyData.price) : 0,
               wellnessFriendly: propertyData.wellness_friendly || false,
@@ -244,7 +244,7 @@ export default function EditPropertyPage() {
                   property.beds != null && property.beds !== ''
                     ? Number(property.beds)
                     : null,
-                bathrooms: property.bathrooms || 0,
+                bathrooms: Math.max(1, Number(property.bathrooms) || 1),
                 guests: property.guests || 0,
                 price: property.price || 0,
                 wellnessFriendly: property.wellnessFriendly || false,
@@ -473,6 +473,12 @@ export default function EditPropertyPage() {
 
     if (!formData.name.trim()) {
       toast.error('Property name is required');
+      return;
+    }
+
+    const baths = Number(formData.bathrooms);
+    if (!Number.isFinite(baths) || baths < 1) {
+      toast.error('Please enter at least 1 bathroom');
       return;
     }
 
@@ -852,15 +858,17 @@ export default function EditPropertyPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Bathrooms
+                    Bathrooms <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="number"
-                    min="0"
+                    min={1}
                     value={formData.bathrooms}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bathrooms: parseInt(e.target.value) })
-                    }
+                    onChange={(e) => {
+                      const raw = parseInt(e.target.value, 10);
+                      const n = Number.isFinite(raw) ? Math.max(1, raw) : 1;
+                      setFormData({ ...formData, bathrooms: n });
+                    }}
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>

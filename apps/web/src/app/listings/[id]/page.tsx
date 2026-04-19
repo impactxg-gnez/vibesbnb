@@ -42,6 +42,7 @@ import {
   nightsBetweenYmd,
   todayLocalYmd,
 } from '@/lib/dateUtils';
+import { resolveSmokingFlags } from '@/lib/propertySmoking';
 
 interface Property {
   id: string;
@@ -101,23 +102,6 @@ const obfuscateCoordinates = (lat?: number, lng?: number): { lat?: number; lng?:
     lng: lng + lngOffset
   };
 };
-
-/** Derive smoking flags from DB + legacy smoke_friendly / localStorage. */
-function resolveSmokingFlags(row: Record<string, unknown>): {
-  inside: boolean;
-  outside: boolean;
-} {
-  let inside =
-    row.smoking_inside_allowed === true || row.smokingInsideAllowed === true;
-  let outside =
-    row.smoking_outside_allowed === true || row.smokingOutsideAllowed === true;
-  if (!inside && !outside) {
-    const legacy =
-      row.smoke_friendly === true || row.smokeFriendly === true;
-    if (legacy) outside = true;
-  }
-  return { inside, outside };
-}
 
 const amenityIcons: { [key: string]: any } = {
   'WiFi': Wifi,

@@ -1756,9 +1756,12 @@ export default function HostPropertiesPage() {
                     {/* Property Details */}
                     <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
                       <span className="text-gray-400">🛏️ {property.bedrooms} bedroom{property.bedrooms !== 1 ? 's' : ''}</span>
-                      {property.bathrooms && (
-                        <span className="text-gray-400">🚿 {property.bathrooms} bath{property.bathrooms !== 1 ? 's' : ''}</span>
-                      )}
+                      <span className="text-gray-400">
+                        🚿{' '}
+                        {property.bathrooms != null && property.bathrooms >= 1
+                          ? `${property.bathrooms} bath${property.bathrooms === 1 ? '' : 's'}`
+                          : 'Bathrooms required'}
+                      </span>
                       {property.beds && (
                         <span className="text-gray-400">🛌 {property.beds} bed{property.beds !== 1 ? 's' : ''}</span>
                       )}

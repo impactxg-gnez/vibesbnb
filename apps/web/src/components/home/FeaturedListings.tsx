@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { resolveSmokingFlags } from '@/lib/propertySmoking';
 
 interface Listing {
   id: string;
@@ -15,6 +16,9 @@ interface Listing {
   images: string[];
   type: string;
   verified: boolean;
+  wellnessFriendly?: boolean;
+  smokingInsideAllowed?: boolean;
+  smokingOutsideAllowed?: boolean;
 }
 
 export function FeaturedListings() {
@@ -41,16 +45,22 @@ export function FeaturedListings() {
           return;
         }
 
-        const featuredListings: Listing[] = (propertiesData || []).map((p: any) => ({
-          id: p.id,
-          title: p.name || p.title || 'Property',
-          location: p.location || '',
-          price: p.price ? Number(p.price) : 0,
-          rating: p.rating ? Number(p.rating) : 4.5,
-          images: p.images || [],
-          type: p.type || 'Property',
-          verified: true,
-        }));
+        const featuredListings: Listing[] = (propertiesData || []).map((p: any) => {
+          const smoking = resolveSmokingFlags(p as Record<string, unknown>);
+          return {
+            id: p.id,
+            title: p.name || p.title || 'Property',
+            location: p.location || '',
+            price: p.price ? Number(p.price) : 0,
+            rating: p.rating ? Number(p.rating) : 4.5,
+            images: p.images || [],
+            type: p.type || 'Property',
+            verified: true,
+            wellnessFriendly: p.wellness_friendly === true,
+            smokingInsideAllowed: smoking.inside,
+            smokingOutsideAllowed: smoking.outside,
+          };
+        });
         
         setListings(featuredListings);
       } catch (error) {
@@ -116,18 +126,41 @@ export function FeaturedListings() {
                       <span className="text-sm font-semibold text-gray-900">Verified</span>
                     </div>
                   )}
-                  <div className="absolute top-4 right-4 flex flex-col items-end gap-1">
-                    <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-                      <span className="text-lg">🌿</span>
-                      <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                        <span className="flex items-center gap-1">
-                          INDOOR <span className="text-green-400">✓</span>
+                  <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                    {listing.wellnessFriendly && (
+                      <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
+                        <span className="text-lg" aria-hidden>
+                          🌿
                         </span>
-                        <span className="flex items-center gap-1">
-                          OUTDOOR <span className="text-green-400">✓</span>
-                        </span>
+                        <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                          <span className="flex items-center gap-1">
+                            INDOOR <span className="text-green-400">✓</span>
+                          </span>
+                          <span className="flex items-center gap-1">
+                            OUTDOOR <span className="text-green-400">✓</span>
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    {(listing.smokingInsideAllowed || listing.smokingOutsideAllowed) && (
+                      <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-500/30">
+                        <span className="text-lg" aria-hidden>
+                          🚬
+                        </span>
+                        <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
+                          {listing.smokingInsideAllowed && (
+                            <span className="flex items-center gap-1">
+                              INSIDE <span className="text-amber-300">✓</span>
+                            </span>
+                          )}
+                          {listing.smokingOutsideAllowed && (
+                            <span className="flex items-center gap-1">
+                              OUTSIDE <span className="text-amber-300">✓</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
