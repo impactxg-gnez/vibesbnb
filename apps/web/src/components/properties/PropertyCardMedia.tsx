@@ -12,6 +12,24 @@ import { useAuth } from '@/contexts/AuthContext';
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
 
+/** Native img avoids one `/_next/image` request per thumb (many cards × many photos = slow or broken tiles). */
+function ThumbnailImg({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  const displaySrc = failed ? PLACEHOLDER : src;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- intentional: small strip, avoid optimizer stampede
+    <img
+      src={displaySrc}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      fetchPriority="low"
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
 export type PropertyCardMediaProps = {
   images: string[];
   alt: string;
@@ -191,15 +209,7 @@ export function PropertyCardMedia({
                   : 'opacity-55 hover:opacity-100 ring-1 ring-white/10'
               }`}
             >
-              <Image
-                src={src}
-                alt=""
-                fill
-                loading="lazy"
-                unoptimized={src.startsWith('data:')}
-                className="object-cover"
-                sizes="80px"
-              />
+              <ThumbnailImg src={src} />
             </button>
           ))}
         </div>
