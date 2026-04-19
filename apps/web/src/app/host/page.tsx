@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 
+/** VibesBNB hosts & community — Facebook group */
+const HOST_COMMUNITY_FACEBOOK_URL =
+  'https://www.facebook.com/groups/645550964117748/?ref=share_group_link&mibextid=wwXIfr&rdid=AYX08ycnTxLRiLps&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2Fg%2F1QJyhdFhKg%2F%3Fmibextid%3DwwXIfr#';
+
 export default function HostPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -135,17 +139,19 @@ export default function HostPage() {
 
             <div className="bg-primary-500/10 border border-primary-500/20 rounded-[2.5rem] p-10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-40 h-40 bg-primary-500/20 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
-              <h3 className="text-2xl font-bold text-white mb-4 relative z-10">Ready to start?</h3>
+              <h3 className="text-2xl font-bold text-white mb-4 relative z-10">Join our community</h3>
               <p className="text-white/70 mb-8 relative z-10">
-                It&apos;s free to list and we take care of payments. Your host account is active as soon as you verify
-                your email.
+                Meet other VibesBNB hosts, swap hosting tips, and hear about product updates first — all in our Facebook
+                group.
               </p>
-              <Link
-                href="/signup?type=host"
+              <a
+                href={HOST_COMMUNITY_FACEBOOK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-block bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-white/90 transition-all relative z-10"
               >
-                Get started
-              </Link>
+                Open Facebook group
+              </a>
             </div>
           </div>
         </div>
