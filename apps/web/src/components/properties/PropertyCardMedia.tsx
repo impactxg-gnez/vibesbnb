@@ -8,14 +8,19 @@ import { Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { listingCardMainImageUrl, listingThumbImageUrl } from '@/lib/propertyImageUrls';
 
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
 
+const MAIN_BLUR =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
+
 /** Native img avoids one `/_next/image` request per thumb (many cards × many photos = slow or broken tiles). */
-function ThumbnailImg({ src }: { src: string }) {
-  const [failed, setFailed] = useState(false);
-  const displaySrc = failed ? PLACEHOLDER : src;
+function ThumbnailImg({ optimizedSrc, originalSrc }: { optimizedSrc: string; originalSrc: string }) {
+  const [mode, setMode] = useState<'opt' | 'orig' | 'ph'>('opt');
+  const displaySrc =
+    mode === 'ph' ? PLACEHOLDER : mode === 'orig' ? originalSrc : optimizedSrc;
   return (
     // eslint-disable-next-line @next/next/no-img-element -- intentional: small strip, avoid optimizer stampede
     <img
@@ -24,7 +29,10 @@ function ThumbnailImg({ src }: { src: string }) {
       loading="lazy"
       decoding="async"
       fetchPriority="low"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (mode === 'opt' && optimizedSrc !== originalSrc) setMode('orig');
+        else setMode('ph');
+      }}
       className="h-full w-full object-cover"
     />
   );
@@ -137,17 +145,30 @@ export function PropertyCardMedia({
   const multi = slides.length > 1;
   const safeIndex = Math.min(Math.max(0, index), slides.length - 1);
   const mainSrc = slides[safeIndex];
+  const [mainUseOriginal, setMainUseOriginal] = useState(false);
+  const mainDisplaySrc =
+    mainSrc.startsWith('data:') || mainUseOriginal ? mainSrc : listingCardMainImageUrl(mainSrc);
+
+  useEffect(() => {
+    setMainUseOriginal(false);
+  }, [mainSrc]);
 
   return (
     <div className={`flex flex-col bg-black/20 ${className}`}>
       <div className={`relative w-full overflow-hidden ${mainHeightClass}`}>
         <Image
           key={`${mainSrc}-${safeIndex}`}
-          src={mainSrc}
+          src={mainDisplaySrc}
           alt={multi ? `${alt} — photo ${safeIndex + 1}` : alt}
           fill
           priority={priority}
+          fetchPriority={priority ? 'high' : 'low'}
           unoptimized={mainSrc.startsWith('data:')}
+          placeholder="blur"
+          blurDataURL={MAIN_BLUR}
+          onError={() => {
+            if (!mainUseOriginal && mainDisplaySrc !== mainSrc) setMainUseOriginal(true);
+          }}
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
@@ -209,7 +230,10 @@ export function PropertyCardMedia({
                   : 'opacity-55 hover:opacity-100 ring-1 ring-white/10'
               }`}
             >
-              <ThumbnailImg src={src} />
+              <ThumbnailImg
+                optimizedSrc={listingThumbImageUrl(src)}
+                originalSrc={src}
+              />
             </button>
           ))}
         </div>

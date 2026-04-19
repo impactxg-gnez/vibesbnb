@@ -155,6 +155,7 @@ export function FeaturedRetreats() {
                     propertyId={retreat.id}
                     showWellnessPill
                     mainHeightClass="h-56 md:h-64"
+                    priority={index < 3}
                   />
                   <div
                     className="pointer-events-none absolute left-0 right-0 top-0 h-56 md:h-64 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover/media:opacity-100"

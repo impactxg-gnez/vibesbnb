@@ -173,7 +173,20 @@ function sortSearchListings(
 }
 
 // Listing card: shared media (thumbnails + heart) + host row in body
-function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing, onHover: (id: string | null) => void, checkIn?: string, checkOut?: string }) {
+function ListingCard({
+  listing,
+  onHover,
+  checkIn,
+  checkOut,
+  priorityImage = false,
+}: {
+  listing: Listing;
+  onHover: (id: string | null) => void;
+  checkIn?: string;
+  checkOut?: string;
+  /** Eager-load first visible card images (above-the-fold). */
+  priorityImage?: boolean;
+}) {
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
   
   // Build the listing URL with date params if available
@@ -226,6 +239,7 @@ function ListingCard({ listing, onHover, checkIn, checkOut }: { listing: Listing
         showWellnessPill
         topRightSlot={availabilitySlot}
         mainHeightClass="h-64"
+        priority={priorityImage}
       />
 
       <Link href={listingUrl} className="flex-1 p-5">
@@ -954,13 +968,14 @@ export default function SearchPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {displayedListings.map((listing) => (
-                  <ListingCard 
-                    key={listing.id} 
+                {displayedListings.map((listing, index) => (
+                  <ListingCard
+                    key={listing.id}
                     listing={listing}
                     onHover={setHoveredListingId}
                     checkIn={checkIn || undefined}
                     checkOut={checkOut || undefined}
+                    priorityImage={index < 4}
                   />
                 ))}
               </div>

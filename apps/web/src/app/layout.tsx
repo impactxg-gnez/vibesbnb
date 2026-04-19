@@ -1,4 +1,5 @@
 import './globals.css';
+import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from './providers';
@@ -22,6 +23,31 @@ export const metadata: Metadata = {
   },
 };
 
+function imageOriginHints() {
+  const hints: ReactNode[] = [];
+  const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (supabase && /^https:\/\//i.test(supabase)) {
+    try {
+      const origin = new URL(supabase).origin;
+      hints.push(
+        <link key="preconnect-supabase" rel="preconnect" href={origin} crossOrigin="anonymous" />
+      );
+      hints.push(<link key="dns-supabase" rel="dns-prefetch" href={origin} />);
+    } catch {
+      /* ignore */
+    }
+  }
+  hints.push(
+    <link
+      key="preconnect-unsplash"
+      rel="preconnect"
+      href="https://images.unsplash.com"
+      crossOrigin="anonymous"
+    />
+  );
+  return hints;
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -30,6 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {imageOriginHints()}
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBMockKeyForDevelopment'}&libraries=places`}
           strategy="beforeInteractive"
