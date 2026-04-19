@@ -54,7 +54,6 @@ export default function Filters({
   const buckets = priceDistribution.buckets;
   const binCount = Math.max(buckets.length, 1);
 
-  const [typeOfPlace, setTypeOfPlace] = useState(initialFilters?.typeOfPlace || 'any');
   const [minPrice, setMinPrice] = useState(() => initialFilters?.priceRange?.[0] ?? floor);
   const [maxPrice, setMaxPrice] = useState(() => initialFilters?.priceRange?.[1] ?? ceil);
 
@@ -104,7 +103,8 @@ export default function Filters({
     { id: 'Entire House', label: 'Entire House', icon: <Home size={20} /> },
     { id: 'Apartment', label: 'Apartment', icon: <Building size={20} /> },
     { id: 'Condo', label: 'Condo', icon: <Building size={20} /> },
-    { id: 'Private Room', label: 'Private Room', icon: <Bed size={20} /> },
+    { id: 'Private Rooms', label: 'Private Room', icon: <Bed size={20} /> },
+    { id: 'Room inside property', label: 'Shared Room', icon: <Bed size={20} /> },
   ];
 
   const allAmenities = [
@@ -137,7 +137,6 @@ export default function Filters({
     const lo = clamp(Math.min(minPrice, maxPrice));
     const hi = clamp(Math.max(minPrice, maxPrice));
     onApply({
-      typeOfPlace,
       priceRange: [lo, hi],
       rooms,
       beds,
@@ -148,7 +147,6 @@ export default function Filters({
   };
 
   const handleReset = () => {
-    setTypeOfPlace('any');
     setMinPrice(floor);
     setMaxPrice(ceil);
     setRooms(0);
@@ -176,34 +174,6 @@ export default function Filters({
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-12 scrollbar-hide">
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold flex items-center gap-2">
-              <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
-              Type of place
-            </h3>
-          </div>
-          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
-            {[
-              { id: 'any', label: 'Any type' },
-              { id: 'room', label: 'Room' },
-              { id: 'entire', label: 'Entire home' },
-            ].map((type) => (
-              <button
-                key={type.id}
-                onClick={() => setTypeOfPlace(type.id)}
-                className={`flex-1 py-4 rounded-xl text-sm font-black uppercase tracking-wider transition-all ${
-                  typeOfPlace === type.id
-                    ? 'bg-primary-500 text-black shadow-[0_0_20px_rgba(0,230,118,0.3)]'
-                    : 'text-muted hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {type.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
         <section>
           <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
             <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>

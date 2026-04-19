@@ -77,12 +77,11 @@ export default function HostProfilePage() {
         if (propsError) throw propsError;
         setProperties(props || []);
 
-        // Fetch stats (bookings and earnings)
-        // Note: For real environment, this would be an aggregation in Supabase
+        // Fetch stats (bookings and earnings) — scope by host_id, not property_id alone
         const { data: bookings, error: bookingsError } = await supabase
           .from('bookings')
           .select('total_price, status')
-          .in('property_id', props?.map(p => p.id) || []);
+          .eq('host_id', hostId);
 
         if (!bookingsError && bookings) {
           const totalBookings = bookings.length;

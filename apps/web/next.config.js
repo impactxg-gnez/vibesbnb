@@ -2,18 +2,22 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: [
-      'source.unsplash.com',
-      'images.unsplash.com',
-      'picsum.photos',
-      'i.pravatar.cc',
-      'cdn.vibesbnb.com',
-      'vibesbnb-media.s3.amazonaws.com',
-      'esca-management.com',
-      'www.esca-management.com',
-      'a0.muscache.com',
-      'a1.muscache.com',
-      'a2.muscache.com',
+    // Prefer remotePatterns (supports wildcards); keeps Next/Image working for Supabase Storage, etc.
+    remotePatterns: [
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/**' },
+      { protocol: 'https', hostname: 'source.unsplash.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
+      { protocol: 'https', hostname: 'i.pravatar.cc', pathname: '/**' },
+      { protocol: 'https', hostname: 'cdn.vibesbnb.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'vibesbnb-media.s3.amazonaws.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'esca-management.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'www.esca-management.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'a0.muscache.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'a1.muscache.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'a2.muscache.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'api.dicebear.com', pathname: '/**' },
     ],
   },
   env: {

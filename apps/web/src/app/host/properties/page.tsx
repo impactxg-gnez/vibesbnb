@@ -491,81 +491,82 @@ export default function HostPropertiesPage() {
         const totalProperties = propertiesData?.length || 0;
         const activeListings = propertiesData?.filter(p => p.status === 'active').length || 0;
 
-        // Get bookings for this host's properties
-        const propertyIds = propertiesData?.map(p => p.id) || [];
-        let totalBookings = 0;
-        let thisMonthRevenue = 0;
-        let newBookings = 0;
+        // Authoritative scope: bookings for this host only (never rely on property_id IN alone —
+        // that can overlap or be mis-merged; host_id is the source of truth).
+        const { data: bookingsData, error: bookingsError } = await supabase
+          .from('bookings')
+          .select('id,status,total_price,created_at,check_in,check_out,guest_name,property_name,property_id,host_id')
+          .eq('host_id', supabaseUser.id);
 
-        if (propertyIds.length > 0) {
-          const now = new Date();
-          const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          const { data: bookingsData } = await supabase
-            .from('bookings')
-            .select('id,status,total_price,created_at,check_in,check_out,guest_name,property_name,property_id')
-            .in('property_id', propertyIds);
-
-          if (bookingsData) {
-            const confirmedBookings = bookingsData.filter(b => b.status === 'confirmed');
-            totalBookings = confirmedBookings.length;
-
-            const thisMonthBookings = confirmedBookings.filter(b => {
-              const bookingDate = new Date(b.created_at);
-              return bookingDate >= firstDayOfMonth;
-            });
-
-            thisMonthRevenue = thisMonthBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
-            newBookings = thisMonthBookings.length;
-
-            const newPending = bookingsData.filter(b => b.status === 'pending_approval');
-            const upcomingBookings = bookingsData.filter(b => {
-              if (!b.check_in) return false;
-              const checkIn = new Date(b.check_in);
-              return ['accepted', 'confirmed'].includes(b.status) && checkIn >= today;
-            });
-            const previousBookings = bookingsData.filter(b => {
-              if (!b.check_out) return false;
-              const checkOut = new Date(b.check_out);
-              return ['accepted', 'confirmed'].includes(b.status) && checkOut < today;
-            });
-
-            setBookingBuckets({
-              new: newPending,
-              upcoming: upcomingBookings,
-              previous: previousBookings,
-            });
-            setBookingSummary({
-              new: newPending.length,
-              upcoming: upcomingBookings.length,
-              previous: previousBookings.length,
-            });
-
-            setBookingDetails((current) =>
-              current
-                ? {
-                  ...current,
-                  bookings:
-                    current.type === 'new'
-                      ? newPending
-                      : current.type === 'upcoming'
-                        ? upcomingBookings
-                        : previousBookings,
-                }
-                : null
-            );
-          } else {
-            setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
-            setBookingBuckets({ new: [], upcoming: [], previous: [] });
-            setBookingDetails(null);
-          }
-        } else {
+        if (bookingsError) {
+          console.error('[Stats] Bookings query failed:', bookingsError);
           setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
           setBookingBuckets({ new: [], upcoming: [], previous: [] });
           setBookingDetails(null);
+          setStats({
+            totalProperties,
+            activeListings,
+            thisMonthRevenue: 0,
+            totalBookings: 0,
+            newBookings: 0,
+          });
+          return;
         }
+
+        const rows = (bookingsData || []).filter((b) => b.host_id === supabaseUser.id);
+
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const confirmedBookings = rows.filter((b) => b.status === 'confirmed');
+        const totalBookings = confirmedBookings.length;
+
+        const thisMonthBookings = confirmedBookings.filter((b) => {
+          const bookingDate = new Date(b.created_at);
+          return bookingDate >= firstDayOfMonth;
+        });
+
+        const thisMonthRevenue = thisMonthBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+        const newBookings = thisMonthBookings.length;
+
+        const newPending = rows.filter((b) => b.status === 'pending_approval');
+        const upcomingBookings = rows.filter((b) => {
+          if (!b.check_in) return false;
+          const checkIn = new Date(b.check_in);
+          return ['accepted', 'confirmed'].includes(b.status) && checkIn >= today;
+        });
+        const previousBookings = rows.filter((b) => {
+          if (!b.check_out) return false;
+          const checkOut = new Date(b.check_out);
+          return ['accepted', 'confirmed'].includes(b.status) && checkOut < today;
+        });
+
+        setBookingBuckets({
+          new: newPending,
+          upcoming: upcomingBookings,
+          previous: previousBookings,
+        });
+        setBookingSummary({
+          new: newPending.length,
+          upcoming: upcomingBookings.length,
+          previous: previousBookings.length,
+        });
+
+        setBookingDetails((current) =>
+          current
+            ? {
+                ...current,
+                bookings:
+                  current.type === 'new'
+                    ? newPending
+                    : current.type === 'upcoming'
+                      ? upcomingBookings
+                      : previousBookings,
+              }
+            : null
+        );
 
         setStats({
           totalProperties,

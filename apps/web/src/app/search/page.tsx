@@ -15,6 +15,10 @@ import {
   nightsBetweenYmd,
   todayLocalYmd,
 } from '@/lib/dateUtils';
+import {
+  listingHasAllAmenityChips,
+  listingMatchesAnyPropertyTypeChip,
+} from '@/lib/propertySearchFilters';
 
 interface Listing {
   id: string;
@@ -48,9 +52,9 @@ function formatDateShort(dateStr: string): string {
 }
 
 const HISTOGRAM_BUCKET_COUNT = 40;
+const PRICE_FILTER_CAP = 100_000;
 
 type SearchModalFilters = {
-  typeOfPlace: string;
   priceRange: [number, number];
   rooms: number;
   beds: number;
@@ -76,44 +80,18 @@ function applyNonPriceListingFilters(
   }
 
   if (filters.propertyTypes?.length > 0) {
-    L = L.filter((listing) => {
-      const listingType = listing.type || 'Property';
-      return filters.propertyTypes.some((type: string) => {
-        if (type === 'House' || type === 'Entire House') {
-          return listingType.toLowerCase().includes('house') || listingType === 'Property';
-        }
-        if (type === 'Apartment') {
-          return listingType.toLowerCase().includes('apartment');
-        }
-        if (type === 'Condo') {
-          return listingType.toLowerCase().includes('condo');
-        }
-        if (type === 'Private Room') {
-          return (
-            listingType.toLowerCase().includes('private room') ||
-            listingType.toLowerCase().includes('private rooms')
-          );
-        }
-        return listingType === type;
-      });
-    });
+    L = L.filter((listing) =>
+      listingMatchesAnyPropertyTypeChip(
+        listing.type,
+        listing.title,
+        listing.name,
+        filters.propertyTypes
+      )
+    );
   }
 
   if (filters.amenities?.length > 0) {
-    L = L.filter((listing) =>
-      filters.amenities.every((a: string) => listing.amenities?.includes(a))
-    );
-  }
-
-  if (filters.typeOfPlace === 'room') {
-    L = L.filter((listing) => listing.type?.toLowerCase().includes('room'));
-  } else if (filters.typeOfPlace === 'entire') {
-    L = L.filter(
-      (listing) =>
-        listing.type?.toLowerCase().includes('house') ||
-        listing.type?.toLowerCase().includes('apartment') ||
-        listing.type?.toLowerCase().includes('condo')
-    );
+    L = L.filter((listing) => listingHasAllAmenityChips(listing.amenities, filters.amenities));
   }
 
   return L;
@@ -345,8 +323,7 @@ export default function SearchPage() {
   const [hideUnavailable, setHideUnavailable] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState<SearchModalFilters>({
-    typeOfPlace: 'any',
-    priceRange: [0, 100000],
+    priceRange: [0, PRICE_FILTER_CAP],
     rooms: 0,
     beds: 0,
     bathrooms: 0,
@@ -687,9 +664,13 @@ export default function SearchPage() {
     activeFilters.propertyTypes.length +
     activeFilters.amenities.length +
     (activeFilters.rooms > 0 ? 1 : 0) +
+    (activeFilters.beds > 0 ? 1 : 0) +
+    (activeFilters.bathrooms > 0 ? 1 : 0) +
     (priceFilterActive ? 1 : 0);
   const showFilterChip =
     activeFilters.rooms > 0 ||
+    activeFilters.beds > 0 ||
+    activeFilters.bathrooms > 0 ||
     activeFilters.propertyTypes.length > 0 ||
     activeFilters.amenities.length > 0 ||
     priceFilterActive;

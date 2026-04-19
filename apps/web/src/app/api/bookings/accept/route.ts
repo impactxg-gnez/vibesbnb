@@ -45,14 +45,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update booking status
+    if (booking.host_id !== user.id) {
+      return NextResponse.json(
+        { error: 'You do not have permission to manage this booking' },
+        { status: 403 }
+      );
+    }
+
+    // Update booking status (scoped to this host)
     const { error: updateError } = await supabase
       .from('bookings')
       .update({
         status: 'accepted',
         host_approved_at: new Date().toISOString(),
       })
-      .eq('id', bookingId);
+      .eq('id', bookingId)
+      .eq('host_id', user.id);
 
     if (updateError) {
       console.error('Error updating booking:', updateError);

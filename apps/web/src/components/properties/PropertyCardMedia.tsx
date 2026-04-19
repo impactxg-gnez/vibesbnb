@@ -25,6 +25,8 @@ export type PropertyCardMediaProps = {
   /** Main image area height */
   mainHeightClass?: string;
   className?: string;
+  /** First visible cards: eager-load main image for LCP */
+  priority?: boolean;
 };
 
 export function PropertyCardMedia({
@@ -36,6 +38,7 @@ export function PropertyCardMedia({
   topRightSlot,
   mainHeightClass = 'h-64',
   className = '',
+  priority = false,
 }: PropertyCardMediaProps) {
   const slides = images.length > 0 ? images : [PLACEHOLDER];
   const [index, setIndex] = useState(0);
@@ -114,27 +117,22 @@ export function PropertyCardMedia({
   );
 
   const multi = slides.length > 1;
+  const safeIndex = Math.min(Math.max(0, index), slides.length - 1);
+  const mainSrc = slides[safeIndex];
 
   return (
     <div className={`flex flex-col bg-black/20 ${className}`}>
       <div className={`relative w-full overflow-hidden ${mainHeightClass}`}>
-        {slides.map((src, i) => (
-          <div
-            key={`${src}-${i}`}
-            className={`absolute inset-0 transition-opacity duration-500 ease-out ${
-              i === index ? 'z-[1] opacity-100' : 'z-0 opacity-0 pointer-events-none'
-            }`}
-          >
-            <Image
-              src={src}
-              alt={multi ? `${alt} — photo ${i + 1}` : alt}
-              fill
-              unoptimized={src.startsWith('data:')}
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          </div>
-        ))}
+        <Image
+          key={`${mainSrc}-${safeIndex}`}
+          src={mainSrc}
+          alt={multi ? `${alt} — photo ${safeIndex + 1}` : alt}
+          fill
+          priority={priority}
+          unoptimized={mainSrc.startsWith('data:')}
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
 
         <Link
           href={listingHref}
@@ -197,6 +195,7 @@ export function PropertyCardMedia({
                 src={src}
                 alt=""
                 fill
+                loading="lazy"
                 unoptimized={src.startsWith('data:')}
                 className="object-cover"
                 sizes="80px"
