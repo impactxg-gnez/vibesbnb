@@ -37,18 +37,19 @@ export default function HostApplicationSubmittedPage() {
             <Clock className="w-8 h-8 text-violet-400" />
           </div>
 
-          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Under admin review</h1>
+          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Listing submitted</h1>
           <p className="text-gray-400 leading-relaxed mb-2">
-            Your property has been submitted for approval. Our team will review your listing shortly.
+            Thanks — your property is saved and pending review before it goes live for guests. Your host account is
+            already active; you can add or edit listings anytime.
           </p>
           <p className="text-sm text-gray-500 mb-8 flex items-center justify-center gap-2">
             <Mail className="w-4 h-4 text-emerald-500 shrink-0" />
-            We&apos;ll notify you at <span className="text-gray-300 font-medium">{user.email}</span> when
-            it&apos;s approved.
+            We&apos;ll email <span className="text-gray-300 font-medium">{user.email}</span> when this listing is
+            approved for public search.
           </p>
 
           <div className="space-y-3">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">While you wait</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Next steps</p>
             <Link
               href="/search"
               className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors"

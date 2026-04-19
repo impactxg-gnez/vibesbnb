@@ -5,7 +5,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import {
+  Search,
+  Home,
+  MapPin,
+  Star,
+  Edit,
+  Eye,
+  Wand2,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Trash2,
+  X,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import Link from 'next/link';
@@ -140,6 +154,105 @@ export default function ManageListingsPage() {
 
   const [syncing, setSyncing] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [editModalProperty, setEditModalProperty] = useState<Property | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    location: '',
+    price: '',
+    status: 'draft',
+    description: '',
+    bedrooms: '',
+    bathrooms: '',
+    guests: '',
+  });
+  const [savingQuickEdit, setSavingQuickEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const openQuickEdit = (property: Property) => {
+    setEditModalProperty(property);
+    setEditForm({
+      name: (property.name || property.title || '').trim(),
+      location: (property.location || '').trim(),
+      price: String(property.price ?? ''),
+      status: property.status || 'draft',
+      description: (property.description || '').trim(),
+      bedrooms: property.bedrooms != null ? String(property.bedrooms) : '',
+      bathrooms: property.bathrooms != null ? String(property.bathrooms) : '',
+      guests: property.guests != null ? String(property.guests) : '',
+    });
+  };
+
+  const handleSaveQuickEdit = async () => {
+    if (!editModalProperty) return;
+    if (editForm.price !== '' && !Number.isFinite(Number(editForm.price))) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+    setSavingQuickEdit(true);
+    try {
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization) throw new Error('No valid session — please sign in again.');
+      const response = await fetch('/api/admin/properties', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          propertyId: editModalProperty.id,
+          name: editForm.name.trim(),
+          title: editForm.name.trim(),
+          location: editForm.location.trim(),
+          price: editForm.price === '' ? undefined : Number(editForm.price),
+          description: editForm.description,
+          status: editForm.status,
+          bedrooms: editForm.bedrooms === '' ? undefined : editForm.bedrooms,
+          bathrooms: editForm.bathrooms === '' ? undefined : editForm.bathrooms,
+          guests: editForm.guests === '' ? undefined : editForm.guests,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to save');
+      toast.success('Listing updated');
+      setEditModalProperty(null);
+      loadProperties();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSavingQuickEdit(false);
+    }
+  };
+
+  const handleDeleteProperty = async (property: Property) => {
+    if (
+      !confirm(
+        `Delete "${property.name || property.title}"? This cannot be undone. Related bookings may fail if they reference this listing.`
+      )
+    ) {
+      return;
+    }
+    setDeletingId(property.id);
+    try {
+      const authHeaders = await getHeadersForAdminFetch();
+      if (!authHeaders.Authorization) throw new Error('No valid session — please sign in again.');
+      const response = await fetch(
+        `/api/admin/properties?propertyId=${encodeURIComponent(property.id)}`,
+        {
+          method: 'DELETE',
+          headers: { ...authHeaders },
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete');
+      toast.success('Listing deleted');
+      if (editModalProperty?.id === property.id) setEditModalProperty(null);
+      loadProperties();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleApproveProperty = async (propertyId: string) => {
     setApprovingId(propertyId);
@@ -451,36 +564,211 @@ export default function ManageListingsPage() {
                   )}
 
                   {/* Actions */}
-                  <div className={`flex items-center gap-2 ${property.status !== 'pending_approval' ? 'pt-3 border-t border-gray-200' : ''}`}>
-                    <Link
-                      href={`/listings/${property.id}`}
-                      target="_blank"
-                      className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm text-center flex items-center justify-center gap-1"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </Link>
-                    <Link
-                      href={`/host/properties/${property.id}/edit`}
-                      onClick={() => {
-                        if (property.host_id) {
-                          setImpersonatedHost(
-                            property.host_id,
-                            property.host_name || property.host_email || 'Host'
-                          );
-                        }
-                      }}
-                      className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm text-center flex items-center justify-center gap-1"
-                    >
-                      <Edit className="w-4 h-4" />
-                      Edit as host
-                    </Link>
+                  <div
+                    className={`flex flex-col gap-2 ${property.status !== 'pending_approval' ? 'pt-3 border-t border-gray-200' : ''}`}
+                  >
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/listings/${property.id}`}
+                        target="_blank"
+                        className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm text-center flex items-center justify-center gap-1"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => openQuickEdit(property)}
+                        disabled={deletingId === property.id}
+                        className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Quick edit
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/host/properties/${property.id}/edit`}
+                        onClick={() => {
+                          if (property.host_id) {
+                            setImpersonatedHost(
+                              property.host_id,
+                              property.host_name || property.host_email || 'Host'
+                            );
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm text-center flex items-center justify-center gap-1"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Full editor
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProperty(property)}
+                        disabled={deletingId === property.id || approvingId === property.id}
+                        className="flex-1 px-3 py-2 border border-red-200 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition text-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        {deletingId === property.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             ))
           )}
         </div>
+
+        {editModalProperty && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50">
+            <div
+              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-200"
+              role="dialog"
+              aria-labelledby="admin-quick-edit-title"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                <h2 id="admin-quick-edit-title" className="text-lg font-bold text-gray-900">
+                  Quick edit listing
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setEditModalProperty(null)}
+                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-gray-500">
+                  ID: <span className="font-mono text-gray-700">{editModalProperty.id}</span>
+                </p>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Name</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    value={editForm.location}
+                    onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Price / night</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      value={editForm.price}
+                      onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Status</label>
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      value={editForm.status}
+                      onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                    >
+                      <option value="pending_approval">Pending approval</option>
+                      <option value="active">Active</option>
+                      <option value="draft">Draft</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Bedrooms</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      value={editForm.bedrooms}
+                      onChange={(e) => setEditForm((f) => ({ ...f, bedrooms: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Bathrooms</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      value={editForm.bathrooms}
+                      onChange={(e) => setEditForm((f) => ({ ...f, bathrooms: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Guests</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      value={editForm.guests}
+                      onChange={(e) => setEditForm((f) => ({ ...f, guests: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                  <textarea
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  For photos, amenities, and advanced fields, use{' '}
+                  <Link
+                    href={`/host/properties/${editModalProperty.id}/edit`}
+                    onClick={() => {
+                      if (editModalProperty.host_id) {
+                        setImpersonatedHost(
+                          editModalProperty.host_id,
+                          editModalProperty.host_name || editModalProperty.host_email || 'Host'
+                        );
+                      }
+                    }}
+                    className="text-purple-600 font-semibold hover:underline"
+                  >
+                    Full editor
+                  </Link>
+                  .
+                </p>
+              </div>
+              <div className="flex gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setEditModalProperty(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickEdit}
+                  disabled={savingQuickEdit || !editForm.name.trim()}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {savingQuickEdit ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

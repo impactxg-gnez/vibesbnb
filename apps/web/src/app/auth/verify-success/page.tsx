@@ -80,7 +80,19 @@ function VerifySuccessInner() {
               Email verified!
             </h1>
             <p className="mt-3 text-base leading-relaxed text-gray-400">
-              Welcome to VibesBNB — your account is live. Explore stays, catch a vibe, and make yourself at home.
+              {loading ? (
+                <>Welcome to VibesBNB — your account is live.</>
+              ) : user?.user_metadata?.role === 'host' || user?.user_metadata?.role === 'host_pending' ? (
+                <>
+                  Welcome to VibesBNB — your <span className="text-white font-semibold">host account</span> is live.
+                  Head to your dashboard to add or manage listings (each listing is reviewed before it appears to
+                  guests).
+                </>
+              ) : (
+                <>
+                  Welcome to VibesBNB — your account is live. Explore stays, catch a vibe, and make yourself at home.
+                </>
+              )}
             </p>
 
             {!loading && user && (

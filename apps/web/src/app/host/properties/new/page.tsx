@@ -1039,7 +1039,8 @@ export default function NewPropertyPage() {
             <div>
               <p className="text-amber-200 font-medium">Pending Admin Approval</p>
               <p className="text-amber-200/70 text-sm mt-1">
-                Your listing will be reviewed by our team before going live. This usually takes 24-48 hours.
+                Your listing will be reviewed before it appears to guests. You can keep editing it anytime from your
+                host dashboard.
               </p>
             </div>
           </div>

@@ -92,10 +92,11 @@ export function HostPendingBrowseModal() {
               </div>
               <div>
                 <p id="host-pending-title" className="text-lg font-bold text-white">
-                  Host application in review
+                  Finish your host setup
                 </p>
                 <p className="text-sm text-gray-400 mt-0.5">
-                  You can explore VibesBNB as a traveller while we review your listing.
+                  Your host account is ready — verify your email for full dashboard access, or jump to your host area
+                  anytime.
                 </p>
               </div>
             </div>
@@ -116,8 +117,8 @@ export function HostPendingBrowseModal() {
               <p className="text-sm text-amber-100/90 flex items-start gap-2">
                 <Mail className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
                 <span>
-                  <strong className="text-amber-200">Verify your email</strong> to unlock bookings and full
-                  traveller features. We&apos;ll also use it to notify you when you&apos;re approved to host.
+                  <strong className="text-amber-200">Verify your email</strong> to unlock your full host dashboard,
+                  messaging, and booking tools.
                 </span>
               </p>
               <button
@@ -133,8 +134,9 @@ export function HostPendingBrowseModal() {
 
           {!needsEmailConfirm && (
             <p className="text-sm text-gray-400">
-              When your property is approved, we&apos;ll email you at{' '}
-              <span className="text-gray-200 font-medium">{user.email}</span>.
+              Open your host dashboard to create listings. Each listing is reviewed before it goes live; we&apos;ll
+              email <span className="text-gray-200 font-medium">{user.email}</span> when a listing is approved for
+              search.
             </p>
           )}
 
@@ -143,7 +145,7 @@ export function HostPendingBrowseModal() {
             onClick={handleDismiss}
             className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
           >
-            Continue browsing
+            {needsEmailConfirm ? 'Continue browsing' : 'Got it'}
           </button>
         </div>
       </div>
