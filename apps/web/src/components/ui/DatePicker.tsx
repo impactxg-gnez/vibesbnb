@@ -39,6 +39,9 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
     return (
       <div className="vibesbnb-datepicker-wrapper">
         <style jsx global>{`
+          .react-datepicker-popper {
+            z-index: 100 !important; /* above SearchSection panels (z-50) */
+          }
           .react-datepicker {
             background-color: #030712 !important; /* gray-950 */
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -104,9 +107,7 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
           className={className}
           dateFormat="MMM d, yyyy"
           placeholderText="Select date"
-          withPortal
           popperPlacement="bottom-start"
-          strictParsing
           {...props}
         />
       </div>
