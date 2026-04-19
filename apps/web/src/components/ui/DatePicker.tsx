@@ -1,8 +1,9 @@
 'use client';
 
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import ReactDatePicker, { ReactDatePickerProps } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { parseCalendarDate } from '@/lib/dateUtils';
 
 interface DatePickerProps extends Omit<ReactDatePickerProps, 'onChange'> {
   value?: string;
@@ -11,10 +12,17 @@ interface DatePickerProps extends Omit<ReactDatePickerProps, 'onChange'> {
   min?: string;
 }
 
+/** Local calendar date at noon — avoids Safari/ISO parsing quirks and DST edge cases. */
+function ymdToPickerDate(ymd: string): Date | null {
+  const d = parseCalendarDate(ymd);
+  if (!d) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+}
+
 export const DatePicker = forwardRef<any, DatePickerProps>(
   ({ value, onChange, className, min, ...props }, ref) => {
-    const selectedDate = value ? new Date(value + 'T12:00:00') : null;
-    const minDate = min ? new Date(min + 'T12:00:00') : undefined;
+    const selectedDate = useMemo(() => (value ? ymdToPickerDate(value) : null), [value]);
+    const minDate = useMemo(() => (min ? ymdToPickerDate(min) ?? undefined : undefined), [min]);
 
     const handleChange = (date: Date | null) => {
       let dateStr = '';
@@ -66,10 +74,16 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
             background-color: rgba(0, 230, 118, 0.1) !important;
             color: #00e676 !important; /* primary-500 */
           }
-          .react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+          .react-datepicker__day--selected {
             background-color: #00e676 !important;
             color: #000 !important;
             font-weight: 800 !important;
+          }
+          /* Safari: keyboard focus can sit on a different month/day than the actual selection */
+          .react-datepicker__day--keyboard-selected:not(.react-datepicker__day--selected) {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            color: white !important;
+            font-weight: 600 !important;
           }
           .react-datepicker__day--disabled {
             color: #4b5563 !important; /* gray-600 */
@@ -90,9 +104,9 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
           className={className}
           dateFormat="MMM d, yyyy"
           placeholderText="Select date"
-          onKeyDown={(e) => {
-            e.preventDefault();
-          }}
+          withPortal
+          popperPlacement="bottom-start"
+          strictParsing
           {...props}
         />
       </div>

@@ -54,18 +54,38 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Update state when initialValues change
+  // Sync from URL/search props when those *values* change — not when the parent passes a new
+  // `initialValues` object reference each render (that was resetting location/dates on every re-render).
+  const ivLocation = initialValues?.location;
+  const ivCheckIn = initialValues?.checkIn;
+  const ivCheckOut = initialValues?.checkOut;
+  const ivGuests = initialValues?.guests;
+  const ivKids = initialValues?.kids;
+  const ivPets = initialValues?.pets;
+  const ivCategoriesKey = initialValues?.categories?.join(',') ?? '';
+  const hasInitialValues = initialValues != null;
+
   useEffect(() => {
-    if (initialValues) {
-      if (initialValues.location !== undefined) setSelectedLocation(initialValues.location);
-      if (initialValues.checkIn !== undefined) setCheckIn(initialValues.checkIn);
-      if (initialValues.checkOut !== undefined) setCheckOut(initialValues.checkOut);
-      if (initialValues.guests !== undefined) setGuests(initialValues.guests);
-      if (initialValues.kids !== undefined) setKids(initialValues.kids);
-      if (initialValues.pets !== undefined) setPets(initialValues.pets);
-      if (initialValues.categories !== undefined) setSelectedCategories(initialValues.categories);
+    if (!hasInitialValues || !initialValues) return;
+    if (ivLocation !== undefined) setSelectedLocation(ivLocation);
+    if (ivCheckIn !== undefined) setCheckIn(ivCheckIn);
+    if (ivCheckOut !== undefined) setCheckOut(ivCheckOut);
+    if (ivGuests !== undefined) setGuests(ivGuests);
+    if (ivKids !== undefined) setKids(ivKids);
+    if (ivPets !== undefined) setPets(ivPets);
+    if (initialValues.categories !== undefined) {
+      setSelectedCategories(initialValues.categories);
     }
-  }, [initialValues]);
+  }, [
+    hasInitialValues,
+    ivLocation,
+    ivCheckIn,
+    ivCheckOut,
+    ivGuests,
+    ivKids,
+    ivPets,
+    ivCategoriesKey,
+  ]);
 
   const categories = [
     { id: 'Entire House', label: 'House', icon: <Home className="w-5 h-5" /> },
