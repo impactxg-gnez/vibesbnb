@@ -53,8 +53,10 @@ export default function Filters({
   const ceil = priceDistribution.max;
   const buckets = priceDistribution.buckets;
   const binCount = Math.max(buckets.length, 1);
+  /** Slider / filter range uses $0 … catalog max so the default includes all nightly rates. */
+  const sliderSpan = Math.max(ceil, 1);
 
-  const [minPrice, setMinPrice] = useState(() => initialFilters?.priceRange?.[0] ?? floor);
+  const [minPrice, setMinPrice] = useState(() => initialFilters?.priceRange?.[0] ?? 0);
   const [maxPrice, setMaxPrice] = useState(() => initialFilters?.priceRange?.[1] ?? ceil);
 
   const [rooms, setRooms] = useState(initialFilters?.rooms || 0);
@@ -69,14 +71,14 @@ export default function Filters({
   useEffect(() => {
     const r = initialFilters?.priceRange;
     if (!r) return;
-    const lo = Math.max(floor, Math.min(ceil, r[0]));
-    const hi = Math.max(floor, Math.min(ceil, r[1]));
+    const lo = Math.max(0, Math.min(ceil, r[0]));
+    const hi = Math.max(0, Math.min(ceil, r[1]));
     setMinPrice(Math.min(lo, hi));
     setMaxPrice(Math.max(lo, hi));
   }, [floor, ceil, initialFilters?.priceRange?.[0], initialFilters?.priceRange?.[1]]);
 
   const clamp = (n: number) =>
-    Math.max(floor, Math.min(ceil, Math.round(Number.isFinite(n) ? n : floor)));
+    Math.max(0, Math.min(ceil, Math.round(Number.isFinite(n) ? n : 0)));
 
   const emitLive = (lo: number, hi: number) => {
     if (!onPriceRangeLive) return;
@@ -147,18 +149,18 @@ export default function Filters({
   };
 
   const handleReset = () => {
-    setMinPrice(floor);
+    setMinPrice(0);
     setMaxPrice(ceil);
     setRooms(0);
     setBeds(0);
     setBathrooms(0);
     setPropertyTypes([]);
     setAmenities([]);
-    onPriceRangeLive?.(floor, ceil);
+    onPriceRangeLive?.(0, ceil);
   };
 
-  const leftPct = ((minPrice - floor) / span) * 100;
-  const rightPct = 100 - ((maxPrice - floor) / span) * 100;
+  const leftPct = (minPrice / sliderSpan) * 100;
+  const rightPct = 100 - (maxPrice / sliderSpan) * 100;
 
   return (
     <div className="flex flex-col h-full bg-gray-950 text-white overflow-hidden shadow-2xl">
@@ -230,7 +232,7 @@ export default function Filters({
 
               <input
                 type="range"
-                min={floor}
+                min={0}
                 max={ceil}
                 step={1}
                 value={minPrice}
@@ -244,7 +246,7 @@ export default function Filters({
               />
               <input
                 type="range"
-                min={floor}
+                min={0}
                 max={ceil}
                 step={1}
                 value={maxPrice}

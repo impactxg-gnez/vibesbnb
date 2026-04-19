@@ -615,14 +615,21 @@ export default function SearchPage() {
     [nonPriceFiltered]
   );
 
+  // Keep price range inside [0, catalog max]. When the catalog first loads, prev can be [0, 1]
+  // from the empty-list placeholder distribution — clamping hi with max(min, hi) would collapse
+  // both ends to catalog min ($96). Reset stale ranges to full span: $0 to catalog max.
   useEffect(() => {
-    const { min, max } = priceDistribution;
-    if (!Number.isFinite(min) || !Number.isFinite(max)) return;
+    const catMin = priceDistribution.min;
+    const catMax = priceDistribution.max;
+    if (!Number.isFinite(catMin) || !Number.isFinite(catMax) || catMax <= 0) return;
     setActiveFilters((prev) => {
       const lo = prev.priceRange[0];
       const hi = prev.priceRange[1];
-      const nLo = Math.min(max, Math.max(min, lo));
-      const nHi = Math.min(max, Math.max(min, hi));
+      if (hi < catMin) {
+        return { ...prev, priceRange: [0, catMax] };
+      }
+      const nLo = Math.min(catMax, Math.max(0, lo));
+      const nHi = Math.min(catMax, Math.max(0, hi));
       const adjLo = Math.min(nLo, nHi);
       const adjHi = Math.max(nLo, nHi);
       if (adjLo === lo && adjHi === hi) return prev;
@@ -653,9 +660,9 @@ export default function SearchPage() {
   const [priceRangeMin, priceRangeMax] = activeFilters.priceRange;
   const catalogMin = priceDistribution.min;
   const catalogMax = priceDistribution.max;
+  // "No price filter" = $0 through catalog max (not catalog min, so cheap stays aren't excluded by default)
   const priceFilterActive =
-    Math.round(priceRangeMin) !== Math.round(catalogMin) ||
-    Math.round(priceRangeMax) !== Math.round(catalogMax);
+    Math.round(priceRangeMin) !== 0 || Math.round(priceRangeMax) !== Math.round(catalogMax);
 
   const handlePriceRangeLive = useCallback((lo: number, hi: number) => {
     setActiveFilters((prev) => ({ ...prev, priceRange: [lo, hi] }));
