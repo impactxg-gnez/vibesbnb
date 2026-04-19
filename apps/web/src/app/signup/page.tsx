@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -14,6 +14,7 @@ export default function SignupPage() {
     accountType: 'traveler',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const submitGuardRef = useRef(false);
   const { signUp, signInWithGoogle } = useAuth();
 
   useEffect(() => {
@@ -27,6 +28,10 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submitGuardRef.current || isLoading) {
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -37,6 +42,7 @@ export default function SignupPage() {
       return;
     }
 
+    submitGuardRef.current = true;
     setIsLoading(true);
 
     // Map 'traveler' to 'traveller' for consistency, 'host' stays as 'host'
@@ -57,9 +63,10 @@ export default function SignupPage() {
     } catch (err: any) {
       console.error('Signup error:', err);
       toast.error(err.message || 'Failed to sign up');
+    } finally {
+      submitGuardRef.current = false;
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

@@ -1,19 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 import { Mail, X, Leaf } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SESSION_DISMISS_KEY = 'vibesbnb_host_pending_modal_dismissed';
+const RESEND_COOLDOWN_MS = 60_000;
 
 export function HostPendingBrowseModal() {
   const { user, loading } = useAuth();
   const pathname = usePathname() || '';
   const [open, setOpen] = useState(false);
   const [resending, setResending] = useState(false);
+  const resendInFlightRef = useRef(false);
+  const lastResendAtRef = useRef(0);
 
   const role = user?.user_metadata?.role;
   const isHostPending = role === 'host_pending';
@@ -53,6 +57,15 @@ export function HostPendingBrowseModal() {
 
   const handleResend = async () => {
     if (!user?.email) return;
+    const now = Date.now();
+    if (now - lastResendAtRef.current < RESEND_COOLDOWN_MS) {
+      const waitSec = Math.ceil((RESEND_COOLDOWN_MS - (now - lastResendAtRef.current)) / 1000);
+      toast.error(`Please wait ${waitSec}s before requesting another email.`);
+      return;
+    }
+    if (resendInFlightRef.current) return;
+    resendInFlightRef.current = true;
+    lastResendAtRef.current = now;
     setResending(true);
     try {
       const supabase = createClient();
@@ -66,9 +79,10 @@ export function HostPendingBrowseModal() {
       if (error) throw error;
       toast.success('Check your inbox for the verification link.');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Could not resend email';
-      toast.error(msg);
+      const raw = e as { message?: string; code?: string; status?: number };
+      toast.error(formatAuthErrorMessage(raw));
     } finally {
+      resendInFlightRef.current = false;
       setResending(false);
     }
   };

@@ -1,10 +1,13 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 import { Mail } from 'lucide-react';
+
+const RESEND_COOLDOWN_MS = 60_000;
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -12,6 +15,8 @@ function VerifyEmailContent() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const resendInFlightRef = useRef(false);
+  const lastResendAtRef = useRef(0);
 
   const handleResend = async () => {
     if (!email) {
@@ -19,13 +24,23 @@ function VerifyEmailContent() {
       return;
     }
 
+    const now = Date.now();
+    if (now - lastResendAtRef.current < RESEND_COOLDOWN_MS) {
+      const waitSec = Math.ceil((RESEND_COOLDOWN_MS - (now - lastResendAtRef.current)) / 1000);
+      setError(`Please wait ${waitSec}s before requesting another email (this avoids rate limits).`);
+      return;
+    }
+    if (resendInFlightRef.current) return;
+
+    resendInFlightRef.current = true;
+    lastResendAtRef.current = now;
     setLoading(true);
     setError('');
     setMessage('');
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.resend({
+      const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email,
         options: {
@@ -33,11 +48,13 @@ function VerifyEmailContent() {
         },
       });
 
-      if (error) throw error;
+      if (resendError) throw resendError;
       setMessage('Verification link resent successfully');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to resend verification link');
+      const raw = err as { message?: string; code?: string; status?: number };
+      setError(formatAuthErrorMessage(raw));
     } finally {
+      resendInFlightRef.current = false;
       setLoading(false);
     }
   };

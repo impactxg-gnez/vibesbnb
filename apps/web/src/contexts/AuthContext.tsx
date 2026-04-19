@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -8,6 +8,7 @@ import {
   isDemoAdminPersistedUser,
 } from '@/lib/supabase/adminSession';
 import { useRouter } from 'next/navigation';
+import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 
 interface AuthContextType {
   user: User | null;
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClient();
   const useSupabase = isSupabaseConfigured();
+  const signUpInFlightRef = useRef(false);
 
   const persistSavedSession = (session: Session | null) => {
     if (!session?.user?.email || typeof window === 'undefined') return;
@@ -390,17 +392,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: null, data: { user: mockUser } };
     }
     
-    const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-          role: normalizedRole,
+    if (signUpInFlightRef.current) {
+      return { error: { message: 'Signup is already in progress. Please wait a moment.' } };
+    }
+    signUpInFlightRef.current = true;
+
+    let signUpResult: { error: any; data: any };
+    try {
+      signUpResult = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+            role: normalizedRole,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
-      },
-    });
+      });
+    } finally {
+      signUpInFlightRef.current = false;
+    }
+
+    const { error: rawError, data } = signUpResult;
+    const error = rawError
+      ? { ...rawError, message: formatAuthErrorMessage(rawError) }
+      : null;
 
     if (!error && data.user) {
       const rolesStr = localStorage.getItem('userRoles');
