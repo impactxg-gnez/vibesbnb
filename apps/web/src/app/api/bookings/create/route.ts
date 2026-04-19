@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
       guest_name,
       guest_email,
       selected_units,
+      guest_agreement_accepted,
+      guest_agreement_signer_name,
     } = body;
 
     // Validate required fields
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
     // Get property to find host_id
     const { data: property, error: propertyError } = await serviceSupabase
       .from('properties')
-      .select('host_id, name, images')
+      .select('host_id, name, images, guest_agreement_url')
       .eq('id', property_id)
       .single();
 
@@ -63,6 +65,17 @@ export async function POST(request: NextRequest) {
     if (!hostId) {
       return NextResponse.json(
         { error: 'Property has no host assigned' },
+        { status: 400 }
+      );
+    }
+
+    const signer = typeof guest_agreement_signer_name === 'string' ? guest_agreement_signer_name.trim() : '';
+    if (guest_agreement_accepted !== true || signer.length < 2) {
+      return NextResponse.json(
+        {
+          error:
+            'You must accept the house rules and guest agreement and enter your full legal name before booking.',
+        },
         { status: 400 }
       );
     }
@@ -116,6 +129,9 @@ export async function POST(request: NextRequest) {
         special_requests: special_requests || null,
         payment_status: 'pending',
         selected_units: selected_units || null,
+        guest_agreement_accepted_at: new Date().toISOString(),
+        guest_agreement_signer_name: signer,
+        guest_agreement_document_url: property.guest_agreement_url || null,
       })
       .select()
       .single();

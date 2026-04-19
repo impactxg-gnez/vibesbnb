@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles, GripVertical } from 'lucide-react';
+import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles, GripVertical, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
@@ -44,6 +44,8 @@ interface Property {
   googleMapsUrl?: string;
   vibesbnb_take?: string;
   type?: string;
+  /** Public URL to guest-rules PDF (stored in Supabase Storage or external) */
+  guestAgreementUrl?: string;
 }
 
 export default function EditPropertyPage() {
@@ -72,11 +74,13 @@ export default function EditPropertyPage() {
     imagePreviewUrls: [],
     rooms: [],
     type: 'Entire House',
+    guestAgreementUrl: '',
   });
   const [rooms, setRooms] = useState<Room[]>([
     { id: Date.now().toString(), name: 'Unit 1', price: 100, guests: 2, images: [], imagePreviewUrls: [] },
   ]);
   const [isMultiUnit, setIsMultiUnit] = useState(false);
+  const [agreementUploading, setAgreementUploading] = useState(false);
 
   const availableAmenities = [
     'WiFi',
@@ -166,6 +170,7 @@ export default function EditPropertyPage() {
               rooms: propertyData.rooms || [],
               vibesbnb_take: propertyData.vibesbnb_take || '',
               type: propertyData.type || 'Entire House',
+              guestAgreementUrl: propertyData.guest_agreement_url || '',
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
@@ -242,6 +247,8 @@ export default function EditPropertyPage() {
                 rooms: property.rooms || [],
                 coordinates: property.coordinates,
                 googleMapsUrl: property.googleMapsUrl,
+                guestAgreementUrl:
+                  property.guestAgreementUrl || property.guest_agreement_url || '',
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -394,6 +401,54 @@ export default function EditPropertyPage() {
     });
   };
 
+  const handleGuestAgreementUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('PDF must be under 10 MB');
+      return;
+    }
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith('.pdf') && file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isSupabaseConfigured =
+      supabaseUrl && supabaseUrl !== '' && supabaseUrl !== 'https://placeholder.supabase.co';
+    if (!isSupabaseConfigured || !formData.id) {
+      toast.error('Supabase must be configured to upload. Run SUPABASE_GUEST_AGREEMENT_MIGRATION.sql and create bucket guest-agreements.');
+      return;
+    }
+    setAgreementUploading(true);
+    try {
+      const supabase = createClient();
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const id =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now());
+      const path = `${formData.id}/${id}-${safeName}`;
+      const { error } = await supabase.storage.from('guest-agreements').upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: 'application/pdf',
+      });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from('guest-agreements').getPublicUrl(path);
+      setFormData((prev) => ({ ...prev, guestAgreementUrl: pub.publicUrl }));
+      toast.success('Agreement uploaded. Save your listing to persist.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      toast.error(
+        `${msg} — create Storage bucket "guest-agreements" (public read) and policies, see SUPABASE_GUEST_AGREEMENT_MIGRATION.sql`
+      );
+    } finally {
+      setAgreementUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent, publish: boolean = false) => {
     e.preventDefault();
 
@@ -501,6 +556,7 @@ export default function EditPropertyPage() {
             longitude: formData.coordinates?.lng,
             google_maps_url: formData.googleMapsUrl,
             vibesbnb_take: formData.vibesbnb_take,
+            guest_agreement_url: formData.guestAgreementUrl?.trim() || null,
             status: newStatus,
             updated_at: new Date().toISOString(),
           })
@@ -537,6 +593,8 @@ export default function EditPropertyPage() {
                 rooms: roomsData,
                 coordinates: formData.coordinates,
                 googleMapsUrl: formData.googleMapsUrl,
+                guestAgreementUrl: formData.guestAgreementUrl,
+                guest_agreement_url: formData.guestAgreementUrl,
                 status: newStatus,
               }
             : p
@@ -574,6 +632,8 @@ export default function EditPropertyPage() {
                 rooms: roomsData,
                 coordinates: formData.coordinates,
                 googleMapsUrl: formData.googleMapsUrl,
+                guestAgreementUrl: formData.guestAgreementUrl,
+                guest_agreement_url: formData.guestAgreementUrl,
                 status: newStatus,
               }
             : p
@@ -1101,6 +1161,60 @@ export default function EditPropertyPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Guest agreement PDF — guests must accept platform terms + this file on booking */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-2 flex items-center gap-2">
+              <FileText size={22} className="text-emerald-500 shrink-0" />
+              Guest rules agreement (PDF)
+            </h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Optional but recommended: upload your building or house rules (e.g. no smoking inside, quiet hours).
+              Every guest must read and electronically sign—along with VibesBNB standard rules—before requesting a
+              booking. This helps reduce liability and compliance risk.
+            </p>
+            {formData.guestAgreementUrl ? (
+              <div className="space-y-3">
+                <a
+                  href={formData.guestAgreementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:text-emerald-300 text-sm break-all inline-block"
+                >
+                  {formData.guestAgreementUrl}
+                </a>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, guestAgreementUrl: '' }))
+                    }
+                    className="text-sm text-red-400 hover:text-red-300"
+                  >
+                    Remove file (save listing to update)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label
+                className={`inline-flex items-center gap-2 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:border-emerald-500 transition ${!formData.id ? 'opacity-50 pointer-events-none' : ''}`}
+              >
+                <Upload size={18} />
+                {agreementUploading ? 'Uploading…' : 'Upload PDF (max 10 MB)'}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="hidden"
+                  disabled={agreementUploading || !formData.id}
+                  onChange={handleGuestAgreementUpload}
+                />
+              </label>
+            )}
+            <p className="text-xs text-gray-500 mt-3">
+              Run <code className="text-gray-400">SUPABASE_GUEST_AGREEMENT_MIGRATION.sql</code> and create a public
+              Storage bucket named <code className="text-gray-400">guest-agreements</code> if uploads fail.
+            </p>
           </div>
 
           {formData.id && (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, DollarSign, ArrowLeft, CreditCard } from 'lucide-react';
+import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -14,6 +14,7 @@ import {
   startOfTodayLocal,
   todayLocalYmd,
 } from '@/lib/dateUtils';
+import { buildGuestAgreementNotice } from '@/lib/guestAgreementCopy';
 
 interface Property {
   id: string;
@@ -24,6 +25,9 @@ interface Property {
   guests: number;
   host_id?: string;
   cleaningFee?: number;
+  /** Host-uploaded PDF URL (optional); snapshot stored on booking */
+  guest_agreement_url?: string | null;
+  smoking_inside_allowed?: boolean;
   rooms?: Array<{
     id: string;
     name: string;
@@ -52,6 +56,8 @@ export default function NewBookingPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [availability, setAvailability] = useState<Record<string, string[]>>({});
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
+  const [agreementSignerName, setAgreementSignerName] = useState('');
 
   // Initialize with URL params if available
   const initialCheckIn = searchParams.get('checkIn') || '';
@@ -78,6 +84,16 @@ export default function NewBookingPage() {
     }
   }, [propertyId, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const meta = user.user_metadata as { full_name?: string } | undefined;
+    if (meta?.full_name) {
+      setAgreementSignerName(String(meta.full_name));
+    } else if (user.email) {
+      setAgreementSignerName(user.email.split('@')[0]);
+    }
+  }, [user]);
+
   const loadProperty = async () => {
     setLoading(true);
     try {
@@ -103,6 +119,8 @@ export default function NewBookingPage() {
         images: propertyData.images || [],
         guests: propertyData.guests || 1,
         host_id: propertyData.host_id,
+        guest_agreement_url: propertyData.guest_agreement_url ?? null,
+        smoking_inside_allowed: propertyData.smoking_inside_allowed === true,
         cleaningFee:
           propertyData.cleaning_fee != null
             ? Number(propertyData.cleaning_fee)
@@ -233,6 +251,14 @@ export default function NewBookingPage() {
       return;
     }
 
+    const signed = agreementSignerName.trim();
+    if (!agreementAccepted || signed.length < 2) {
+      toast.error(
+        'Please read the house rules agreement, check the box, and enter your full legal name as it appears on your ID.'
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const supabase = createClient();
@@ -283,6 +309,8 @@ export default function NewBookingPage() {
           guest_name: user.user_metadata?.full_name || user.email || 'Guest',
           guest_email: user.email || '',
           selected_units: selectedUnits.length > 0 ? selectedUnits : null,
+          guest_agreement_accepted: true,
+          guest_agreement_signer_name: signed,
         }),
       });
 
@@ -324,6 +352,13 @@ export default function NewBookingPage() {
   }
 
   const priceBreakdown = calculateTotal();
+  const agreementNotice = property
+    ? buildGuestAgreementNotice({
+        propertyName: property.name,
+        smokingInsideAllowed: property.smoking_inside_allowed === true,
+        hostAgreementUrl: property.guest_agreement_url || null,
+      })
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-950 py-8">
@@ -438,6 +473,60 @@ export default function NewBookingPage() {
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
                 />
               </div>
+
+              {/* Guest agreement (required for every booking) */}
+              {agreementNotice && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-4">
+                  <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                    <FileText size={20} />
+                    {agreementNotice.title}
+                  </div>
+                  <ul className="list-disc list-inside text-sm text-gray-300 space-y-2">
+                    {agreementNotice.bullets.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                  {property.guest_agreement_url ? (
+                    <a
+                      href={property.guest_agreement_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300"
+                    >
+                      <ExternalLink size={16} />
+                      Open host agreement (PDF)
+                    </a>
+                  ) : null}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Full legal name (signing guest)
+                    </label>
+                    <input
+                      type="text"
+                      value={agreementSignerName}
+                      onChange={(e) => setAgreementSignerName(e.target.value)}
+                      autoComplete="name"
+                      required
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 text-white"
+                      placeholder="As on government ID"
+                    />
+                  </div>
+                  <label className="flex items-start gap-3 cursor-pointer text-sm text-gray-200">
+                    <input
+                      type="checkbox"
+                      checked={agreementAccepted}
+                      onChange={(e) => setAgreementAccepted(e.target.checked)}
+                      className="mt-1 rounded border-gray-600 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>
+                      I have read and agree to the house rules and guest agreement above
+                      {property.guest_agreement_url ? ', including the host PDF if provided,' : ''} on behalf of
+                      myself and my party. I understand this helps protect hosts from liability and keeps stays
+                      compliant with building rules.
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <button
                 type="submit"
