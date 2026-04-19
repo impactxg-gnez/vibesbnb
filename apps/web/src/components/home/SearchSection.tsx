@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +34,7 @@ interface SearchSectionProps {
 
 export function SearchSection({ className = '', initialValues, enableNegativeMargin = true }: SearchSectionProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialValues?.categories || []);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
@@ -171,6 +172,24 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     };
   }, [showLocationDropdown]);
 
+  /** Merge current form state into query params (preserves unrelated keys like `sort`). */
+  const applySearchFormToParams = (params: URLSearchParams, categories: string[]) => {
+    if (selectedLocation) params.set('location', selectedLocation);
+    else params.delete('location');
+    if (checkIn) params.set('checkIn', checkIn);
+    else params.delete('checkIn');
+    if (checkOut) params.set('checkOut', checkOut);
+    else params.delete('checkOut');
+    if (guests) params.set('guests', guests.toString());
+    else params.delete('guests');
+    if (kids > 0) params.set('kids', kids.toString());
+    else params.delete('kids');
+    if (pets > 0) params.set('pets', pets.toString());
+    else params.delete('pets');
+    if (categories.length > 0) params.set('categories', categories.join(','));
+    else params.delete('categories');
+  };
+
   const toggleCategory = (id: string) => {
     const newCategories = selectedCategories.includes(id) 
       ? selectedCategories.filter(c => c !== id) 
@@ -178,13 +197,11 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     
     setSelectedCategories(newCategories);
     
-    // Immediate search update for categories
+    // Start from current URL so we keep sort/filters, then overlay form fields.
+    // On the home page `search` is empty — without this, only `categories` is sent and
+    // location / dates / travellers entered on the hero are lost.
     const params = new URLSearchParams(window.location.search);
-    if (newCategories.length > 0) {
-      params.set('categories', newCategories.join(','));
-    } else {
-      params.delete('categories');
-    }
+    applySearchFormToParams(params, newCategories);
     router.push(`/search?${params.toString()}`);
   };
 
@@ -207,15 +224,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (selectedLocation) params.set('location', selectedLocation);
-    if (checkIn) params.set('checkIn', checkIn);
-    if (checkOut) params.set('checkOut', checkOut);
-    if (guests) params.set('guests', guests.toString());
-    if (kids > 0) params.set('kids', kids.toString());
-    if (pets > 0) params.set('pets', pets.toString());
-    if (selectedCategories.length > 0) {
-      params.set('categories', selectedCategories.join(','));
-    }
+    applySearchFormToParams(params, selectedCategories);
     router.push(`/search?${params.toString()}`);
   };
 
@@ -300,7 +309,15 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
         {/* Categories at Top */}
         <div className="flex items-center gap-2 overflow-x-auto pb-6 scrollbar-hide -mx-2 px-2 border-b border-white/5 mb-8">
           <button
-            onClick={() => setSelectedCategories([])}
+            type="button"
+            onClick={() => {
+              setSelectedCategories([]);
+              if (pathname === '/search') {
+                const params = new URLSearchParams(window.location.search);
+                applySearchFormToParams(params, []);
+                router.push(`/search?${params.toString()}`);
+              }
+            }}
             className={`flex flex-col items-center gap-2 px-6 py-2 rounded-xl transition-all min-w-fit ${selectedCategories.length === 0
               ? 'text-primary-500 border-b-2 border-primary-500 font-bold bg-white/5'
               : 'text-muted hover:text-white'
@@ -311,6 +328,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
           </button>
           {categories.map((category) => (
             <button
+              type="button"
               key={category.id}
               onClick={() => toggleCategory(category.id)}
               className={`flex flex-col items-center gap-2 px-6 py-2 rounded-xl transition-all min-w-fit ${selectedCategories.includes(category.id)
