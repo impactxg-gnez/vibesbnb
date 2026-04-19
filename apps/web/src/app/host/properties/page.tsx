@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed } from 'lucide-react';
 import { validateProperty, getMissingFieldsSummary, canPublish, PropertyValidation } from '@/lib/property-validation';
 
 interface BookingSummaryItem {
@@ -20,6 +20,12 @@ interface BookingSummaryItem {
 import PropertiesMap from '@/components/PropertiesMap';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import {
+  getHostScopeUserId,
+  getHostScopeUserIdFromAuthOnly,
+  onImpersonationChanged,
+} from '@/lib/adminHostImpersonation';
+import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 
 interface Property {
   id: string;
@@ -85,6 +91,9 @@ export default function HostPropertiesPage() {
   } | null>(null);
   const [bookingActionLoading, setBookingActionLoading] = useState<string | null>(null);
   const [hasPayoutSettings, setHasPayoutSettings] = useState<boolean | null>(null);
+  const [hostScopeRevision, setHostScopeRevision] = useState(0);
+
+  useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -110,7 +119,8 @@ export default function HostPropertiesPage() {
         supabaseUrl !== 'https://placeholder.supabase.co';
 
       if (isSupabaseConfigured) {
-        const propertiesKey = `properties_${user.id}`;
+        const scopeId = getHostScopeUserIdFromAuthOnly(user) || user.id;
+        const propertiesKey = `properties_${scopeId}`;
         const cachedProperties = localStorage.getItem(propertiesKey);
         if (cachedProperties) {
           try {
@@ -142,7 +152,7 @@ export default function HostPropertiesPage() {
 
       loadProperties();
     }
-  }, [user]);
+  }, [user, hostScopeRevision]);
 
   const loadProperties = useCallback(async () => {
     if (!user) return;
@@ -200,12 +210,13 @@ export default function HostPropertiesPage() {
       }
 
       if (supabaseUser) {
+        const hostScopeId = getHostScopeUserId(user, supabaseUser.id);
         // Fetch properties from Supabase
-        console.log('[Properties] Loading properties for host_id:', supabaseUser.id);
+        console.log('[Properties] Loading properties for host_id:', hostScopeId);
         const { data: propertiesData, error } = await supabase
           .from('properties')
           .select('*')
-          .eq('host_id', supabaseUser.id)
+          .eq('host_id', hostScopeId)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -262,7 +273,7 @@ export default function HostPropertiesPage() {
           }
 
           // Always check localStorage as backup/fallback
-          const savedProperties = localStorage.getItem(`properties_${user.id}`);
+          const savedProperties = localStorage.getItem(`properties_${hostScopeId}`);
           if (savedProperties) {
             try {
               const localStorageProperties = JSON.parse(savedProperties);
@@ -331,7 +342,7 @@ export default function HostPropertiesPage() {
                   .from('properties')
                   .update({ status: 'draft', updated_at: new Date().toISOString() })
                   .eq('id', prop.id)
-                  .eq('host_id', supabaseUser.id);
+                  .eq('host_id', hostScopeId);
                 
                 if (error) {
                   console.error('[Properties] Failed to auto-unpublish:', prop.id, error);
@@ -353,14 +364,14 @@ export default function HostPropertiesPage() {
 
             setProperties(finalProperties);
             // Sync back to localStorage to ensure persistence (includes both Supabase and localStorage properties)
-            localStorage.setItem(`properties_${user.id}`, JSON.stringify(finalProperties));
+            localStorage.setItem(`properties_${hostScopeId}`, JSON.stringify(finalProperties));
             console.log('[Properties] Synced', finalProperties.length, 'properties to localStorage');
             // Load stats after properties are loaded
             setTimeout(() => loadStats(), 100);
           } else {
             // No properties found in Supabase - check localStorage one more time
-            console.log('[Properties] No properties found in Supabase for host_id:', supabaseUser.id);
-            const savedProperties = localStorage.getItem(`properties_${user.id}`);
+            console.log('[Properties] No properties found in Supabase for host_id:', hostScopeId);
+            const savedProperties = localStorage.getItem(`properties_${hostScopeId}`);
             if (savedProperties) {
               try {
                 const localStorageProperties = JSON.parse(savedProperties);
@@ -403,8 +414,8 @@ export default function HostPropertiesPage() {
 
             if (!allError && allProperties) {
               console.log('[Properties] All properties in database:', allProperties);
-              console.log('[Properties] Current user ID:', supabaseUser.id);
-              console.log('[Properties] Properties with matching host_id:', allProperties.filter(p => p.host_id === supabaseUser.id));
+              console.log('[Properties] Current host scope ID:', hostScopeId);
+              console.log('[Properties] Properties with matching host_id:', allProperties.filter(p => p.host_id === hostScopeId));
             }
 
             // No properties found anywhere - show empty state
@@ -431,7 +442,8 @@ export default function HostPropertiesPage() {
 
 
   const loadFromLocalStorage = () => {
-    const savedProperties = localStorage.getItem(`properties_${user?.id}`);
+    const scopeId = user ? getHostScopeUserIdFromAuthOnly(user) || user.id : '';
+    const savedProperties = localStorage.getItem(`properties_${scopeId}`);
     if (savedProperties) {
       try {
         const parsedProperties = JSON.parse(savedProperties);
@@ -482,11 +494,12 @@ export default function HostPropertiesPage() {
       }
 
       if (supabaseUser) {
+        const hostScopeId = getHostScopeUserId(user!, supabaseUser.id);
         // Get all properties for this host
         const { data: propertiesData } = await supabase
           .from('properties')
           .select('id, status')
-          .eq('host_id', supabaseUser.id);
+          .eq('host_id', hostScopeId);
 
         const totalProperties = propertiesData?.length || 0;
         const activeListings = propertiesData?.filter(p => p.status === 'active').length || 0;
@@ -496,7 +509,7 @@ export default function HostPropertiesPage() {
         const { data: bookingsData, error: bookingsError } = await supabase
           .from('bookings')
           .select('id,status,total_price,created_at,check_in,check_out,guest_name,property_name,property_id,host_id')
-          .eq('host_id', supabaseUser.id);
+          .eq('host_id', hostScopeId);
 
         if (bookingsError) {
           console.error('[Stats] Bookings query failed:', bookingsError);
@@ -513,7 +526,7 @@ export default function HostPropertiesPage() {
           return;
         }
 
-        const rows = (bookingsData || []).filter((b) => b.host_id === supabaseUser.id);
+        const rows = (bookingsData || []).filter((b) => b.host_id === hostScopeId);
 
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -579,7 +592,7 @@ export default function HostPropertiesPage() {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  }, [user]);
+  }, [user, hostScopeRevision]);
 
   useEffect(() => {
     if (user && properties.length >= 0) {
@@ -676,12 +689,13 @@ export default function HostPropertiesPage() {
 
   useEffect(() => {
     if (!user) return;
+    const scopeId = getHostScopeUserIdFromAuthOnly(user) || user.id;
     const supabase = createClient();
     const channel = supabase
-      .channel(`host-summary-${user.id}`)
+      .channel(`host-summary-${scopeId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'bookings', filter: `host_id=eq.${user.id}` },
+        { event: '*', schema: 'public', table: 'bookings', filter: `host_id=eq.${scopeId}` },
         () => {
           loadStats();
         }
@@ -691,7 +705,7 @@ export default function HostPropertiesPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, hostScopeRevision, loadStats]);
 
   const clearSelectedProperties = () => setSelectedProperties([]);
 
@@ -725,11 +739,12 @@ export default function HostPropertiesPage() {
       }
 
       if (supabaseUser) {
+        const hostScopeId = getHostScopeUserId(user, supabaseUser.id);
         const { error } = await supabase
           .from('properties')
           .delete()
           .in('id', idsToDelete)
-          .eq('host_id', supabaseUser.id);
+          .eq('host_id', hostScopeId);
 
         if (error) {
           throw error;
@@ -742,7 +757,10 @@ export default function HostPropertiesPage() {
       setProperties(updatedProperties);
 
       if (user) {
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        const scopeKey = supabaseUser
+          ? getHostScopeUserId(user, supabaseUser.id)
+          : getHostScopeUserIdFromAuthOnly(user) || user.id;
+        localStorage.setItem(`properties_${scopeKey}`, JSON.stringify(updatedProperties));
       }
 
       setSelectedProperties([]);
@@ -795,8 +813,8 @@ export default function HostPropertiesPage() {
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
       // Use Supabase user ID if available, otherwise use demo user ID
-      // This ensures properties are correctly associated with the right host
-      const userId = supabaseUser?.id || user.id;
+      // Admins supporting a host use the impersonation scope for host_id
+      const userId = supabaseUser ? getHostScopeUserId(user, supabaseUser.id) : user.id;
 
       // Create imported property with scraped data
       // Generate a unique ID that includes user ID to avoid conflicts
@@ -907,11 +925,12 @@ export default function HostPropertiesPage() {
       }
 
       if (supabaseUser) {
+        const hostScopeId = getHostScopeUserId(user!, supabaseUser.id);
         const { error } = await supabase
           .from('properties')
           .update({ status: newStatus, updated_at: new Date().toISOString() })
           .eq('id', id)
-          .eq('host_id', supabaseUser.id);
+          .eq('host_id', hostScopeId);
 
         if (error) {
           throw error;
@@ -926,7 +945,10 @@ export default function HostPropertiesPage() {
       setProperties(updatedProperties);
 
       if (user) {
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        const scopeKey = supabaseUser
+          ? getHostScopeUserId(user, supabaseUser.id)
+          : getHostScopeUserIdFromAuthOnly(user) || user.id;
+        localStorage.setItem(`properties_${scopeKey}`, JSON.stringify(updatedProperties));
         console.log('[Toggle Publish] Property status synced to localStorage');
       }
 
@@ -950,11 +972,12 @@ export default function HostPropertiesPage() {
       }
 
       if (supabaseUser) {
+        const hostScopeId = getHostScopeUserId(user!, supabaseUser.id);
         const { error } = await supabase
           .from('properties')
           .delete()
           .eq('id', id)
-          .eq('host_id', supabaseUser.id);
+          .eq('host_id', hostScopeId);
 
         if (error) {
           throw error;
@@ -967,7 +990,10 @@ export default function HostPropertiesPage() {
       setProperties(updatedProperties);
 
       if (user) {
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        const scopeKey = supabaseUser
+          ? getHostScopeUserId(user, supabaseUser.id)
+          : getHostScopeUserIdFromAuthOnly(user) || user.id;
+        localStorage.setItem(`properties_${scopeKey}`, JSON.stringify(updatedProperties));
       }
 
       loadStats();
@@ -994,11 +1020,13 @@ export default function HostPropertiesPage() {
     const supabase = createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
-    if (!supabaseUser) {
+    if (!supabaseUser || !user) {
       toast.error('You must be logged in to update locations');
       setUpdatingLocations(false);
       return;
     }
+
+    const hostScopeId = getHostScopeUserId(user, supabaseUser.id);
 
     let successCount = 0;
     let errorCount = 0;
@@ -1042,7 +1070,7 @@ export default function HostPropertiesPage() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', prop.id)
-        .eq('host_id', supabaseUser.id);
+        .eq('host_id', hostScopeId);
 
       if (error) {
         console.error(`[Add Google Location] Error updating ${prop.name}:`, error);
@@ -1126,6 +1154,7 @@ export default function HostPropertiesPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 py-12">
+      <HostImpersonationBanner />
       <div className="container mx-auto px-4">
         {/* Payout Settings Reminder Banner */}
         {hasPayoutSettings === false && (
@@ -1158,6 +1187,49 @@ export default function HostPropertiesPage() {
             </div>
           </div>
         )}
+
+        {/* Total beds — helps guests compare listings; separate from bedroom count */}
+        {(() => {
+          const missingBeds = properties.filter(
+            (p) =>
+              p.status !== 'inactive' &&
+              !(typeof p.beds === 'number' && p.beds >= 1)
+          );
+          if (missingBeds.length === 0) return null;
+          return (
+            <div className="mb-6 bg-sky-500/10 border border-sky-500/35 rounded-2xl p-5">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-sky-500/20 flex items-center justify-center shrink-0">
+                  <Bed className="text-sky-300" size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sky-200 font-bold text-lg mb-1">Add total beds for your listings</h3>
+                  <p className="text-sky-100/75 text-sm mb-3">
+                    Guests see bedrooms and <strong className="text-sky-100">total beds</strong> separately (e.g. 2
+                    bedrooms with 4 beds). Add the bed count on each property so search filters and listing details stay
+                    accurate.
+                  </p>
+                  <ul className="space-y-2">
+                    {missingBeds.slice(0, 8).map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-white font-medium truncate max-w-[220px] sm:max-w-xs">{p.name}</span>
+                        <Link
+                          href={`/host/properties/${p.id}/edit`}
+                          className="text-sky-300 hover:text-sky-200 font-semibold underline underline-offset-2"
+                        >
+                          Edit listing
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  {missingBeds.length > 8 && (
+                    <p className="text-sky-200/60 text-xs mt-2">+ {missingBeds.length - 8} more — open each listing to add beds.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

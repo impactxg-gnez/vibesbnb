@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { getHostScopeUserId } from '@/lib/adminHostImpersonation';
+import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import LocationPicker from '@/components/LocationPicker';
 import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
@@ -108,7 +110,7 @@ export default function NewPropertyPage() {
     location: '',
     bedrooms: 1,
     bathrooms: 1,
-    beds: 1,
+    beds: null as number | null,
     guests: 2,
     price: 100,
     wellnessFriendly: false,
@@ -272,7 +274,8 @@ export default function NewPropertyPage() {
         allImageUrls.push(...room.imagePreviewUrls);
       }
 
-      const userId = supabaseUser?.id || user.id;
+      const userId =
+        supabaseUser && user ? getHostScopeUserId(user, supabaseUser.id) : user.id;
       const propertyId = `${userId}_${Date.now()}`;
 
       // Get the display type from property type
@@ -291,7 +294,7 @@ export default function NewPropertyPage() {
         amenities: formData.amenities,
         bedrooms: formData.bedrooms,
         bathrooms: formData.bathrooms,
-        beds: formData.beds,
+        beds: formData.beds != null && formData.beds >= 1 ? formData.beds : null,
         guests: formData.guests,
         status: 'pending_approval', // Requires admin approval
         type: propertyTypeLabel,
@@ -325,7 +328,7 @@ export default function NewPropertyPage() {
         // Create admin notification
         try {
           await supabase.from('notifications').insert({
-            user_id: supabaseUser.id,
+            user_id: userId,
             type: 'property_submitted',
             title: 'Property Submitted for Review',
             message: `Your property "${formData.name}" has been submitted and is pending admin approval.`,
@@ -616,7 +619,7 @@ export default function NewPropertyPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <div>
             <label className="block text-gray-400 text-sm mb-2">Guests</label>
             <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
@@ -660,24 +663,44 @@ export default function NewPropertyPage() {
           </div>
 
           <div>
-            <label className="block text-gray-400 text-sm mb-2">Beds</label>
+            <label className="block text-gray-400 text-sm mb-2">
+              Total beds <span className="text-gray-600">(optional)</span>
+            </label>
             <div className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, beds: Math.max(1, formData.beds - 1) })}
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    beds:
+                      formData.beds == null
+                        ? null
+                        : formData.beds <= 1
+                          ? null
+                          : formData.beds - 1,
+                  })
+                }
                 className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
               >
                 −
               </button>
-              <span className="text-white font-medium">{formData.beds}</span>
+              <span className="text-white font-medium min-w-[2rem] text-center">
+                {formData.beds == null ? '—' : formData.beds}
+              </span>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, beds: formData.beds + 1 })}
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    beds: formData.beds == null ? 1 : formData.beds + 1,
+                  })
+                }
                 className="w-8 h-8 rounded-full border border-gray-600 text-white hover:bg-gray-700 flex items-center justify-center"
               >
                 +
               </button>
             </div>
+            <p className="text-xs text-gray-500 mt-1.5">Sofas, bunk beds, etc. Can differ from bedrooms.</p>
           </div>
 
           <div>
@@ -967,8 +990,12 @@ export default function NewPropertyPage() {
               <span>{formData.guests} guests</span>
               <span>•</span>
               <span>{formData.bedrooms} bedrooms</span>
-              <span>•</span>
-              <span>{formData.beds} beds</span>
+              {formData.beds != null && (
+                <>
+                  <span>•</span>
+                  <span>{formData.beds} beds</span>
+                </>
+              )}
               <span>•</span>
               <span>{formData.bathrooms} bathrooms</span>
             </div>
@@ -1039,6 +1066,7 @@ export default function NewPropertyPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
+      <HostImpersonationBanner />
       {/* Header */}
       {currentStep > 0 && (
         <header className="fixed top-0 left-0 right-0 h-16 bg-gray-950/95 backdrop-blur border-b border-gray-800 z-50 flex items-center justify-between px-6">

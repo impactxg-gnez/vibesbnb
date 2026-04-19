@@ -10,7 +10,6 @@ import { isAdminUser } from '@/lib/auth/isAdmin';
 import {
   LayoutDashboard,
   Users,
-  Home,
   Calendar,
   Star,
   FileText,
@@ -27,6 +26,7 @@ import {
   Building,
   UserPlus,
   Image,
+  Sparkles,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -113,7 +113,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
     { label: 'Host Registrations', href: '/admin/hosts', icon: <UserPlus className="w-5 h-5" /> },
     { label: 'Dispensary Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
-    { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
+      { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
     { label: 'Property Approvals', href: '/admin/listings', icon: <Building className="w-5 h-5" /> },
     { label: 'Profile Pictures', href: '/admin/profile-pictures', icon: <Image className="w-5 h-5" /> },
     { label: 'Manage Reservations', href: '/admin/reservations', icon: <Calendar className="w-5 h-5" /> },
@@ -132,6 +132,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Report Management', href: '/admin/reports', icon: <FileText className="w-5 h-5" /> },
     { label: 'Manage Payout', href: '/admin/payouts', icon: <Settings className="w-5 h-5" /> },
     { label: 'Search Settings', href: '/admin/search-settings', icon: <Search className="w-5 h-5" /> },
+    { label: 'Featured Vibes', href: '/admin/featured-retreats', icon: <Sparkles className="w-5 h-5" /> },
     { label: 'Upload Hero Image', href: '/admin/upload-hero-image', icon: <Upload className="w-5 h-5" /> },
     { label: 'Change Password', href: '/admin/change-password', icon: <Lock className="w-5 h-5" /> },
   ];

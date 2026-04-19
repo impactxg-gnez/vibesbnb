@@ -17,7 +17,6 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: any; data?: any }>;
   signOut: (options?: { preserveSavedAccounts?: boolean }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
-  signInWithGithub: () => Promise<void>;
 }
 
 // Demo accounts for testing
@@ -391,18 +390,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: null, data: { user: mockUser } };
     }
     
-    // Host signup uses /signup + /api/auth/register-host (pre-confirmed session + listing flow)
-    if (normalizedRole === 'host') {
-      router.push('/signup?type=host');
-      return {
-        error: {
-          message:
-            'Host signup uses the Create Account page — choose “List my property” to add your property next.',
-        },
-        data: null,
-      };
-    }
-
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -468,18 +455,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const signInWithGithub = async () => {
-    if (!useSupabase) {
-      throw new Error('OAuth is only available with Supabase. Please use demo accounts or set up Supabase.');
-    }
-    await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-  };
-
   const value = {
     user,
     session,
@@ -488,7 +463,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signOut,
     signInWithGoogle,
-    signInWithGithub,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

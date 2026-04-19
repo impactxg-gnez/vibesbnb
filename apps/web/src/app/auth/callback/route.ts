@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { syncProfileFromAuthUser } from '@/lib/supabase/syncProfileFromAuthUser';
 import { NextResponse } from 'next/server';
 
 function baseUrl(request: Request): string {
@@ -30,6 +31,8 @@ export async function GET(request: Request) {
         data: { user },
       } = await supabase.auth.getUser();
 
+      await syncProfileFromAuthUser(user);
+
       const isEmailVerification =
         type === 'signup' ||
         type === 'email' ||
@@ -37,6 +40,10 @@ export async function GET(request: Request) {
           new Date(user.email_confirmed_at).getTime() > Date.now() - 5 * 60 * 1000);
 
       if (isEmailVerification) {
+        const userRole = user?.user_metadata?.role;
+        if (userRole === 'host' || userRole === 'host_pending') {
+          return NextResponse.redirect(`${base}/host/properties`);
+        }
         const celebrate = new URL('/auth/verify-success', base);
         if (next) {
           celebrate.searchParams.set('next', next);
@@ -50,7 +57,7 @@ export async function GET(request: Request) {
 
       const userRole = user?.user_metadata?.role;
       if (userRole === 'host_pending') {
-        return NextResponse.redirect(`${base}/host/properties/new`);
+        return NextResponse.redirect(`${base}/host/properties`);
       }
       if (userRole === 'host') {
         return NextResponse.redirect(`${base}/host/properties`);

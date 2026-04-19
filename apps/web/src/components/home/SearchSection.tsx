@@ -3,10 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
-import Link from 'next/link';
-import { toast } from 'react-hot-toast';
 import { Bed, Home, Building, Trees, Sparkles } from 'lucide-react';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
@@ -35,7 +32,6 @@ interface SearchSectionProps {
 export function SearchSection({ className = '', initialValues, enableNegativeMargin = true }: SearchSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialValues?.categories || []);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -49,9 +45,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   const [pets, setPets] = useState(initialValues?.pets || 0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAiMode, setIsAiMode] = useState(false);
-  const [aiQuery, setAiQuery] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiResults, setAiResults] = useState<any[]>([]);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -228,33 +221,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     router.push(`/search?${params.toString()}`);
   };
 
-  const handleAiSearch = async () => {
-    if (!aiQuery.trim()) return;
-
-    setIsAiLoading(true);
-    setAiResults([]);
-
-    try {
-      const response = await fetch('/api/ai/suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: aiQuery }),
-      });
-
-      const data = await response.json();
-      if (data.results) {
-        setAiResults(data.results);
-      } else {
-        toast.error(data.error || 'AI search failed');
-      }
-    } catch (error) {
-      console.error('AI search error:', error);
-      toast.error('Something went wrong');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const filteredLocations = locations.filter(loc =>
     loc.toLowerCase().includes(selectedLocation.toLowerCase())
   );
@@ -262,6 +228,12 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   const displayLocations = (selectedLocation === '' || locations.includes(selectedLocation)) 
     ? locations 
     : filteredLocations;
+
+  const locationHeadingPart = selectedLocation.trim();
+  const searchHeading =
+    locationHeadingPart.length > 0
+      ? `Find your ${locationHeadingPart} vibe`
+      : 'Find Your Perfect Stay';
 
   return (
     <div className={`container mx-auto px-3 md:px-6 ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-30 pb-12 md:pb-20 ${className}`}>
@@ -273,7 +245,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 md:mb-6">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
-            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white">Find Your Perfect Stay</h2>
+            <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white break-words">{searchHeading}</h2>
             <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={() => setIsAiMode(false)}
@@ -282,11 +254,21 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                 Standard
               </button>
               <button
+                type="button"
                 onClick={() => setIsAiMode(true)}
                 className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${isAiMode ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]' : 'text-muted hover:text-white'}`}
               >
                 <Sparkles size={12} />
                 AI Vibe Search
+                <span
+                  className={`ml-0.5 text-[9px] font-black uppercase tracking-tight px-1.5 py-0.5 rounded-md border ${
+                    isAiMode
+                      ? 'border-white/30 bg-white/10 text-white'
+                      : 'border-purple-500/40 bg-purple-500/15 text-purple-300'
+                  }`}
+                >
+                  Soon
+                </span>
               </button>
             </div>
           </div>
@@ -349,74 +331,28 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
             {/* Search Inputs */}
             <div className="relative space-y-8">
               {isAiMode ? (
-                <div className="space-y-6">
-                  <div className="relative">
-                    <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1 mb-3">Describe your vibe</label>
-                    <div className="relative group">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-primary-500 rounded-2xl blur opacity-25 group-focus-within:opacity-50 transition duration-1000"></div>
-                      <div className="relative flex flex-col sm:flex-row sm:items-stretch bg-gray-900 rounded-2xl border border-white/10 overflow-hidden">
-                        <div className="flex items-center flex-1 min-w-0">
-                          <div className="pl-4 sm:pl-6 text-purple-500 shrink-0">
-                            <Sparkles size={20} />
-                          </div>
-                          <input
-                            type="text"
-                            value={aiQuery}
-                            onChange={(e) => setAiQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
-                            placeholder="e.g. 'Looking for a peaceful mountain cabin for 4 with a hot tub and amazing views'"
-                            className="w-full min-w-0 bg-transparent px-3 sm:px-6 py-4 sm:py-5 text-white placeholder-white/20 focus:outline-none font-medium text-base"
-                          />
-                        </div>
-                        <button
-                          onClick={handleAiSearch}
-                          disabled={isAiLoading || !aiQuery.trim()}
-                          className="m-2 sm:m-2 sm:ml-0 sm:self-center px-6 sm:px-8 py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 shrink-0"
-                        >
-                          {isAiLoading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          ) : (
-                            <>
-                              <span>Inspire Me</span>
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                              </svg>
-                            </>
-                          )}
-                        </button>
-                      </div>
+                <div className="relative overflow-hidden rounded-2xl border border-purple-500/25 bg-gradient-to-b from-purple-950/40 to-gray-950/80 p-8 md:p-12 text-center">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(147,51,234,0.2),_transparent_55%)]" aria-hidden />
+                  <div className="relative space-y-5 max-w-lg mx-auto">
+                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600/20 border border-purple-500/30 text-purple-300">
+                      <Sparkles className="w-7 h-7" strokeWidth={1.5} />
                     </div>
-                  </div>
-
-                  {/* AI Results */}
-                  {aiResults.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-300/90 mb-2">AI vibe search</p>
+                      <h3 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Coming soon</h3>
+                    </div>
+                    <p className="text-muted text-sm md:text-base leading-relaxed">
+                      Describe the stay you want in plain language and we&apos;ll match you with listings that fit the mood. We&apos;re finishing this experience — use{' '}
+                      <span className="text-white font-semibold">Standard</span> search below for now.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAiMode(false)}
+                      className="mt-2 w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary-500 text-black font-bold hover:bg-primary-400 transition-colors shadow-[0_0_24px_rgba(16,185,129,0.25)]"
                     >
-                      {aiResults.map((result, i) => (
-                        <Link
-                          key={result.id}
-                          href={`/listings/${result.id}`}
-                          className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 transition-all group"
-                        >
-                          <div className="flex gap-4">
-                            <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
-                              <img src={result.images[0]} alt={result.name} className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-white font-bold truncate group-hover:text-primary-500 transition-colors">{result.name}</h4>
-                              <p className="text-muted text-xs truncate mb-2">{result.location}</p>
-                              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-2">
-                                <p className="text-[10px] text-purple-300 italic line-clamp-2">" {result.matchReason} "</p>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
-                      ))}
-                    </motion.div>
-                  )}
+                      Back to standard search
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">

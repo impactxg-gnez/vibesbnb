@@ -55,6 +55,81 @@ interface UrlEntry {
   error?: string;
 }
 
+/** URLs that should use listing scrape (not raw CSV fetch). */
+function isExternalListingUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw.trim());
+    const h = u.hostname.toLowerCase();
+    return (
+      h.includes('airbnb.') ||
+      h.includes('booking.com') ||
+      h.includes('vrbo.com') ||
+      h.includes('homeaway.') ||
+      h.includes('esca-management.com')
+    );
+  } catch {
+    return false;
+  }
+}
+
+interface ScrapeApiProperty {
+  name?: string;
+  description?: string;
+  location?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  beds?: number;
+  guests?: number;
+  price?: number;
+  amenities?: string[];
+  images?: string[];
+  wellnessFriendly?: boolean;
+}
+
+function locationFromScrape(scraped: ScrapeApiProperty): string {
+  let location = (scraped.location || '').trim();
+  if (!location || location === 'Location not found') {
+    const name = scraped.name || '';
+    const airbnbMatch = name.match(/in\s+(.+?)(?:\s*·|$)/i);
+    if (airbnbMatch) location = airbnbMatch[1].trim();
+  }
+  return location || 'Location not found';
+}
+
+function inferPropertyType(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('condo')) return 'Condominium';
+  if (n.includes('cabin')) return 'Cabin';
+  if (n.includes('villa')) return 'Villa';
+  if (n.includes('apartment') || n.includes('flat') || n.includes('rental unit')) return 'Apartment';
+  if (n.includes('townhouse')) return 'Townhouse';
+  if (n.includes('tiny')) return 'Tiny home';
+  return 'House';
+}
+
+function scrapedListingToBulkProperty(scraped: ScrapeApiProperty, sourceUrl: string): BulkProperty {
+  const name = scraped.name?.trim() || 'Imported listing';
+  const amenitiesArr = Array.isArray(scraped.amenities) ? scraped.amenities : [];
+  return {
+    name,
+    type: inferPropertyType(name),
+    guestAccessType: 'An entire place',
+    location: locationFromScrape(scraped),
+    guests: scraped.guests && scraped.guests > 0 ? scraped.guests : 2,
+    bedrooms: scraped.bedrooms && scraped.bedrooms > 0 ? scraped.bedrooms : 1,
+    beds: scraped.beds && scraped.beds > 0 ? scraped.beds : 1,
+    bathrooms: scraped.bathrooms && scraped.bathrooms > 0 ? scraped.bathrooms : 1,
+    price: scraped.price && scraped.price > 0 ? scraped.price : 100,
+    cleaningFee: 0,
+    description: scraped.description || '',
+    amenities: amenitiesArr.join(';'),
+    wellnessFriendly: Boolean(scraped.wellnessFriendly),
+    smokeFriendly: false,
+    imageUrls: scraped.images?.filter((u) => typeof u === 'string' && u.startsWith('http')) || [],
+    sourceUrl,
+  };
+}
+
 export default function BulkImportPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -191,54 +266,98 @@ export default function BulkImportPage() {
     const allErrors: string[] = [];
     let successCount = 0;
 
-    // Fetch all URLs in parallel
-    const fetchPromises = validUrls.map(async (entry) => {
+    // Process one at a time so multiple Airbnb URLs do not spawn parallel Puppeteer runs.
+    for (const entry of validUrls) {
       try {
-        const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(entry.url)}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch CSV');
-        }
+        if (isExternalListingUrl(entry.url)) {
+          const response = await fetch('/api/scrape-property', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: entry.url.trim() }),
+          });
 
-        const text = await response.text();
-        const result = parseCSV(text, entry.url);
-        
-        if (result.success && result.properties.length > 0) {
-          allProperties.push(...result.properties);
+          const result = await response.json().catch(() => ({}));
+
+          if (!response.ok || !result.success) {
+            const detail =
+              typeof result.details === 'string'
+                ? result.details
+                : typeof result.error === 'string'
+                  ? result.error
+                  : 'Scrape failed';
+            throw new Error(detail);
+          }
+
+          const scraped = result.data as ScrapeApiProperty;
+          if (!scraped || typeof scraped !== 'object') {
+            throw new Error('Invalid scrape response');
+          }
+
+          const bulk = scrapedListingToBulkProperty(scraped, entry.url.trim());
+          allProperties.push(bulk);
           successCount++;
-          
-          setUrlEntries(prev => prev.map(e => 
-            e.id === entry.id 
-              ? { ...e, status: 'success' as const, propertyCount: result.properties.length }
-              : e
-          ));
-        } else {
-          const errorMsg = result.errors.length > 0 ? result.errors[0] : 'No valid properties found';
-          allErrors.push(`${entry.url}: ${errorMsg}`);
-          
-          setUrlEntries(prev => prev.map(e => 
-            e.id === entry.id 
-              ? { ...e, status: 'error' as const, error: errorMsg }
-              : e
-          ));
-        }
-        
-        if (result.errors.length > 0) {
-          allErrors.push(...result.errors.map(err => `${entry.url}: ${err}`));
-        }
-      } catch (error: any) {
-        const errorMsg = error.message || 'Failed to fetch';
-        allErrors.push(`${entry.url}: ${errorMsg}`);
-        
-        setUrlEntries(prev => prev.map(e => 
-          e.id === entry.id 
-            ? { ...e, status: 'error' as const, error: errorMsg }
-            : e
-        ));
-      }
-    });
 
-    await Promise.all(fetchPromises);
+          setUrlEntries((prev) =>
+            prev.map((e) =>
+              e.id === entry.id
+                ? { ...e, status: 'success' as const, propertyCount: 1 }
+                : e
+            )
+          );
+        } else {
+          const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(entry.url)}`);
+
+          if (!response.ok) {
+            let msg = 'Failed to fetch CSV';
+            try {
+              const errBody = await response.json();
+              if (errBody?.error) msg = String(errBody.error);
+            } catch {
+              /* ignore */
+            }
+            throw new Error(msg);
+          }
+
+          const text = await response.text();
+          const result = parseCSV(text, entry.url);
+
+          if (result.success && result.properties.length > 0) {
+            allProperties.push(...result.properties);
+            successCount++;
+
+            setUrlEntries((prev) =>
+              prev.map((e) =>
+                e.id === entry.id
+                  ? { ...e, status: 'success' as const, propertyCount: result.properties.length }
+                  : e
+              )
+            );
+          } else {
+            const errorMsg = result.errors.length > 0 ? result.errors[0] : 'No valid properties found';
+            allErrors.push(`${entry.url}: ${errorMsg}`);
+
+            setUrlEntries((prev) =>
+              prev.map((e) =>
+                e.id === entry.id ? { ...e, status: 'error' as const, error: errorMsg } : e
+              )
+            );
+          }
+
+          if (result.errors.length > 0) {
+            allErrors.push(...result.errors.map((err) => `${entry.url}: ${err}`));
+          }
+        }
+      } catch (error: unknown) {
+        const errorMsg = error instanceof Error ? error.message : 'Failed to fetch';
+        allErrors.push(`${entry.url}: ${errorMsg}`);
+
+        setUrlEntries((prev) =>
+          prev.map((e) =>
+            e.id === entry.id ? { ...e, status: 'error' as const, error: errorMsg } : e
+          )
+        );
+      }
+    }
 
     if (allProperties.length > 0) {
       setParsedData({
@@ -470,7 +589,9 @@ export default function BulkImportPage() {
                   </span>
                 </div>
                 <p className="text-gray-400 text-sm mb-4">
-                  Add multiple CSV URLs to import properties from different sources simultaneously. No limits!
+                  Paste <strong className="text-gray-200">Airbnb, Booking.com, or VRBO</strong> listing links (one
+                  property per URL), or use a <strong className="text-gray-200">direct CSV</strong> link (e.g. Google
+                  Sheets publish). Listing links are scraped on the server — large batches run one URL at a time.
                 </p>
                 
                 <div className="space-y-3 mb-4">
@@ -481,7 +602,7 @@ export default function BulkImportPage() {
                           type="url"
                           value={entry.url}
                           onChange={(e) => updateUrlEntry(entry.id, e.target.value)}
-                          placeholder={`URL ${index + 1}: https://docs.google.com/spreadsheets/d/.../export?format=csv`}
+                          placeholder={`URL ${index + 1}: https://www.airbnb.com/rooms/… or a published CSV link`}
                           disabled={fetchingUrls}
                           className={`w-full px-4 py-3 bg-gray-800 border rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50 ${
                             entry.status === 'success' 
@@ -544,7 +665,7 @@ export default function BulkImportPage() {
                     ) : (
                       <>
                         <ExternalLink size={18} />
-                        Fetch All CSVs
+                        Fetch from URLs
                       </>
                     )}
                   </button>
@@ -553,10 +674,13 @@ export default function BulkImportPage() {
                 <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <p className="text-blue-200 text-sm font-medium mb-2">Tips for external URLs:</p>
                   <ul className="text-blue-200/70 text-xs space-y-1 list-disc list-inside">
+                    <li>
+                      <strong>Airbnb / Booking / VRBO:</strong> paste the full listing URL — we scrape one property per
+                      link (same engine as “Import from URL” on your properties page).
+                    </li>
                     <li><strong>Google Sheets:</strong> File → Share → Publish to web → CSV format</li>
                     <li><strong>Dropbox:</strong> Use the direct download link (change dl=0 to dl=1)</li>
-                    <li><strong>Direct:</strong> Any publicly accessible .csv file URL</li>
-                    <li><strong>No limits:</strong> Import as many properties as you need from multiple sources</li>
+                    <li><strong>Direct:</strong> Any publicly accessible CSV file URL</li>
                   </ul>
                 </div>
 

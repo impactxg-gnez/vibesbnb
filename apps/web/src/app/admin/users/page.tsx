@@ -8,6 +8,7 @@ import { Search, User, Mail, Calendar, DollarSign, ToggleLeft, ToggleRight, Tras
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { setImpersonatedHost } from '@/lib/adminHostImpersonation';
 
 interface UserData {
   id: string;
@@ -293,7 +294,13 @@ export default function ManageUsersPage() {
     <AdminLayout>
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Hosts: use <span className="font-semibold text-emerald-700">Host view</span> to open their dashboard and
+              edit listings while signed in as admin.
+            </p>
+          </div>
           <div className="flex items-center gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -503,7 +510,20 @@ export default function ManageUsersPage() {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(userData.role === 'host' || (userData.properties_count ?? 0) > 0) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setImpersonatedHost(userData.id, userData.email || userData.name);
+                                router.push('/host/properties');
+                              }}
+                              className="text-emerald-600 hover:text-emerald-900 flex items-center gap-1 font-semibold"
+                            >
+                              <Home className="w-4 h-4" />
+                              Host view
+                            </button>
+                          )}
                           <button
                             onClick={() => handleViewBookings(userData)}
                             className="text-blue-600 hover:text-blue-900 flex items-center gap-1"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -28,7 +28,8 @@ import {
   Brain,
   ShieldCheck,
   ArrowRight,
-  Leaf
+  Leaf,
+  Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -50,6 +51,8 @@ interface Property {
   price: number;
   cleaningFee?: number;
   bedrooms: number;
+  /** Total beds when set (may exceed bedroom count) */
+  beds?: number | null;
   bathrooms: number;
   guests: number;
   images: string[];
@@ -157,6 +160,12 @@ export default function ListingDetailPage() {
   const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
   
   const stayDuration = calculateNights();
+
+  /** Obfuscation uses randomness — memoize so gallery (re)renders don't change coords and remount the map. */
+  const mapApproxCoords = useMemo(() => {
+    if (!property?.latitude || !property?.longitude) return null;
+    return obfuscateCoordinates(property.latitude, property.longitude);
+  }, [property?.id, property?.latitude, property?.longitude]);
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -288,6 +297,10 @@ export default function ListingDetailPage() {
                 ? Number(propertyData.cleaningFee)
                 : 0,
           bedrooms: propertyData.bedrooms || 0,
+          beds:
+            propertyData.beds != null && propertyData.beds !== ''
+              ? Number(propertyData.beds)
+              : null,
           bathrooms: propertyData.bathrooms || 0,
           guests: propertyData.guests || 0,
           images: propertyData.images || [],
@@ -511,45 +524,77 @@ export default function ListingDetailPage() {
             )}
           </div>
 
-          {/* Map - Shows approximate location only */}
-          {property.latitude && property.longitude && (() => {
-            const approxCoords = obfuscateCoordinates(property.latitude, property.longitude);
-            return (
-              <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800 relative">
-                <PropertyMap
-                  latitude={approxCoords.lat!}
-                  longitude={approxCoords.lng!}
-                  propertyName={property.name}
-                />
-                {/* Privacy notice overlay */}
-                <div className="absolute bottom-4 left-4 right-4 bg-gray-900/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-700">
-                  <p className="text-sm text-gray-300 flex items-center gap-2">
-                    <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
-                    <span>Approximate location shown. Exact address provided after booking confirmation.</span>
-                  </p>
-                </div>
+          {/* Map - Shows approximate location only (coords memoized so photo carousel does not reset the map) */}
+          {mapApproxCoords?.lat != null && mapApproxCoords?.lng != null && (
+            <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800 relative">
+              <PropertyMap
+                key={property.id}
+                latitude={mapApproxCoords.lat}
+                longitude={mapApproxCoords.lng}
+                propertyName={property.name}
+              />
+              <div className="absolute bottom-4 left-4 right-4 bg-gray-900/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-700">
+                <p className="text-sm text-gray-300 flex items-center gap-2">
+                  <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
+                  <span>Approximate location shown. Exact address provided after booking confirmation.</span>
+                </p>
               </div>
-            );
-          })()}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Quick Info */}
+            {/* Quick Info — host, property type, capacity */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <div className="flex items-center gap-8">
-                <div className="flex items-center gap-2">
-                  <Users size={20} className="text-gray-400" />
-                  <span className="text-white">{property.guests} guests</span>
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex gap-4 min-w-0 flex-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={property.hostImage}
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 shrink-0 rounded-full object-cover border border-gray-700 bg-gray-800"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Hosted by</p>
+                    <p className="text-white font-semibold text-lg leading-tight truncate">{property.hostName}</p>
+                    {property.hostBio?.trim() ? (
+                      <p className="text-sm text-gray-400 mt-2 leading-relaxed line-clamp-3">{property.hostBio.trim()}</p>
+                    ) : (
+                      <p className="text-sm text-gray-500 mt-2">
+                        {property.hostJoinedDate
+                          ? `Hosting on VibesBNB since ${property.hostJoinedDate}`
+                          : 'Your host for this stay'}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Bed size={20} className="text-gray-400" />
-                  <span className="text-white">{property.bedrooms} bedrooms</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Bath size={20} className="text-gray-400" />
-                  <span className="text-white">{property.bathrooms} bathrooms</span>
+                <div className="flex flex-wrap items-center gap-x-8 gap-y-3 lg:shrink-0 lg:pt-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white font-medium">{property.type || 'Property'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white">{property.guests} guests</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Bed size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white">{property.bedrooms} bedrooms</span>
+                  </div>
+                  {typeof property.beds === 'number' && property.beds >= 1 && (
+                    <div className="flex items-center gap-2">
+                      <Bed size={20} className="text-emerald-500/80 shrink-0" />
+                      <span className="text-white">{property.beds} beds total</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Bath size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white">{property.bathrooms} bathrooms</span>
+                  </div>
                 </div>
               </div>
               {(property.smokingInsideAllowed || property.smokingOutsideAllowed) && (

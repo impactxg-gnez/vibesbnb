@@ -25,8 +25,7 @@ function VerifySuccessInner() {
     if (nextPath) return nextPath;
     const role = user?.user_metadata?.role;
     if (role === 'admin') return '/admin';
-    if (role === 'host_pending') return '/host/properties/new';
-    if (role === 'host') return '/host/properties';
+    if (role === 'host_pending' || role === 'host') return '/host/properties';
     return '/';
   }, [user, nextPath]);
 
@@ -99,13 +98,11 @@ function VerifySuccessInner() {
                     onClick={handleBrowse}
                     className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-4 text-base font-bold text-gray-950 shadow-lg shadow-emerald-500/25 transition hover:from-emerald-400 hover:to-emerald-500"
                   >
-                    {user.user_metadata?.role === 'host_pending'
-                      ? 'Continue — add your property'
-                      : user.user_metadata?.role === 'host'
-                        ? 'Go to host dashboard'
-                        : user.user_metadata?.role === 'admin'
-                          ? 'Open admin'
-                          : 'Start exploring'}
+                    {user.user_metadata?.role === 'host_pending' || user.user_metadata?.role === 'host'
+                      ? 'Go to host dashboard'
+                      : user.user_metadata?.role === 'admin'
+                        ? 'Open admin'
+                        : 'Start exploring'}
                   </button>
                   <button
                     type="button"

@@ -14,6 +14,8 @@ export interface PropertyToValidate {
   images?: string[];
   guests?: number;
   bedrooms?: number;
+  /** Total beds (can exceed bedroom count); guests filter on this when set */
+  beds?: number | null;
   bathrooms?: number;
   description?: string;
   coordinates?: {
@@ -92,6 +94,11 @@ const RECOMMENDED_FIELDS: Array<{
     field: 'type',
     displayName: 'Property Type',
     validate: (value) => typeof value === 'string' && value.trim().length > 0,
+  },
+  {
+    field: 'beds',
+    displayName: 'Total number of beds',
+    validate: (value) => typeof value === 'number' && value >= 1,
   },
 ];
 

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 
 interface Retreat {
@@ -32,71 +31,17 @@ export function FeaturedRetreats() {
   useEffect(() => {
     const loadFeaturedRetreats = async () => {
       try {
-        const supabase = createClient();
-        const { data: propertiesData, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('status', 'active')
-          .eq('wellness_friendly', true)
-          .order('created_at', { ascending: false })
-          .limit(6);
-
-        if (error) {
-          console.error('Error loading featured retreats:', error);
+        const res = await fetch('/api/featured-retreats', { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok) {
+          console.error('Error loading featured vibes:', data.error);
           setRetreats([]);
-          setLoading(false);
           return;
         }
-
-        const rows = propertiesData || [];
-        const hostIds = [...new Set(rows.map((p: { host_id?: string }) => p.host_id).filter(Boolean))] as string[];
-
-        let profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
-        if (hostIds.length > 0) {
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('id, avatar_url, full_name')
-            .in('id', hostIds);
-          (profilesData || []).forEach((row: { id: string; avatar_url: string | null; full_name: string | null }) => {
-            profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
-          });
-        }
-
-        const featuredRetreats: Retreat[] = rows.map((p: any) => {
-          const hostId = p.host_id || '';
-          const prof = hostId ? profileById[hostId] : undefined;
-          const hostName = (prof?.full_name || 'Host').trim() || 'Host';
-          const hostAvatarUrl =
-            prof?.avatar_url ||
-            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostId || hostName)}`;
-
-          const rawDesc = typeof p.description === 'string' ? p.description.trim() : '';
-          const description =
-            rawDesc.length > 220 ? `${rawDesc.slice(0, 217).trimEnd()}…` : rawDesc;
-
-          return {
-            id: p.id,
-            name: p.name || p.title || 'Property',
-            location: p.location || '',
-            description,
-            rating: p.rating ? Number(p.rating) : 4.5,
-            reviews: 0,
-            price: p.price ? Number(p.price) : 0,
-            images: Array.isArray(p.images) ? p.images.filter(Boolean) : [],
-            amenities: (p.amenities || []).slice(0, 2),
-            badge: 'Wellness-friendly',
-            bedrooms: p.bedrooms || 1,
-            guests: p.guests || 2,
-            type: p.type || '',
-            hostId,
-            hostName,
-            hostAvatarUrl,
-          };
-        });
-
-        setRetreats(featuredRetreats);
+        const list = Array.isArray(data.retreats) ? data.retreats : [];
+        setRetreats(list as Retreat[]);
       } catch (error) {
-        console.error('Error loading featured retreats:', error);
+        console.error('Error loading featured vibes:', error);
         setRetreats([]);
       } finally {
         setLoading(false);
@@ -111,7 +56,7 @@ export function FeaturedRetreats() {
   }
 
   if (retreats.length === 0) {
-    return null; // Don't show section if no retreats
+    return null;
   }
 
   return (
@@ -119,14 +64,14 @@ export function FeaturedRetreats() {
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">
-            Featured <span className="text-primary-500 italic">Retreats</span>
+            Featured <span className="text-primary-500 italic">Vibes</span>
           </h2>
           <p className="text-muted max-w-xl">
             Discover our hand-picked collection of properties designed for your ultimate wellness journey.
           </p>
         </div>
-        <Link 
-          href="/search" 
+        <Link
+          href="/search"
           className="group flex items-center gap-2 text-primary-500 font-bold hover:text-primary-400 transition-colors"
         >
           View all properties
@@ -135,7 +80,7 @@ export function FeaturedRetreats() {
           </svg>
         </Link>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {retreats.map((retreat, index) => (
           <motion.div
@@ -174,10 +119,7 @@ export function FeaturedRetreats() {
                       className="h-14 w-14 shrink-0 rounded-full object-cover border border-white/10 bg-white/5"
                     />
                     <div className="flex-1 min-w-0">
-                      <Link
-                        href={`/listings/${retreat.id}`}
-                        className="block text-left"
-                      >
+                      <Link href={`/listings/${retreat.id}`} className="block text-left">
                         <h3 className="text-white font-bold text-xl sm:text-2xl mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
                           {retreat.name}
                         </h3>
@@ -191,13 +133,13 @@ export function FeaturedRetreats() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         <span className="line-clamp-2">
-                          {retreat.type ? `${retreat.type} in ` : ''}{retreat.location}
+                          {retreat.type ? `${retreat.type} in ` : ''}
+                          {retreat.location}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Beds and Guests Info */}
                   <div className="flex items-center gap-4 text-muted text-sm mb-4">
                     <span className="flex items-center gap-1.5">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,19 +156,25 @@ export function FeaturedRetreats() {
                   </div>
 
                   <div className="flex items-center justify-between mt-auto pt-6 border-t border-white/5">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-white font-bold">{retreat.rating}</span>
                       <svg className="w-4 h-4 text-primary-500 fill-current" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
+                      {retreat.reviews > 0 ? (
+                        <span className="text-muted text-xs font-medium">({retreat.reviews} reviews)</span>
+                      ) : null}
                     </div>
                     <div>
                       <span className="text-white font-black text-xl">${retreat.price}</span>
                       <span className="text-muted text-sm ml-1">/ night</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-2 mt-6">
+                    <span className="bg-white/5 text-muted text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border border-white/5">
+                      {retreat.badge}
+                    </span>
                     {retreat.amenities.map((amenity) => (
                       <span
                         key={amenity}
@@ -245,4 +193,3 @@ export function FeaturedRetreats() {
     </div>
   );
 }
-

@@ -1,16 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getImpersonatedHostId, onImpersonationChanged } from '@/lib/adminHostImpersonation';
 import { MessageCircle, Bed, Home, Building, Trees, Sparkles, Plane, Briefcase, Plus, X, Check } from 'lucide-react';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const headerCategoryChip = pathname === '/search' ? searchParams.get('category') : null;
   const supabase = createClient();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -19,11 +23,19 @@ export function Header() {
   const [currentMode, setCurrentMode] = useState<'traveling' | 'hosting'>('traveling');
   const [mounted, setMounted] = useState(false);
   const [switchingEmail, setSwitchingEmail] = useState<string | null>(null);
+  const [adminImpersonatingHostId, setAdminImpersonatingHostId] = useState<string | null>(null);
 
   // Set mounted after hydration to prevent SSR/client mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const sync = () => setAdminImpersonatingHostId(getImpersonatedHostId());
+    sync();
+    return onImpersonationChanged(sync);
+  }, [mounted]);
 
   // Function to load saved accounts
   const loadAccounts = () => {
@@ -85,6 +97,9 @@ export function Header() {
   // User is a host if either user_metadata says so OR localStorage has 'host' role
   const hasHostRole = userRole === 'host' || storedRoles.includes('host');
   const isAdmin = userRole === 'admin' || storedRoles.includes('admin');
+  const adminSupportingHost =
+    Boolean(user && isAdminUser(user) && adminImpersonatingHostId);
+  const hasHostOrSupportAccess = hasHostRole || adminSupportingHost;
   
   // Determine current mode based on URL path
   const isOnHostPage = pathname?.startsWith('/host');
@@ -111,7 +126,7 @@ export function Header() {
   
   // For menu display purposes
   const isInHostingMode = currentMode === 'hosting';
-  const isTraveller = !hasHostRole && !isAdmin;
+  const isTraveller = !hasHostOrSupportAccess && !isAdmin;
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -222,25 +237,69 @@ export function Header() {
           {/* Centered Navigation */}
           <nav className="hidden lg:flex items-center space-x-6">
             <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-2 py-1.5 shadow-inner">
-              <Link href="/search?category=1-bed" className="px-4 py-1.5 rounded-xl text-gray-400 hover:text-primary-400 hover:bg-white/5 transition-all duration-300 text-sm font-bold flex items-center gap-2 group">
-                <Bed className="w-4 h-4 transition-transform group-hover:scale-110" />
+              <Link
+                href="/search?category=1-bed"
+                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
+                  headerCategoryChip === '1-bed'
+                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
+                }`}
+              >
+                <Bed
+                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
+                    headerCategoryChip === '1-bed' ? 'text-black' : 'text-gray-500'
+                  }`}
+                />
                 1 Bed
               </Link>
               <div className="w-px h-5 bg-white/10 mx-1" />
-              <Link href="/search?category=2-bed" className="px-4 py-1.5 rounded-xl text-gray-400 hover:text-primary-400 hover:bg-white/5 transition-all duration-300 text-sm font-bold flex items-center gap-2 group">
-                <Bed className="w-4 h-4 transition-transform group-hover:scale-110" />
+              <Link
+                href="/search?category=2-bed"
+                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
+                  headerCategoryChip === '2-bed'
+                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
+                }`}
+              >
+                <Bed
+                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
+                    headerCategoryChip === '2-bed' ? 'text-black' : 'text-gray-500'
+                  }`}
+                />
                 2 Bed
               </Link>
             </div>
 
             <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-2 py-1.5 shadow-inner">
-              <Link href="/search?category=studios" className="px-4 py-1.5 rounded-xl text-gray-400 hover:text-primary-400 hover:bg-white/5 transition-all duration-300 text-sm font-bold flex items-center gap-2 group">
-                <Building className="w-4 h-4 transition-transform group-hover:scale-110" />
+              <Link
+                href="/search?category=studios"
+                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
+                  headerCategoryChip === 'studios'
+                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
+                }`}
+              >
+                <Building
+                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
+                    headerCategoryChip === 'studios' ? 'text-black' : 'text-gray-500'
+                  }`}
+                />
                 Studios
               </Link>
               <div className="w-px h-5 bg-white/10 mx-1" />
-              <Link href="/search?category=condo" className="px-4 py-1.5 rounded-xl text-gray-400 hover:text-primary-400 hover:bg-white/5 transition-all duration-300 text-sm font-bold flex items-center gap-2 group">
-                <Home className="w-4 h-4 transition-transform group-hover:scale-110" />
+              <Link
+                href="/search?category=condo"
+                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
+                  headerCategoryChip === 'condo'
+                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
+                }`}
+              >
+                <Home
+                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
+                    headerCategoryChip === 'condo' ? 'text-black' : 'text-gray-500'
+                  }`}
+                />
                 Condos
               </Link>
             </div>
@@ -284,7 +343,7 @@ export function Header() {
                   Traveling
                 </button>
                 <button
-                  onClick={hasHostRole ? switchToHost : registerAsHost}
+                  onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
                   className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
                     isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
                   }`}
@@ -362,7 +421,7 @@ export function Header() {
                                 My Bookings
                               </Link>
                             )}
-                            {hasHostRole && isInHostingMode && (
+                            {hasHostOrSupportAccess && isInHostingMode && (
                               <Link
                                 href="/host/properties"
                                 className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"

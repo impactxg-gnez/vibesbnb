@@ -9,6 +9,7 @@ import { Search, Home, MapPin, DollarSign, Star, Edit, Eye, Filter, Wand2, Loade
 import toast from 'react-hot-toast';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import Link from 'next/link';
+import { setImpersonatedHost } from '@/lib/adminHostImpersonation';
 
 interface Property {
   id: string;
@@ -461,10 +462,18 @@ export default function ManageListingsPage() {
                     </Link>
                     <Link
                       href={`/host/properties/${property.id}/edit`}
+                      onClick={() => {
+                        if (property.host_id) {
+                          setImpersonatedHost(
+                            property.host_id,
+                            property.host_name || property.host_email || 'Host'
+                          );
+                        }
+                      }}
                       className="flex-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm text-center flex items-center justify-center gap-1"
                     >
                       <Edit className="w-4 h-4" />
-                      Edit
+                      Edit as host
                     </Link>
                   </div>
                 </div>

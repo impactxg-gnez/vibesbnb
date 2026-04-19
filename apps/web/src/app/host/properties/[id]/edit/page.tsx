@@ -7,6 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles, GripVertical, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getHostScopeUserId } from '@/lib/adminHostImpersonation';
+import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import LocationPicker from '@/components/LocationPicker';
 import AvailabilityEditor from '@/components/properties/AvailabilityEditor';
 import ImageReorder from '@/components/properties/ImageReorder';
@@ -27,6 +30,8 @@ interface Property {
   description: string;
   location: string;
   bedrooms: number;
+  /** Total beds (sofas, bunk beds, etc.) — can differ from bedroom count */
+  beds: number | null;
   bathrooms: number;
   guests: number;
   price: number;
@@ -60,6 +65,7 @@ export default function EditPropertyPage() {
     description: '',
     location: '',
     bedrooms: 1,
+    beds: null,
     bathrooms: 1,
     guests: 2,
     price: 100,
@@ -117,15 +123,18 @@ export default function EditPropertyPage() {
                                       supabaseUrl !== 'https://placeholder.supabase.co';
         
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        const cacheScope = supabaseUser ? getHostScopeUserId(user, supabaseUser.id) : user.id;
 
         if (isSupabaseConfigured && supabaseUser) {
-          // Try to load from Supabase
-          const { data: propertyData, error } = await supabase
+          const admin = isAdminUser(user);
+          let propQuery = supabase
             .from('properties')
             .select('*')
-            .eq('id', params.id as string)
-            .eq('host_id', supabaseUser.id)
-            .single();
+            .eq('id', params.id as string);
+          if (!admin) {
+            propQuery = propQuery.eq('host_id', supabaseUser.id);
+          }
+          const { data: propertyData, error } = await propQuery.single();
 
           if (error) {
             console.error('Error loading property:', error);
@@ -155,6 +164,10 @@ export default function EditPropertyPage() {
               description: propertyData.description || '',
               location: propertyData.location || '',
               bedrooms: propertyData.bedrooms || 0,
+              beds:
+                propertyData.beds != null && propertyData.beds !== ''
+                  ? Number(propertyData.beds)
+                  : null,
               bathrooms: propertyData.bathrooms || 0,
               guests: propertyData.guests || 0,
               price: propertyData.price ? Number(propertyData.price) : 0,
@@ -209,7 +222,7 @@ export default function EditPropertyPage() {
         }
 
         // Fallback to localStorage (for demo accounts or when Supabase is not configured)
-        const savedProperties = localStorage.getItem(`properties_${user.id}`);
+        const savedProperties = localStorage.getItem(`properties_${cacheScope}`);
         if (savedProperties) {
           try {
             const parsedProperties = JSON.parse(savedProperties);
@@ -227,6 +240,10 @@ export default function EditPropertyPage() {
                 description: property.description || '',
                 location: property.location || '',
                 bedrooms: property.bedrooms || 0,
+                beds:
+                  property.beds != null && property.beds !== ''
+                    ? Number(property.beds)
+                    : null,
                 bathrooms: property.bathrooms || 0,
                 guests: property.guests || 0,
                 price: property.price || 0,
@@ -249,6 +266,8 @@ export default function EditPropertyPage() {
                 googleMapsUrl: property.googleMapsUrl,
                 guestAgreementUrl:
                   property.guestAgreementUrl || property.guest_agreement_url || '',
+                type: property.type || 'Entire House',
+                vibesbnb_take: property.vibesbnb_take || '',
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -487,6 +506,8 @@ export default function EditPropertyPage() {
                                     supabaseUrl !== 'https://placeholder.supabase.co';
       
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      const admin = user && isAdminUser(user);
+      const cacheScope = supabaseUser && user ? getHostScopeUserId(user, supabaseUser.id) : user?.id || '';
 
       // Collect all images from rooms
       const allImageUrls: string[] = [];
@@ -528,8 +549,8 @@ export default function EditPropertyPage() {
       }
 
       if (isSupabaseConfigured && supabaseUser) {
-        // Save to Supabase
-        const { error } = await supabase
+        // Save to Supabase (admins may update any listing when supporting a host)
+        let updateQ = supabase
           .from('properties')
           .update({
             name: formData.name,
@@ -537,6 +558,7 @@ export default function EditPropertyPage() {
             description: formData.description,
             location: formData.location,
             bedrooms: formData.bedrooms,
+            beds: formData.beds,
             bathrooms: formData.bathrooms,
             guests: formData.guests,
             price: formData.price,
@@ -560,15 +582,18 @@ export default function EditPropertyPage() {
             status: newStatus,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', formData.id)
-          .eq('host_id', supabaseUser.id);
+          .eq('id', formData.id);
+        if (!admin) {
+          updateQ = updateQ.eq('host_id', supabaseUser.id);
+        }
+        const { error } = await updateQ;
 
         if (error) {
           throw error;
         }
         
         // Also update localStorage as backup
-        const savedProperties = localStorage.getItem(`properties_${user.id}`);
+        const savedProperties = localStorage.getItem(`properties_${cacheScope}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
         const updatedProperties = parsedProperties.map((p: any) =>
           p.id === formData.id
@@ -578,6 +603,7 @@ export default function EditPropertyPage() {
                 description: formData.description,
                 location: formData.location,
                 bedrooms: formData.bedrooms,
+                beds: formData.beds,
                 bathrooms: formData.bathrooms,
                 guests: formData.guests,
                 price: formData.price,
@@ -599,14 +625,14 @@ export default function EditPropertyPage() {
               }
             : p
         );
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        localStorage.setItem(`properties_${cacheScope}`, JSON.stringify(updatedProperties));
         console.log('[Edit Property] Property also updated in localStorage as backup');
 
         toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
       } else {
         // Fallback to localStorage (for demo accounts)
-        const savedProperties = localStorage.getItem(`properties_${user.id}`);
+        const savedProperties = localStorage.getItem(`properties_${cacheScope}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
         
         const updatedProperties = parsedProperties.map((p: any) =>
@@ -617,6 +643,7 @@ export default function EditPropertyPage() {
                 description: formData.description,
                 location: formData.location,
                 bedrooms: formData.bedrooms,
+                beds: formData.beds,
                 bathrooms: formData.bathrooms,
                 guests: formData.guests,
                 price: formData.price,
@@ -639,7 +666,7 @@ export default function EditPropertyPage() {
             : p
         );
 
-        localStorage.setItem(`properties_${user.id}`, JSON.stringify(updatedProperties));
+        localStorage.setItem(`properties_${cacheScope}`, JSON.stringify(updatedProperties));
         toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
       }
@@ -663,8 +690,9 @@ export default function EditPropertyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <div className="min-h-screen bg-gray-950">
+      <HostImpersonationBanner />
+      <div className="py-12 container mx-auto px-4 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <Link
@@ -777,7 +805,7 @@ export default function EditPropertyPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Bedrooms
@@ -791,6 +819,35 @@ export default function EditPropertyPage() {
                     }
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
+                </div>
+
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Total beds <span className="text-gray-500 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={formData.beds ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '') {
+                        setFormData({ ...formData, beds: null });
+                        return;
+                      }
+                      const n = parseInt(v, 10);
+                      if (!Number.isFinite(n) || n < 1) {
+                        setFormData({ ...formData, beds: null });
+                        return;
+                      }
+                      setFormData({ ...formData, beds: n });
+                    }}
+                    placeholder="e.g. 4"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1.5 leading-snug">
+                    Total sleeping surfaces (can exceed bedrooms). Leave empty if not set yet.
+                  </p>
                 </div>
 
                 <div>
