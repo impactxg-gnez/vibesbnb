@@ -55,22 +55,64 @@ interface UrlEntry {
   error?: string;
 }
 
-/** URLs that should use listing scrape (not raw CSV fetch). */
-function isExternalListingUrl(raw: string): boolean {
+/** Normalize user-pasted URL (add https:// if missing). */
+function parseHttpUrl(raw: string): URL | null {
+  const t = raw.trim();
+  if (!t) return null;
   try {
-    const u = new URL(raw.trim());
-    const h = u.hostname.toLowerCase();
-    return (
-      h.includes('airbnb.') ||
-      h.includes('booking.com') ||
-      h.includes('vrbo.com') ||
-      h.includes('homeaway.') ||
-      h.includes('esca-management.com') ||
-      h.includes('ammosfl.com')
-    );
+    return new URL(t);
   } catch {
-    return false;
+    try {
+      if (!/^https?:\/\//i.test(t)) {
+        return new URL(`https://${t}`);
+      }
+    } catch {
+      /* ignore */
+    }
   }
+  return null;
+}
+
+/** Canonical URL string for API requests (always includes scheme). */
+function normalizeListingUrl(raw: string): string {
+  const u = parseHttpUrl(raw);
+  return u ? u.href : raw.trim();
+}
+
+/**
+ * URLs that should use listing scrape (not raw CSV fetch).
+ * HTML from a listing page parsed as CSV yields "Missing required columns" — avoid that.
+ */
+function isExternalListingUrl(raw: string): boolean {
+  const u = parseHttpUrl(raw);
+  if (!u) return false;
+
+  const h = u.hostname.toLowerCase();
+  const path = u.pathname.toLowerCase();
+
+  const knownHosts =
+    h.includes('airbnb.') ||
+    h.includes('booking.com') ||
+    h.includes('vrbo.com') ||
+    h.includes('homeaway.') ||
+    h.includes('esca-management.com') ||
+    h.includes('ammosfl.com');
+
+  if (knownHosts) return true;
+
+  // WordPress / PM sites: single-property paths (e.g. ammosfl.com/property/slug/)
+  const looksLikePropertyPage =
+    path.includes('/property/') ||
+    path.includes('/properties/') ||
+    path.includes('/listing/') ||
+    path.includes('/holiday-rental/') ||
+    path.includes('/vacation-rental/');
+
+  if (looksLikePropertyPage && !path.endsWith('.csv')) {
+    return true;
+  }
+
+  return false;
 }
 
 interface ScrapeApiProperty {
@@ -270,11 +312,12 @@ export default function BulkImportPage() {
     // Process one at a time so multiple Airbnb URLs do not spawn parallel Puppeteer runs.
     for (const entry of validUrls) {
       try {
+        const resolvedUrl = normalizeListingUrl(entry.url);
         if (isExternalListingUrl(entry.url)) {
           const response = await fetch('/api/scrape-property', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: entry.url.trim() }),
+            body: JSON.stringify({ url: resolvedUrl }),
           });
 
           const result = await response.json().catch(() => ({}));
@@ -294,7 +337,7 @@ export default function BulkImportPage() {
             throw new Error('Invalid scrape response');
           }
 
-          const bulk = scrapedListingToBulkProperty(scraped, entry.url.trim());
+          const bulk = scrapedListingToBulkProperty(scraped, resolvedUrl);
           allProperties.push(bulk);
           successCount++;
 
@@ -306,7 +349,7 @@ export default function BulkImportPage() {
             )
           );
         } else {
-          const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(entry.url)}`);
+          const response = await fetch(`/api/fetch-csv?url=${encodeURIComponent(resolvedUrl)}`);
 
           if (!response.ok) {
             let msg = 'Failed to fetch CSV';
@@ -320,7 +363,7 @@ export default function BulkImportPage() {
           }
 
           const text = await response.text();
-          const result = parseCSV(text, entry.url);
+          const result = parseCSV(text, resolvedUrl);
 
           if (result.success && result.properties.length > 0) {
             allProperties.push(...result.properties);
@@ -590,9 +633,9 @@ export default function BulkImportPage() {
                   </span>
                 </div>
                 <p className="text-gray-400 text-sm mb-4">
-                  Paste <strong className="text-gray-200">Airbnb, Booking.com, or VRBO</strong> listing links (one
-                  property per URL), or use a <strong className="text-gray-200">direct CSV</strong> link (e.g. Google
-                  Sheets publish). Listing links are scraped on the server — large batches run one URL at a time.
+                  Paste <strong className="text-gray-200">Airbnb, Booking.com, VRBO, Ammos</strong>, or other listing
+                  links (one property per URL), or use a <strong className="text-gray-200">direct CSV</strong> link (e.g.
+                  Google Sheets publish). Listing links are scraped on the server — large batches run one URL at a time.
                 </p>
                 
                 <div className="space-y-3 mb-4">
