@@ -73,7 +73,7 @@ export default function UserProfilePage() {
           setProfile(profileData);
         }
 
-        // 2. Fetch Properties by this host (active + pending approval)
+        // 2. Fetch Properties by this host (active listings)
         const { data: propsData } = await supabase
           .from('properties')
           .select('*')
@@ -228,11 +228,6 @@ export default function UserProfilePage() {
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         alt={property.name}
                       />
-                      {property.status === 'pending_approval' && (
-                        <div className="absolute top-3 left-3 px-2 py-1 bg-amber-500 text-black text-xs font-bold rounded-md">
-                          Pending review
-                        </div>
-                      )}
                       <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/10">
                         ${property.price} / night
                       </div>

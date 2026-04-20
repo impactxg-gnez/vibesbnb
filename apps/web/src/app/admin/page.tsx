@@ -370,48 +370,37 @@ Check browser console for full details and property data.`;
           </div>
         </div>
         
-        {/* Pending Applications - URGENT ACTION */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          {/* Pending Host Applications */}
+          {/* Host applications (legacy queue) */}
           <div 
             onClick={() => router.push('/admin/hosts')}
             className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-blue-100 hover:border-blue-500 transition-all relative overflow-hidden"
           >
-            {(statsData.hosts?.pending ?? 0) > 0 && (
-              <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
-                ACTION REQUIRED
-              </div>
-            )}
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-500 transition-colors">
                 <Users className="w-6 h-6 text-blue-600 group-hover:text-white" />
               </div>
               <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transform group-hover:translate-x-1 transition-all" />
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.hosts?.pending || 0}</div>
-            <div className="text-sm text-gray-600 font-medium">Pending Host Applications</div>
-            <p className="mt-4 text-xs text-gray-500">New hosts waiting to be approved</p>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.hosts?.total ?? 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Host applications</div>
+            <p className="mt-4 text-xs text-gray-500">View submissions (optional legacy queue)</p>
           </div>
 
-          {/* Pending Property Approvals */}
+          {/* All listings */}
           <div 
-            onClick={() => router.push('/admin/listings?status=pending_approval')}
-            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-amber-100 hover:border-amber-500 transition-all relative overflow-hidden"
+            onClick={() => router.push('/admin/listings')}
+            className="group cursor-pointer bg-white rounded-lg p-6 shadow-sm border-2 border-emerald-100 hover:border-emerald-500 transition-all relative overflow-hidden"
           >
-            {(statsData.listings?.pendingApproval ?? 0) > 0 && (
-              <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg animate-pulse">
-                ACTION REQUIRED
-              </div>
-            )}
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-500 transition-colors">
-                <Building className="w-6 h-6 text-amber-600 group-hover:text-white" />
+              <div className="p-3 bg-emerald-100 rounded-lg group-hover:bg-emerald-500 transition-colors">
+                <Building className="w-6 h-6 text-emerald-600 group-hover:text-white" />
               </div>
-              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-amber-500 transform group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transform group-hover:translate-x-1 transition-all" />
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.listings?.pendingApproval || 0}</div>
-            <div className="text-sm text-gray-600 font-medium">Pending Property Approvals</div>
-            <p className="mt-4 text-xs text-gray-500">Properties waiting for review</p>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.listings?.total ?? 0}</div>
+            <div className="text-sm text-gray-600 font-medium">Properties</div>
+            <p className="mt-4 text-xs text-gray-500">Manage all listings</p>
           </div>
 
           {/* Pending Dispensary Applications */}

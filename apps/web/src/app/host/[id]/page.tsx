@@ -69,7 +69,7 @@ export default function HostProfilePage() {
         if (profileError) throw profileError;
         setHost(profile);
 
-        // Fetch host properties (active + pending approval; hide draft/inactive from public profile)
+        // Fetch host properties (active listings only for public profile)
         const { data: props, error: propsError } = await supabase
           .from('properties')
           .select('*')
@@ -242,11 +242,6 @@ export default function HostProfilePage() {
                           alt={property.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                         />
-                        {property.status === 'pending_approval' && (
-                          <div className="absolute top-3 right-3 px-2 py-1 bg-amber-500/95 text-black text-xs font-bold rounded-md">
-                            Pending review
-                          </div>
-                        )}
                         <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-white text-xs font-semibold">
                           ${property.price}/night
                         </div>

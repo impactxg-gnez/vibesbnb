@@ -58,8 +58,7 @@ export default function HostPage() {
             </h1>
             <p className="text-xl mb-10 text-muted leading-relaxed">
               Share your wellness-friendly space with travelers who appreciate it. Create a host account, verify your
-              email, and you&apos;re in — no separate host approval wait. Individual listings are reviewed before they go
-              live for guests.
+              email, and you&apos;re in — hosts are not manually approved. Add listings from your dashboard when you&apos;re ready.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
@@ -93,7 +92,7 @@ export default function HostPage() {
             <ol className="text-muted space-y-4 mt-8 list-decimal list-inside leading-relaxed">
               <li>Choose <strong className="text-white">List my property (Host)</strong> on sign up.</li>
               <li>Confirm your email — you&apos;ll go straight to your host dashboard.</li>
-              <li>Add a listing; it&apos;ll be checked for quality before appearing to guests.</li>
+              <li>Add a listing and publish — it can appear in search when marked active.</li>
             </ol>
           </div>
 

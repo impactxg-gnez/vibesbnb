@@ -373,29 +373,6 @@ export default function ManageListingsPage() {
           </button>
         </div>
 
-        {/* Pending Approval Alert */}
-        {properties.filter(p => p.status === 'pending_approval').length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-amber-800">Properties Awaiting Approval</h3>
-                <p className="text-amber-600 text-sm">
-                  {properties.filter(p => p.status === 'pending_approval').length} properties need your review
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setFilters({ ...filters, status: 'pending_approval' })}
-              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium"
-            >
-              View Pending
-            </button>
-          </div>
-        )}
-
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

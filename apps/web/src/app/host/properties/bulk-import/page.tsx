@@ -465,7 +465,7 @@ export default function BulkImportPage() {
           bathrooms: property.bathrooms,
           beds: property.beds,
           guests: property.guests,
-          status: 'pending_approval',
+          status: 'active',
           type: property.type,
           guest_access_type: property.guestAccessType,
           wellness_friendly: property.wellnessFriendly,
@@ -782,7 +782,7 @@ export default function BulkImportPage() {
               <div className="flex items-center gap-3">
                 <AlertTriangle className="text-amber-500 flex-shrink-0" size={20} />
                 <p className="text-amber-200 text-sm">
-                  All bulk-imported properties will be submitted for admin approval before going live.
+                  Bulk-imported properties are published as active listings (you can edit or unpublish anytime).
                 </p>
               </div>
             </div>
@@ -929,8 +929,7 @@ export default function BulkImportPage() {
                 <div>
                   <p className="text-amber-200 font-medium">Next Steps</p>
                   <p className="text-amber-200/70 text-sm mt-1">
-                    Your properties are pending admin approval. You'll receive a notification once they're reviewed. 
-                    Don't forget to add photos to each property!
+                    Your listings are live or ready to view. You can edit details or add photos from your properties dashboard anytime.
                   </p>
                 </div>
               </div>

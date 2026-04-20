@@ -72,6 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const useSupabase = isSupabaseConfigured();
   const signUpInFlightRef = useRef(false);
+  /** Auto-promote legacy host_pending → host in JWT (no admin approval). */
+  const hostPendingPromotedRef = useRef(false);
 
   const persistSavedSession = (session: Session | null) => {
     if (!session?.user?.email || typeof window === 'undefined') return;
@@ -231,6 +233,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
   }, [supabase, useSupabase]);
+
+  // Auto-promote legacy host_pending → host in the session (pairs with syncProfileFromAuthUser on the server).
+  useEffect(() => {
+    if (!user?.id) {
+      hostPendingPromotedRef.current = false;
+      return;
+    }
+    if (!useSupabase || user.user_metadata?.role !== 'host_pending') return;
+    if (hostPendingPromotedRef.current) return;
+    hostPendingPromotedRef.current = true;
+
+    const meta = user.user_metadata || {};
+    void supabase.auth
+      .updateUser({ data: { ...meta, role: 'host' } })
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn('[AuthContext] host_pending promote:', error.message);
+          hostPendingPromotedRef.current = false;
+          return;
+        }
+        if (data.user) {
+          setUser(data.user);
+          setSession((prev) => (prev ? { ...prev, user: data.user! } : prev));
+        }
+      });
+  }, [useSupabase, supabase, user?.id, user?.user_metadata?.role]);
 
   const signIn = async (email: string, password: string) => {
     // Check if this is a demo account first (even if Supabase is configured)

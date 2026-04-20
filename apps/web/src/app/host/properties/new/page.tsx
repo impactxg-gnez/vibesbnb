@@ -302,7 +302,7 @@ export default function NewPropertyPage() {
         bathrooms: formData.bathrooms,
         beds: formData.beds != null && formData.beds >= 1 ? formData.beds : null,
         guests: formData.guests,
-        status: 'pending_approval', // Requires admin approval
+        status: 'active',
         type: propertyTypeLabel,
         guest_access_type: accessTypeLabel,
         wellness_friendly: formData.wellnessFriendly,
@@ -337,14 +337,14 @@ export default function NewPropertyPage() {
             user_id: userId,
             type: 'property_submitted',
             title: 'Property Submitted for Review',
-            message: `Your property "${formData.name}" has been submitted and is pending admin approval.`,
+            message: `Your property "${formData.name}" has been submitted and is live.`,
             related_property_id: propertyId,
           });
         } catch (e) {
           console.warn('Could not create notification:', e);
         }
 
-        toast.success('Property submitted for approval! Our team will review it shortly.', { duration: 5000 });
+        toast.success('Property published! You can edit it anytime from your dashboard.', { duration: 5000 });
         router.push('/host/application-submitted');
       } else {
         // Fallback to localStorage
@@ -361,7 +361,7 @@ export default function NewPropertyPage() {
         });
         localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
 
-        toast.success('Property submitted for approval!');
+        toast.success('Property published!');
         router.push('/host/application-submitted');
       }
     } catch (error: any) {
