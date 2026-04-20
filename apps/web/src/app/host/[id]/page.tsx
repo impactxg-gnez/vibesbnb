@@ -14,6 +14,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import toast from 'react-hot-toast';
 
 interface HostProfile {
@@ -37,6 +38,7 @@ interface Property {
   rating?: number;
   reviews?: number;
   vibesbnb_take?: string;
+  status?: string;
 }
 
 export default function HostProfilePage() {
@@ -67,12 +69,13 @@ export default function HostProfilePage() {
         if (profileError) throw profileError;
         setHost(profile);
 
-        // Fetch host properties
+        // Fetch host properties (active + pending approval; hide draft/inactive from public profile)
         const { data: props, error: propsError } = await supabase
           .from('properties')
           .select('*')
           .eq('host_id', hostId)
-          .eq('status', 'active');
+          .in('status', [...PUBLIC_HOST_PROFILE_PROPERTY_STATUSES])
+          .order('created_at', { ascending: false });
 
         if (propsError) throw propsError;
         setProperties(props || []);
@@ -235,10 +238,15 @@ export default function HostProfilePage() {
                     >
                       <div className="relative h-48">
                         <img 
-                          src={property.images[0] || '/placeholder-property.jpg'} 
+                          src={(Array.isArray(property.images) && property.images[0]) || '/placeholder-property.jpg'} 
                           alt={property.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                         />
+                        {property.status === 'pending_approval' && (
+                          <div className="absolute top-3 right-3 px-2 py-1 bg-amber-500/95 text-black text-xs font-bold rounded-md">
+                            Pending review
+                          </div>
+                        )}
                         <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-white text-xs font-semibold">
                           ${property.price}/night
                         </div>
