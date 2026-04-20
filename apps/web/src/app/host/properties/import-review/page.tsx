@@ -6,6 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Upload, X, Plus, Check, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import {
+  getHostScopeUserId,
+  getHostScopeUserIdFromAuthOnly,
+} from '@/lib/adminHostImpersonation';
 import LocationPicker from '@/components/LocationPicker';
 
 interface Room {
@@ -358,8 +362,11 @@ export default function ImportReviewPage() {
         }
       }
 
-      // Use Supabase user ID if available, otherwise use demo user ID
-      const userId = supabaseUser?.id || user.id;
+      // Align with host panel / new property: scoped host id (incl. admin impersonation)
+      const userId =
+        supabaseUser && user
+          ? getHostScopeUserId(user, supabaseUser.id)
+          : getHostScopeUserIdFromAuthOnly(user) || user.id;
 
       // Collect all images from rooms
       const allImageUrls: string[] = [];
@@ -411,7 +418,7 @@ export default function ImportReviewPage() {
           return;
         }
 
-        console.log('[Import Review] Session verified, saving property with host_id:', supabaseUser.id);
+        console.log('[Import Review] Session verified, saving property with host_id:', userId);
         console.log('[Import Review] Property data:', {
           id: propertyId,
           name: formData.name,
@@ -423,7 +430,7 @@ export default function ImportReviewPage() {
         });
         console.log('[Import Review] Full insert data:', {
           id: propertyId,
-          host_id: supabaseUser.id,
+          host_id: userId,
           name: formData.name,
           location: formData.location,
           rooms: roomsData,
@@ -434,7 +441,7 @@ export default function ImportReviewPage() {
           .from('properties')
           .insert({
             id: propertyId,
-            host_id: supabaseUser.id,
+            host_id: userId,
             name: formData.name,
             title: formData.name,
             description: formData.description,

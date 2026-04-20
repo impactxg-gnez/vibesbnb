@@ -21,6 +21,10 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import {
+  getHostScopeUserId,
+  getHostScopeUserIdFromAuthOnly,
+} from '@/lib/adminHostImpersonation';
 
 interface BulkProperty {
   name: string;
@@ -436,7 +440,11 @@ export default function BulkImportPage() {
     for (const property of parsedData.properties) {
       try {
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-        const userId = supabaseUser?.id || user.id;
+        // Must match host properties panel: .eq('host_id', getHostScopeUserId(...)) (incl. admin impersonation)
+        const userId =
+          supabaseUser && user
+            ? getHostScopeUserId(user, supabaseUser.id)
+            : getHostScopeUserIdFromAuthOnly(user) || user.id;
         const propertyId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         const amenitiesArray = property.amenities 
@@ -487,6 +495,7 @@ export default function BulkImportPage() {
 
     if (successCount > 0) {
       toast.success(`${successCount} properties submitted for approval!`);
+      router.refresh();
     }
     if (failedCount > 0) {
       toast.error(`${failedCount} properties failed to import`);
