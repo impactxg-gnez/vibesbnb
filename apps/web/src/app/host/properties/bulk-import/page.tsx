@@ -65,7 +65,8 @@ function isExternalListingUrl(raw: string): boolean {
       h.includes('booking.com') ||
       h.includes('vrbo.com') ||
       h.includes('homeaway.') ||
-      h.includes('esca-management.com')
+      h.includes('esca-management.com') ||
+      h.includes('ammosfl.com')
     );
   } catch {
     return false;

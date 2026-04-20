@@ -53,11 +53,15 @@ const DEMO_ACCOUNTS = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const SAVED_SESSIONS_KEY = 'vibes_saved_sessions';
 
-// Check if Supabase is configured
+// Match createClient(): need real URL + anon key (both are inlined at build time for NEXT_PUBLIC_*).
 const isSupabaseConfigured = () => {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL && 
-         process.env.NEXT_PUBLIC_SUPABASE_URL !== '' &&
-         process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://placeholder.supabase.co';
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const key = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  return (
+    !!url &&
+    !!key &&
+    url !== 'https://placeholder.supabase.co'
+  );
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -277,11 +281,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // If not a demo account and Supabase is not configured, show error
     if (!useSupabase) {
-      return { 
-        error: { 
+      return {
+        error: {
           message:
-            'Invalid email or password. Try demo@traveller.com, demo@host.com, demo@admin.com (password: password), esca@vibesbnb.com (password: Esca123!), or sign in as admin@vibesbnb.com with your Supabase password (Realtime requires a real session).' 
-        } 
+            'This build is missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY). Add them in Vercel → Project → Environment Variables for Production (and Preview), set Root Directory to apps/web if this is the monorepo, then redeploy—editing env alone does not update the live JS bundle. Or use demo@traveller.com / demo@host.com / demo@admin.com with password: password.',
+        },
       };
     }
     

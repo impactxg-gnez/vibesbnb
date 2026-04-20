@@ -99,12 +99,14 @@ export async function POST(request: NextRequest) {
     const isAirbnb = url.includes('airbnb.com');
     // Detect if this is an Esca Management URL
     const isEscaManagement = url.includes('esca-management.com');
+    // Ammos (WordPress / lazy-loaded galleries) — same rationale as Esca
+    const isAmmosFl = url.includes('ammosfl.com');
 
     let propertyData: ScrapedPropertyData;
 
-    // Use Puppeteer for Airbnb and Esca Management (better results, more images, handles lazy loading)
+    // Use Puppeteer for Airbnb, Esca, and Ammos (better results, more images, handles lazy loading)
     // Can be overridden with usePuppeteer: false
-    const shouldUsePuppeteer = usePuppeteer !== false && (isAirbnb || isEscaManagement);
+    const shouldUsePuppeteer = usePuppeteer !== false && (isAirbnb || isEscaManagement || isAmmosFl);
 
     if (shouldUsePuppeteer) {
       console.log('[Scraper] Using Puppeteer (browser automation)');
