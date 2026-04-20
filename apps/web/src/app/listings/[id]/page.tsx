@@ -340,6 +340,16 @@ export default function ListingDetailPage() {
     toast.success('Link copied to clipboard!');
   };
 
+  const handleViewHostProfile = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (!property?.hostId) {
+      toast.error('Host profile unavailable');
+      return;
+    }
+    router.push(`/users/${property.hostId}`);
+  };
+
   const handleBooking = () => {
     const selectedRoomsParam = selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
     const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
@@ -851,12 +861,13 @@ export default function ListingDetailPage() {
                   </p>
                   
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4">
-                    <Link 
-                      href={`/users/${property.hostId}`}
+                    <button
+                      type="button"
+                      onClick={handleViewHostProfile}
                       className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
                     >
                       Check Profile
-                    </Link>
+                    </button>
                   <Link 
                     href="/messages"
                     className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
