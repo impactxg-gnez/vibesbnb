@@ -46,7 +46,7 @@ export default function HostPage() {
 
   return (
     <div className="min-h-screen bg-surface-dark">
-      <div className="relative py-16 md:py-20 lg:py-24 overflow-hidden">
+      <div className="relative overflow-hidden pt-16 pb-20 md:pt-20 md:pb-16 lg:pt-24 lg:pb-20">
         <div className="absolute inset-0 bg-primary-500/5 blur-[120px] rounded-full -translate-y-1/2" />
         <div className="container mx-auto px-6 relative">
           {/* Phone: single column (stacked). md+: hero | benefits side by side */}
@@ -145,19 +145,18 @@ export default function HostPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="container mx-auto px-6 pb-24">
-        <div className="w-full max-w-3xl min-w-0">
-          <div className="bg-surface rounded-[2.5rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/5 blur-3xl rounded-full" />
-            <h2 className="text-3xl font-bold text-white mb-2">How it works</h2>
-            <ol className="text-muted space-y-4 mt-8 list-decimal list-inside leading-relaxed">
-              <li>Choose <strong className="text-white">List my property (Host)</strong> on sign up.</li>
-              <li>Confirm your email — you&apos;ll go straight to your host dashboard.</li>
-              <li>Add a listing and publish — it can appear in search when marked active.</li>
-            </ol>
+          {/* Sits directly under the hero + benefits block (no extra section gap) */}
+          <div className="w-full max-w-3xl min-w-0 mt-10 sm:mt-12 md:mt-14">
+            <div className="bg-surface rounded-[2.5rem] p-8 sm:p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/5 blur-3xl rounded-full" />
+              <h2 className="text-3xl font-bold text-white mb-2">How it works</h2>
+              <ol className="text-muted space-y-4 mt-8 list-decimal list-inside leading-relaxed">
+                <li>Choose <strong className="text-white">List my property (Host)</strong> on sign up.</li>
+                <li>Confirm your email — you&apos;ll go straight to your host dashboard.</li>
+                <li>Add a listing and publish — it can appear in search when marked active.</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>

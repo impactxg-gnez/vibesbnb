@@ -325,37 +325,90 @@ export function Header() {
               </svg>
               <span className="hidden sm:inline">Calendar</span>
             </Link>
-            {/* Mode Switcher Toggle - Only render after mount to prevent hydration mismatch */}
+            {/* Mode switcher — mobile: compact pill; tablet+: full-width pill (same behavior) */}
             {user && mounted && (
-              <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44 relative group">
-                <div 
-                  className={`absolute h-[30px] w-[84px] bg-primary-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
-                    isInHostingMode ? 'translate-x-[86px]' : 'translate-x-0'
-                  }`}
-                />
-                <button
-                  onClick={switchToTraveler}
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
-                    !isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Plane size={14} className={!isInHostingMode ? 'text-black' : 'text-gray-500'} />
-                  Traveling
-                </button>
-                <button
-                  onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
-                    isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Building size={14} className={isInHostingMode ? 'text-black' : 'text-gray-500'} />
-                  Hosting
-                </button>
-              </div>
+              <>
+                <div className="flex md:hidden items-center bg-white/5 border border-white/10 rounded-full p-0.5 h-8 w-[136px] shrink-0 relative">
+                  <div
+                    className={`absolute top-0.5 left-0.5 h-7 w-[62px] bg-primary-500 rounded-full transition-transform duration-300 ease-out shadow-[0_0_12px_rgba(16,185,129,0.35)] ${
+                      isInHostingMode ? 'translate-x-[64px]' : 'translate-x-0'
+                    }`}
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    onClick={switchToTraveler}
+                    className={`flex-1 flex items-center justify-center gap-0.5 text-[9px] font-bold z-10 min-h-[28px] rounded-full transition-colors duration-300 ${
+                      !isInHostingMode ? 'text-black' : 'text-gray-400 active:text-white'
+                    }`}
+                    aria-pressed={!isInHostingMode}
+                    aria-label="Switch to traveling — browse and book"
+                  >
+                    <Plane size={12} className={!isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    Travel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
+                    className={`flex-1 flex items-center justify-center gap-0.5 text-[9px] font-bold z-10 min-h-[28px] rounded-full transition-colors duration-300 ${
+                      isInHostingMode ? 'text-black' : 'text-gray-400 active:text-white'
+                    }`}
+                    aria-pressed={isInHostingMode}
+                    aria-label={
+                      hasHostOrSupportAccess
+                        ? 'Switch to hosting — listings and calendar'
+                        : 'Become a host'
+                    }
+                  >
+                    <Building size={12} className={isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    Host
+                  </button>
+                </div>
+                <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44 relative group">
+                  <div
+                    className={`absolute h-[30px] w-[84px] bg-primary-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
+                      isInHostingMode ? 'translate-x-[86px]' : 'translate-x-0'
+                    }`}
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    onClick={switchToTraveler}
+                    className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
+                      !isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                    aria-pressed={!isInHostingMode}
+                    aria-label="Switch to traveling"
+                  >
+                    <Plane size={14} className={!isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    Traveling
+                  </button>
+                  <button
+                    type="button"
+                    onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
+                    className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
+                      isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                    aria-pressed={isInHostingMode}
+                    aria-label={hasHostOrSupportAccess ? 'Switch to hosting' : 'Become a host'}
+                  >
+                    <Building size={14} className={isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    Hosting
+                  </button>
+                </div>
+              </>
             )}
-            {/* Placeholder for mode switcher before mount to prevent layout shift */}
             {user && !mounted && (
-              <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44" />
+              <>
+                <div
+                  className="flex md:hidden h-8 w-[136px] shrink-0 rounded-full bg-white/5 border border-white/10"
+                  aria-hidden
+                />
+                <div
+                  className="hidden md:flex h-10 w-44 rounded-full bg-white/5 border border-white/10"
+                  aria-hidden
+                />
+              </>
             )}
 
             <Link
@@ -394,6 +447,37 @@ export function Header() {
                           <div className="px-4 py-3 bg-white/5 border-b border-white/5">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Signed in as</p>
                             <p className="text-sm font-bold text-white truncate">{user.email}</p>
+                          </div>
+
+                          {/* Mobile: same mode switch (header can be crowded — clear choice in menu) */}
+                          <div className="px-3 py-3 border-b border-white/5 md:hidden bg-black/30">
+                            <p className="px-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">View as</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <button
+                                type="button"
+                                onClick={switchToTraveler}
+                                className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-2 text-xs font-bold transition-colors ${
+                                  !isInHostingMode
+                                    ? 'bg-primary-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                    : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                                }`}
+                              >
+                                <Plane size={14} />
+                                Traveler
+                              </button>
+                              <button
+                                type="button"
+                                onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
+                                className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-2 text-xs font-bold transition-colors ${
+                                  isInHostingMode
+                                    ? 'bg-primary-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                    : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                                }`}
+                              >
+                                <Building size={14} />
+                                Host
+                              </button>
+                            </div>
                           </div>
                           
                           <div className="py-2">
