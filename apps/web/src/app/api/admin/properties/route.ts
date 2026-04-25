@@ -10,6 +10,10 @@ function accessTokenFromRequest(request: NextRequest): string {
  * List view only — do not use `select('*')` here: the `properties` table can include
  * a large `embedding vector(768)` column (and heavy JSONB). PostgREST then reads/serializes
  * megabytes and hits `statement timeout` (57014) on modest projects.
+ *
+ * Use only columns present in the base schema + common migrations. Optional columns
+ * from later SQL files (e.g. guest_agreement_url, source_url) are omitted so production
+ * DBs that have not run every migration do not 500.
  */
 const ADMIN_PROPERTY_LIST_COLUMNS = [
   'id',
@@ -33,16 +37,7 @@ const ADMIN_PROPERTY_LIST_COLUMNS = [
   'wellness_friendly',
   'rejection_reason',
   'cleaning_fee',
-  'allow_extra_guests',
-  'extra_guest_price',
-  'guest_agreement_url',
   'google_maps_url',
-  'source_url',
-  'vibesbnb_take',
-  'guest_access_type',
-  'smoke_friendly',
-  'smoking_inside_allowed',
-  'smoking_outside_allowed',
   // `embedding` (vector) intentionally omitted — it makes SELECT list queries time out
 ].join(',');
 
