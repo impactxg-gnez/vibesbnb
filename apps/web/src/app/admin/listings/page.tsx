@@ -146,7 +146,9 @@ export default function ManageListingsPage() {
       setFilteredProperties(propertiesWithHosts);
     } catch (error) {
       console.error('Error loading properties:', error);
-      toast.error('Failed to load properties');
+      const message =
+        error instanceof Error && error.message ? error.message : 'Failed to load properties';
+      toast.error(message);
     } finally {
       setLoadingProperties(false);
     }

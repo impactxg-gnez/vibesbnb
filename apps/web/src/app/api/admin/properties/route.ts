@@ -1,6 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createSupabaseForAdminApi } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
+
+function accessTokenFromRequest(request: NextRequest): string {
+  return request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
+}
+
+/**
+ * List view only — do not use `select('*')` here: the `properties` table can include
+ * a large `embedding vector(768)` column (and heavy JSONB). PostgREST then reads/serializes
+ * megabytes and hits `statement timeout` (57014) on modest projects.
+ */
+const ADMIN_PROPERTY_LIST_COLUMNS = [
+  'id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'images',
+  'type',
+  'amenities',
+  'guests',
+  'status',
+  'created_at',
+  'updated_at',
+  'host_id',
+  'description',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'wellness_friendly',
+  'rejection_reason',
+  'cleaning_fee',
+  'allow_extra_guests',
+  'extra_guest_price',
+  'guest_agreement_url',
+  'google_maps_url',
+  'source_url',
+  'vibesbnb_take',
+  'guest_access_type',
+  'smoke_friendly',
+  'smoking_inside_allowed',
+  'smoking_outside_allowed',
+  // `embedding` (vector) intentionally omitted — it makes SELECT list queries time out
+].join(',');
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,11 +52,11 @@ export async function GET(request: NextRequest) {
     if ('response' in auth) return auth.response;
 
     const status = request.nextUrl.searchParams.get('status') || 'all';
-    const serviceSupabase = createServiceClient();
+    const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
 
     let query = serviceSupabase
       .from('properties')
-      .select('*')
+      .select(ADMIN_PROPERTY_LIST_COLUMNS)
       .order('created_at', { ascending: false });
 
     if (status !== 'all') {
@@ -60,7 +104,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Property ID is required' }, { status: 400 });
     }
 
-    const serviceSupabase = createServiceClient();
+    const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -149,7 +193,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'propertyId query parameter is required' }, { status: 400 });
     }
 
-    const serviceSupabase = createServiceClient();
+    const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
     const { error } = await serviceSupabase.from('properties').delete().eq('id', propertyId);
 
     if (error) {
