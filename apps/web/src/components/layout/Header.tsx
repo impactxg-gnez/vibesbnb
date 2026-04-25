@@ -425,11 +425,14 @@ export function Header() {
               <>
                 {user ? (
                   <>
-                    {/* User Menu */}
-                    <div className="relative">
+                    {/* User Menu — max-md: fixed insets so panel stays on-screen; md+: anchored to button */}
+                    <div className="relative z-[60]">
                       <button
+                        type="button"
                         onClick={() => setShowUserMenu(!showUserMenu)}
                         className="flex items-center space-x-2 bg-white/5 hover:bg-primary-500/10 border border-white/10 hover:border-primary-500/50 rounded-full p-1 pl-3 transition-all duration-300 group"
+                        aria-expanded={showUserMenu}
+                        aria-haspopup="menu"
                       >
                         <svg className="w-5 h-5 text-gray-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
@@ -443,7 +446,10 @@ export function Header() {
 
                       {/* Dropdown Menu */}
                       {showUserMenu && (
-                        <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-1.5rem)] bg-gray-950 border border-primary-500/20 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50">
+                        <div
+                          role="menu"
+                          className="w-full min-w-0 max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(70vh,28rem)] max-md:overflow-y-auto max-md:overscroll-contain max-md:shadow-2xl md:absolute md:top-full md:mt-2 md:right-0 md:left-auto md:max-h-none md:overflow-hidden md:w-56 bg-gray-950 border border-primary-500/20 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)] z-[100]"
+                        >
                           <div className="px-4 py-3 bg-white/5 border-b border-white/5">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Signed in as</p>
                             <p className="text-sm font-bold text-white truncate">{user.email}</p>
@@ -562,7 +568,11 @@ export function Header() {
 
                       {/* Account Switcher Sub-Menu */}
                       {showAccountSwitcher && (
-                        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] bg-gray-950 border border-primary-500/30 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] py-5 z-50 overflow-hidden transform transition-all animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div
+                          role="dialog"
+                          aria-label="Switch account"
+                          className="w-full min-w-0 max-md:max-w-none max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(75vh,32rem)] max-md:overflow-y-auto max-md:overscroll-contain max-md:shadow-2xl md:absolute md:top-full md:mt-2 md:right-0 md:left-auto md:max-h-none md:overflow-hidden md:w-80 md:max-w-[min(20rem,calc(100vw-1.5rem))] bg-gray-950 border border-primary-500/30 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] py-5 z-[100] transform transition-all animate-in fade-in slide-in-from-top-4 duration-300"
+                        >
                           <div className="px-6 pb-4 border-b border-white/5 flex items-center justify-between">
                             <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Switch Account</h3>
                             <button onClick={() => setShowAccountSwitcher(false)} className="text-gray-500 hover:text-white transition-colors bg-white/5 p-1 rounded-full">
