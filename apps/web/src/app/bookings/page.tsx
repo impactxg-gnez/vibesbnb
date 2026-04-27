@@ -333,7 +333,9 @@ export default function BookingsPage() {
                       </div>
 
                       {/* Payment Prompt for Accepted Bookings */}
-                      {booking.status === 'accepted' && booking.payment_status === 'pending' && (
+                      {((booking.status === 'accepted' && booking.payment_status === 'pending') ||
+                        (booking.status === 'pending_approval' &&
+                          booking.payment_status === 'pending')) && (
                         <div
                           className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between"
                           onClick={(e) => e.stopPropagation()}
@@ -343,7 +345,9 @@ export default function BookingsPage() {
                             <div>
                               <p className="text-yellow-400 font-semibold">Payment Required</p>
                               <p className="text-yellow-400/80 text-sm">
-                                Your booking has been accepted. Pay with PayPal to confirm.
+                                {booking.status === 'pending_approval'
+                                  ? 'Complete PayPal payment for this request, or finish payment if you have not yet.'
+                                  : 'Your booking has been accepted. Pay with PayPal to confirm.'}
                               </p>
                             </div>
                           </div>

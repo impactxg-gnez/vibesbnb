@@ -52,11 +52,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const alreadyPaid = booking.payment_status === 'paid';
+    const nextStatus = alreadyPaid ? 'confirmed' : 'accepted';
+
     // Update booking status (scoped to this host)
     const { error: updateError } = await supabase
       .from('bookings')
       .update({
-        status: 'accepted',
+        status: nextStatus,
         host_approved_at: new Date().toISOString(),
       })
       .eq('id', bookingId)
@@ -70,43 +73,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create notification for guest
-    await supabase
-      .from('notifications')
-      .insert({
+    // Get host name for notifications / email
+    let hostName = 'Your Host';
+    try {
+      const { data: hostProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', booking.host_id)
+        .single();
+      if (hostProfile?.full_name) {
+        hostName = hostProfile.full_name;
+      }
+    } catch (e) {
+      console.warn('Could not fetch host name:', e);
+    }
+
+    if (alreadyPaid) {
+      await supabase.from('notifications').insert({
+        user_id: booking.user_id,
+        type: 'booking_confirmed',
+        title: 'Booking confirmed!',
+        message: `Your stay at ${booking.property_name} is confirmed. The host accepted your request.`,
+        related_booking_id: booking.id,
+      });
+    } else {
+      await supabase.from('notifications').insert({
         user_id: booking.user_id,
         type: 'booking_accepted',
         title: 'Booking Accepted!',
         message: `Your booking for ${booking.property_name} has been accepted. Please proceed with payment.`,
         related_booking_id: booking.id,
       });
+    }
 
     // Send email notification to guest
     if (booking.guest_email) {
       try {
-        // Get host name for the email
-        let hostName = 'Your Host';
-        try {
-          const { data: hostProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', booking.host_id)
-            .single();
-          if (hostProfile?.full_name) {
-            hostName = hostProfile.full_name;
-          }
-        } catch (e) {
-          console.warn('Could not fetch host name:', e);
-        }
-
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
         await fetch(`${appUrl}/api/notifications/send-email`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to: booking.guest_email,
-            subject: `Booking Confirmed: ${booking.property_name}`,
-            template: 'booking_accepted',
+            subject: alreadyPaid
+              ? `Booking confirmed: ${booking.property_name}`
+              : `Booking accepted: ${booking.property_name}`,
+            template: alreadyPaid ? 'booking_confirmed' : 'booking_accepted',
             data: {
               propertyName: booking.property_name,
               hostName: hostName,

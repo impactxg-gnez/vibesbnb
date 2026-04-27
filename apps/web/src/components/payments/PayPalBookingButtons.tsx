@@ -6,9 +6,11 @@ import toast from 'react-hot-toast';
 type Props = {
   bookingId: string;
   onPaid: () => void;
+  /** Overrides default toast after successful capture */
+  successMessage?: string;
 };
 
-export function PayPalBookingButtons({ bookingId, onPaid }: Props) {
+export function PayPalBookingButtons({ bookingId, onPaid, successMessage }: Props) {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim() || '';
 
   if (!clientId) {
@@ -51,7 +53,9 @@ export function PayPalBookingButtons({ bookingId, onPaid }: Props) {
           if (!res.ok) {
             throw new Error(out.error || 'Payment could not be completed');
           }
-          toast.success('Payment successful! Your stay is confirmed.');
+          toast.success(
+            successMessage ?? 'Payment successful! Your stay is confirmed.'
+          );
           onPaid();
         }}
         onCancel={() => {

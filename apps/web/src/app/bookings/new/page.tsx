@@ -7,6 +7,7 @@ import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink } from '
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
 import {
   enumerateStayNightsYmd,
   nightsBetweenYmd,
@@ -58,6 +59,7 @@ export default function NewBookingPage() {
   const [availability, setAvailability] = useState<Record<string, string[]>>({});
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [agreementSignerName, setAgreementSignerName] = useState('');
+  const [checkoutBookingId, setCheckoutBookingId] = useState<string | null>(null);
 
   // Initialize with URL params if available
   const initialCheckIn = searchParams.get('checkIn') || '';
@@ -193,15 +195,12 @@ export default function NewBookingPage() {
     return { nights, basePrice, cleaningFee, serviceFee, total };
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateBookingForm = (): boolean => {
+    if (!user || !property) return false;
 
-    if (!user || !property) return;
-
-    // Validation
     if (!formData.checkIn || !formData.checkOut) {
       toast.error('Please select check-in and check-out dates');
-      return;
+      return false;
     }
 
     const checkInDate = parseCalendarDate(formData.checkIn);
@@ -210,45 +209,46 @@ export default function NewBookingPage() {
 
     if (!checkInDate || checkInDate < today) {
       toast.error('Check-in date cannot be in the past');
-      return;
+      return false;
     }
 
     if (!checkOutDate || checkOutDate.getTime() <= checkInDate.getTime()) {
       toast.error('Check-out date must be after check-in date');
-      return;
+      return false;
     }
 
     if (formData.guests > property.guests) {
       toast.error(`This property can only accommodate ${property.guests} guests`);
-      return;
+      return false;
     }
 
-    const isRangeAvailable = () => {
-      const nightKeys = enumerateStayNightsYmd(formData.checkIn, formData.checkOut);
-      for (const key of nightKeys) {
-        const blockedUnits = availability[key] || [];
+    const nightKeys = enumerateStayNightsYmd(formData.checkIn, formData.checkOut);
+    for (const key of nightKeys) {
+      const blockedUnits = availability[key] || [];
 
-        if (blockedUnits.includes('PROPERTY_WIDE')) return false;
-
-        if (selectedUnits.length > 0) {
-          const isAnySelectedUnitBlocked = selectedUnits.some(unit => blockedUnits.includes(unit.id));
-          if (isAnySelectedUnitBlocked) return false;
-        } else {
-          if (blockedUnits.length > 0) return false;
-        }
+      if (blockedUnits.includes('PROPERTY_WIDE')) {
+        toast.error('Selected dates include blocked or already booked nights.');
+        return false;
       }
-      return true;
-    };
 
-    if (!isRangeAvailable()) {
-      toast.error('Selected dates include blocked or already booked nights.');
-      return;
+      if (selectedUnits.length > 0) {
+        const isAnySelectedUnitBlocked = selectedUnits.some((unit) =>
+          blockedUnits.includes(unit.id)
+        );
+        if (isAnySelectedUnitBlocked) {
+          toast.error('Selected dates include blocked or already booked nights.');
+          return false;
+        }
+      } else if (blockedUnits.length > 0) {
+        toast.error('Selected dates include blocked or already booked nights.');
+        return false;
+      }
     }
 
     const priceBreakdown = calculateTotal();
     if (!priceBreakdown) {
       toast.error('Please select valid dates to calculate the total price');
-      return;
+      return false;
     }
 
     const signed = agreementSignerName.trim();
@@ -256,39 +256,34 @@ export default function NewBookingPage() {
       toast.error(
         'Please read the house rules agreement, check the box, and enter your full legal name as it appears on your ID.'
       );
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const handleStartCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (checkoutBookingId) return;
+    if (!validateBookingForm() || !user || !property) return;
+
+    const priceBreakdown = calculateTotal();
+    if (!priceBreakdown) return;
+
+    const signed = agreementSignerName.trim();
 
     setSubmitting(true);
     try {
       const supabase = createClient();
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: supabaseUser },
+      } = await supabase.auth.getUser();
 
       if (!supabaseUser) {
         toast.error('Please log in to make a booking');
         return;
       }
 
-      // Get host information
-      let hostEmail = '';
-      let hostWhatsApp = '';
-      if (property.host_id) {
-        try {
-          // Try to get host info from auth.users (requires service role or admin)
-          // For now, we'll get it from the property or use a service role API call
-          const { data: hostData } = await supabase
-            .from('properties')
-            .select('host_id')
-            .eq('id', property.id)
-            .single();
-
-          // Host contact info will be fetched in the API route using service role
-        } catch (e) {
-          console.warn('Could not fetch host info:', e);
-        }
-      }
-
-      // Create booking via API route (which will handle notifications)
       const response = await fetch('/api/bookings/create', {
         method: 'POST',
         headers: {
@@ -320,11 +315,16 @@ export default function NewBookingPage() {
         throw new Error(data.error || 'Failed to create booking');
       }
 
-      toast.success('Booking request submitted! The host will be notified and will respond shortly.');
-      router.push('/bookings');
-    } catch (error: any) {
+      const newId = data.booking?.id as string | undefined;
+      if (!newId) {
+        throw new Error('Booking created but no id returned');
+      }
+
+      setCheckoutBookingId(newId);
+      toast.success('Request saved. Complete PayPal payment below—the host has been notified.');
+    } catch (error: unknown) {
       console.error('Error creating booking:', error);
-      toast.error(error.message || 'Failed to create booking');
+      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
     } finally {
       setSubmitting(false);
     }
@@ -376,7 +376,7 @@ export default function NewBookingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Booking Form */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6">
+            <form onSubmit={handleStartCheckout} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6">
               {/* Property Info */}
               <div className="pb-6 border-b border-gray-800">
                 <h2 className="text-2xl font-bold text-white mb-2">{property.name}</h2>
@@ -528,17 +528,37 @@ export default function NewBookingPage() {
                 </div>
               )}
 
+              {checkoutBookingId && (
+                <div className="rounded-xl border border-yellow-500/30 bg-yellow-950/20 p-5 space-y-4">
+                  <div className="flex items-center gap-2 text-yellow-200 font-semibold">
+                    <CreditCard size={20} />
+                    Pay with PayPal
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    Your request is on file and the host has been notified. Complete payment to
+                    secure this booking at the total shown.
+                  </p>
+                  <PayPalBookingButtons
+                    bookingId={checkoutBookingId}
+                    successMessage="Payment received! The host has your paid request."
+                    onPaid={() => router.push('/bookings')}
+                  />
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={submitting || !priceBreakdown}
+                disabled={submitting || !priceBreakdown || !!checkoutBookingId}
                 className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold text-lg"
               >
-                {submitting ? (
-                  'Submitting...'
+                {checkoutBookingId ? (
+                  'Request saved — use PayPal above'
+                ) : submitting ? (
+                  'Saving request...'
                 ) : (
                   <>
                     <CreditCard size={20} />
-                    Submit Booking Request
+                    Save request and pay with PayPal
                   </>
                 )}
               </button>
@@ -604,7 +624,9 @@ export default function NewBookingPage() {
 
               <div className="mt-6 pt-6 border-t border-gray-800">
                 <p className="text-xs text-gray-400 text-center">
-                  You won't be charged until the host accepts your booking request
+                  You submit your request first, then pay the total with PayPal on this page. The
+                  host still approves the stay; if they decline, arrange refunds outside the app or
+                  contact support.
                 </p>
               </div>
             </div>

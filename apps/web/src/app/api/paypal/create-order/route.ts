@@ -39,16 +39,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (booking.status !== 'accepted') {
-      return NextResponse.json(
-        { error: 'Booking must be accepted by the host before payment' },
-        { status: 400 }
-      );
-    }
+    const canPay =
+      booking.payment_status === 'pending' &&
+      (booking.status === 'pending_approval' || booking.status === 'accepted');
 
-    if (booking.payment_status !== 'pending') {
+    if (!canPay) {
       return NextResponse.json(
-        { error: 'This booking does not require payment' },
+        {
+          error:
+            'This booking cannot be paid: it must be awaiting approval or accepted with payment pending.',
+        },
         { status: 400 }
       );
     }

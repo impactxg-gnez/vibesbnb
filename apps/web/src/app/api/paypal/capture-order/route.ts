@@ -59,7 +59,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (booking.status !== 'accepted' || booking.payment_status !== 'pending') {
+    const awaitingPayment =
+      booking.payment_status === 'pending' &&
+      (booking.status === 'pending_approval' || booking.status === 'accepted');
+
+    if (!awaitingPayment) {
       return NextResponse.json(
         { error: 'Booking is not awaiting payment' },
         { status: 400 }
@@ -97,15 +101,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Captured amount does not match booking total' }, { status: 400 });
     }
 
-    const { error: updateError } = await supabase
+    const nextStatus = booking.status === 'accepted' ? 'confirmed' : booking.status;
+
+    const { data: updatedRows, error: updateError } = await supabase
       .from('bookings')
       .update({
         payment_status: 'paid',
         payment_intent_id: captureId,
-        status: 'confirmed',
+        status: nextStatus,
       })
       .eq('id', bookingId)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .eq('payment_status', 'pending')
+      .select('id');
 
     if (updateError) {
       console.error('[paypal/capture-order] supabase update', updateError);
@@ -115,7 +123,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (booking.host_id) {
+    const transitioned = Array.isArray(updatedRows) && updatedRows.length > 0;
+
+    if (transitioned && booking.host_id) {
       await supabase.from('notifications').insert({
         user_id: booking.host_id,
         type: 'payment_received',

@@ -48,8 +48,8 @@ async function markBookingPaid(bookingId: string, captureId: string, amountValue
     return;
   }
 
-  if (booking.status !== 'accepted') {
-    console.warn('[paypal/webhook] booking not in accepted state', bookingId, booking.status);
+  if (booking.status !== 'accepted' && booking.status !== 'pending_approval') {
+    console.warn('[paypal/webhook] booking not in payable state', bookingId, booking.status);
     return;
   }
 
@@ -65,22 +65,27 @@ async function markBookingPaid(bookingId: string, captureId: string, amountValue
     }
   }
 
-  const { error: updateError } = await supabase
+  const nextStatus = booking.status === 'accepted' ? 'confirmed' : booking.status;
+
+  const { data: updatedRows, error: updateError } = await supabase
     .from('bookings')
     .update({
       payment_status: 'paid',
       payment_intent_id: captureId,
-      status: 'confirmed',
+      status: nextStatus,
     })
     .eq('id', bookingId)
-    .eq('payment_status', 'pending');
+    .eq('payment_status', 'pending')
+    .select('id');
 
   if (updateError) {
     console.error('[paypal/webhook] update failed', updateError);
     return;
   }
 
-  if (booking.host_id) {
+  const transitioned = Array.isArray(updatedRows) && updatedRows.length > 0;
+
+  if (transitioned && booking.host_id) {
     await supabase.from('notifications').insert({
       user_id: booking.host_id,
       type: 'payment_received',
