@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Calendar, MapPin, Users, Star, ChevronRight, CreditCard, AlertCircle, XCircle } from 'lucide-react';
+import { Calendar, MapPin, Users, Star, ChevronRight, AlertCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
 import { formatCalendarDate } from '@/lib/dateUtils';
+import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
 
 interface Booking {
   id: string;
@@ -227,26 +228,33 @@ export default function BookingsPage() {
                   tab === 'cancelled' ? booking.status === 'cancelled' : booking.status !== 'cancelled'
                 )
                 .map((booking) => (
-                <Link
+                <div
                   key={booking.id}
-                  href={`/listings/${booking.propertyId}`}
-                  className="block bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-emerald-500/50 transition group"
+                  className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-emerald-500/50 transition"
                 >
                   <div className="flex flex-col md:flex-row">
-                    <div className="relative w-full md:w-64 h-48 md:h-auto">
+                    <Link
+                      href={`/listings/${booking.propertyId}`}
+                      className="relative w-full md:w-64 h-48 md:h-auto shrink-0 block overflow-hidden group/img"
+                    >
                       <Image
                         src={booking.propertyImage}
                         alt={booking.propertyName}
                         fill
-                        className="object-cover group-hover:scale-105 transition duration-300"
+                        className="object-cover group-hover/img:scale-105 transition duration-300"
                       />
-                    </div>
+                    </Link>
                     <div className="flex-1 p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="text-xl font-semibold mb-2 group-hover:text-emerald-400 transition">
-                            {booking.propertyName}
-                          </h3>
+                          <Link
+                            href={`/listings/${booking.propertyId}`}
+                            className="group/title inline-block"
+                          >
+                            <h3 className="text-xl font-semibold mb-2 group-hover/title:text-emerald-400 transition">
+                              {booking.propertyName}
+                            </h3>
+                          </Link>
                           <div className="flex items-center gap-4 text-sm text-gray-400">
                             <div className="flex items-center gap-1">
                               <MapPin className="w-4 h-4" />
@@ -326,26 +334,25 @@ export default function BookingsPage() {
 
                       {/* Payment Prompt for Accepted Bookings */}
                       {booking.status === 'accepted' && booking.payment_status === 'pending' && (
-                        <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <AlertCircle className="w-5 h-5 text-yellow-400" />
+                        <div
+                          className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0" />
                             <div>
                               <p className="text-yellow-400 font-semibold">Payment Required</p>
-                              <p className="text-yellow-400/80 text-sm">Your booking has been accepted. Please complete payment to confirm.</p>
+                              <p className="text-yellow-400/80 text-sm">
+                                Your booking has been accepted. Pay with PayPal to confirm.
+                              </p>
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              // TODO: Integrate with payment gateway (Stripe, etc.)
-                              toast.success('Payment integration coming soon!');
-                            }}
-                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
-                          >
-                            <CreditCard size={18} />
-                            Pay Now
-                          </button>
+                          <div className="w-full sm:w-[260px] shrink-0">
+                            <PayPalBookingButtons
+                              bookingId={booking.id}
+                              onPaid={() => loadBookings()}
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -367,7 +374,7 @@ export default function BookingsPage() {
                       )}
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
