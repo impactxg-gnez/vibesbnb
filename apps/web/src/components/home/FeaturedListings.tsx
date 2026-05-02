@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 
 interface Listing {
@@ -33,7 +34,7 @@ export function FeaturedListings() {
         const supabase = createClient();
         const { data: propertiesData, error } = await supabase
           .from('properties')
-          .select('*')
+          .select(PROPERTY_PUBLIC_LIST_COLUMNS)
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(3);

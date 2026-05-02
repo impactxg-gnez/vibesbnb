@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface HostProfile {
   id: string;
@@ -76,26 +77,27 @@ export default function UserProfilePage() {
         // 2. Fetch Properties by this host (active listings)
         const { data: propsData } = await supabase
           .from('properties')
-          .select('*')
+          .select(PROPERTY_PUBLIC_LIST_COLUMNS)
           .eq('host_id', userId)
           .in('status', [...PUBLIC_HOST_PROFILE_PROPERTY_STATUSES])
           .order('created_at', { ascending: false });
 
         if (propsData) {
-          const formattedProps = propsData.map(p => ({
-            id: p.id,
-            name: p.name || p.title || 'Untitled Property',
-            location: p.location || '',
+          const rows = (propsData ?? []) as unknown as Record<string, unknown>[];
+          const formattedProps = rows.map((p) => ({
+            id: String(p.id),
+            name: String(p.name ?? p.title ?? 'Untitled Property'),
+            location: String(p.location ?? ''),
             price: Number(p.price || 0),
             rating: Number(p.rating || 0),
             reviews: 0, // In a real app, join with reviews
-            images: Array.isArray(p.images) ? p.images : [],
-            status: p.status,
+            images: Array.isArray(p.images) ? (p.images as string[]) : [],
+            status: p.status != null ? String(p.status) : undefined,
           }));
           setProperties(formattedProps);
           
           // Total reviews across all properties (mocked or fetched)
-          setReviewsCount(propsData.reduce((acc, p) => acc + (p.reviews_count || 0), 0));
+          setReviewsCount(rows.reduce((acc, p) => acc + Number((p as { reviews_count?: number }).reviews_count || 0), 0));
         }
 
       } catch (err) {

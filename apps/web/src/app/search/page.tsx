@@ -20,6 +20,7 @@ import {
   listingHasAllAmenityChips,
   listingMatchesAnyPropertyTypeChip,
 } from '@/lib/propertySearchFilters';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface Listing {
   id: string;
@@ -410,12 +411,10 @@ export default function SearchPage() {
 
         if (isSupabaseConfigured) {
           // Fetch active properties from Supabase
-          let query = supabase
+          const { data, error } = await supabase
             .from('properties')
-            .select('*')
+            .select(PROPERTY_PUBLIC_LIST_COLUMNS)
             .eq('status', 'active');
-
-          const { data, error } = await query;
 
           if (error) {
             console.error('[Search] Error loading properties from Supabase:', error);
@@ -496,15 +495,6 @@ export default function SearchPage() {
         // Transform Supabase data to Listing format
         let filteredListings: Listing[] = (propertiesData || []).map((p: any) => {
           const smoking = resolveSmokingFlags(p as Record<string, unknown>);
-          // Debug: Log coordinates extraction
-          if (p.latitude && p.longitude) {
-            console.log('[Search] Property has coordinates:', {
-              id: p.id,
-              name: p.name,
-              latitude: p.latitude,
-              longitude: p.longitude,
-            });
-          }
           // Normalize and filter images
           const rawImages = p.images || [];
           const normalizedImages = rawImages
@@ -587,18 +577,29 @@ export default function SearchPage() {
               // Fetch blocked/booked dates for all properties in our list
               const propertyIds = filteredListings.map(l => l.id);
               const supabase = createClient();
-              
-              const { data: blockedDates, error: availError } = await supabase
-                .from('property_availability')
-                .select('property_id, day, status')
-                .in('property_id', propertyIds)
-                .in('day', datesToCheck)
-                .in('status', ['blocked', 'booked']);
 
-              if (!availError && blockedDates) {
+              const idChunkSize = 120;
+              const blockedDates: { property_id: string; day: string; status: string }[] = [];
+              let availError: { message?: string } | null = null;
+              for (let i = 0; i < propertyIds.length; i += idChunkSize) {
+                const idSlice = propertyIds.slice(i, i + idChunkSize);
+                const { data: sliceData, error: sliceErr } = await supabase
+                  .from('property_availability')
+                  .select('property_id, day, status')
+                  .in('property_id', idSlice)
+                  .in('day', datesToCheck)
+                  .in('status', ['blocked', 'booked']);
+                if (sliceErr) {
+                  availError = sliceErr;
+                  break;
+                }
+                if (sliceData?.length) blockedDates.push(...sliceData);
+              }
+
+              if (!availError) {
                 // Create a set of property IDs that have blocked dates
                 const unavailablePropertyIds = new Set<string>();
-                blockedDates.forEach((block: any) => {
+                blockedDates.forEach((block) => {
                   unavailablePropertyIds.add(block.property_id);
                 });
 

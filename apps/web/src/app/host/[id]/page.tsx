@@ -16,6 +16,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import toast from 'react-hot-toast';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface HostProfile {
   id: string;
@@ -72,13 +73,13 @@ export default function HostProfilePage() {
         // Fetch host properties (active listings only for public profile)
         const { data: props, error: propsError } = await supabase
           .from('properties')
-          .select('*')
+          .select(PROPERTY_PUBLIC_LIST_COLUMNS)
           .eq('host_id', hostId)
           .in('status', [...PUBLIC_HOST_PROFILE_PROPERTY_STATUSES])
           .order('created_at', { ascending: false });
 
         if (propsError) throw propsError;
-        setProperties(props || []);
+        setProperties((props ?? []) as unknown as Property[]);
 
         // Fetch stats (bookings and earnings) — scope by host_id, not property_id alone
         const { data: bookings, error: bookingsError } = await supabase

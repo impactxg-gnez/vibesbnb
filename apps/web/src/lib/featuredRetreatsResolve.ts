@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 export type FeaturedRetreatPublic = {
   id: string;
@@ -120,11 +121,12 @@ async function pickFallbackIds(
 
 async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string[]) {
   if (ids.length === 0) return [] as Record<string, unknown>[];
-  const { data, error } = await supabase.from('properties').select('*').in('id', ids);
+  const { data, error } = await supabase.from('properties').select(PROPERTY_PUBLIC_LIST_COLUMNS).in('id', ids);
   if (error) throw error;
+  const rows = ((data ?? []) as unknown as Record<string, unknown>[]) ?? [];
   const byId = new Map<string, Record<string, unknown>>();
-  for (const p of data || []) {
-    byId.set(String((p as { id: string }).id), p as Record<string, unknown>);
+  for (const p of rows) {
+    byId.set(String(p.id), p);
   }
   return ids
     .map((id) => byId.get(id))
@@ -205,7 +207,7 @@ function mapRowToRetreat(
 async function legacyWellnessRetreats(supabase: SupabaseClient, limit: number): Promise<FeaturedRetreatPublic[]> {
   const { data: propertiesData, error } = await supabase
     .from('properties')
-    .select('*')
+    .select(PROPERTY_PUBLIC_LIST_COLUMNS)
     .eq('status', 'active')
     .eq('wellness_friendly', true)
     .order('created_at', { ascending: false })
@@ -213,7 +215,7 @@ async function legacyWellnessRetreats(supabase: SupabaseClient, limit: number): 
 
   if (error || !propertiesData?.length) return [];
 
-  const rows = propertiesData as Record<string, unknown>[];
+  const rows = (propertiesData ?? []) as unknown as Record<string, unknown>[];
   const hostIds = [...new Set(rows.map((p) => p.host_id).filter(Boolean))] as string[];
   const profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
   if (hostIds.length > 0) {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
 import Link from 'next/link';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface Listing {
   id: string;
@@ -40,12 +41,10 @@ export default function MapPage() {
         
         if (isSupabaseConfigured) {
           // Fetch active properties from Supabase - same query as search page
-          let query = supabase
+          const { data, error } = await supabase
             .from('properties')
-            .select('*')
+            .select(PROPERTY_PUBLIC_LIST_COLUMNS)
             .eq('status', 'active');
-
-          const { data, error } = await query;
 
           if (error) {
             console.error('[Map] Error loading properties from Supabase:', error);

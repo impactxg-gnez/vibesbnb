@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
 
 interface FeaturedProperty {
@@ -31,28 +32,35 @@ export function FeaturedProperties() {
                 // 1. Fetch active properties
                 const { data: propertiesData, error: propError } = await supabase
                     .from('properties')
-                    .select('*')
+                    .select(PROPERTY_PUBLIC_LIST_COLUMNS)
                     .eq('status', 'active')
                     .limit(20);
 
                 if (propError) throw propError;
 
-                // 2. Fetch all bookings to calculate popularity
-                const { data: bookingsData, error: bookError } = await supabase
-                    .from('bookings')
-                    .select('property_id');
+                const propertyIds = ((propertiesData ?? []) as unknown as { id: string }[]).map(
+                  (p) => p.id
+                );
 
-                if (bookError) {
-                    console.error('Error fetching bookings:', bookError);
+                let bookingsData: { property_id: string }[] | null = null;
+                if (propertyIds.length > 0) {
+                    const { data: bRows, error: bookError } = await supabase
+                        .from('bookings')
+                        .select('property_id')
+                        .in('property_id', propertyIds);
+                    if (bookError) {
+                        console.error('Error fetching bookings:', bookError);
+                    } else {
+                        bookingsData = bRows;
+                    }
                 }
 
-                // 3. Count bookings per property
                 const bookingCounts: Record<string, number> = {};
-                (bookingsData || []).forEach(b => {
+                (bookingsData || []).forEach((b) => {
                     bookingCounts[b.property_id] = (bookingCounts[b.property_id] || 0) + 1;
                 });
 
-                // 4. Combine and sort
+                // Combine and sort
                 const featured = (propertiesData || []).map((p: any) => ({
                     id: p.id,
                     name: p.name || p.title || 'Property',

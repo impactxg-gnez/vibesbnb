@@ -8,7 +8,14 @@ export async function GET() {
   try {
     const supabase = createServiceClient();
     const { retreats, source, displayCount } = await resolveFeaturedRetreatsForHome(supabase);
-    return NextResponse.json({ retreats, source, displayCount });
+    return NextResponse.json(
+      { retreats, source, displayCount },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error('[featured-retreats] GET', error);
     const message = error instanceof Error ? error.message : 'Failed to load featured vibes';
