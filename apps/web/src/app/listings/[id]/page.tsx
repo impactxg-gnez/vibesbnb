@@ -43,6 +43,7 @@ import {
   todayLocalYmd,
 } from '@/lib/dateUtils';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
+import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface Property {
   id: string;
@@ -167,17 +168,18 @@ export default function ListingDetailPage() {
         if (isSupabaseConfigured) {
           const { data, error } = await supabase
             .from('properties')
-            .select('*')
+            .select(PROPERTY_DETAIL_PUBLIC_COLUMNS)
             .eq('id', params.id as string)
             .eq('status', 'active')
             .single();
 
           if (!error && data) {
+            const d = data as unknown as Record<string, unknown>;
             propertyData = {
-              ...data,
-              wellnessFriendly: data.wellness_friendly,
-              hostId: data.host_id,
-              vibesbnb_take: data.vibesbnb_take,
+              ...d,
+              wellnessFriendly: d.wellness_friendly,
+              hostId: d.host_id,
+              vibesbnb_take: d.vibesbnb_take,
             };
           }
         }
@@ -228,7 +230,7 @@ export default function ListingDetailPage() {
           try {
             const { data: profile } = await supabase
               .from('profiles')
-              .select('*')
+              .select('id, full_name, avatar_url, bio, created_at')
               .eq('id', propertyData.host_id)
               .single();
 

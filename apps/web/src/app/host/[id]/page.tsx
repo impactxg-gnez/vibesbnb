@@ -63,7 +63,7 @@ export default function HostProfilePage() {
         // Fetch host profile
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, full_name, avatar_url, bio, created_at')
           .eq('id', hostId)
           .single();
 

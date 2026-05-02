@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
 
 interface FeaturedProperty {
@@ -27,23 +26,17 @@ export function FeaturedProperties() {
     useEffect(() => {
         const loadFeaturedProperties = async () => {
             try {
-                const supabase = createClient();
+                const res = await fetch('/api/properties/browse?limit=20', { method: 'GET' });
+                if (!res.ok) throw new Error(String(res.status));
 
-                // 1. Fetch active properties
-                const { data: propertiesData, error: propError } = await supabase
-                    .from('properties')
-                    .select(PROPERTY_PUBLIC_LIST_COLUMNS)
-                    .eq('status', 'active')
-                    .limit(20);
-
-                if (propError) throw propError;
-
-                const propertyIds = ((propertiesData ?? []) as unknown as { id: string }[]).map(
-                  (p) => p.id
-                );
+                const payload = await res.json();
+                const propertiesData =
+                  ((payload.properties ?? []) as unknown) as Record<string, unknown>[];
+                const propertyIds = propertiesData.map((p) => String(p.id));
 
                 let bookingsData: { property_id: string }[] | null = null;
                 if (propertyIds.length > 0) {
+                    const supabase = createClient();
                     const { data: bRows, error: bookError } = await supabase
                         .from('bookings')
                         .select('property_id')

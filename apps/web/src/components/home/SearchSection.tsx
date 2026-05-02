@@ -96,7 +96,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
 
       try {
         const supabase = createClient();
-        console.log('[SearchSection] Loading locations from Supabase...');
         const { data: propertiesData, error } = await supabase
           .from('properties')
           .select('location')
@@ -108,7 +107,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
         }
 
         if (propertiesData) {
-          console.log(`[SearchSection] Found ${propertiesData.length} active properties with locations`);
           propertiesData.forEach((p: any) => {
             if (p.location) {
               allLocations.add(p.location);
@@ -118,7 +116,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
 
         // Fallback to localStorage if Supabase is not configured or has no data
         if (allLocations.size === 0) {
-          console.log('[SearchSection] No locations found in Supabase, checking localStorage...');
           const keys = Object.keys(localStorage);
           keys.forEach(key => {
             if (key.startsWith('properties_')) {
@@ -137,7 +134,6 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
         }
 
         const uniqueLocations = Array.from(allLocations).sort();
-        console.log('[SearchSection] Final unique locations:', uniqueLocations);
         setLocations(uniqueLocations);
       } catch (error) {
         console.error('Error loading locations:', error);

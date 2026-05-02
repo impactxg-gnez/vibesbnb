@@ -16,6 +16,7 @@ import {
   todayLocalYmd,
 } from '@/lib/dateUtils';
 import { buildGuestAgreementNotice } from '@/lib/guestAgreementCopy';
+import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface Property {
   id: string;
@@ -100,51 +101,57 @@ export default function NewBookingPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { data: propertyData, error } = await supabase
+      const { data: rawProperty, error } = await supabase
         .from('properties')
-        .select('*')
+        .select(PROPERTY_DETAIL_PUBLIC_COLUMNS)
         .eq('id', propertyId)
         .eq('status', 'active')
         .single();
 
-      if (error || !propertyData) {
+      if (error || !rawProperty) {
         toast.error('Property not found');
         router.push('/search');
         return;
       }
 
+      const propertyRow = rawProperty as unknown as Record<string, unknown>;
+
       setProperty({
-        id: propertyData.id,
-        name: propertyData.name || propertyData.title || 'Untitled Property',
-        location: propertyData.location || '',
-        price: propertyData.price ? Number(propertyData.price) : 0,
-        images: propertyData.images || [],
-        guests: propertyData.guests || 1,
-        host_id: propertyData.host_id,
-        guest_agreement_url: propertyData.guest_agreement_url ?? null,
-        smoking_inside_allowed: propertyData.smoking_inside_allowed === true,
+        id: String(propertyRow.id),
+        name: String(propertyRow.name ?? propertyRow.title ?? 'Untitled Property'),
+        location: String(propertyRow.location ?? ''),
+        price: propertyRow.price != null ? Number(propertyRow.price) : 0,
+        images: Array.isArray(propertyRow.images) ? (propertyRow.images as string[]) : [],
+        guests: Number(propertyRow.guests ?? 1) || 1,
+        host_id: propertyRow.host_id != null ? String(propertyRow.host_id) : undefined,
+        guest_agreement_url:
+          typeof propertyRow.guest_agreement_url === 'string'
+            ? propertyRow.guest_agreement_url
+            : null,
+        smoking_inside_allowed: propertyRow.smoking_inside_allowed === true,
         cleaningFee:
-          propertyData.cleaning_fee != null
-            ? Number(propertyData.cleaning_fee)
-            : propertyData.cleaningFee != null
-              ? Number(propertyData.cleaningFee)
+          propertyRow.cleaning_fee != null
+            ? Number(propertyRow.cleaning_fee)
+            : propertyRow.cleaningFee != null
+              ? Number(propertyRow.cleaningFee)
               : 0,
-        rooms: propertyData.rooms || [],
+        rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
       });
 
       // If units were selected, filter them
-      if (selectedUnitsParam && propertyData.rooms) {
+      if (selectedUnitsParam && propertyRow.rooms) {
         const selectedIds = selectedUnitsParam.split(',');
-        const filtered = propertyData.rooms.filter((r: any) => selectedIds.includes(r.id));
+        const rooms = propertyRow.rooms as { id: string }[];
+        const filtered = rooms.filter((r) => selectedIds.includes(r.id));
         setSelectedUnits(filtered);
       }
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        guests: propertyData.guests || 1,
+        guests: Number(propertyRow.guests ?? 1) || 1,
       }));
 
-      await loadAvailability(propertyData.id);
+      await loadAvailability(String(propertyRow.id));
     } catch (error) {
       console.error('Error loading property:', error);
       toast.error('Failed to load property');

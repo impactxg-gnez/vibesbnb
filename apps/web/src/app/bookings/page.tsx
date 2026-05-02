@@ -12,6 +12,24 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
 
+/** Guest booking list — avoid select('*') on wide booking rows */
+const BOOKING_GUEST_LIST_COLUMNS = [
+  'id',
+  'property_id',
+  'property_name',
+  'property_image',
+  'location',
+  'check_in',
+  'check_out',
+  'guests',
+  'kids',
+  'pets',
+  'total_price',
+  'status',
+  'payment_status',
+  'rating',
+].join(',');
+
 interface Booking {
   id: string;
   propertyId: string;
@@ -59,7 +77,7 @@ export default function BookingsPage() {
         try {
           const { data, error } = await supabase
             .from('bookings')
-            .select('*')
+            .select(BOOKING_GUEST_LIST_COLUMNS)
             .eq('user_id', supabaseUser.id)
             .order('check_in', { ascending: false });
 

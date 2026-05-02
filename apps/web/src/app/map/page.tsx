@@ -26,7 +26,6 @@ export default function MapPage() {
       setLoading(true);
       
       try {
-        const supabase = createClient();
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         const isSupabaseConfigured = supabaseUrl && 
@@ -38,23 +37,36 @@ export default function MapPage() {
         
         let propertiesData: any[] = [];
         let supabaseErrorOccurred = false;
-        
-        if (isSupabaseConfigured) {
-          // Fetch active properties from Supabase - same query as search page
-          const { data, error } = await supabase
-            .from('properties')
-            .select(PROPERTY_PUBLIC_LIST_COLUMNS)
-            .eq('status', 'active');
+        let loadedViaBrowse = false;
 
-          if (error) {
-            console.error('[Map] Error loading properties from Supabase:', error);
-            supabaseErrorOccurred = true;
-          } else {
-            propertiesData = data || [];
-            console.log('[Map] Loaded', propertiesData.length, 'properties from Supabase');
+        if (isSupabaseConfigured) {
+          try {
+            const res = await fetch('/api/properties/browse', { method: 'GET' });
+            if (res.ok) {
+              const payload = await res.json();
+              propertiesData = payload.properties ?? [];
+              loadedViaBrowse = true;
+            }
+          } catch (e) {
+            console.warn('[Map] browse failed', e);
+          }
+
+          if (!loadedViaBrowse) {
+            const supabase = createClient();
+            const { data, error } = await supabase
+              .from('properties')
+              .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+              .eq('status', 'active');
+
+            if (error) {
+              console.error('[Map] Error loading properties from Supabase:', error);
+              supabaseErrorOccurred = true;
+            } else {
+              propertiesData = data || [];
+            }
           }
         }
-        
+
         // Fallback to localStorage if Supabase is not configured or query failed
         if (!isSupabaseConfigured || supabaseErrorOccurred) {
           console.log('[Map] Loading properties from localStorage fallback');

@@ -408,23 +408,50 @@ export default function SearchPage() {
 
         let propertiesData: any[] = [];
         let supabaseErrorOccurred = false;
+        /** Card host row — populated by browse API or a follow-up profiles query */
+        let profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
+        let loadedPropertiesViaBrowse = false;
 
         if (isSupabaseConfigured) {
-          // Fetch active properties from Supabase
-          const { data, error } = await supabase
-            .from('properties')
-            .select(PROPERTY_PUBLIC_LIST_COLUMNS)
-            .eq('status', 'active');
+          if (!cancelled) {
+            try {
+              const res = await fetch('/api/properties/browse', { method: 'GET' });
+              if (res.ok) {
+                const payload = await res.json();
+                propertiesData = payload.properties ?? [];
+                loadedPropertiesViaBrowse = true;
+                for (const row of payload.profiles ?? []) {
+                  if (row?.id) {
+                    profileById[row.id] = {
+                      avatar_url: row.avatar_url ?? null,
+                      full_name: row.full_name ?? null,
+                    };
+                  }
+                }
+              }
+            } catch {
+              loadedPropertiesViaBrowse = false;
+            }
+          }
 
-          if (error) {
-            console.error('[Search] Error loading properties from Supabase:', error);
-            supabaseErrorOccurred = true;
-          } else {
-            propertiesData = data || [];
+          if (!loadedPropertiesViaBrowse && !cancelled) {
+            const { data, error } = await supabase
+              .from('properties')
+              .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+              .eq('status', 'active');
+
+            if (error) {
+              console.error('[Search] Error loading properties from Supabase:', error);
+              supabaseErrorOccurred = true;
+              profileById = {};
+            } else {
+              propertiesData = data || [];
+              profileById = {};
+            }
           }
         }
 
-        // Fallback to localStorage if Supabase is not configured or query failed
+        // Fallback to localStorage if Supabase is not configured or both browse and direct failed
         if (!isSupabaseConfigured || supabaseErrorOccurred) {
           console.log('[Search] Loading properties from localStorage fallback');
           const allProperties: any[] = [];
@@ -474,8 +501,7 @@ export default function SearchPage() {
           }
         };
 
-        let profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
-        if (isSupabaseConfigured && propertiesData.length > 0) {
+        if (isSupabaseConfigured && propertiesData.length > 0 && !loadedPropertiesViaBrowse) {
           const hostIds = [
             ...new Set(
               propertiesData.map((p: { host_id?: string }) => p.host_id).filter(Boolean)

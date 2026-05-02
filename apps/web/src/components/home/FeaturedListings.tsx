@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
-import { createClient } from '@/lib/supabase/client';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 
 interface Listing {
@@ -31,31 +29,23 @@ export function FeaturedListings() {
   useEffect(() => {
     const loadFeaturedListings = async () => {
       try {
-        const supabase = createClient();
-        const { data: propertiesData, error } = await supabase
-          .from('properties')
-          .select(PROPERTY_PUBLIC_LIST_COLUMNS)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(3);
-
-        if (error) {
-          console.error('Error loading featured listings:', error);
+        const res = await fetch('/api/properties/browse?limit=3', { method: 'GET' });
+        if (!res.ok) {
           setListings([]);
-          setLoading(false);
           return;
         }
-
-        const featuredListings: Listing[] = (propertiesData || []).map((p: any) => {
-          const smoking = resolveSmokingFlags(p as Record<string, unknown>);
+        const payload = await res.json();
+        const propertiesData = (payload.properties ?? []) as Record<string, unknown>[];
+        const featuredListings: Listing[] = propertiesData.map((p) => {
+          const smoking = resolveSmokingFlags(p);
           return {
-            id: p.id,
-            title: p.name || p.title || 'Property',
-            location: p.location || '',
-            price: p.price ? Number(p.price) : 0,
-            rating: p.rating ? Number(p.rating) : 4.5,
-            images: p.images || [],
-            type: p.type || 'Property',
+            id: String(p.id),
+            title: (p.name ?? p.title ?? 'Property') as string,
+            location: (p.location ?? '') as string,
+            price: p.price != null ? Number(p.price) : 0,
+            rating: p.rating != null ? Number(p.rating) : 4.5,
+            images: (Array.isArray(p.images) ? p.images : []) as string[],
+            type: (p.type ?? 'Property') as string,
             verified: true,
             wellnessFriendly: p.wellness_friendly === true,
             smokingInsideAllowed: smoking.inside,
