@@ -177,6 +177,227 @@ function sortSearchListings(
   return copy;
 }
 
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v1';
+const SEARCH_CATALOG_TTL_MS = 120_000;
+
+type ProfileBrief = { avatar_url: string | null; full_name: string | null };
+type SearchInventory = { properties: any[]; profileById: Record<string, ProfileBrief> };
+
+function normalizeListingImageUrl(url: string): string {
+  if (!url || typeof url !== 'string') {
+    return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
+  }
+  if (url.startsWith('data:') || url.startsWith('https://via.placeholder.com')) return url;
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
+  }
+}
+
+function collectLocalStorageFallbackProperties(): any[] {
+  const allProperties: any[] = [];
+  if (typeof window === 'undefined') return allProperties;
+  const keys = Object.keys(localStorage);
+  keys.forEach((key) => {
+    if (!key.startsWith('properties_')) return;
+    try {
+      const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
+      const activeProperties = userProperties.filter(
+        (p: any) => p.status === 'active' || !p.status
+      );
+      allProperties.push(...activeProperties);
+    } catch (e) {
+      console.error('[Search] Error parsing localStorage properties:', e);
+    }
+  });
+  return allProperties;
+}
+
+/**
+ * Loads the catalog once per session/tab (never on every URL tweak).
+ * Dramatically reduces Supabase / Browse API IO when travellers change dates, guests, or sort.
+ */
+async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const isConfigured =
+    supabaseUrl &&
+    supabaseUrl !== '' &&
+    supabaseUrl !== 'https://placeholder.supabase.co' &&
+    supabaseKey &&
+    supabaseKey !== '' &&
+    supabaseKey !== 'placeholder-key';
+
+  if (!isConfigured) {
+    const rows = collectLocalStorageFallbackProperties();
+    return rows.length ? { properties: rows, profileById: {} } : null;
+  }
+
+  try {
+    const cached = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SEARCH_CATALOG_STORAGE_KEY) : null;
+    if (cached) {
+      const { at, inv } = JSON.parse(cached) as { at: number; inv: SearchInventory };
+      if (
+        typeof at === 'number' &&
+        Date.now() - at < SEARCH_CATALOG_TTL_MS &&
+        Array.isArray(inv?.properties)
+      ) {
+        return inv;
+      }
+    }
+  } catch {
+    // ignore malformed cache
+  }
+
+  try {
+    const res = await fetch('/api/properties/browse', { method: 'GET' });
+    if (res.ok) {
+      const payload = await res.json();
+      const properties = payload.properties ?? [];
+      const profileById: Record<string, ProfileBrief> = {};
+      for (const row of payload.profiles ?? []) {
+        if (row?.id) {
+          profileById[row.id] = {
+            avatar_url: row.avatar_url ?? null,
+            full_name: row.full_name ?? null,
+          };
+        }
+      }
+      const inv: SearchInventory = { properties, profileById };
+      try {
+        typeof sessionStorage !== 'undefined' &&
+          sessionStorage.setItem(
+            SEARCH_CATALOG_STORAGE_KEY,
+            JSON.stringify({ at: Date.now(), inv })
+          );
+      } catch {
+        // quota / private mode
+      }
+      return inv;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('properties')
+      .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+      .eq('status', 'active');
+
+    if (error || !data?.length) return null;
+
+    const propsList = data as Array<{ host_id?: string | null }>;
+    const hostIds = [
+      ...new Set(propsList.map((p) => p.host_id).filter(Boolean)),
+    ] as string[];
+    const profileById: Record<string, ProfileBrief> = {};
+    if (hostIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, avatar_url, full_name')
+        .in('id', hostIds);
+      (profs || []).forEach((row: ProfileBrief & { id: string }) => {
+        profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
+      });
+    }
+
+    const inv = { properties: data, profileById };
+    return inv;
+  } catch {
+    const rows = collectLocalStorageFallbackProperties();
+    return rows.length ? { properties: rows, profileById: {} } : null;
+  }
+}
+
+function listingsFromInventory(inv: SearchInventory): Listing[] {
+  return inv.properties.map((p: any) => {
+    const smoking = resolveSmokingFlags(p as Record<string, unknown>);
+    const rawImages = p.images || [];
+    const normalizedImages = rawImages
+      .map(normalizeListingImageUrl)
+      .filter((img: string) => img?.length > 0);
+    const images =
+      normalizedImages.length > 0
+        ? normalizedImages
+        : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
+
+    const hostId = typeof p.host_id === 'string' ? p.host_id : '';
+    const prof = hostId ? inv.profileById[hostId] : undefined;
+    const hostName = (prof?.full_name || 'Host').trim() || 'Host';
+    const hostAvatarUrl =
+      prof?.avatar_url ||
+      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostId || hostName)}`;
+
+    return {
+      id: p.id,
+      name: p.name || p.title || 'Untitled Property',
+      title: p.name || p.title || 'Untitled Property',
+      location: p.location || '',
+      price: p.price ? Number(p.price) : 0,
+      rating: p.rating ? Number(p.rating) : 0,
+      reviews: p.reviews_count || 0,
+      images,
+      type: p.type || 'Property',
+      amenities: p.amenities || [],
+      guests: p.guests || 0,
+      bedrooms: p.bedrooms || 0,
+      beds: p.beds != null ? Number(p.beds) : undefined,
+      bathrooms: p.bathrooms != null ? Number(p.bathrooms) : 0,
+      wellnessFriendly: p.wellness_friendly === true,
+      smokingInsideAllowed: smoking.inside,
+      smokingOutsideAllowed: smoking.outside,
+      host_id: hostId,
+      hostName,
+      hostAvatarUrl,
+      status: p.status || 'active',
+      coordinates: p.coordinates
+        ? { lat: Number(p.coordinates.lat), lng: Number(p.coordinates.lng) }
+        : p.latitude && p.longitude
+          ? { lat: Number(p.latitude), lng: Number(p.longitude) }
+          : undefined,
+    };
+  });
+}
+
+function applyLocationGuestFilters(
+  listings: Listing[],
+  locationRaw: string,
+  totalOccupancy: number
+): Listing[] {
+  let filteredListings = [...listings];
+
+  if (locationRaw) {
+    const location = locationRaw;
+    const searchTerms = location
+      .toLowerCase()
+      .split(/[,\s]+/)
+      .filter((term) => term.length > 1);
+    filteredListings = filteredListings.filter((listing) => {
+      const listingLoc = listing.location.toLowerCase();
+      const listingName = listing.name.toLowerCase();
+      return (
+        searchTerms.some(
+          (term) => listingLoc.includes(term) || listingName.includes(term)
+        ) || listingLoc.includes(location.toLowerCase())
+      );
+    });
+  }
+
+  if (totalOccupancy > 0) {
+    filteredListings = filteredListings.filter((listing) => {
+      const propertyGuests = listing.guests || 0;
+      if (propertyGuests === 0) return totalOccupancy <= 2;
+      return propertyGuests >= totalOccupancy;
+    });
+  }
+
+  return filteredListings;
+}
+
 // Listing card: shared media (thumbnails + heart) + host row in body
 function ListingCard({
   listing,
@@ -349,6 +570,7 @@ export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [baseListings, setBaseListings] = useState<Listing[]>([]);
+  const [inventory, setInventory] = useState<SearchInventory | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
@@ -370,7 +592,11 @@ export default function SearchPage() {
   const checkOut = searchParams.get('checkOut') || '';
   const hasDateFilter = !!(checkIn && checkOut);
   const nights = hasDateFilter ? calculateNights(checkIn, checkOut) : 0;
-  
+
+  const urlLocation = searchParams.get('location') || '';
+  const urlGuests = parseInt(searchParams.get('guests') || '0', 10);
+  const urlKids = parseInt(searchParams.get('kids') || '0', 10);
+
   // Sync URL categories to activeFilters
   useEffect(() => {
     const categories = searchParams.get('categories')?.split(',').filter(Boolean) || [];
@@ -380,294 +606,114 @@ export default function SearchPage() {
     });
   }, [searchParams]);
 
+  // Load catalog once (browse API / Supabase / local fallback). Dates, guests, location only refilter locally + availability queries.
   useEffect(() => {
     let cancelled = false;
-
-    const loadSearchBaseListings = async () => {
+    void (async () => {
       setLoading(true);
-
-      // Get search parameters
-      const location = searchParams.get('location') || '';
-      const guests = parseInt(searchParams.get('guests') || '0');
-      const kids = parseInt(searchParams.get('kids') || '0');
-      const pets = parseInt(searchParams.get('pets') || '0');
-      const totalOccupancy = guests + kids;
-      const checkIn = searchParams.get('checkIn') || '';
-      const checkOut = searchParams.get('checkOut') || '';
-
       try {
-        const supabase = createClient();
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        const isSupabaseConfigured = supabaseUrl &&
-          supabaseUrl !== '' &&
-          supabaseUrl !== 'https://placeholder.supabase.co' &&
-          supabaseKey &&
-          supabaseKey !== '' &&
-          supabaseKey !== 'placeholder-key';
-
-        let propertiesData: any[] = [];
-        let supabaseErrorOccurred = false;
-        /** Card host row — populated by browse API or a follow-up profiles query */
-        let profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
-        let loadedPropertiesViaBrowse = false;
-
-        if (isSupabaseConfigured) {
-          if (!cancelled) {
-            try {
-              const res = await fetch('/api/properties/browse', { method: 'GET' });
-              if (res.ok) {
-                const payload = await res.json();
-                propertiesData = payload.properties ?? [];
-                loadedPropertiesViaBrowse = true;
-                for (const row of payload.profiles ?? []) {
-                  if (row?.id) {
-                    profileById[row.id] = {
-                      avatar_url: row.avatar_url ?? null,
-                      full_name: row.full_name ?? null,
-                    };
-                  }
-                }
-              }
-            } catch {
-              loadedPropertiesViaBrowse = false;
-            }
-          }
-
-          if (!loadedPropertiesViaBrowse && !cancelled) {
-            const { data, error } = await supabase
-              .from('properties')
-              .select(PROPERTY_PUBLIC_LIST_COLUMNS)
-              .eq('status', 'active');
-
-            if (error) {
-              console.error('[Search] Error loading properties from Supabase:', error);
-              supabaseErrorOccurred = true;
-              profileById = {};
-            } else {
-              propertiesData = data || [];
-              profileById = {};
-            }
-          }
-        }
-
-        // Fallback to localStorage if Supabase is not configured or both browse and direct failed
-        if (!isSupabaseConfigured || supabaseErrorOccurred) {
-          console.log('[Search] Loading properties from localStorage fallback');
-          const allProperties: any[] = [];
-
-          // Check all localStorage keys for properties
-          const keys = Object.keys(localStorage);
-          keys.forEach(key => {
-            if (key.startsWith('properties_')) {
-              try {
-                const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
-                // Only include active properties
-                const activeProperties = userProperties.filter((p: any) =>
-                  p.status === 'active' || !p.status // Include properties without status as active
-                );
-                allProperties.push(...activeProperties);
-              } catch (e) {
-                console.error('[Search] Error parsing localStorage properties:', e);
-              }
-            }
-          });
-
-          if (allProperties.length > 0) {
-            propertiesData = allProperties;
-            console.log('[Search] Found', allProperties.length, 'properties from localStorage');
-          }
-        }
-
-        // Helper function to normalize image URLs
-        const normalizeImageUrl = (url: string): string => {
-          if (!url || typeof url !== 'string') {
-            return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
-          }
-
-          // If it's already a data URL or placeholder, return as-is
-          if (url.startsWith('data:') || url.startsWith('https://via.placeholder.com')) {
-            return url;
-          }
-
-          // If it's already a valid absolute URL, return as-is
-          try {
-            new URL(url);
-            return url;
-          } catch (e) {
-            // Not a valid absolute URL, return placeholder
-            console.warn('[Search] Invalid image URL:', url);
-            return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
-          }
-        };
-
-        if (isSupabaseConfigured && propertiesData.length > 0 && !loadedPropertiesViaBrowse) {
-          const hostIds = [
-            ...new Set(
-              propertiesData.map((p: { host_id?: string }) => p.host_id).filter(Boolean)
-            ),
-          ] as string[];
-          if (hostIds.length > 0) {
-            const { data: profs } = await supabase
-              .from('profiles')
-              .select('id, avatar_url, full_name')
-              .in('id', hostIds);
-            (profs || []).forEach((row: { id: string; avatar_url: string | null; full_name: string | null }) => {
-              profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
-            });
-          }
-        }
-
-        // Transform Supabase data to Listing format
-        let filteredListings: Listing[] = (propertiesData || []).map((p: any) => {
-          const smoking = resolveSmokingFlags(p as Record<string, unknown>);
-          // Normalize and filter images
-          const rawImages = p.images || [];
-          const normalizedImages = rawImages
-            .map(normalizeImageUrl)
-            .filter((img: string) => img && img.length > 0);
-
-          // Ensure at least one image
-          const images = normalizedImages.length > 0
-            ? normalizedImages
-            : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
-
-          const hostId = typeof p.host_id === 'string' ? p.host_id : '';
-          const prof = hostId ? profileById[hostId] : undefined;
-          const hostName = ((prof?.full_name || 'Host').trim() || 'Host');
-          const hostAvatarUrl =
-            prof?.avatar_url ||
-            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostId || hostName)}`;
-
-          return {
-            id: p.id,
-            name: p.name || p.title || 'Untitled Property',
-            title: p.name || p.title || 'Untitled Property',
-            location: p.location || '',
-            price: p.price ? Number(p.price) : 0,
-            rating: p.rating ? Number(p.rating) : 0,
-            reviews: p.reviews_count || 0,
-            images: images,
-            type: p.type || 'Property',
-            amenities: p.amenities || [],
-            guests: p.guests || 0,
-            bedrooms: p.bedrooms || 0,
-            beds: p.beds != null ? Number(p.beds) : undefined,
-            bathrooms: p.bathrooms != null ? Number(p.bathrooms) : 0,
-            wellnessFriendly: p.wellness_friendly === true,
-            smokingInsideAllowed: smoking.inside,
-            smokingOutsideAllowed: smoking.outside,
-            host_id: hostId,
-            hostName,
-            hostAvatarUrl,
-            status: p.status || 'active',
-            coordinates: p.coordinates ? {
-              lat: Number(p.coordinates.lat),
-              lng: Number(p.coordinates.lng),
-            } : (p.latitude && p.longitude ? {
-              lat: Number(p.latitude),
-              lng: Number(p.longitude),
-            } : undefined),
-          };
-        });
-
-        // Filter by location - more lenient matching
-        if (location) {
-          const searchTerms = location.toLowerCase().split(/[,\s]+/).filter(term => term.length > 1);
-          filteredListings = filteredListings.filter(listing => {
-            const listingLoc = listing.location.toLowerCase();
-            const listingName = listing.name.toLowerCase();
-
-            // Check if any search term matches location OR name
-            return searchTerms.some(term => listingLoc.includes(term) || listingName.includes(term)) ||
-              listingLoc.includes(location.toLowerCase());
-          });
-        }
-
-        // Filter by guest count - show properties that allow selected guests or more
-        // If property has 0 guests (not set), we show it only if totalOccupancy is 1
-        if (totalOccupancy > 0) {
-          filteredListings = filteredListings.filter(listing => {
-            const propertyGuests = listing.guests || 0;
-            if (propertyGuests === 0) return totalOccupancy <= 2; // Assume typical capacity if not set
-            return propertyGuests >= totalOccupancy;
-          });
-        }
-
-        // Check availability if dates are selected
-        if (checkIn && checkOut && isSupabaseConfigured) {
-          try {
-            const datesToCheck = enumerateStayNightsYmd(checkIn, checkOut);
-
-            if (datesToCheck.length > 0) {
-              // Fetch blocked/booked dates for all properties in our list
-              const propertyIds = filteredListings.map(l => l.id);
-              const supabase = createClient();
-
-              const idChunkSize = 120;
-              const blockedDates: { property_id: string; day: string; status: string }[] = [];
-              let availError: { message?: string } | null = null;
-              for (let i = 0; i < propertyIds.length; i += idChunkSize) {
-                const idSlice = propertyIds.slice(i, i + idChunkSize);
-                const { data: sliceData, error: sliceErr } = await supabase
-                  .from('property_availability')
-                  .select('property_id, day, status')
-                  .in('property_id', idSlice)
-                  .in('day', datesToCheck)
-                  .in('status', ['blocked', 'booked']);
-                if (sliceErr) {
-                  availError = sliceErr;
-                  break;
-                }
-                if (sliceData?.length) blockedDates.push(...sliceData);
-              }
-
-              if (!availError) {
-                // Create a set of property IDs that have blocked dates
-                const unavailablePropertyIds = new Set<string>();
-                blockedDates.forEach((block) => {
-                  unavailablePropertyIds.add(block.property_id);
-                });
-
-                // Mark properties as available or not
-                filteredListings = filteredListings.map(listing => ({
-                  ...listing,
-                  isAvailable: !unavailablePropertyIds.has(listing.id)
-                }));
-
-                // Filter to only show available properties (move unavailable to end or hide)
-                // Sort: available first, then unavailable
-                filteredListings.sort((a, b) => {
-                  if (a.isAvailable && !b.isAvailable) return -1;
-                  if (!a.isAvailable && b.isAvailable) return 1;
-                  return 0;
-                });
-              }
-            }
-          } catch (availError) {
-            console.warn('[Search] Error checking availability:', availError);
-          }
-        }
-
-        if (cancelled) return;
-        setBaseListings(filteredListings);
-      } catch (error) {
-        console.error('Error loading properties:', error);
-        if (!cancelled) {
-          setBaseListings([]);
-        }
+        const inv = await loadSearchCatalogOnce();
+        if (!cancelled) setInventory(inv);
+      } catch (e) {
+        console.error('[Search] Failed to load catalog:', e);
+        if (!cancelled) setInventory(null);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
-    };
-
-    loadSearchBaseListings();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, []);
+
+  useEffect(() => {
+    if (!inventory) {
+      setBaseListings([]);
+      return;
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseConfigured =
+      !!supabaseUrl &&
+      supabaseUrl !== '' &&
+      supabaseUrl !== 'https://placeholder.supabase.co' &&
+      !!supabaseKey &&
+      supabaseKey !== '' &&
+      supabaseKey !== 'placeholder-key';
+
+    const totalOcc = urlGuests + urlKids;
+    const canonical = listingsFromInventory(inventory);
+    const filteredListings = applyLocationGuestFilters(canonical, urlLocation, totalOcc);
+
+    let cancelled = false;
+
+    const clearAvail = (): Listing[] =>
+      filteredListings.map((l) => ({ ...l, isAvailable: undefined }));
+
+    if (!checkIn || !checkOut || !supabaseConfigured) {
+      setBaseListings(clearAvail());
+      return;
+    }
+
+    void (async () => {
+      try {
+        const datesToCheck = enumerateStayNightsYmd(checkIn, checkOut);
+        if (datesToCheck.length === 0) {
+          if (!cancelled) setBaseListings(clearAvail());
+          return;
+        }
+
+        const propertyIds = filteredListings.map((l) => l.id);
+        const supabase = createClient();
+        const idChunkSize = 120;
+        const blockedDates: { property_id: string; day: string; status: string }[] = [];
+        let availErr: { message?: string } | null = null;
+        for (let i = 0; i < propertyIds.length; i += idChunkSize) {
+          const idSlice = propertyIds.slice(i, i + idChunkSize);
+          const { data: sliceData, error: sliceError } = await supabase
+            .from('property_availability')
+            .select('property_id, day, status')
+            .in('property_id', idSlice)
+            .in('day', datesToCheck)
+            .in('status', ['blocked', 'booked']);
+          if (sliceError) {
+            availErr = sliceError;
+            break;
+          }
+          if (sliceData?.length) blockedDates.push(...sliceData);
+        }
+
+        if (cancelled) return;
+
+        if (availErr) {
+          setBaseListings(clearAvail());
+          return;
+        }
+
+        const unavailablePropertyIds = new Set(blockedDates.map((b) => b.property_id));
+        let merged = filteredListings.map((listing) => ({
+          ...listing,
+          isAvailable: !unavailablePropertyIds.has(listing.id),
+        }));
+
+        merged.sort((a, b) => {
+          if (a.isAvailable && !b.isAvailable) return -1;
+          if (!a.isAvailable && b.isAvailable) return 1;
+          return 0;
+        });
+
+        setBaseListings(merged);
+      } catch (e) {
+        console.warn('[Search] Error checking availability:', e);
+        if (!cancelled) setBaseListings(clearAvail());
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inventory, urlLocation, urlGuests, urlKids, checkIn, checkOut]);
 
   const nonPriceFiltered = useMemo(
     () => applyNonPriceListingFilters(baseListings, activeFilters),
