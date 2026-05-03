@@ -494,7 +494,7 @@ export default function BulkImportPage() {
     setImporting(false);
 
     if (successCount > 0) {
-      toast.success(`${successCount} properties submitted for approval!`);
+      toast.success(`${successCount} ${successCount === 1 ? 'property' : 'properties'} imported successfully!`);
       router.refresh();
     }
     if (failedCount > 0) {
@@ -898,7 +898,7 @@ export default function BulkImportPage() {
               <CheckCircle2 size={64} className="mx-auto text-emerald-500 mb-4" />
               <h3 className="text-white font-semibold text-2xl mb-2">Import Complete!</h3>
               <p className="text-gray-400 mb-6">
-                {importResults.success} properties submitted for approval
+                {importResults.success} {importResults.success === 1 ? 'property' : 'properties'} imported successfully
                 {importResults.failed > 0 && `, ${importResults.failed} failed`}
               </p>
               

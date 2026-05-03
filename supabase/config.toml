@@ -1,0 +1,6 @@
+# Supabase local / deploy config stub.
+# Set `project_id` when linking: `supabase link`
+
+[functions.sync-calendars]
+# Cron / schedulers invoke with shared secret (`SYNC_CALENDARS_SECRET`).
+verify_jwt = false

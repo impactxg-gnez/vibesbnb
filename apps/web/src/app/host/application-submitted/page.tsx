@@ -37,15 +37,15 @@ export default function HostApplicationSubmittedPage() {
             <Clock className="w-8 h-8 text-violet-400" />
           </div>
 
-          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Listing submitted</h1>
+          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Listing saved</h1>
           <p className="text-gray-400 leading-relaxed mb-2">
-            Thanks — your property is saved and pending review before it goes live for guests. Your host account is
-            already active; you can add or edit listings anytime.
+            Your property is saved and live for guests (unless you unpublish it). You can add as many listings as you
+            need and edit them anytime from your host dashboard.
           </p>
           <p className="text-sm text-gray-500 mb-8 flex items-center justify-center gap-2">
             <Mail className="w-4 h-4 text-emerald-500 shrink-0" />
-            We&apos;ll email <span className="text-gray-300 font-medium">{user.email}</span> when this listing is
-            approved for public search.
+            Account notices for <span className="text-gray-300 font-medium">{user.email}</span> will still appear in
+            your inbox as usual.
           </p>
 
           <div className="space-y-3">

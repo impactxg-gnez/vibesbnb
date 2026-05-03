@@ -1,7 +1,9 @@
--- One-time migration: auto-approve hosts and listings (run in Supabase SQL Editor as postgres)
+-- One-time migration (optional): normalize legacy data after turning off admin listing approval in the app.
 -- 1) Promote auth users with role host_pending → host
--- 2) Promote properties stuck in pending_approval → active
+-- 2) Promote properties stuck in pending_approval → active (so guests can see them via RLS)
 -- 3) Optional: mark legacy pending_host_applications as approved (does not change auth)
+
+-- New behavior: hosts publish listings themselves; there is no listing-approval queue.
 
 -- --- Auth: host_pending → host (JWT user_metadata)
 UPDATE auth.users

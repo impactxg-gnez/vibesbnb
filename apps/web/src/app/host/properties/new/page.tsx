@@ -336,8 +336,8 @@ export default function NewPropertyPage() {
           await supabase.from('notifications').insert({
             user_id: userId,
             type: 'property_submitted',
-            title: 'Property Submitted for Review',
-            message: `Your property "${formData.name}" has been submitted and is live.`,
+            title: 'Listing published',
+            message: `Your property "${formData.name}" is saved and live. Manage it from your dashboard anytime.`,
             related_property_id: propertyId,
           });
         } catch (e) {
@@ -451,12 +451,13 @@ export default function NewPropertyPage() {
           </div>
         </div>
 
-        {/* Admin Approval Notice */}
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-8">
+        {/* Listing quality */}
+        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4 mb-8">
           <div className="flex items-center gap-3">
-            <Sparkles className="text-amber-500 flex-shrink-0" size={20} />
-            <p className="text-amber-200 text-sm">
-              All properties are reviewed by our team before going live to ensure quality and compliance.
+            <Sparkles className="text-emerald-400 flex-shrink-0" size={20} />
+            <p className="text-emerald-100/90 text-sm">
+              Add as many listings as you need. Complete the required fields, then publish from your dashboard whenever
+              you are ready — no admin wait.
             </p>
           </div>
         </div>
@@ -1040,15 +1041,14 @@ export default function NewPropertyPage() {
           </div>
         </div>
 
-        {/* Admin Approval Notice */}
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+        {/* Go live */}
+        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4 mb-6">
           <div className="flex items-start gap-3">
-            <Sparkles className="text-amber-500 flex-shrink-0 mt-0.5" size={20} />
+            <Sparkles className="text-emerald-400 flex-shrink-0 mt-0.5" size={20} />
             <div>
-              <p className="text-amber-200 font-medium">Pending Admin Approval</p>
-              <p className="text-amber-200/70 text-sm mt-1">
-                Your listing will be reviewed before it appears to guests. You can keep editing it anytime from your
-                host dashboard.
+              <p className="text-emerald-100 font-medium">You can go live right away</p>
+              <p className="text-emerald-100/75 text-sm mt-1">
+                After saving, your listing is marked active. You can unpublish or edit anytime from your host dashboard.
               </p>
             </div>
           </div>

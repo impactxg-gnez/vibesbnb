@@ -1,6 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return [
+      {
+        source: '/calendar/:propertyId.ics',
+        destination: '/api/calendar/:propertyId/ics',
+      },
+      {
+        source: '/calendar/:propertyId/sync',
+        destination: '/api/calendar/:propertyId/sync',
+      },
+    ];
+  },
   images: {
     // Prefer remotePatterns (supports wildcards); keeps Next/Image working for Supabase Storage, etc.
     remotePatterns: [

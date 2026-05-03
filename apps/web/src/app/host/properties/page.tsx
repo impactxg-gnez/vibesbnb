@@ -897,6 +897,7 @@ export default function HostPropertiesPage() {
   };
 
   const handleTogglePublish = async (id: string, currentStatus: string) => {
+    // Hosts control go-live: draft / inactive / legacy pending_approval → active in one step
     const newStatus = currentStatus === 'active' ? 'draft' : 'active';
     const property = properties.find((p) => p.id === id);
 
@@ -1697,8 +1698,8 @@ export default function HostPropertiesPage() {
                                 : 'bg-gray-600 text-white'
                           }`}
                       >
-                        {property.status === 'pending_approval' 
-                          ? 'Pending Approval' 
+                        {property.status === 'pending_approval'
+                          ? 'Not published'
                           : property.status.charAt(0).toUpperCase() + property.status.slice(1)}
                       </span>
                       {(() => {
@@ -1812,49 +1813,39 @@ export default function HostPropertiesPage() {
                         <Edit size={16} />
                         Edit
                       </Link>
-                      {property.status === 'pending_approval' ? (
-                        <div
-                          className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center gap-2 cursor-not-allowed"
-                          title="Awaiting admin approval"
-                        >
-                          <span className="w-4 h-4 flex items-center justify-center">⏳</span>
-                          Pending Review
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleTogglePublish(property.id, property.status)}
-                          disabled={(() => {
-                            if (property.status === 'active') return false;
+                      <button
+                        onClick={() => handleTogglePublish(property.id, property.status)}
+                        disabled={(() => {
+                          if (property.status === 'active') return false;
+                          const validation = validateProperty(property);
+                          return !validation.isComplete;
+                        })()}
+                        className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${property.status === 'active'
+                            ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          } ${(() => {
+                            if (property.status === 'active') return '';
                             const validation = validateProperty(property);
-                            return !validation.isComplete;
-                          })()}
-                          className={`px-4 py-2 rounded-lg transition flex items-center justify-center gap-2 ${property.status === 'active'
-                              ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                            } ${(() => {
-                              if (property.status === 'active') return '';
-                              const validation = validateProperty(property);
-                              return !validation.isComplete ? 'opacity-60 cursor-not-allowed' : '';
-                            })()}`}
-                          title={(() => {
-                            if (property.status === 'active') return 'Unpublish';
-                            const validation = validateProperty(property);
-                            if (!validation.isComplete) {
-                              return `Cannot publish: ${getMissingFieldsSummary(validation.missingFields)}`;
-                            }
-                            return 'Publish';
-                          })()}
-                        >
-                          <Power size={16} />
-                          {property.status === 'active' ? 'Unpublish' : 'Publish'}
-                          {(() => {
-                            const validation = validateProperty(property);
-                            return !validation.isComplete && property.status !== 'active' ? (
-                              <span className="ml-1 text-xs">⚠️</span>
-                            ) : null;
-                          })()}
-                        </button>
-                      )}
+                            return !validation.isComplete ? 'opacity-60 cursor-not-allowed' : '';
+                          })()}`}
+                        title={(() => {
+                          if (property.status === 'active') return 'Unpublish';
+                          const validation = validateProperty(property);
+                          if (!validation.isComplete) {
+                            return `Cannot publish: ${getMissingFieldsSummary(validation.missingFields)}`;
+                          }
+                          return 'Publish — listing goes live when status is active';
+                        })()}
+                      >
+                        <Power size={16} />
+                        {property.status === 'active' ? 'Unpublish' : 'Publish'}
+                        {(() => {
+                          const validation = validateProperty(property);
+                          return !validation.isComplete && property.status !== 'active' ? (
+                            <span className="ml-1 text-xs">⚠️</span>
+                          ) : null;
+                        })()}
+                      </button>
                       <Link
                         href={`/listings/${property.id}`}
                         className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"

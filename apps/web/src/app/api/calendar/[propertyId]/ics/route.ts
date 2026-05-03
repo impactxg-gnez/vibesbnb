@@ -3,26 +3,30 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { addMonthsUtc, startOfUtcDay } from '@/lib/calendar/syncExternalIcal';
 import { loadPlatformOccupancySpans, renderIcsCalendar } from '@/lib/calendar/icsExportPlatform';
 
-/** @deprecated Use GET /calendar/:propertyId.ics (rewritten to /api/calendar/...). Kept for old links. */
+export const dynamic = 'force-dynamic';
+
+/**
+ * ICS export (next 6 months). Query: ?token= must match properties.ical_export_token
+ */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { propertyId: string } }
 ) {
   try {
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get('token');
+    const propertyId = context.params.propertyId;
+    const token = new URL(request.url).searchParams.get('token');
 
     if (!token) {
       return NextResponse.json({ error: 'Token required' }, { status: 401 });
     }
 
-    const supabase = createServiceClient();
+    const service = createServiceClient();
 
-    const { data: property, error: propError } = await supabase
+    const { data: property, error: propError } = await service
       .from('properties')
       .select('id, name, ical_export_token')
-      .eq('id', params.id)
-      .single();
+      .eq('id', propertyId)
+      .maybeSingle();
 
     if (propError || !property) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -36,28 +40,31 @@ export async function GET(
     const windowEndExclusive = addMonthsUtc(windowStart, 6);
 
     const spans = await loadPlatformOccupancySpans({
-      service: supabase,
-      propertyId: params.id,
+      service,
+      propertyId,
       windowStart,
       windowEndExclusive,
     });
 
-    const icalContent = renderIcsCalendar({
+    const body = renderIcsCalendar({
       propertyId: property.id,
       propertyName: property.name || 'VibesBNB listing',
       spans,
     });
 
-    return new NextResponse(icalContent, {
+    const fname = `${String(property.name || property.id).replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+
+    return new NextResponse(body, {
+      status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
         'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=120',
-        'Content-Disposition': `attachment; filename="${String(property.name || property.id).replace(/[^a-zA-Z0-9]/g, '_')}_calendar.ics"`,
+        'Content-Disposition': `inline; filename="${fname}"`,
       },
     });
-  } catch (error: unknown) {
-    console.error('iCal export error:', error);
-    const msg = error instanceof Error ? error.message : 'Failed to export calendar';
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Failed to export';
+    console.error('[calendar ics]', e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

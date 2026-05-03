@@ -10,8 +10,11 @@ interface ICalSource {
   name: string;
   ical_url: string;
   last_synced_at: string | null;
+  last_hash?: string | null;
+  sync_status?: string | null;
   sync_error: string | null;
   is_active: boolean;
+  last_manual_sync_at?: string | null;
 }
 
 interface AvailabilityEntry {
@@ -554,6 +557,17 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-white">{source.name}</span>
+                        {source.sync_status && (
+                          <span
+                            className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                              source.sync_status === 'failed'
+                                ? 'bg-red-500/25 text-red-300'
+                                : 'bg-emerald-500/20 text-emerald-300'
+                            }`}
+                          >
+                            {source.sync_status}
+                          </span>
+                        )}
                         {source.sync_error && (
                           <span className="text-xs text-red-400">⚠ Sync error</span>
                         )}
