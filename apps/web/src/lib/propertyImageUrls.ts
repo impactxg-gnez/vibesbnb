@@ -10,7 +10,9 @@ const TRANSFORMS_ENABLED = process.env.NEXT_PUBLIC_SUPABASE_IMAGE_TRANSFORMS !==
 /** ~half-Retina for 68×48 CSS thumbs */
 const THUMB = { width: 200, height: 150, quality: 72 } as const;
 /** Card hero: fits 2-col / 3-col layouts without shipping full camera originals */
-const CARD = { width: 960, height: 720, quality: 80 } as const;
+const CARD = { width: 832, height: 624, quality: 75 } as const;
+/** Listing detail hero (≈50vw on lg at ~2× DPR) — still capped vs full uploads */
+const GALLERY = { width: 1400, height: 1050, quality: 78 } as const;
 
 const SUPABASE_OBJECT_PUBLIC =
   /^(https:\/\/[^/]+\.supabase\.co)\/storage\/v1\/object\/public\/(.+)$/i;
@@ -47,11 +49,11 @@ function unsplashResize(url: string, w: number, q: number): string | null {
   }
 }
 
-function applyKind(url: string, kind: 'thumb' | 'cardMain'): string {
+function applyKind(url: string, kind: 'thumb' | 'cardMain' | 'gallery'): string {
   if (!url || url.startsWith('data:')) return url;
 
-  const dim = kind === 'thumb' ? THUMB : CARD;
-  const resize = kind === 'thumb' ? 'cover' : 'cover';
+  const dim = kind === 'thumb' ? THUMB : kind === 'gallery' ? GALLERY : CARD;
+  const resize = 'cover';
 
   const supa = supabaseRenderUrl(url, {
     width: dim.width,
@@ -61,7 +63,8 @@ function applyKind(url: string, kind: 'thumb' | 'cardMain'): string {
   });
   if (supa) return supa;
 
-  const unsplash = unsplashResize(url, kind === 'thumb' ? 200 : 1080, dim.quality);
+  const unsplashW = kind === 'thumb' ? 200 : kind === 'gallery' ? 1600 : 900;
+  const unsplash = unsplashResize(url, unsplashW, dim.quality);
   if (unsplash) return unsplash;
 
   return url;
@@ -75,4 +78,9 @@ export function listingThumbImageUrl(url: string): string {
 /** Main card photo: next/image still optimizes, but smaller origin bytes help cold loads. */
 export function listingCardMainImageUrl(url: string): string {
   return applyKind(url, 'cardMain');
+}
+
+/** PDP main gallery photo — narrower than originals, wider than listing cards */
+export function listingGalleryImageUrl(url: string): string {
+  return applyKind(url, 'gallery');
 }

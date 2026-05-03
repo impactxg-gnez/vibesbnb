@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -44,6 +44,12 @@ export type PropertyCardMediaProps = {
   listingHref: string;
   /** When set, shows favorite heart and syncs with `favorites` table */
   propertyId?: string;
+  /** Parent batched favorites: avoids one Supabase read per visible card while loading completes */
+  favoriteBatchLoading?: boolean;
+  /** When parent finished batch load; omit both with `favoriteBatchLoading` to use per-card fetch */
+  favoriteFromBatch?: boolean;
+  /** Keep parent batched Set in sync after toggle */
+  onFavoriteChange?: (propertyId: string, favorited: boolean) => void;
   /** Wellness-friendly listing — shows 🌿 indoor/outdoor vibe pill */
   wellnessFriendly?: boolean;
   /** Guest-facing smoking policy (from listing fields) */
@@ -63,6 +69,9 @@ export function PropertyCardMedia({
   alt,
   listingHref,
   propertyId,
+  favoriteBatchLoading = false,
+  favoriteFromBatch,
+  onFavoriteChange,
   wellnessFriendly = false,
   smokingInsideAllowed = false,
   smokingOutsideAllowed = false,
@@ -75,13 +84,25 @@ export function PropertyCardMedia({
   const [index, setIndex] = useState(0);
   const { user } = useAuth();
   const router = useRouter();
-  const [isFavorited, setIsFavorited] = useState(false);
+
+  const useBatchFavoriteQuery =
+    favoriteBatchLoading ||
+    typeof favoriteFromBatch === 'boolean';
+  const [isFavorited, setIsFavorited] = useState<boolean>(() =>
+    useBatchFavoriteQuery ? Boolean(favoriteFromBatch) : false
+  );
   const [loadingFavorite, setLoadingFavorite] = useState(false);
 
   useEffect(() => {
+    if (useBatchFavoriteQuery) {
+      if (!favoriteBatchLoading && typeof favoriteFromBatch === 'boolean') {
+        setIsFavorited(favoriteFromBatch);
+      }
+      return;
+    }
     if (!user || !propertyId) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const supabase = createClient();
         const { data, error } = await supabase
@@ -98,7 +119,7 @@ export function PropertyCardMedia({
     return () => {
       cancelled = true;
     };
-  }, [user, propertyId]);
+  }, [user, propertyId, useBatchFavoriteQuery, favoriteBatchLoading, favoriteFromBatch]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -110,9 +131,10 @@ export function PropertyCardMedia({
       return;
     }
     setLoadingFavorite(true);
+    const next = !isFavorited;
     try {
       const supabase = createClient();
-      if (isFavorited) {
+      if (!next) {
         const { error } = await supabase
           .from('favorites')
           .delete()
@@ -120,6 +142,7 @@ export function PropertyCardMedia({
           .eq('property_id', propertyId);
         if (error) throw error;
         setIsFavorited(false);
+        onFavoriteChange?.(propertyId, false);
         toast.success('Removed from favorites');
       } else {
         const { error } = await supabase.from('favorites').insert({
@@ -128,6 +151,7 @@ export function PropertyCardMedia({
         });
         if (error) throw error;
         setIsFavorited(true);
+        onFavoriteChange?.(propertyId, true);
         toast.success('Added to favorites');
       }
     } catch (err: unknown) {
@@ -154,9 +178,47 @@ export function PropertyCardMedia({
   const mainDisplaySrc =
     mainSrc.startsWith('data:') || mainUseOriginal ? mainSrc : listingCardMainImageUrl(mainSrc);
 
+  const thumbStripRef = useRef<HTMLDivElement | null>(null);
+  const [thumbsReveal, setThumbsReveal] = useState(false);
+
   useEffect(() => {
     setMainUseOriginal(false);
   }, [mainSrc]);
+
+  useEffect(() => {
+    if (!multi) return;
+
+    const el = thumbStripRef.current;
+    if (!el) return;
+
+    let active = true;
+    const reveal = () => {
+      if (active) setThumbsReveal(true);
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      const t = window.setTimeout(reveal, 250);
+      return () => {
+        active = false;
+        window.clearTimeout(t);
+      };
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) reveal();
+      },
+      { rootMargin: '120px', threshold: 0.01 }
+    );
+    io.observe(el);
+
+    return () => {
+      active = false;
+      io.disconnect();
+    };
+  }, [multi]);
+
+  const revealThumbsNow = useCallback(() => setThumbsReveal(true), []);
 
   return (
     <div className={`flex flex-col bg-black/20 ${className}`}>
@@ -167,6 +229,7 @@ export function PropertyCardMedia({
           alt={multi ? `${alt} — photo ${safeIndex + 1}` : alt}
           fill
           priority={priority}
+          quality={72}
           fetchPriority={priority ? 'high' : 'low'}
           unoptimized={mainSrc.startsWith('data:')}
           placeholder="blur"
@@ -243,7 +306,12 @@ export function PropertyCardMedia({
       </div>
 
       {multi && (
-        <div className="flex gap-2 px-3 py-2.5 bg-[#12121a] border-t border-white/5 overflow-x-auto scrollbar-hide">
+        <div
+          ref={thumbStripRef}
+          role="presentation"
+          onPointerEnter={revealThumbsNow}
+          className="flex gap-2 px-3 py-2.5 bg-[#12121a] border-t border-white/5 overflow-x-auto scrollbar-hide"
+        >
           {slides.map((src, i) => (
             <button
               key={`thumb-${i}`}
@@ -257,10 +325,14 @@ export function PropertyCardMedia({
                   : 'opacity-55 hover:opacity-100 ring-1 ring-white/10'
               }`}
             >
-              <ThumbnailImg
-                optimizedSrc={listingThumbImageUrl(src)}
-                originalSrc={src}
-              />
+              {thumbsReveal ? (
+                <ThumbnailImg
+                  optimizedSrc={listingThumbImageUrl(src)}
+                  originalSrc={src}
+                />
+              ) : (
+                <span className="block h-full w-full bg-white/10" aria-hidden />
+              )}
             </button>
           ))}
         </div>

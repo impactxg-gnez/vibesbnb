@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Retreat {
   id: string;
@@ -28,8 +30,12 @@ interface Retreat {
 }
 
 export function FeaturedRetreats() {
+  const { user } = useAuth();
   const [retreats, setRetreats] = useState<Retreat[]>([]);
   const [loading, setLoading] = useState(true);
+  const retreatIdsKey = useMemo(() => retreats.map((r) => r.id).sort().join('|'), [retreats]);
+  const [batchedFavoriteIds, setBatchedFavoriteIds] = useState(() => new Set<string>());
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
 
   useEffect(() => {
     const loadFeaturedRetreats = async () => {
@@ -53,6 +59,57 @@ export function FeaturedRetreats() {
 
     loadFeaturedRetreats();
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || !retreatIdsKey.length) {
+      setBatchedFavoriteIds(new Set());
+      setFavoritesLoading(false);
+      return;
+    }
+
+    const ids = retreatIdsKey.split('|').filter(Boolean);
+    let cancelled = false;
+    setFavoritesLoading(true);
+
+    void (async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('favorites')
+          .select('property_id')
+          .eq('user_id', user.id!)
+          .in('property_id', ids);
+        if (cancelled) return;
+        if (error) {
+          console.warn('[FeaturedRetreats] Batch favorites:', error.message);
+          setBatchedFavoriteIds(new Set());
+          return;
+        }
+        const next = new Set<string>();
+        (data ?? []).forEach((row: { property_id?: string }) => {
+          if (row.property_id) next.add(row.property_id);
+        });
+        if (!cancelled) setBatchedFavoriteIds(next);
+      } finally {
+        if (!cancelled) setFavoritesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, retreatIdsKey]);
+
+  const syncFavoriteToggle = useCallback((pid: string, favorited: boolean) => {
+    setBatchedFavoriteIds((prev) => {
+      const n = new Set(prev);
+      if (favorited) n.add(pid);
+      else n.delete(pid);
+      return n;
+    });
+  }, []);
+
+  const favoritesBatchBusy = Boolean(user?.id && favoritesLoading);
 
   if (loading) {
     return null;
@@ -101,6 +158,9 @@ export function FeaturedRetreats() {
                     alt={retreat.name}
                     listingHref={`/listings/${retreat.id}`}
                     propertyId={retreat.id}
+                    favoriteBatchLoading={user?.id ? favoritesBatchBusy : undefined}
+                    favoriteFromBatch={user?.id ? batchedFavoriteIds.has(retreat.id) : undefined}
+                    onFavoriteChange={user?.id ? syncFavoriteToggle : undefined}
                     wellnessFriendly={!!retreat.wellnessFriendly}
                     smokingInsideAllowed={!!retreat.smokingInsideAllowed}
                     smokingOutsideAllowed={!!retreat.smokingOutsideAllowed}

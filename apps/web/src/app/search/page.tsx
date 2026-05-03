@@ -21,6 +21,7 @@ import {
   listingMatchesAnyPropertyTypeChip,
 } from '@/lib/propertySearchFilters';
 import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Listing {
   id: string;
@@ -405,6 +406,9 @@ function ListingCard({
   checkIn,
   checkOut,
   priorityImage = false,
+  favoritesBatchLoading,
+  favoritedFromBatch,
+  onFavoriteChange,
 }: {
   listing: Listing;
   onHover: (id: string | null) => void;
@@ -412,6 +416,9 @@ function ListingCard({
   checkOut?: string;
   /** Eager-load first visible card images (above-the-fold). */
   priorityImage?: boolean;
+  favoritesBatchLoading?: boolean;
+  favoritedFromBatch?: boolean;
+  onFavoriteChange?: (propertyId: string, favorited: boolean) => void;
 }) {
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
   
@@ -462,6 +469,9 @@ function ListingCard({
         alt={listing.title || 'Property'}
         listingHref={listingUrl}
         propertyId={listing.id}
+        favoriteBatchLoading={favoritesBatchLoading}
+        favoriteFromBatch={favoritedFromBatch}
+        onFavoriteChange={onFavoriteChange}
         wellnessFriendly={!!listing.wellnessFriendly}
         smokingInsideAllowed={!!listing.smokingInsideAllowed}
         smokingOutsideAllowed={!!listing.smokingOutsideAllowed}
@@ -569,6 +579,7 @@ function ListingCard({
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [baseListings, setBaseListings] = useState<Listing[]>([]);
   const [inventory, setInventory] = useState<SearchInventory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -764,6 +775,75 @@ export default function SearchPage() {
     ? listings.filter((l) => l.isAvailable !== false)
     : listings;
 
+  const favoritesCatalogKey = useMemo(
+    () => [...displayedListings.map((l) => l.id)].sort().join('|'),
+    [displayedListings]
+  );
+
+  const [batchedFavoriteIds, setBatchedFavoriteIds] = useState(() => new Set<string>());
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setBatchedFavoriteIds(new Set());
+      setFavoritesLoading(false);
+      return;
+    }
+
+    const ids =
+      favoritesCatalogKey.length > 0 ? favoritesCatalogKey.split('|').filter(Boolean) : [];
+
+    if (ids.length === 0) {
+      setBatchedFavoriteIds(new Set());
+      setFavoritesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setFavoritesLoading(true);
+
+    void (async () => {
+      try {
+        const supabase = createClient();
+        const chunkSize = 120;
+        const next = new Set<string>();
+        for (let i = 0; i < ids.length; i += chunkSize) {
+          const slice = ids.slice(i, i + chunkSize);
+          const { data, error } = await supabase
+            .from('favorites')
+            .select('property_id')
+            .eq('user_id', user.id!)
+            .in('property_id', slice);
+          if (cancelled) return;
+          if (error) {
+            console.warn('[Search] Batch favorites:', error.message);
+            break;
+          }
+          (data ?? []).forEach((row: { property_id?: string }) => {
+            if (row.property_id) next.add(row.property_id);
+          });
+        }
+        if (!cancelled) setBatchedFavoriteIds(next);
+      } finally {
+        if (!cancelled) setFavoritesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, favoritesCatalogKey]);
+
+  const syncFavoriteToggle = useCallback((pid: string, favorited: boolean) => {
+    setBatchedFavoriteIds((prev) => {
+      const n = new Set(prev);
+      if (favorited) n.add(pid);
+      else n.delete(pid);
+      return n;
+    });
+  }, []);
+
+  const favoritesBatchBusy = Boolean(user?.id && favoritesLoading);
   const availableCount = listings.filter((l) => l.isAvailable !== false).length;
   const unavailableCount = listings.filter((l) => l.isAvailable === false).length;
 
@@ -1072,6 +1152,9 @@ export default function SearchPage() {
                     checkIn={checkIn || undefined}
                     checkOut={checkOut || undefined}
                     priorityImage={index < 4}
+                    favoritesBatchLoading={user?.id ? favoritesBatchBusy : undefined}
+                    favoritedFromBatch={user?.id ? batchedFavoriteIds.has(listing.id) : undefined}
+                    onFavoriteChange={user?.id ? syncFavoriteToggle : undefined}
                   />
                 ))}
               </div>

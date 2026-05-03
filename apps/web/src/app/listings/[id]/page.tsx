@@ -32,6 +32,7 @@ import {
   Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
@@ -44,6 +45,13 @@ import {
 } from '@/lib/dateUtils';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
+
+const GALLERY_HERO_BLUR =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
+
+const PDP_IMAGE_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=1400&h=1050&fit=crop';
 
 interface Property {
   id: string;
@@ -120,6 +128,7 @@ export default function ListingDetailPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [galleryUseOriginal, setGalleryUseOriginal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [reviewsData, setReviewsData] = useState<any[]>([]);
@@ -145,6 +154,10 @@ export default function ListingDetailPage() {
   const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
   
   const stayDuration = calculateNights();
+
+  useEffect(() => {
+    setGalleryUseOriginal(false);
+  }, [currentImageIndex, property?.id]);
 
   /** Obfuscation uses randomness — memoize so gallery (re)renders don't change coords and remount the map. */
   const mapApproxCoords = useMemo(() => {
@@ -410,6 +423,13 @@ export default function ListingDetailPage() {
     );
   }
 
+  const heroRaw =
+    property.images[currentImageIndex] ??
+    property.images[0] ??
+    PDP_IMAGE_PLACEHOLDER;
+  const heroDisplaySrc =
+    galleryUseOriginal || heroRaw.startsWith('data:') ? heroRaw : listingGalleryImageUrl(heroRaw);
+
   return (
     <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4">
@@ -465,14 +485,28 @@ export default function ListingDetailPage() {
         {/* Image Gallery and Map Side by Side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Image Gallery */}
-          <div className="relative h-96 md:h-[500px] rounded-xl overflow-hidden">
-            <img
-              src={property.images[currentImageIndex]}
+          <div className="relative h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900">
+            <Image
+              key={`${property.id}-${currentImageIndex}`}
+              src={heroDisplaySrc}
               alt={`${property.name} - Image ${currentImageIndex + 1}`}
-              className="w-full h-full object-cover"
+              fill
+              priority={currentImageIndex === 0}
+              fetchPriority={currentImageIndex === 0 ? 'high' : 'low'}
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              quality={78}
+              className="object-cover"
+              placeholder="blur"
+              blurDataURL={GALLERY_HERO_BLUR}
+              unoptimized={heroRaw.startsWith('data:')}
+              onError={() => {
+                if (!galleryUseOriginal && heroDisplaySrc !== heroRaw) {
+                  setGalleryUseOriginal(true);
+                }
+              }}
             />
 
-            <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 items-start max-w-[min(100%,18rem)]">
+            <div className="absolute top-4 left-4 z-[15] flex flex-col gap-2 items-start max-w-[min(100%,18rem)]">
               {property.wellnessFriendly && (
                 <div className="bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
                   🧘 Wellness-Friendly
@@ -496,17 +530,17 @@ export default function ListingDetailPage() {
               <>
                 <button
                   onClick={prevImage}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
+                  className="absolute left-4 top-1/2 z-[15] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
                 >
                   <ChevronLeft size={24} />
                 </button>
                 <button
                   onClick={nextImage}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
+                  className="absolute right-4 top-1/2 z-[15] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
                 >
                   <ChevronRight size={24} />
                 </button>
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                <div className="absolute bottom-4 left-1/2 z-[15] -translate-x-1/2 flex gap-2">
                   {property.images.map((_, index) => (
                     <button
                       key={index}
