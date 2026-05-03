@@ -25,16 +25,6 @@ export default function HomePage() {
     }
   }, [user, loading, router]);
 
-  // Show loading state while checking auth
-  if (loading) {
-    return (
-      <div className="bg-surface-dark min-h-screen flex flex-col items-center justify-center space-y-4">
-        <div className="w-16 h-16 bg-primary-500 rounded-2xl animate-pulse shadow-[0_0_40px_rgba(0,230,118,0.2)]" />
-        <div className="text-muted font-bold tracking-widest uppercase text-xs animate-pulse">Loading Vibes</div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-surface-dark min-h-screen">
       <Hero />

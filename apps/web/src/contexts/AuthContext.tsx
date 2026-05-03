@@ -9,15 +9,20 @@ import {
 } from '@/lib/supabase/adminSession';
 import { useRouter } from 'next/navigation';
 import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
+import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (
+    email: string,
+    password: string,
+    options?: { returnTo?: string | null }
+  ) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: any; data?: any }>;
   signOut: (options?: { preserveSavedAccounts?: boolean }) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (returnTo?: string | null) => Promise<void>;
 }
 
 // Demo accounts for testing
@@ -181,26 +186,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session) {
+
+        if (session?.user) {
+          setSession(session);
+          setUser(session.user);
           persistSavedSession(session);
           if (typeof window !== 'undefined') {
             localStorage.removeItem('demoUser');
           }
-        }
-        
-        // Sync roles from user metadata to localStorage
-        if (session?.user?.user_metadata?.role) {
-          const role = session.user.user_metadata.role;
-          const rolesStr = localStorage.getItem('userRoles');
-          const roles = rolesStr ? JSON.parse(rolesStr) : [];
-          if (!roles.includes(role)) {
-            roles.push(role);
-            localStorage.setItem('userRoles', JSON.stringify(roles));
+          if (session.user.user_metadata?.role) {
+            const role = session.user.user_metadata.role;
+            const rolesStr = localStorage.getItem('userRoles');
+            const roles = rolesStr ? JSON.parse(rolesStr) : [];
+            if (!roles.includes(role)) {
+              roles.push(role);
+              localStorage.setItem('userRoles', JSON.stringify(roles));
+            }
+          }
+        } else {
+          const demoRaw =
+            typeof window !== 'undefined' ? localStorage.getItem('demoUser') : null;
+          if (demoRaw) {
+            try {
+              const parsedUser = JSON.parse(demoRaw) as User;
+              setUser(parsedUser);
+              if (isDemoAdminPersistedUser(parsedUser)) {
+                setSession(buildDemoAdminSession(parsedUser));
+              } else {
+                setSession(null);
+              }
+              if (parsedUser.user_metadata?.role) {
+                const role = parsedUser.user_metadata.role;
+                const rolesStr = localStorage.getItem('userRoles');
+                const roles = rolesStr ? JSON.parse(rolesStr) : [];
+                if (!roles.includes(role)) {
+                  roles.push(role);
+                  localStorage.setItem('userRoles', JSON.stringify(roles));
+                }
+              }
+            } catch {
+              localStorage.removeItem('demoUser');
+              setUser(null);
+              setSession(null);
+            }
+          } else {
+            setUser(null);
+            setSession(null);
           }
         }
-        
+
         setLoading(false);
       });
 
@@ -260,7 +294,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, [useSupabase, supabase, user?.id, user?.user_metadata?.role]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (
+    email: string,
+    password: string,
+    options?: { returnTo?: string | null }
+  ) => {
     // Check if this is a demo account first (even if Supabase is configured)
     const demoAccount = DEMO_ACCOUNTS[email as keyof typeof DEMO_ACCOUNTS];
     
@@ -278,9 +316,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         aud: 'authenticated',
         created_at: new Date().toISOString(),
       };
-      
-      setUser(mockUser as any);
+
+      // Persist demo identity before clearing Supabase so the auth listener can restore it
       localStorage.setItem('demoUser', JSON.stringify(mockUser));
+      // With Supabase env present, a leftover JWT makes getUser() return the *previous* account.
+      // Host tools scope by that id, while listings live under demo-*/localStorage → empty dashboard.
+      if (useSupabase) {
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch (e) {
+          console.warn('[AuthContext] Demo sign-in: could not clear Supabase session', e);
+        }
+      }
+
+      setUser(mockUser as any);
       if (isDemoAdminPersistedUser(mockUser)) {
         setSession(buildDemoAdminSession(mockUser));
       } else {
@@ -293,6 +342,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!roles.includes(demoAccount.role)) {
         roles.push(demoAccount.role);
         localStorage.setItem('userRoles', JSON.stringify(roles));
+      }
+
+      const bookingReturn = safeInternalReturnPath(options?.returnTo);
+      if (bookingReturn) {
+        router.push(bookingReturn);
+        router.refresh();
+        return { error: null };
       }
 
       // Redirect based on role
@@ -349,8 +405,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[Auth] Session retrieved after sign-in');
         }
       }
-      
-      // Sync roles from user metadata to localStorage after login
+
       if (data.user.user_metadata?.role) {
         const role = data.user.user_metadata.role;
         const rolesStr = localStorage.getItem('userRoles');
@@ -359,26 +414,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           roles.push(role);
           localStorage.setItem('userRoles', JSON.stringify(roles));
         }
-        
-        // Small delay to ensure session is fully propagated
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Redirect based on role
-        if (role === 'admin') {
-          router.push('/admin');
-        } else if (role === 'host') {
-          router.push('/host/properties');
-        } else if (role === 'dispensary') {
-          router.push('/dispensary/dashboard');
-        } else {
-          router.push('/');
-        }
+      }
+
+      // Small delay to ensure session is fully propagated
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const bookingReturn = safeInternalReturnPath(options?.returnTo);
+      if (bookingReturn) {
+        router.push(bookingReturn);
+        router.refresh();
+        return { error: null };
+      }
+
+      const role = data.user.user_metadata?.role;
+      if (role === 'admin') {
+        router.push('/admin');
+      } else if (role === 'host') {
+        router.push('/host/properties');
+      } else if (role === 'dispensary') {
+        router.push('/dispensary/dashboard');
       } else {
-        // No role set, default to home
-        await new Promise(resolve => setTimeout(resolve, 100));
         router.push('/');
       }
       router.refresh();
+      return { error: null };
     }
 
     return { error };
@@ -492,14 +551,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (returnTo?: string | null) => {
     if (!useSupabase) {
       throw new Error('OAuth is only available with Supabase. Please use demo accounts or set up Supabase.');
     }
+    const safe = safeInternalReturnPath(returnTo ?? null);
+    const q = safe ? `?next=${encodeURIComponent(safe)}` : '';
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback${q}`,
       },
     });
   };

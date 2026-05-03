@@ -34,6 +34,7 @@ import {
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
 import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
@@ -125,6 +126,7 @@ export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -366,9 +368,15 @@ export default function ListingDetailPage() {
   };
 
   const handleBooking = () => {
-    const selectedRoomsParam = selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
+    const selectedRoomsParam =
+      selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
     const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
-    router.push(`/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`);
+    const bookingPath = `/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`;
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
+      return;
+    }
+    router.push(bookingPath);
   };
 
   const toggleRoomSelection = (roomId: string) => {

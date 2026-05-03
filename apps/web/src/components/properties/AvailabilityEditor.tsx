@@ -52,8 +52,8 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
   const [bookedDays, setBookedDays] = useState<Set<string>>(() => new Set());
   const [removedDays, setRemovedDays] = useState<Set<string>>(() => new Set());
   
-  // iCal sync state
-  const [showICalPanel, setShowICalPanel] = useState(false);
+  // iCal sync panel: default open so hosts see import/sync without hunting past the calendar
+  const [showICalPanel, setShowICalPanel] = useState(true);
   const [icalSources, setIcalSources] = useState<ICalSource[]>([]);
   const [icalExportUrl, setIcalExportUrl] = useState('');
   const [loadingIcal, setLoadingIcal] = useState(false);
@@ -129,6 +129,24 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
       loadICalData();
     }
   }, [showICalPanel, propertyId]);
+
+  // Deep link from dashboard: /host/properties/[id]/edit#availability-ical
+  useEffect(() => {
+    const syncFromHash = () => {
+      if (typeof window === 'undefined') return;
+      if (window.location.hash === '#availability-ical') {
+        setShowICalPanel(true);
+        requestAnimationFrame(() => {
+          document
+            .getElementById('host-availability-ical')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+    };
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
 
   const handleAddICalSource = async () => {
     if (!newSourceName.trim() || !newSourceUrl.trim()) {
@@ -409,13 +427,15 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6 mt-8">
+    <div
+      id="host-availability-ical"
+      className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6 mt-8 scroll-mt-24"
+    >
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Availability</h2>
+          <h2 className="text-2xl font-bold text-white">Availability & calendars</h2>
           <p className="text-gray-400 text-sm">
-            Click on a day to toggle between available and blocked. Booked days
-            are locked.
+            Block dates manually below, or import Airbnb / Booking / VRBO iCal URLs (sync blocks your calendar here).
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

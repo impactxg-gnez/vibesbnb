@@ -77,9 +77,11 @@ export default function NewBookingPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      const qs = searchParams.toString();
+      const nextPath = `/bookings/new${qs ? `?${qs}` : ''}`;
+      router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, searchParams]);
 
   useEffect(() => {
     if (propertyId && user) {

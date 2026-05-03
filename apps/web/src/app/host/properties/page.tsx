@@ -202,6 +202,24 @@ export default function HostPropertiesPage() {
         retries++;
       }
 
+      // Stale Supabase session: e.g. signed into demo@host while a real JWT was still on the client.
+      // Querying with that UUID yields no rows; cached listings live under demo-* in localStorage.
+      if (
+        supabaseUser &&
+        user?.id?.startsWith('demo-') &&
+        supabaseUser.id !== user.id
+      ) {
+        console.warn(
+          '[Properties] Supabase session does not match demo host user; dropping session for listing scope'
+        );
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch {
+          /* ignore */
+        }
+        supabaseUser = null;
+      }
+
       // If there's an auth error or no user after retries, fall back to localStorage
       if (!supabaseUser) {
         console.log('[Properties] No Supabase user found after', maxRetries, 'attempts, falling back to localStorage');
@@ -1871,6 +1889,16 @@ export default function HostPropertiesPage() {
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-gray-800 flex flex-wrap gap-2">
+                      <Link
+                        href={`/host/properties/${property.id}/edit#availability-ical`}
+                        className="flex-1 min-w-[10rem] px-4 py-2.5 rounded-lg bg-sky-600/90 hover:bg-sky-500 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
+                      >
+                        <CalendarClock size={17} aria-hidden />
+                        Calendar / iCal sync
+                      </Link>
                     </div>
                   </div>
                 </div>

@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
+  const returnTo = useMemo(
+    () => safeInternalReturnPath(searchParams.get('next')),
+    [searchParams]
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +34,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(email, password, { returnTo });
 
     if (error) {
       toast.error(error.message || 'Failed to sign in');
@@ -42,7 +47,7 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(returnTo);
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in with Google');
     }
