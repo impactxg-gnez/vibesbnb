@@ -37,6 +37,41 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
 /** Search, map, cards, APIs that list many properties */
 export const PROPERTY_PUBLIC_LIST_COLUMNS = PROPERTY_PUBLIC_FIELD_LIST.join(',');
 
+/**
+ * Browse/search/map payloads — omit heavy columns (description, rooms JSON, unused URLs)
+ * to keep TTFB + JSON parse time low for listing grids.
+ */
+const PROPERTY_BROWSE_FIELD_LIST = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'images',
+  'type',
+  'amenities',
+  'guests',
+  'status',
+  'created_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'wellness_friendly',
+  'latitude',
+  'longitude',
+  'smoking_inside_allowed',
+  'smoking_outside_allowed',
+  'smoke_friendly',
+  'vibesbnb_take',
+] as const;
+
+export const PROPERTY_BROWSE_LIST_COLUMNS = PROPERTY_BROWSE_FIELD_LIST.join(',');
+
+/** Featured homepage cards — browse fields plus description (trimmed in UI). */
+export const PROPERTY_FEATURED_LIST_COLUMNS = `${PROPERTY_BROWSE_LIST_COLUMNS},description`;
+
 const PROPERTY_DETAIL_FIELD_LIST = [
   ...PROPERTY_PUBLIC_FIELD_LIST,
   'guest_agreement_url',

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
 import Link from 'next/link';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface Listing {
   id: string;
@@ -55,7 +55,7 @@ export default function MapPage() {
             const supabase = createClient();
             const { data, error } = await supabase
               .from('properties')
-              .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+              .select(PROPERTY_BROWSE_LIST_COLUMNS)
               .eq('status', 'active');
 
             if (error) {

@@ -16,7 +16,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import toast from 'react-hot-toast';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface HostProfile {
   id: string;
@@ -73,7 +73,7 @@ export default function HostProfilePage() {
         // Fetch host properties (active listings only for public profile)
         const { data: props, error: propsError } = await supabase
           .from('properties')
-          .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+          .select(PROPERTY_BROWSE_LIST_COLUMNS)
           .eq('host_id', hostId)
           .in('status', [...PUBLIC_HOST_PROFILE_PROPERTY_STATUSES])
           .order('created_at', { ascending: false });

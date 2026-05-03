@@ -20,7 +20,7 @@ import {
   listingHasAllAmenityChips,
   listingMatchesAnyPropertyTypeChip,
 } from '@/lib/propertySearchFilters';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Listing {
@@ -179,7 +179,7 @@ function sortSearchListings(
 }
 
 const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v1';
-const SEARCH_CATALOG_TTL_MS = 120_000;
+const SEARCH_CATALOG_TTL_MS = 300_000;
 
 type ProfileBrief = { avatar_url: string | null; full_name: string | null };
 type SearchInventory = { properties: any[]; profileById: Record<string, ProfileBrief> };
@@ -253,30 +253,44 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
   }
 
   try {
-    const res = await fetch('/api/properties/browse', { method: 'GET' });
-    if (res.ok) {
-      const payload = await res.json();
-      const properties = payload.properties ?? [];
-      const profileById: Record<string, ProfileBrief> = {};
-      for (const row of payload.profiles ?? []) {
-        if (row?.id) {
-          profileById[row.id] = {
-            avatar_url: row.avatar_url ?? null,
-            full_name: row.full_name ?? null,
-          };
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId =
+      typeof window !== 'undefined' && controller
+        ? window.setTimeout(() => controller.abort(), 12_000)
+        : 0;
+    try {
+      const res = await fetch('/api/properties/browse', {
+        method: 'GET',
+        signal: controller?.signal,
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        const properties = payload.properties ?? [];
+        const profileById: Record<string, ProfileBrief> = {};
+        for (const row of payload.profiles ?? []) {
+          if (row?.id) {
+            profileById[row.id] = {
+              avatar_url: row.avatar_url ?? null,
+              full_name: row.full_name ?? null,
+            };
+          }
         }
+        const inv: SearchInventory = { properties, profileById };
+        try {
+          typeof sessionStorage !== 'undefined' &&
+            sessionStorage.setItem(
+              SEARCH_CATALOG_STORAGE_KEY,
+              JSON.stringify({ at: Date.now(), inv })
+            );
+        } catch {
+          // quota / private mode
+        }
+        return inv;
       }
-      const inv: SearchInventory = { properties, profileById };
-      try {
-        typeof sessionStorage !== 'undefined' &&
-          sessionStorage.setItem(
-            SEARCH_CATALOG_STORAGE_KEY,
-            JSON.stringify({ at: Date.now(), inv })
-          );
-      } catch {
-        // quota / private mode
-      }
-      return inv;
+    } catch {
+      /* aborted or network — try Supabase client below */
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
     }
   } catch {
     /* fall through */
@@ -286,7 +300,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('properties')
-      .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+      .select(PROPERTY_BROWSE_LIST_COLUMNS)
       .eq('status', 'active');
 
     if (error || !data?.length) return null;
@@ -680,22 +694,32 @@ export default function SearchPage() {
         const idChunkSize = 120;
         const blockedDates: { property_id: string; day: string; status: string }[] = [];
         let availErr: { message?: string } | null = null;
+
+        const chunks: string[][] = [];
         for (let i = 0; i < propertyIds.length; i += idChunkSize) {
-          const idSlice = propertyIds.slice(i, i + idChunkSize);
-          const { data: sliceData, error: sliceError } = await supabase
-            .from('property_availability')
-            .select('property_id, day, status')
-            .in('property_id', idSlice)
-            .in('day', datesToCheck)
-            .in('status', ['blocked', 'booked']);
+          chunks.push(propertyIds.slice(i, i + idChunkSize));
+        }
+
+        const sliceResults = await Promise.all(
+          chunks.map((idSlice) =>
+            supabase
+              .from('property_availability')
+              .select('property_id, day, status')
+              .in('property_id', idSlice)
+              .in('day', datesToCheck)
+              .in('status', ['blocked', 'booked'])
+          )
+        );
+
+        if (cancelled) return;
+
+        for (const { data: sliceData, error: sliceError } of sliceResults) {
           if (sliceError) {
             availErr = sliceError;
             break;
           }
           if (sliceData?.length) blockedDates.push(...sliceData);
         }
-
-        if (cancelled) return;
 
         if (availErr) {
           setBaseListings(clearAvail());

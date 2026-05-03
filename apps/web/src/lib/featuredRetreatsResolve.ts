@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_FEATURED_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 export type FeaturedRetreatPublic = {
   id: string;
@@ -42,26 +42,6 @@ export function uniqueOrderedIds(ids: unknown[]): string[] {
   return out;
 }
 
-async function fetchReviewScores(supabase: SupabaseClient) {
-  const { data: reviews, error } = await supabase
-    .from('reviews')
-    .select('property_id, rating')
-    .eq('status', 'approved');
-  if (error) throw error;
-  const byProp = new Map<string, { count: number; sum: number }>();
-  for (const row of reviews || []) {
-    const pid = String((row as { property_id: string }).property_id);
-    const rating = Number((row as { rating: number }).rating) || 0;
-    const cur = byProp.get(pid) || { count: 0, sum: 0 };
-    cur.count += 1;
-    cur.sum += rating;
-    byProp.set(pid, cur);
-  }
-  return [...byProp.entries()]
-    .map(([id, { count, sum }]) => ({ id, count, avg: count ? sum / count : 0 }))
-    .sort((a, b) => b.count - a.count || b.avg - a.avg);
-}
-
 async function pickFallbackIds(
   supabase: SupabaseClient,
   limit: number,
@@ -70,37 +50,42 @@ async function pickFallbackIds(
   if (limit <= 0) return [];
 
   try {
-    const scored = await fetchReviewScores(supabase);
-    const orderedCandidateIds = scored.map((s) => s.id).filter((id) => !exclude.has(id));
-
-    const scan = Math.min(500, Math.max(orderedCandidateIds.length, limit * 20));
-    const slice = orderedCandidateIds.slice(0, scan);
-    let activeSet = new Set<string>();
-    if (slice.length > 0) {
-      const { data: activeRows } = await supabase.from('properties').select('id').eq('status', 'active').in('id', slice);
-      activeSet = new Set((activeRows || []).map((r: { id: string }) => r.id));
-    }
-
-    const filtered = orderedCandidateIds.filter((id) => activeSet.has(id)).slice(0, limit);
-    if (filtered.length >= limit) return filtered;
-
-    const used = new Set<string>([...exclude, ...filtered]);
-    const { data: byRating } = await supabase
+    const cap = Math.min(400, limit * 40 + exclude.size + 40);
+    const { data: primary } = await supabase
       .from('properties')
-      .select('id, rating')
+      .select('id')
       .eq('status', 'active')
       .order('rating', { ascending: false })
-      .limit(120);
+      .order('created_at', { ascending: false })
+      .limit(cap);
 
-    for (const row of byRating || []) {
+    const out: string[] = [];
+    for (const row of primary || []) {
       const id = String((row as { id: string }).id);
-      if (used.has(id)) continue;
-      filtered.push(id);
-      used.add(id);
-      if (filtered.length >= limit) break;
+      if (exclude.has(id)) continue;
+      out.push(id);
+      if (out.length >= limit) return out;
     }
 
-    return filtered.slice(0, limit);
+    if (out.length >= limit) return out.slice(0, limit);
+
+    const { data: recent } = await supabase
+      .from('properties')
+      .select('id')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    const seen = new Set(out);
+    for (const row of recent || []) {
+      const id = String((row as { id: string }).id);
+      if (exclude.has(id) || seen.has(id)) continue;
+      out.push(id);
+      seen.add(id);
+      if (out.length >= limit) break;
+    }
+
+    return out.slice(0, limit);
   } catch {
     const { data: byRating } = await supabase
       .from('properties')
@@ -121,7 +106,7 @@ async function pickFallbackIds(
 
 async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string[]) {
   if (ids.length === 0) return [] as Record<string, unknown>[];
-  const { data, error } = await supabase.from('properties').select(PROPERTY_PUBLIC_LIST_COLUMNS).in('id', ids);
+  const { data, error } = await supabase.from('properties').select(PROPERTY_FEATURED_LIST_COLUMNS).in('id', ids);
   if (error) throw error;
   const rows = ((data ?? []) as unknown as Record<string, unknown>[]) ?? [];
   const byId = new Map<string, Record<string, unknown>>();
@@ -207,7 +192,7 @@ function mapRowToRetreat(
 async function legacyWellnessRetreats(supabase: SupabaseClient, limit: number): Promise<FeaturedRetreatPublic[]> {
   const { data: propertiesData, error } = await supabase
     .from('properties')
-    .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+    .select(PROPERTY_FEATURED_LIST_COLUMNS)
     .eq('status', 'active')
     .eq('wellness_friendly', true)
     .order('created_at', { ascending: false })

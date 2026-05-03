@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createBrowserClient } from '@supabase/supabase-js';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 /** POSTgREST-safe chunk size for `in()` profile lookups */
 const HOST_ID_CHUNK = 80;
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('properties')
-      .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+      .select(PROPERTY_BROWSE_LIST_COLUMNS)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
@@ -66,13 +66,16 @@ export async function GET(request: NextRequest) {
     const profiles: Record<string, unknown>[] = [];
 
     if (hostIds.length > 0) {
+      const chunks = [];
       for (let i = 0; i < hostIds.length; i += HOST_ID_CHUNK) {
-        const slice = hostIds.slice(i, i + HOST_ID_CHUNK);
-        const { data: profSlice, error: prErr } = await supabase
-          .from('profiles')
-          .select('id, avatar_url, full_name')
-          .in('id', slice);
-
+        chunks.push(hostIds.slice(i, i + HOST_ID_CHUNK));
+      }
+      const chunkResults = await Promise.all(
+        chunks.map((slice) =>
+          supabase.from('profiles').select('id, avatar_url, full_name').in('id', slice)
+        )
+      );
+      for (const { data: profSlice, error: prErr } of chunkResults) {
         if (prErr) {
           console.error('[properties/browse] profiles chunk', prErr);
           continue;
@@ -87,8 +90,8 @@ export async function GET(request: NextRequest) {
         headers: {
           'Cache-Control':
             limitParam !== undefined
-              ? 'public, s-maxage=60, stale-while-revalidate=300'
-              : 'public, s-maxage=30, stale-while-revalidate=120',
+              ? 'public, s-maxage=120, stale-while-revalidate=600'
+              : 'public, s-maxage=60, stale-while-revalidate=300',
         },
       }
     );

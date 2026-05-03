@@ -40,7 +40,7 @@ export function FeaturedRetreats() {
   useEffect(() => {
     const loadFeaturedRetreats = async () => {
       try {
-        const res = await fetch('/api/featured-retreats', { cache: 'no-store' });
+        const res = await fetch('/api/featured-retreats');
         const data = await res.json();
         if (!res.ok) {
           console.error('Error loading featured vibes:', data.error);

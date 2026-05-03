@@ -9,7 +9,7 @@ import { Heart, MapPin, Star, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface Favorite {
   id: string;
@@ -63,7 +63,7 @@ export default function FavoritesPage() {
             // Get property details from Supabase or localStorage
             const { data: propertiesData } = await supabase
               .from('properties')
-              .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+              .select(PROPERTY_BROWSE_LIST_COLUMNS)
               .in('id', favoriteIds)
               .eq('status', 'active');
 

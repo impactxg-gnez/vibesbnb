@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
-import { PROPERTY_PUBLIC_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 interface HostProfile {
   id: string;
@@ -77,7 +77,7 @@ export default function UserProfilePage() {
         // 2. Fetch Properties by this host (active listings)
         const { data: propsData } = await supabase
           .from('properties')
-          .select(PROPERTY_PUBLIC_LIST_COLUMNS)
+          .select(PROPERTY_BROWSE_LIST_COLUMNS)
           .eq('host_id', userId)
           .in('status', [...PUBLIC_HOST_PROFILE_PROPERTY_STATUSES])
           .order('created_at', { ascending: false });
