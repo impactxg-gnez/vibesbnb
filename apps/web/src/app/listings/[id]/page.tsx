@@ -235,95 +235,110 @@ export default function ListingDetailPage() {
           return;
         }
 
-        // Fetch Host Profile
-        let hostName = 'Property Host';
-        let hostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id || 'host'}`;
-        let hostBio = '';
-        let hostJoinedDate = '2024';
-
-        if (propertyData.host_id && isSupabaseConfigured) {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id, full_name, avatar_url, bio, created_at')
-              .eq('id', propertyData.host_id)
-              .single();
-
-            if (profile) {
-              hostName = profile.full_name || hostName;
-              hostImage = profile.avatar_url || hostImage;
-              hostBio = profile.bio || '';
-              hostJoinedDate = new Date(profile.created_at).getFullYear().toString();
-            }
-          } catch (e) {
-            console.error('[Listing Detail] Error fetching host profile:', e);
-          }
-        }
-
-        // Fetch Reviews
-        let reviews: any[] = [];
-        if (isSupabaseConfigured) {
-          try {
-            const { data: reviewsData } = await supabase
-              .from('reviews')
-              .select('*, profiles(full_name, avatar_url)')
-              .eq('property_id', params.id as string)
-              .eq('status', 'approved')
-              .order('created_at', { ascending: false });
-
-            if (reviewsData) {
-              reviews = reviewsData;
-            }
-          } catch (e) {
-            console.error('[Listing Detail] Error fetching reviews:', e);
-          }
-        }
-
-        // Calculate Average Rating
-        const avgRating = reviews.length > 0
-          ? Number((reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
-          : 0;
-
+        const defaultHostName = 'Property Host';
+        const defaultHostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id || 'host'}`;
         const smoking = resolveSmokingFlags(propertyData);
-        const loadedProperty: Property = {
-          id: propertyData.id,
-          name: propertyData.name || propertyData.title || 'Untitled Property',
-          location: propertyData.location || '',
-          description: propertyData.description || 'No description available.',
-          price: propertyData.price ? Number(propertyData.price) : 0,
-          cleaningFee:
-            propertyData.cleaning_fee != null
-              ? Number(propertyData.cleaning_fee)
-              : propertyData.cleaningFee != null
-                ? Number(propertyData.cleaningFee)
-                : 0,
-          bedrooms: propertyData.bedrooms || 0,
-          beds:
-            propertyData.beds != null && propertyData.beds !== ''
-              ? Number(propertyData.beds)
-              : null,
-          bathrooms: propertyData.bathrooms || 0,
-          guests: propertyData.guests || 0,
-          images: propertyData.images || [],
-          amenities: propertyData.amenities || [],
-          wellnessFriendly: propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
-          smokingInsideAllowed: smoking.inside,
-          smokingOutsideAllowed: smoking.outside,
-          rating: avgRating || Number(propertyData.rating || 0),
-          reviews: reviews.length,
-          hostId: propertyData.host_id || '',
-          hostName,
-          hostImage,
-          hostBio,
-          hostJoinedDate,
-          latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
-          longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
-          type: propertyData.type || 'Retreat',
-          rooms: propertyData.rooms || [],
+
+        const buildProperty = (
+          reviews: any[],
+          host: { hostName: string; hostImage: string; hostBio: string; hostJoinedDate: string }
+        ): Property => {
+          const avgRating =
+            reviews.length > 0
+              ? Number(
+                  (reviews.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) /
+                    reviews.length).toFixed(1)
+                )
+              : 0;
+          return {
+            id: propertyData.id,
+            name: propertyData.name || propertyData.title || 'Untitled Property',
+            location: propertyData.location || '',
+            description: propertyData.description || 'No description available.',
+            price: propertyData.price ? Number(propertyData.price) : 0,
+            cleaningFee:
+              propertyData.cleaning_fee != null
+                ? Number(propertyData.cleaning_fee)
+                : propertyData.cleaningFee != null
+                  ? Number(propertyData.cleaningFee)
+                  : 0,
+            bedrooms: propertyData.bedrooms || 0,
+            beds:
+              propertyData.beds != null && propertyData.beds !== ''
+                ? Number(propertyData.beds)
+                : null,
+            bathrooms: propertyData.bathrooms || 0,
+            guests: propertyData.guests || 0,
+            images: propertyData.images || [],
+            amenities: propertyData.amenities || [],
+            wellnessFriendly:
+              propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
+            smokingInsideAllowed: smoking.inside,
+            smokingOutsideAllowed: smoking.outside,
+            rating: avgRating || Number(propertyData.rating || 0),
+            reviews: reviews.length,
+            hostId: propertyData.host_id || '',
+            hostName: host.hostName,
+            hostImage: host.hostImage,
+            hostBio: host.hostBio,
+            hostJoinedDate: host.hostJoinedDate,
+            latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
+            longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
+            type: propertyData.type || 'Retreat',
+            rooms: propertyData.rooms || [],
+            vibesbnb_take: propertyData.vibesbnb_take,
+          };
         };
 
-        setProperty(loadedProperty);
-        setReviewsData(reviews);
+        // Paint the page from the property row first; host + reviews hydrate in parallel (no waterfall).
+        const initialHost = {
+          hostName: defaultHostName,
+          hostImage: defaultHostImage,
+          hostBio: '',
+          hostJoinedDate: '2024',
+        };
+        setProperty(buildProperty([], initialHost));
+        setReviewsData([]);
+        setLoading(false);
+
+        if (isSupabaseConfigured) {
+          const propertyId = params.id as string;
+          try {
+            const [profileResult, reviewsResult] = await Promise.all([
+              propertyData.host_id
+                ? supabase
+                    .from('profiles')
+                    .select('id, full_name, avatar_url, bio, created_at')
+                    .eq('id', propertyData.host_id)
+                    .single()
+                : Promise.resolve({ data: null as { full_name?: string | null; avatar_url?: string | null; bio?: string | null; created_at?: string } | null }),
+              supabase
+                .from('reviews')
+                .select('*, profiles(full_name, avatar_url)')
+                .eq('property_id', propertyId)
+                .eq('status', 'approved')
+                .order('created_at', { ascending: false }),
+            ]);
+
+            const profile = 'data' in profileResult ? profileResult.data : null;
+            const reviews =
+              'data' in reviewsResult && reviewsResult.data ? reviewsResult.data : [];
+
+            const host = {
+              hostName: profile?.full_name || defaultHostName,
+              hostImage: profile?.avatar_url || defaultHostImage,
+              hostBio: profile?.bio || '',
+              hostJoinedDate: profile?.created_at
+                ? new Date(profile.created_at).getFullYear().toString()
+                : '2024',
+            };
+
+            setProperty(buildProperty(reviews, host));
+            setReviewsData(reviews);
+          } catch (e) {
+            console.error('[Listing Detail] Error loading host profile or reviews:', e);
+          }
+        }
       } catch (error) {
         console.error('Error loading property:', error);
         setProperty(null);
