@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { resolveFeaturedRetreatsForHome } from '@/lib/featuredRetreatsResolve';
 
-/** Regenerate at most once per minute at the edge; matches Cache-Control below */
-export const revalidate = 60;
+/** Never prerender/ISR this handler — large JSON (reviews × properties) exceeds Vercel ISR body limits. */
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

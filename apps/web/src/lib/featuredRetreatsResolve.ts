@@ -124,20 +124,61 @@ async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string
 async function loadReviewCountsForProperties(supabase: SupabaseClient, propertyIds: string[]) {
   const map = new Map<string, { count: number; avg: number }>();
   if (propertyIds.length === 0) return map;
-  const { data: reviews, error } = await supabase
-    .from('reviews')
-    .select('property_id, rating')
-    .eq('status', 'approved')
-    .in('property_id', propertyIds);
-  if (error) return map;
+
+  const { data: rpcRows, error: rpcError } = await supabase.rpc('featured_retreat_review_stats', {
+    p_property_ids: propertyIds,
+  });
+
+  if (!rpcError && rpcRows && Array.isArray(rpcRows)) {
+    for (const row of rpcRows as {
+      property_id: string;
+      review_count: number | string;
+      rating_avg: number | string | null;
+    }[]) {
+      const pid = String(row.property_id);
+      const cnt = Number(row.review_count) || 0;
+      const rawAvg = row.rating_avg;
+      const avgNum =
+        typeof rawAvg === 'string' ? parseFloat(rawAvg) : rawAvg != null ? Number(rawAvg) : NaN;
+      map.set(pid, { count: cnt, avg: Number.isFinite(avgNum) ? avgNum : 0 });
+    }
+    return map;
+  }
+
+  /** Paginated fallback if the SQL function is not installed yet (avoids multi‑MB single responses). */
+  if (rpcError) {
+    console.warn(
+      '[featuredRetreatsResolve] featured_retreat_review_stats RPC unavailable, using paginated fallback:',
+      rpcError.message
+    );
+  }
   const acc = new Map<string, { count: number; sum: number }>();
-  for (const row of reviews || []) {
-    const pid = String((row as { property_id: string }).property_id);
-    const rating = Number((row as { rating: number }).rating) || 0;
-    const cur = acc.get(pid) || { count: 0, sum: 0 };
-    cur.count += 1;
-    cur.sum += rating;
-    acc.set(pid, cur);
+  const pageSize = 6000;
+  let from = 0;
+  for (let guard = 0; guard < 500; guard++) {
+    const { data: page, error } = await supabase
+      .from('reviews')
+      .select('property_id, rating')
+      .eq('status', 'approved')
+      .in('property_id', propertyIds)
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.warn('[featuredRetreatsResolve] review aggregation fallback error:', error.message);
+      break;
+    }
+    if (!page?.length) break;
+    for (const row of page) {
+      const pid = String((row as { property_id: string }).property_id);
+      const rating = Number((row as { rating: number }).rating) || 0;
+      const cur = acc.get(pid) || { count: 0, sum: 0 };
+      cur.count += 1;
+      cur.sum += rating;
+      acc.set(pid, cur);
+    }
+    if (page.length < pageSize) break;
+    from += pageSize;
   }
   for (const [pid, { count, sum }] of acc) {
     map.set(pid, { count, avg: count ? sum / count : 0 });
@@ -174,7 +215,9 @@ function mapRowToRetreat(
     rating: displayRating,
     reviews: reviewCount,
     price: p.price != null ? Number(p.price) : 0,
-    images: Array.isArray(p.images) ? (p.images as string[]).filter(Boolean) : [],
+    images: Array.isArray(p.images)
+      ? (p.images as string[]).filter(Boolean).slice(0, 15)
+      : [],
     amenities: Array.isArray(p.amenities) ? (p.amenities as string[]).slice(0, 2) : [],
     badge: p.wellness_friendly ? 'Wellness-friendly' : 'Featured',
     bedrooms: Number(p.bedrooms) || 1,
