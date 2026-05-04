@@ -45,8 +45,10 @@ import {
   todayLocalYmd,
 } from '@/lib/dateUtils';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
+import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
+import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 
 const GALLERY_HERO_BLUR =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
@@ -69,6 +71,8 @@ interface Property {
   images: string[];
   amenities: string[];
   wellnessFriendly: boolean;
+  wellnessConsumptionIndoorAllowed: boolean;
+  wellnessConsumptionOutdoorAllowed: boolean;
   smokingInsideAllowed: boolean;
   smokingOutsideAllowed: boolean;
   rating: number;
@@ -238,6 +242,7 @@ export default function ListingDetailPage() {
         const defaultHostName = 'Property Host';
         const defaultHostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id || 'host'}`;
         const smoking = resolveSmokingFlags(propertyData);
+        const consumption = resolveWellnessConsumptionFlags(propertyData as Record<string, unknown>);
 
         const buildProperty = (
           reviews: any[],
@@ -273,6 +278,8 @@ export default function ListingDetailPage() {
             amenities: propertyData.amenities || [],
             wellnessFriendly:
               propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
+            wellnessConsumptionIndoorAllowed: consumption.indoor,
+            wellnessConsumptionOutdoorAllowed: consumption.outdoor,
             smokingInsideAllowed: smoking.inside,
             smokingOutsideAllowed: smoking.outside,
             rating: avgRating || Number(propertyData.rating || 0),
@@ -535,15 +542,14 @@ export default function ListingDetailPage() {
                   🧘 Wellness-Friendly
                 </div>
               )}
+              <WellnessConsumptionPill indoor={property.wellnessConsumptionIndoorAllowed} outdoor={property.wellnessConsumptionOutdoorAllowed} />
               {property.smokingInsideAllowed && (
                 <div className="flex items-center gap-2 bg-amber-600/95 text-white px-3 py-2 rounded-full text-sm font-semibold shadow-lg border border-amber-400/30">
-                  <span className="shrink-0" aria-hidden>🔥</span>
                   Smoking allowed inside
                 </div>
               )}
               {property.smokingOutsideAllowed && (
                 <div className="flex items-center gap-2 bg-slate-700/95 text-white px-3 py-2 rounded-full text-sm font-semibold shadow-lg border border-white/15">
-                  <span className="shrink-0" aria-hidden>🔥</span>
                   Smoking allowed outside
                 </div>
               )}
@@ -657,13 +663,11 @@ export default function ListingDetailPage() {
                   </span>
                   {property.smokingInsideAllowed && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-600/20 text-amber-300 px-3 py-1 text-sm font-medium border border-amber-500/30">
-                      <span aria-hidden>🔥</span>
                       Inside OK
                     </span>
                   )}
                   {property.smokingOutsideAllowed && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-gray-200 px-3 py-1 text-sm font-medium border border-white/15">
-                      <span aria-hidden>🔥</span>
                       Outside OK
                     </span>
                   )}

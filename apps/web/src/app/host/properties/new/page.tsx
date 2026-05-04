@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
-import { getHostScopeUserId } from '@/lib/adminHostImpersonation';
+import { getHostScopeUserId, getHostScopeUserIdFromAuthOnly } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import LocationPicker from '@/components/LocationPicker';
 import ImageReorder from '@/components/properties/ImageReorder';
@@ -114,6 +114,8 @@ export default function NewPropertyPage() {
     guests: 2,
     price: 100,
     wellnessFriendly: false,
+    wellnessConsumptionIndoorAllowed: false,
+    wellnessConsumptionOutdoorAllowed: false,
     smokingInsideAllowed: false,
     smokingOutsideAllowed: false,
     allowExtraGuests: false,
@@ -270,18 +272,37 @@ export default function NewPropertyPage() {
 
       let supabaseUser = null;
       if (isSupabaseConfigured) {
-        const { data: { user: userData } } = await supabase.auth.getUser();
-        supabaseUser = userData;
+        const maxRetries = 5;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          const {
+            data: { user: userData },
+          } = await supabase.auth.getUser();
+          if (userData) {
+            supabaseUser = userData;
+            break;
+          }
+          if (attempt < maxRetries - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+        }
       }
 
-      // Collect all images
+      const userId =
+        supabaseUser && user
+          ? getHostScopeUserId(user, supabaseUser.id)
+          : getHostScopeUserIdFromAuthOnly(user) || user.id;
+
+      if (isSupabaseConfigured && !supabaseUser) {
+        toast.error('Still signing you in. Wait a moment, then tap Publish again.');
+        setSaving(false);
+        return;
+      }
+
       const allImageUrls: string[] = [];
       for (const room of rooms) {
         allImageUrls.push(...room.imagePreviewUrls);
       }
 
-      const userId =
-        supabaseUser && user ? getHostScopeUserId(user, supabaseUser.id) : user.id;
       const propertyId = `${userId}_${Date.now()}`;
 
       // Get the display type from property type
@@ -306,6 +327,8 @@ export default function NewPropertyPage() {
         type: propertyTypeLabel,
         guest_access_type: accessTypeLabel,
         wellness_friendly: formData.wellnessFriendly,
+        wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+        wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
         smoking_inside_allowed: formData.smokingInsideAllowed,
         smoking_outside_allowed: formData.smokingOutsideAllowed,
         smoke_friendly:
@@ -320,7 +343,25 @@ export default function NewPropertyPage() {
           : null,
       };
 
-      if (isSupabaseConfigured && supabaseUser) {
+      if (!isSupabaseConfigured) {
+        const savedProperties = localStorage.getItem(`properties_${userId}`);
+        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+        parsedProperties.push({
+          ...propertyData,
+          cleaningFee: formData.cleaningFee,
+          wellnessFriendly: formData.wellnessFriendly,
+          wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
+          wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
+          smokingInsideAllowed: formData.smokingInsideAllowed,
+          smokingOutsideAllowed: formData.smokingOutsideAllowed,
+          smokeFriendly:
+            formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+        });
+        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+
+        toast.success('Property published!');
+        router.push('/host/application-submitted');
+      } else {
         const { error: insertError } = await supabase
           .from('properties')
           .insert(propertyData);
@@ -331,10 +372,9 @@ export default function NewPropertyPage() {
           throw insertError;
         }
 
-        // Create admin notification
         try {
           await supabase.from('notifications').insert({
-            user_id: userId,
+            user_id: supabaseUser!.id,
             type: 'property_submitted',
             title: 'Listing published',
             message: `Your property "${formData.name}" is saved and live. Manage it from your dashboard anytime.`,
@@ -345,23 +385,6 @@ export default function NewPropertyPage() {
         }
 
         toast.success('Property published! You can edit it anytime from your dashboard.', { duration: 5000 });
-        router.push('/host/application-submitted');
-      } else {
-        // Fallback to localStorage
-        const savedProperties = localStorage.getItem(`properties_${userId}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        parsedProperties.push({
-          ...propertyData,
-          cleaningFee: formData.cleaningFee,
-          wellnessFriendly: formData.wellnessFriendly,
-          smokingInsideAllowed: formData.smokingInsideAllowed,
-          smokingOutsideAllowed: formData.smokingOutsideAllowed,
-          smokeFriendly:
-            formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
-        });
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
-
-        toast.success('Property published!');
         router.push('/host/application-submitted');
       }
     } catch (error: any) {
@@ -739,7 +762,21 @@ export default function NewPropertyPage() {
           <h3 className="text-white font-medium">Special Features</h3>
           <button
             type="button"
-            onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
+            onClick={() =>
+              setFormData((prev) => {
+                const next = !prev.wellnessFriendly;
+                return {
+                  ...prev,
+                  wellnessFriendly: next,
+                  ...(next
+                    ? {}
+                    : {
+                        wellnessConsumptionIndoorAllowed: false,
+                        wellnessConsumptionOutdoorAllowed: false,
+                      }),
+                };
+              })
+            }
             className={`w-full px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
               formData.wellnessFriendly
                 ? 'bg-emerald-600 border-emerald-500 text-white'
@@ -749,6 +786,48 @@ export default function NewPropertyPage() {
             <span className="text-2xl">🧘</span>
             <span>Wellness-Friendly</span>
           </button>
+          {formData.wellnessFriendly && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    wellnessConsumptionIndoorAllowed: !formData.wellnessConsumptionIndoorAllowed,
+                  })
+                }
+                className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
+                  formData.wellnessConsumptionIndoorAllowed
+                    ? 'bg-emerald-800/40 border-emerald-500 text-white'
+                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <span className="font-bold">Indoor allowance</span>
+                <span className="text-xs text-gray-500 font-normal">
+                  Shows 🌿 INDOOR on your listing photos when enabled
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    wellnessConsumptionOutdoorAllowed: !formData.wellnessConsumptionOutdoorAllowed,
+                  })
+                }
+                className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
+                  formData.wellnessConsumptionOutdoorAllowed
+                    ? 'bg-emerald-900/50 border-emerald-500/70 text-white'
+                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                }`}
+              >
+                <span className="font-bold">Outdoor allowance</span>
+                <span className="text-xs text-gray-500 font-normal">
+                  Shows 🌿 OUTDOOR on your listing photos when enabled
+                </span>
+              </button>
+            </div>
+          )}
           <p className="text-sm text-gray-400">Smoking policy (shown on your listing)</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button

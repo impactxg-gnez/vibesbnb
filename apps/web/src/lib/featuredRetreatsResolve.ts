@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
+import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_FEATURED_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 export type FeaturedRetreatPublic = {
@@ -20,6 +21,8 @@ export type FeaturedRetreatPublic = {
   hostName: string;
   hostAvatarUrl: string;
   wellnessFriendly?: boolean;
+  wellnessConsumptionIndoorAllowed?: boolean;
+  wellnessConsumptionOutdoorAllowed?: boolean;
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
 };
@@ -206,6 +209,7 @@ function mapRowToRetreat(
     reviewCount > 0 ? Math.round(reviewAvg * 10) / 10 : Number.isFinite(ratingCol) ? ratingCol : 4.5;
 
   const smoking = resolveSmokingFlags(p);
+  const consumption = resolveWellnessConsumptionFlags(p);
 
   return {
     id: String(p.id),
@@ -227,6 +231,8 @@ function mapRowToRetreat(
     hostName,
     hostAvatarUrl,
     wellnessFriendly: p.wellness_friendly === true,
+    wellnessConsumptionIndoorAllowed: consumption.indoor,
+    wellnessConsumptionOutdoorAllowed: consumption.outdoor,
     smokingInsideAllowed: smoking.inside,
     smokingOutsideAllowed: smoking.outside,
   };

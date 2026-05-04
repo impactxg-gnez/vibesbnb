@@ -10,6 +10,7 @@ import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
+import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import {
   enumerateStayNightsYmd,
   formatCalendarDate,
@@ -44,6 +45,8 @@ interface Listing {
   coordinates?: { lat: number; lng: number };
   isAvailable?: boolean;
   wellnessFriendly?: boolean;
+  wellnessConsumptionIndoorAllowed?: boolean;
+  wellnessConsumptionOutdoorAllowed?: boolean;
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
   [key: string]: any;
@@ -331,6 +334,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
 function listingsFromInventory(inv: SearchInventory): Listing[] {
   return inv.properties.map((p: any) => {
     const smoking = resolveSmokingFlags(p as Record<string, unknown>);
+    const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
     const rawImages = p.images || [];
     const normalizedImages = rawImages
       .map(normalizeListingImageUrl)
@@ -363,6 +367,8 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
       beds: p.beds != null ? Number(p.beds) : undefined,
       bathrooms: p.bathrooms != null ? Number(p.bathrooms) : 0,
       wellnessFriendly: p.wellness_friendly === true,
+      wellnessConsumptionIndoorAllowed: consumption.indoor,
+      wellnessConsumptionOutdoorAllowed: consumption.outdoor,
       smokingInsideAllowed: smoking.inside,
       smokingOutsideAllowed: smoking.outside,
       host_id: hostId,
@@ -486,7 +492,8 @@ function ListingCard({
         favoriteBatchLoading={favoritesBatchLoading}
         favoriteFromBatch={favoritedFromBatch}
         onFavoriteChange={onFavoriteChange}
-        wellnessFriendly={!!listing.wellnessFriendly}
+        wellnessConsumptionIndoorAllowed={!!listing.wellnessConsumptionIndoorAllowed}
+        wellnessConsumptionOutdoorAllowed={!!listing.wellnessConsumptionOutdoorAllowed}
         smokingInsideAllowed={!!listing.smokingInsideAllowed}
         smokingOutsideAllowed={!!listing.smokingOutsideAllowed}
         topRightSlot={availabilitySlot}

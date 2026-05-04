@@ -25,6 +25,8 @@ interface Retreat {
   hostName: string;
   hostAvatarUrl: string;
   wellnessFriendly?: boolean;
+  wellnessConsumptionIndoorAllowed?: boolean;
+  wellnessConsumptionOutdoorAllowed?: boolean;
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
 }
@@ -161,7 +163,8 @@ export function FeaturedRetreats() {
                     favoriteBatchLoading={user?.id ? favoritesBatchBusy : undefined}
                     favoriteFromBatch={user?.id ? batchedFavoriteIds.has(retreat.id) : undefined}
                     onFavoriteChange={user?.id ? syncFavoriteToggle : undefined}
-                    wellnessFriendly={!!retreat.wellnessFriendly}
+                    wellnessConsumptionIndoorAllowed={!!retreat.wellnessConsumptionIndoorAllowed}
+                    wellnessConsumptionOutdoorAllowed={!!retreat.wellnessConsumptionOutdoorAllowed}
                     smokingInsideAllowed={!!retreat.smokingInsideAllowed}
                     smokingOutsideAllowed={!!retreat.smokingOutsideAllowed}
                     mainHeightClass="h-56 md:h-64"

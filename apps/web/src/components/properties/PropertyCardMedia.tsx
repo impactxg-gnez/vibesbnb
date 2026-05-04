@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { listingCardMainImageUrl, listingThumbImageUrl } from '@/lib/propertyImageUrls';
+import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
@@ -50,8 +51,9 @@ export type PropertyCardMediaProps = {
   favoriteFromBatch?: boolean;
   /** Keep parent batched Set in sync after toggle */
   onFavoriteChange?: (propertyId: string, favorited: boolean) => void;
-  /** Wellness-friendly listing — shows 🌿 indoor/outdoor vibe pill */
-  wellnessFriendly?: boolean;
+  /** Guest-facing wellness consumption areas — 🌿 INDOOR / OUTDOOR pill when host opted in */
+  wellnessConsumptionIndoorAllowed?: boolean;
+  wellnessConsumptionOutdoorAllowed?: boolean;
   /** Guest-facing smoking policy (from listing fields) */
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
@@ -72,7 +74,8 @@ export function PropertyCardMedia({
   favoriteBatchLoading = false,
   favoriteFromBatch,
   onFavoriteChange,
-  wellnessFriendly = false,
+  wellnessConsumptionIndoorAllowed = false,
+  wellnessConsumptionOutdoorAllowed = false,
   smokingInsideAllowed = false,
   smokingOutsideAllowed = false,
   topRightSlot,
@@ -265,29 +268,15 @@ export function PropertyCardMedia({
 
         <div className="absolute right-3 top-3 z-[5] flex flex-col items-end gap-2">
           {topRightSlot}
-          {wellnessFriendly && (
-            <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-              <span className="text-lg" aria-hidden>
-                🌿
-              </span>
-              <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                <span className="flex items-center gap-1">
-                  INDOOR <span className="text-emerald-400">✓</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  OUTDOOR <span className="text-emerald-400">✓</span>
-                </span>
-              </div>
-            </div>
-          )}
+          <WellnessConsumptionPill
+            indoor={wellnessConsumptionIndoorAllowed}
+            outdoor={wellnessConsumptionOutdoorAllowed}
+          />
           {(smokingInsideAllowed || smokingOutsideAllowed) && (
             <div
-              className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-500/25"
+              className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex flex-col gap-1 border border-amber-500/25"
               title="Smoking policy"
             >
-              <span className="text-lg" aria-hidden>
-                🚬
-              </span>
               <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
                 {smokingInsideAllowed && (
                   <span className="flex items-center gap-1">

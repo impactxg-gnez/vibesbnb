@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
+import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 
 interface Listing {
   id: string;
@@ -16,6 +18,8 @@ interface Listing {
   type: string;
   verified: boolean;
   wellnessFriendly?: boolean;
+  wellnessConsumptionIndoor?: boolean;
+  wellnessConsumptionOutdoor?: boolean;
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
 }
@@ -38,6 +42,7 @@ export function FeaturedListings() {
         const propertiesData = (payload.properties ?? []) as Record<string, unknown>[];
         const featuredListings: Listing[] = propertiesData.map((p) => {
           const smoking = resolveSmokingFlags(p);
+          const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
           return {
             id: String(p.id),
             title: (p.name ?? p.title ?? 'Property') as string,
@@ -48,6 +53,8 @@ export function FeaturedListings() {
             type: (p.type ?? 'Property') as string,
             verified: true,
             wellnessFriendly: p.wellness_friendly === true,
+            wellnessConsumptionIndoor: consumption.indoor,
+            wellnessConsumptionOutdoor: consumption.outdoor,
             smokingInsideAllowed: smoking.inside,
             smokingOutsideAllowed: smoking.outside,
           };
@@ -118,26 +125,9 @@ export function FeaturedListings() {
                     </div>
                   )}
                   <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
-                    {listing.wellnessFriendly && (
-                      <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-                        <span className="text-lg" aria-hidden>
-                          🌿
-                        </span>
-                        <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                          <span className="flex items-center gap-1">
-                            INDOOR <span className="text-green-400">✓</span>
-                          </span>
-                          <span className="flex items-center gap-1">
-                            OUTDOOR <span className="text-green-400">✓</span>
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                    <WellnessConsumptionPill indoor={!!listing.wellnessConsumptionIndoor} outdoor={!!listing.wellnessConsumptionOutdoor} />
                     {(listing.smokingInsideAllowed || listing.smokingOutsideAllowed) && (
-                      <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-500/30">
-                        <span className="text-lg" aria-hidden>
-                          🚬
-                        </span>
+                      <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex flex-col border border-amber-500/30">
                         <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
                           {listing.smokingInsideAllowed && (
                             <span className="flex items-center gap-1">

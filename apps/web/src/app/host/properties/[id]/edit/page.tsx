@@ -36,6 +36,8 @@ interface Property {
   guests: number;
   price: number;
   wellnessFriendly: boolean;
+  wellnessConsumptionIndoorAllowed: boolean;
+  wellnessConsumptionOutdoorAllowed: boolean;
   smokingInsideAllowed: boolean;
   smokingOutsideAllowed: boolean;
   allowExtraGuests: boolean;
@@ -70,6 +72,8 @@ export default function EditPropertyPage() {
     guests: 2,
     price: 100,
     wellnessFriendly: false,
+    wellnessConsumptionIndoorAllowed: false,
+    wellnessConsumptionOutdoorAllowed: false,
     smokingInsideAllowed: false,
     smokingOutsideAllowed: false,
     allowExtraGuests: false,
@@ -172,6 +176,10 @@ export default function EditPropertyPage() {
               guests: propertyData.guests || 0,
               price: propertyData.price ? Number(propertyData.price) : 0,
               wellnessFriendly: propertyData.wellness_friendly || false,
+              wellnessConsumptionIndoorAllowed:
+                propertyData.wellness_consumption_indoor_allowed === true,
+              wellnessConsumptionOutdoorAllowed:
+                propertyData.wellness_consumption_outdoor_allowed === true,
               smokingInsideAllowed: smokingInside,
               smokingOutsideAllowed: smokingOutside,
               allowExtraGuests: propertyData.allow_extra_guests || false,
@@ -248,6 +256,10 @@ export default function EditPropertyPage() {
                 guests: property.guests || 0,
                 price: property.price || 0,
                 wellnessFriendly: property.wellnessFriendly || false,
+                wellnessConsumptionIndoorAllowed:
+                  property.wellnessConsumptionIndoorAllowed === true,
+                wellnessConsumptionOutdoorAllowed:
+                  property.wellnessConsumptionOutdoorAllowed === true,
                 smokingInsideAllowed: smokingInside,
                 smokingOutsideAllowed: smokingOutside,
                 allowExtraGuests: property.allowExtraGuests || false,
@@ -570,6 +582,8 @@ export default function EditPropertyPage() {
             price: formData.price,
             type: formData.type,
             wellness_friendly: formData.wellnessFriendly,
+            wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+            wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
             smoking_inside_allowed: formData.smokingInsideAllowed,
             smoking_outside_allowed: formData.smokingOutsideAllowed,
             smoke_friendly:
@@ -614,6 +628,8 @@ export default function EditPropertyPage() {
                 guests: formData.guests,
                 price: formData.price,
                 wellnessFriendly: formData.wellnessFriendly,
+                wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
+                wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
                 smokingInsideAllowed: formData.smokingInsideAllowed,
                 smokingOutsideAllowed: formData.smokingOutsideAllowed,
                 smokeFriendly:
@@ -654,6 +670,8 @@ export default function EditPropertyPage() {
                 guests: formData.guests,
                 price: formData.price,
                 wellnessFriendly: formData.wellnessFriendly,
+                wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
+                wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
                 smokingInsideAllowed: formData.smokingInsideAllowed,
                 smokingOutsideAllowed: formData.smokingOutsideAllowed,
                 smokeFriendly:
@@ -910,7 +928,21 @@ export default function EditPropertyPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, wellnessFriendly: !formData.wellnessFriendly })}
+                onClick={() =>
+                  setFormData((prev) => {
+                    const next = !prev.wellnessFriendly;
+                    return {
+                      ...prev,
+                      wellnessFriendly: next,
+                      ...(next
+                        ? {}
+                        : {
+                            wellnessConsumptionIndoorAllowed: false,
+                            wellnessConsumptionOutdoorAllowed: false,
+                          }),
+                    };
+                  })
+                }
                 className={`px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
                   formData.wellnessFriendly
                     ? 'bg-emerald-600 border-emerald-600 text-white'
@@ -921,6 +953,44 @@ export default function EditPropertyPage() {
                 <span>Wellness-Friendly</span>
               </button>
             </div>
+            {formData.wellnessFriendly && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      wellnessConsumptionIndoorAllowed: !formData.wellnessConsumptionIndoorAllowed,
+                    })
+                  }
+                  className={`px-4 py-3 rounded-lg border text-left transition flex flex-col gap-1 ${
+                    formData.wellnessConsumptionIndoorAllowed
+                      ? 'bg-emerald-800/40 border-emerald-500 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
+                  }`}
+                >
+                  <span className="font-semibold">Indoor allowance</span>
+                  <span className="text-xs text-gray-400">Guests see INDOOR 🌿 on photos</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      wellnessConsumptionOutdoorAllowed: !formData.wellnessConsumptionOutdoorAllowed,
+                    })
+                  }
+                  className={`px-4 py-3 rounded-lg border text-left transition flex flex-col gap-1 ${
+                    formData.wellnessConsumptionOutdoorAllowed
+                      ? 'bg-emerald-900/50 border-emerald-500/70 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
+                  }`}
+                >
+                  <span className="font-semibold">Outdoor allowance</span>
+                  <span className="text-xs text-gray-400">Guests see OUTDOOR 🌿 on photos</span>
+                </button>
+              </div>
+            )}
             <p className="text-sm text-gray-400 mt-6 mb-3">Smoking policy (shown to guests on your listing)</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button

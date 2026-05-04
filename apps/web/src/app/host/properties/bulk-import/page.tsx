@@ -469,6 +469,8 @@ export default function BulkImportPage() {
           type: property.type,
           guest_access_type: property.guestAccessType,
           wellness_friendly: property.wellnessFriendly,
+          wellness_consumption_indoor_allowed: false,
+          wellness_consumption_outdoor_allowed: false,
           smoking_inside_allowed: false,
           smoking_outside_allowed: property.smokeFriendly || false,
           smoke_friendly: property.smokeFriendly || false,
