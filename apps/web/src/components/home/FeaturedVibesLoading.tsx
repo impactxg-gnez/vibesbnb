@@ -88,7 +88,7 @@ export function FeaturedVibesLoading() {
 
           <div className="w-full">
             <div className="relative h-2 w-full rounded-full bg-white/10 overflow-hidden">
-              <div className="absolute top-0 left-0 h-full w-[42%] rounded-full bg-gradient-to-r from-primary-700 via-primary-400 to-primary-500 shadow-[0_0_16px_rgba(0,230,118,0.45)] animate-vibes-loadbar" />
+              <div className="absolute top-0 h-full w-[42%] rounded-full bg-gradient-to-r from-primary-700 via-primary-400 to-primary-500 shadow-[0_0_16px_rgba(0,230,118,0.45)] animate-vibes-loadbar" />
             </div>
           </div>
 
