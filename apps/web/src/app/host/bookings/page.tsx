@@ -40,6 +40,10 @@ export default function HostBookingsPage() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [acceptModalBooking, setAcceptModalBooking] = useState<Booking | null>(null);
+  const [acceptCheckIn, setAcceptCheckIn] = useState('');
+  const [acceptCheckOut, setAcceptCheckOut] = useState('');
+  const [acceptSubmitting, setAcceptSubmitting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -137,12 +141,31 @@ export default function HostBookingsPage() {
     }
   };
 
-  const handleAcceptBooking = async (bookingId: string) => {
+  const openAcceptModal = (booking: Booking) => {
+    const cin = String(booking.check_in).slice(0, 10);
+    const cout = String(booking.check_out).slice(0, 10);
+    setAcceptCheckIn(cin);
+    setAcceptCheckOut(cout);
+    setAcceptModalBooking(booking);
+  };
+
+  const closeAcceptModal = () => {
+    if (acceptSubmitting) return;
+    setAcceptModalBooking(null);
+  };
+
+  const submitAcceptBooking = async () => {
+    if (!acceptModalBooking) return;
+    setAcceptSubmitting(true);
     try {
       const response = await fetch('/api/bookings/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({
+          bookingId: acceptModalBooking.id,
+          checkIn: acceptCheckIn,
+          checkOut: acceptCheckOut,
+        }),
       });
 
       const data = await response.json();
@@ -152,11 +175,14 @@ export default function HostBookingsPage() {
       }
 
       toast.success('Booking accepted! Guest has been notified.');
+      setAcceptModalBooking(null);
       loadBookings();
       loadNotifications();
     } catch (error: any) {
       console.error('Error accepting booking:', error);
       toast.error(error.message || 'Failed to accept booking');
+    } finally {
+      setAcceptSubmitting(false);
     }
   };
 
@@ -233,6 +259,66 @@ export default function HostBookingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 py-8">
+      {acceptModalBooking && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="accept-booking-title"
+          onClick={closeAcceptModal}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="accept-booking-title" className="text-xl font-bold text-white mb-2">
+              Approve stay
+            </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Confirm the dates the guest will pay for. The total updates automatically if you change nights.
+            </p>
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Check-in</label>
+                <input
+                  type="date"
+                  value={acceptCheckIn}
+                  onChange={(e) => setAcceptCheckIn(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Check-out</label>
+                <input
+                  type="date"
+                  value={acceptCheckOut}
+                  onChange={(e) => setAcceptCheckOut(e.target.value)}
+                  min={acceptCheckIn}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={closeAcceptModal}
+                disabled={acceptSubmitting}
+                className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitAcceptBooking}
+                disabled={acceptSubmitting || !acceptCheckIn || !acceptCheckOut}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {acceptSubmitting ? 'Saving…' : 'Approve & notify guest'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -384,7 +470,7 @@ export default function HostBookingsPage() {
                     {(booking.status === 'pending_approval' || (booking.status as string) === 'pending') && (
                       <>
                         <button
-                          onClick={() => handleAcceptBooking(booking.id)}
+                          onClick={() => openAcceptModal(booking)}
                           className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
                         >
                           <Check size={18} />

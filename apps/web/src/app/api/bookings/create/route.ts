@@ -3,10 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
-
-function totalsMatchCents(a: number, b: number): boolean {
-  return Math.round(a * 100) === Math.round(b * 100);
-}
+import { computeBookingGrandTotal, totalsMatchCents } from '@/lib/bookingTotals';
+import { dispatchPushToUser } from '@/lib/pushDispatch';
 
 export async function POST(request: NextRequest) {
   try {
@@ -125,23 +123,16 @@ export async function POST(request: NextRequest) {
         price: Math.max(0, Number(row.price) || 0),
         image: typeof row.image === 'string' ? row.image : row.image === null ? null : undefined,
       }));
-    const wellnessSuppliesTotal = wellnessLineItemsSanitized.reduce(
-      (s, i) => s + i.price,
-      0
-    );
 
-    let nightlyRate = Number(propertyRow.price) || 0;
-    if (Array.isArray(selected_units) && selected_units.length > 0) {
-      nightlyRate = selected_units.reduce(
-        (sum: number, u: { price?: unknown }) => sum + (Number(u?.price) || 0),
-        0
-      );
-    }
     const cleaning = propertyRow.cleaning_fee != null ? Number(propertyRow.cleaning_fee) : 0;
-    const preService = nightlyRate * stayNights + cleaning;
-    const serviceFee = Math.round(preService * 0.1);
-    const lodgingTotal = preService + serviceFee;
-    const expectedGrandTotal = lodgingTotal + wellnessSuppliesTotal;
+    const { grandTotal: expectedGrandTotal } = computeBookingGrandTotal({
+      propertyNightlyPrice: Number(propertyRow.price) || 0,
+      cleaningFee: cleaning,
+      checkInYmd: String(check_in),
+      checkOutYmd: String(check_out),
+      selectedUnits: selected_units,
+      wellnessLineItems: wellnessLineItemsSanitized,
+    });
 
     if (!totalsMatchCents(Number(total_price), expectedGrandTotal)) {
       return NextResponse.json(
@@ -219,82 +210,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark booked dates in availability table using service client (bypasses RLS)
-    try {
-      const start = new Date(check_in);
-      const end = new Date(check_out);
-
-      const unitsToBlock = (selected_units && Array.isArray(selected_units) && selected_units.length > 0)
-        ? selected_units
-        : [{ id: null }]; // Default to property-wide if no units specified
-
-      for (const unit of unitsToBlock) {
-        const daysToBlock: { 
-          day: string; 
-          status: 'booked'; 
-          property_id: string; 
-          host_id: string; 
-          room_id: string | null;
-          booking_id: string;
-        }[] = [];
-        
-        for (
-          let cursor = new Date(start);
-          cursor < end;
-          cursor.setDate(cursor.getDate() + 1)
-        ) {
-          const dateKey = cursor.toISOString().split('T')[0];
-          daysToBlock.push({
-            day: dateKey,
-            status: 'booked',
-            property_id,
-            host_id: hostId,
-            room_id: unit.id || null,
-            booking_id: booking.id,
-          });
-        }
-
-        if (daysToBlock.length > 0) {
-          // Use service client to bypass RLS - travelers can't insert directly
-          // We need to handle upserts manually due to partial unique indexes
-          for (const block of daysToBlock) {
-            // First try to update existing entry
-            let updateQuery = serviceSupabase
-              .from('property_availability')
-              .update({
-                status: 'booked',
-                booking_id: block.booking_id,
-                host_id: block.host_id,
-              })
-              .eq('property_id', block.property_id)
-              .eq('day', block.day);
-
-            if (block.room_id) {
-              updateQuery = updateQuery.eq('room_id', block.room_id);
-            } else {
-              updateQuery = updateQuery.is('room_id', null);
-            }
-
-            const { data: updated, error: updateError } = await updateQuery.select();
-            
-            // If no rows updated, insert new entry
-            if (!updateError && (!updated || updated.length === 0)) {
-              const { error: insertError } = await serviceSupabase
-                .from('property_availability')
-                .insert(block);
-              
-              if (insertError) {
-                console.warn('Failed to insert booked day:', block.day, insertError);
-              }
-            } else if (updateError) {
-              console.warn('Failed to update booked day:', block.day, updateError);
-            }
-          }
-        }
-      }
-    } catch (availabilityError) {
-      console.warn('Failed to mark booked days:', availabilityError);
-    }
+    // Calendar holds are created when the host approves (see /api/bookings/accept).
 
     // Ensure conversation exists between traveller and host
     let conversationId: string | null = null;
@@ -308,6 +224,14 @@ export async function POST(request: NextRequest) {
 
       if (existingConversation?.id) {
         conversationId = existingConversation.id;
+        await supabase
+          .from('conversations')
+          .update({
+            booking_id: booking.id,
+            last_message: 'Booking request created',
+            last_message_at: new Date().toISOString(),
+          })
+          .eq('id', existingConversation.id);
         if (!existingConversation.host_name || !existingConversation.traveller_name) {
           const travellerName =
             user.user_metadata?.full_name || user.user_metadata?.display_name || user.email || 'Traveller';
@@ -365,18 +289,9 @@ export async function POST(request: NextRequest) {
 
     // Send notifications to host
     try {
-      // 1. Create in-app notification (trigger will handle this, but we'll also create one explicitly)
-      await serviceSupabase
-        .from('notifications')
-        .insert({
-          user_id: hostId,
-          type: 'booking_request',
-          title: 'New Booking Request',
-          message: `You have a new booking request for ${property_name} from ${guest_name}.`,
-          related_booking_id: booking.id,
-        });
+      // In-app notification: handled by DB trigger (notify_host_on_booking).
 
-      // 2. Send email notification (if host email is provided)
+      // Email notification (if host email is provided)
       if (hostEmail) {
         try {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
@@ -404,7 +319,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // 3. Send WhatsApp notification (if host WhatsApp is provided)
+      // WhatsApp notification (if host WhatsApp is provided)
       if (hostWhatsApp) {
         try {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
@@ -421,9 +336,51 @@ export async function POST(request: NextRequest) {
           // Don't fail the booking if WhatsApp fails
         }
       }
+
+      await dispatchPushToUser(
+        hostId,
+        'New booking request',
+        `${guest_name} requested ${property_name} (${check_in} → ${check_out}).`,
+        { stage: 'booking_request_created', bookingId: booking.id }
+      );
     } catch (notificationError) {
       console.warn('Error sending notifications:', notificationError);
       // Don't fail the booking if notifications fail
+    }
+
+    try {
+      await dispatchPushToUser(
+        userId,
+        'Booking request sent',
+        `We notified the host about ${property_name}.`,
+        { stage: 'booking_request_received', bookingId: booking.id }
+      );
+    } catch (_) {
+      /* non-fatal */
+    }
+
+    if (guest_email) {
+      try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+        await fetch(`${appUrl}/api/notifications/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: guest_email,
+            subject: `Request sent: ${property_name}`,
+            template: 'booking_request_submitted',
+            data: {
+              propertyName: property_name,
+              guestName: guest_name,
+              checkIn: check_in,
+              checkOut: check_out,
+              bookingId: booking.id,
+            },
+          }),
+        });
+      } catch (e) {
+        console.warn('Failed to send guest confirmation email:', e);
+      }
     }
 
     return NextResponse.json({

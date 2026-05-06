@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { resolveDispensaryItemImageUrl } from '@/lib/dispensaryInventoryImage';
 
 interface Dispensary {
   id: string;
@@ -31,7 +32,8 @@ export interface InventoryItem {
   category: string;
   name: string;
   price: number;
-  image: string;
+  /** Optional; default vector placeholder used when empty */
+  image: string | null;
 }
 
 interface NearbyDispensariesProps {
@@ -240,7 +242,7 @@ export default function NearbyDispensaries({
                   <div key={item.id} className="bg-surface border border-white/5 rounded-[2rem] overflow-hidden group">
                     <div className="aspect-square relative overflow-hidden">
                       <img 
-                        src={item.image || 'https://images.unsplash.com/photo-1533134842197-09f87b328114?auto=format&fit=crop&q=80&w=400'} 
+                        src={resolveDispensaryItemImageUrl(item.image, item.category, item.name)} 
                         alt={item.name} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                       />

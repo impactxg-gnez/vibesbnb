@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { releaseBookingAvailability } from '@/lib/bookingAvailability';
+import { dispatchPushToUser } from '@/lib/pushDispatch';
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,6 +81,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    try {
+      await releaseBookingAvailability(createServiceClient(), bookingId);
+    } catch (e) {
+      console.warn('Failed to release calendar holds for rejected booking:', e);
+    }
+
     // Create notification for guest
     await supabase
       .from('notifications')
@@ -129,6 +138,13 @@ export async function POST(request: NextRequest) {
         console.warn('Failed to send email notification:', emailError);
       }
     }
+
+    await dispatchPushToUser(
+      booking.user_id,
+      'Booking request declined',
+      `The host declined your request for ${booking.property_name}.`,
+      { stage: 'booking_rejected', bookingId: booking.id }
+    );
 
     return NextResponse.json({
       success: true,

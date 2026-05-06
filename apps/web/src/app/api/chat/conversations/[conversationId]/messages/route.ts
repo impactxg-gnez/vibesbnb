@@ -3,6 +3,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { validateMessage } from '@/lib/utils/contactFilter';
+import { dispatchPushToUser } from '@/lib/pushDispatch';
 
 export async function GET(
   request: NextRequest,
@@ -212,23 +213,28 @@ export async function POST(
       .eq('id', params.conversationId);
 
     const recipientId = isHostSender ? conversation.traveller_id : conversation.host_id;
-    const recipientName = isHostSender ? conversation.traveller_name : conversation.host_name;
+
+    const senderLabel = isHostSender
+      ? conversation.host_name || 'Host'
+      : conversation.traveller_name || 'Traveller';
 
     try {
       await serviceSupabase.from('notifications').insert({
         user_id: recipientId,
         type: 'new_message',
         title: 'New Message',
-        message: `You have a new message from ${
-          isHostSender
-            ? conversation.host_name || 'Host'
-            : conversation.traveller_name || 'Traveller'
-        }.`,
+        message: `You have a new message from ${senderLabel}.`,
         related_booking_id: conversation.booking_id,
       });
     } catch (notificationError) {
       console.warn('Failed to create message notification:', notificationError);
     }
+
+    await dispatchPushToUser(recipientId, 'New message', `From ${senderLabel}: ${message.slice(0, 120)}`, {
+      stage: 'new_message',
+      bookingId: conversation.booking_id || undefined,
+      conversationId: params.conversationId,
+    });
 
     return NextResponse.json({ message: data });
   } catch (error: any) {

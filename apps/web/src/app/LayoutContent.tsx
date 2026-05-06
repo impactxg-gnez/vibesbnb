@@ -2,6 +2,7 @@
 
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { AppVersionStamp } from '@/components/layout/AppVersionStamp';
 import { HostPendingBrowseModal } from '@/components/auth/HostPendingBrowseModal';
 
 interface LayoutContentProps {
@@ -22,6 +23,7 @@ export function LayoutContent({ children }: LayoutContentProps) {
         {children}
       </main>
       <Footer />
+      <AppVersionStamp />
     </div>
   );
 }

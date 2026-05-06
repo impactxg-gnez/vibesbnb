@@ -24,6 +24,7 @@ import {
 } from '@/lib/propertySearchFilters';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { useAuth } from '@/contexts/AuthContext';
+import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 
 interface Listing {
   id: string;
@@ -50,6 +51,7 @@ interface Listing {
   wellnessConsumptionOutdoorAllowed?: boolean;
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
+  minBookingNights?: number | null;
   [key: string]: any;
 }
 
@@ -376,6 +378,7 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
       hostName,
       hostAvatarUrl,
       status: p.status || 'active',
+      minBookingNights: normalizeMinBookingNights(p.min_booking_nights ?? p.minBookingNights),
       coordinates: p.coordinates
         ? { lat: Number(p.coordinates.lat), lng: Number(p.coordinates.lng) }
         : p.latitude && p.longitude
@@ -548,6 +551,11 @@ function ListingCard({
               bathrooms={bathroomCount}
               className="mt-3"
             />
+            {listing.minBookingNights != null && (
+              <p className="text-xs text-amber-200/85 mt-2 font-medium">
+                {minNightsLabel(listing.minBookingNights)}
+              </p>
+            )}
           </div>
         </div>
 

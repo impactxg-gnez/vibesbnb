@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,12 +8,13 @@ import { ArrowLeft, Upload, X, Plus, Trash2, MapPin, Power, Sparkles, GripVertic
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
-import { getHostScopeUserId } from '@/lib/adminHostImpersonation';
+import { getHostScopeUserId, onImpersonationChanged } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import LocationPicker from '@/components/LocationPicker';
 import AvailabilityEditor from '@/components/properties/AvailabilityEditor';
 import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
+import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 
 interface Room {
   id: string;
@@ -43,6 +44,8 @@ interface Property {
   allowExtraGuests: boolean;
   extraGuestPrice: number;
   cleaningFee: number;
+  /** When set, guests must book at least this many nights */
+  minBookingNights: number | null;
   amenities: string[];
   images: File[];
   imagePreviewUrls: string[];
@@ -79,6 +82,7 @@ export default function EditPropertyPage() {
     allowExtraGuests: false,
     extraGuestPrice: 50,
     cleaningFee: 0,
+    minBookingNights: null,
     amenities: [],
     images: [],
     imagePreviewUrls: [],
@@ -91,6 +95,10 @@ export default function EditPropertyPage() {
   ]);
   const [isMultiUnit, setIsMultiUnit] = useState(false);
   const [agreementUploading, setAgreementUploading] = useState(false);
+  const [hostScopeRevision, setHostScopeRevision] = useState(0);
+  const propertyReloadKeyRef = useRef<string | null>(null);
+
+  useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
 
   const availableAmenities = [
     'WiFi',
@@ -115,6 +123,15 @@ export default function EditPropertyPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
+    if (loading || !user) return;
+
+    const propertyId = String(params.id);
+    const reloadKey = `${propertyId}:${user.id}:${hostScopeRevision}`;
+    if (propertyReloadKeyRef.current === reloadKey) {
+      return;
+    }
+    propertyReloadKeyRef.current = reloadKey;
+
     const loadProperty = async () => {
       if (!user) return;
 
@@ -192,6 +209,7 @@ export default function EditPropertyPage() {
               vibesbnb_take: propertyData.vibesbnb_take || '',
               type: propertyData.type || 'Entire House',
               guestAgreementUrl: propertyData.guest_agreement_url || '',
+              minBookingNights: normalizeMinBookingNights(propertyData.min_booking_nights),
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
@@ -280,6 +298,9 @@ export default function EditPropertyPage() {
                   property.guestAgreementUrl || property.guest_agreement_url || '',
                 type: property.type || 'Entire House',
                 vibesbnb_take: property.vibesbnb_take || '',
+                minBookingNights: normalizeMinBookingNights(
+                  property.min_booking_nights ?? property.minBookingNights
+                ),
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -332,10 +353,8 @@ export default function EditPropertyPage() {
       }
     };
 
-    if (user) {
-      loadProperty();
-    }
-  }, [params.id, user, router]);
+    void loadProperty();
+  }, [params.id, user?.id, hostScopeRevision, loading]);
 
   const addRoom = () => {
     const unitNumber = rooms.length + 1;
@@ -591,6 +610,7 @@ export default function EditPropertyPage() {
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             cleaning_fee: formData.cleaningFee,
+            min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -636,6 +656,8 @@ export default function EditPropertyPage() {
                   formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
                 cleaning_fee: formData.cleaningFee,
                 cleaningFee: formData.cleaningFee,
+                min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+                minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -678,6 +700,8 @@ export default function EditPropertyPage() {
                   formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
                 cleaning_fee: formData.cleaningFee,
                 cleaningFee: formData.cleaningFee,
+                min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+                minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -1102,6 +1126,51 @@ export default function EditPropertyPage() {
                 placeholder="0"
               />
             </div>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-1">Minimum stay</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Optional. When enabled, guests must select at least this many nights to book. Leave off for no minimum
+              beyond check-out after check-in.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={formData.minBookingNights != null}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    minBookingNights: e.target.checked ? 2 : null,
+                  })
+                }
+                className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-gray-300 text-sm">Require a minimum number of nights</span>
+            </label>
+            {formData.minBookingNights != null && (
+              <div className="relative max-w-xs">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Minimum nights</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={formData.minBookingNights}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!Number.isFinite(v)) {
+                      setFormData({ ...formData, minBookingNights: 1 });
+                      return;
+                    }
+                    setFormData({
+                      ...formData,
+                      minBookingNights: Math.min(365, Math.max(1, v)),
+                    });
+                  }}
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                />
+              </div>
+            )}
           </div>
 
           {/* Multi-Unit Configuration */}

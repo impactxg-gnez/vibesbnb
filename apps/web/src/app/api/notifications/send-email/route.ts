@@ -14,6 +14,14 @@ interface BookingRequestData {
   bookingId: string;
 }
 
+interface BookingRequestSubmittedData {
+  propertyName: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  bookingId: string;
+}
+
 interface BookingConfirmationData {
   propertyName: string;
   hostName: string;
@@ -30,6 +38,7 @@ interface BookingRejectedData {
   hostName: string;
   checkIn: string;
   checkOut: string;
+  reason?: string;
 }
 
 interface BookingCancelledData {
@@ -47,6 +56,7 @@ interface HostApplicationApprovedData {
 
 type EmailTemplateData =
   | BookingRequestData
+  | BookingRequestSubmittedData
   | BookingConfirmationData
   | BookingRejectedData
   | BookingCancelledData
@@ -133,7 +143,95 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
       `;
     }
 
-    case 'booking_accepted':
+    case 'booking_request_submitted': {
+      const d = data as BookingRequestSubmittedData;
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #059669; margin-bottom: 24px;">Request sent</h1>
+            <p style="color: #374151; font-size: 16px; margin-bottom: 24px;">
+              We have shared your dates and details with the host. They can reply in chat or approve your request.
+            </p>
+            <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Property</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${d.propertyName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Check-in</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${new Date(d.checkIn).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Check-out</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${new Date(d.checkOut).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                </tr>
+              </table>
+            </div>
+            <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">
+              You will receive another email when the host responds. You can also message them anytime from your inbox.
+            </p>
+            <a href="${appUrl}/bookings" style="${buttonStyles}">
+              View request
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            This email was sent by VibesBnB. If you have questions, contact support.
+          </p>
+        </div>
+      `;
+    }
+
+    case 'booking_accepted': {
+      const d = data as BookingConfirmationData;
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #059669; margin-bottom: 24px;">Host approved your stay</h1>
+            <p style="color: #374151; font-size: 16px; margin-bottom: 24px;">
+              Great news — ${d.hostName} confirmed your dates. Complete payment to finalize your booking.
+            </p>
+            <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #065f46;">Property</td>
+                  <td style="padding: 8px 0; color: #065f46; font-weight: 600; text-align: right;">${d.propertyName}</td>
+                </tr>
+                ${d.location ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #065f46;">Location</td>
+                  <td style="padding: 8px 0; color: #065f46; font-weight: 600; text-align: right;">${d.location}</td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: 8px 0; color: #065f46;">Check-in</td>
+                  <td style="padding: 8px 0; color: #065f46; font-weight: 600; text-align: right;">${new Date(d.checkIn).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #065f46;">Check-out</td>
+                  <td style="padding: 8px 0; color: #065f46; font-weight: 600; text-align: right;">${new Date(d.checkOut).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #065f46;">Guests</td>
+                  <td style="padding: 8px 0; color: #065f46; font-weight: 600; text-align: right;">${d.guests}</td>
+                </tr>
+                <tr style="border-top: 1px solid #a7f3d0;">
+                  <td style="padding: 12px 0 8px; color: #065f46; font-weight: 600;">Amount due</td>
+                  <td style="padding: 12px 0 8px; color: #059669; font-weight: 700; font-size: 20px; text-align: right;">$${d.totalPrice.toFixed(2)}</td>
+                </tr>
+              </table>
+            </div>
+            <a href="${appUrl}/bookings" style="${buttonStyles}">
+              Pay now
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            This email was sent by VibesBnB. If you have questions, contact support.
+          </p>
+        </div>
+      `;
+    }
+
     case 'booking_confirmed': {
       const d = data as BookingConfirmationData;
       return `
@@ -210,6 +308,14 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
                   <td style="padding: 8px 0; color: #991b1b;">Dates</td>
                   <td style="padding: 8px 0; color: #991b1b; font-weight: 600; text-align: right;">${new Date(d.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(d.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                 </tr>
+                ${
+                  d.reason
+                    ? `<tr>
+                  <td style="padding: 8px 0; color: #991b1b; vertical-align: top;">Note</td>
+                  <td style="padding: 8px 0; color: #991b1b; font-weight: 600; text-align: right;">${String(d.reason).replace(/</g, '&lt;')}</td>
+                </tr>`
+                    : ''
+                }
               </table>
             </div>
             <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">

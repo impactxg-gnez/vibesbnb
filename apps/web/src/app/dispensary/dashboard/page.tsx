@@ -20,7 +20,7 @@ import {
   Save,
   ChevronRight
 } from 'lucide-react';
-import Image from 'next/image';
+import { resolveDispensaryItemImageUrl } from '@/lib/dispensaryInventoryImage';
 
 interface Dispensary {
   id: string;
@@ -37,7 +37,7 @@ interface InventoryItem {
   name: string;
   category: string;
   price: number;
-  image?: string;
+  image?: string | null;
   status: string;
 }
 
@@ -113,7 +113,7 @@ export default function DispensaryDashboard() {
           name: newItem.name,
           category: newItem.category,
           price: parseFloat(newItem.price),
-          image: newItem.image || 'https://images.unsplash.com/photo-1533134842197-09f87b328114?auto=format&fit=crop&q=80&w=400',
+          image: newItem.image.trim() || null,
         })
         .select()
         .single();
@@ -374,13 +374,11 @@ export default function DispensaryDashboard() {
               {inventory.map(item => (
                 <div key={item.id} className="card group">
                   <div className="relative h-48">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                        <Package className="text-white/10 w-12 h-12" />
-                      </div>
-                    )}
+                    <img
+                      src={resolveDispensaryItemImageUrl(item.image, item.category, item.name)}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
                     <div className="absolute top-4 right-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
                       <button 
                         onClick={() => handleDeleteItem(item.id)}

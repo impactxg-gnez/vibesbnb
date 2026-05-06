@@ -34,6 +34,7 @@ import { HostImpersonationBanner } from '@/components/host/HostImpersonationBann
 import LocationPicker from '@/components/LocationPicker';
 import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
+import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 
 interface Room {
   id: string;
@@ -121,6 +122,7 @@ export default function NewPropertyPage() {
     allowExtraGuests: false,
     extraGuestPrice: 50,
     cleaningFee: 0,
+    minBookingNights: null as number | null,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
@@ -336,6 +338,7 @@ export default function NewPropertyPage() {
         allow_extra_guests: formData.allowExtraGuests,
         extra_guest_price: formData.extraGuestPrice,
         cleaning_fee: formData.cleaningFee,
+        min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
         latitude: formData.coordinates?.lat,
         longitude: formData.coordinates?.lng,
         google_maps_url: formData.coordinates
@@ -349,6 +352,8 @@ export default function NewPropertyPage() {
         parsedProperties.push({
           ...propertyData,
           cleaningFee: formData.cleaningFee,
+          min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+          minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
           wellnessFriendly: formData.wellnessFriendly,
           wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
           wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
@@ -486,6 +491,7 @@ export default function NewPropertyPage() {
         </div>
 
         <button
+          type="button"
           onClick={nextStep}
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-lg transition flex items-center justify-center gap-2"
         >
@@ -520,6 +526,7 @@ export default function NewPropertyPage() {
           return (
             <button
               key={type.id}
+              type="button"
               onClick={() => setFormData({ ...formData, propertyType: type.id })}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
                 isSelected
@@ -554,6 +561,7 @@ export default function NewPropertyPage() {
           return (
             <button
               key={type.id}
+              type="button"
               onClick={() => setFormData({ ...formData, guestAccessType: type.id })}
               className={`w-full p-6 rounded-xl border-2 transition-all text-left flex items-start gap-4 ${
                 isSelected
@@ -1030,6 +1038,50 @@ export default function NewPropertyPage() {
           />
         </div>
       </div>
+
+      <div className="mt-8 p-6 bg-gray-900 border border-gray-800 rounded-xl">
+        <h3 className="text-white font-medium mb-1">Minimum stay (optional)</h3>
+        <p className="text-gray-400 text-sm mb-4">
+          Require guests to book a minimum number of nights. Leave off if you have no minimum.
+        </p>
+        <label className="flex items-center gap-3 cursor-pointer mb-4">
+          <input
+            type="checkbox"
+            checked={formData.minBookingNights != null}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                minBookingNights: e.target.checked ? 2 : null,
+              })
+            }
+            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-emerald-600 focus:ring-emerald-500"
+          />
+          <span className="text-gray-300 text-sm">Require a minimum number of nights</span>
+        </label>
+        {formData.minBookingNights != null && (
+          <div className="max-w-xs">
+            <label className="block text-gray-400 text-sm mb-2">Minimum nights</label>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={formData.minBookingNights}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!Number.isFinite(v)) {
+                  setFormData({ ...formData, minBookingNights: 1 });
+                  return;
+                }
+                setFormData({
+                  ...formData,
+                  minBookingNights: Math.min(365, Math.max(1, v)),
+                });
+              }}
+              className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -1086,6 +1138,12 @@ export default function NewPropertyPage() {
               )}
               <span>•</span>
               <span>{formData.bathrooms} bathrooms</span>
+              {formData.minBookingNights != null && (
+                <>
+                  <span>•</span>
+                  <span>{minNightsLabel(formData.minBookingNights)}</span>
+                </>
+              )}
             </div>
 
             {(formData.smokingInsideAllowed || formData.smokingOutsideAllowed) && (
@@ -1163,11 +1221,12 @@ export default function NewPropertyPage() {
           </Link>
           
           <div className="flex items-center gap-4">
-            <button className="text-gray-400 hover:text-white flex items-center gap-2">
+            <button type="button" className="text-gray-400 hover:text-white flex items-center gap-2">
               <HelpCircle size={18} />
               Questions?
             </button>
             <button
+              type="button"
               onClick={() => {
                 toast.success('Progress saved!');
               }}
@@ -1198,6 +1257,7 @@ export default function NewPropertyPage() {
       {currentStep > 0 && (
         <footer className="fixed bottom-0 left-0 right-0 h-20 bg-gray-950 border-t border-gray-800 flex items-center justify-between px-6">
           <button
+            type="button"
             onClick={prevStep}
             className="px-6 py-3 text-white font-semibold underline hover:text-gray-300 transition"
           >
@@ -1206,6 +1266,7 @@ export default function NewPropertyPage() {
 
           {currentStep < steps.length - 1 ? (
             <button
+              type="button"
               onClick={nextStep}
               disabled={!canProceed()}
               className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition"
@@ -1214,6 +1275,7 @@ export default function NewPropertyPage() {
             </button>
           ) : (
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={saving}
               className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg font-semibold transition flex items-center gap-2"

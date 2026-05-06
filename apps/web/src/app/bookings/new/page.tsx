@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink, Leaf } from 'lucide-react';
@@ -84,6 +84,8 @@ export default function NewBookingPage() {
     specialRequests: '',
   });
   const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
+  const bookingPropertyReloadRef = useRef<string | null>(null);
+  const agreementSignerSeedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!propertyId) {
@@ -102,20 +104,16 @@ export default function NewBookingPage() {
   }, [user, authLoading, router, searchParams]);
 
   useEffect(() => {
-    if (propertyId && user) {
-      loadProperty();
-    }
-  }, [propertyId, user?.id]);
-
-  useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
+    if (agreementSignerSeedRef.current === user.id) return;
+    agreementSignerSeedRef.current = user.id;
     const meta = user.user_metadata as { full_name?: string } | undefined;
     if (meta?.full_name) {
       setAgreementSignerName(String(meta.full_name));
     } else if (user.email) {
       setAgreementSignerName(user.email.split('@')[0]);
     }
-  }, [user]);
+  }, [user?.id]);
 
   const loadProperty = async () => {
     setLoading(true);
@@ -181,6 +179,21 @@ export default function NewBookingPage() {
       setLoading(false);
     }
   };
+
+  const loadPropertyRef = useRef(loadProperty);
+  loadPropertyRef.current = loadProperty;
+
+  useEffect(() => {
+    if (!propertyId) {
+      bookingPropertyReloadRef.current = null;
+      return;
+    }
+    if (!user) return;
+    const key = `${propertyId}:${user.id}`;
+    if (bookingPropertyReloadRef.current === key) return;
+    bookingPropertyReloadRef.current = key;
+    void loadPropertyRef.current();
+  }, [propertyId, user?.id]);
 
   const loadAvailability = async (id: string) => {
     try {

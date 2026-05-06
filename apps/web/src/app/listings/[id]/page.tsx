@@ -1043,7 +1043,7 @@ export default function ListingDetailPage() {
                 className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold text-lg mb-4"
               >
                 <Calendar size={20} className="inline mr-2" />
-                {checkInDate && checkOutDate ? 'Reserve' : 'Check Availability'}
+                {checkInDate && checkOutDate ? 'Request to book' : 'Check Availability'}
               </button>
 
               <PropertyChatButton
@@ -1052,7 +1052,7 @@ export default function ListingDetailPage() {
               />
 
               <div className="text-center text-sm text-gray-400">
-                You won't be charged yet
+                Request goes to the host for approval — pay only after they confirm dates
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
