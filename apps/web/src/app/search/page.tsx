@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
+import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import {
@@ -480,7 +481,11 @@ function ListingCard({
       </div>
     ) : null;
 
-  const bedCount = listing.beds ?? listing.bedrooms ?? 1;
+  const bedroomCount = listing.bedrooms ?? listing.beds ?? 1;
+  const bathroomCount = (() => {
+    const b = Number(listing.bathrooms);
+    return Number.isFinite(b) && b >= 0 ? b : 1;
+  })();
 
   return (
     <div
@@ -524,9 +529,7 @@ function ListingCard({
                 <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
                   {listing.title}
                 </h3>
-                <p className="text-muted text-sm line-clamp-2">
-                  {listing.type ? `${listing.type} in ` : ''}{listing.location}
-                </p>
+                <p className="text-muted text-sm line-clamp-2">{listing.location}</p>
               </div>
               <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
                 <span className={listing.reviews && listing.reviews > 0 ? 'text-primary-500 text-xs' : 'text-gray-500 text-xs'}>
@@ -538,34 +541,13 @@ function ListingCard({
               </div>
             </div>
 
-            {/* Beds and Guests Info */}
-            <div className="flex items-center gap-4 mt-3 text-muted text-sm">
-          <span className="flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            {bedCount} {bedCount === 1 ? 'bed' : 'beds'}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            {listing.guests || 2} guests
-          </span>
-          {(listing.bathrooms || 0) >= 1 && (
-            <span className="flex items-center gap-1.5">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M5 10V7a1 1 0 011-1h12a1 1 0 011 1v3M4 21h16a1 1 0 001-1v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a1 1 0 001 1z"
-                />
-              </svg>
-              {listing.bathrooms} bath{listing.bathrooms === 1 ? '' : 's'}
-            </span>
-          )}
-            </div>
+            <PropertyCardFeatureRow
+              propertyType={listing.type}
+              guests={listing.guests || 2}
+              bedrooms={bedroomCount}
+              bathrooms={bathroomCount}
+              className="mt-3"
+            />
           </div>
         </div>
 

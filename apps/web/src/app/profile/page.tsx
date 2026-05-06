@@ -958,7 +958,10 @@ export default function ProfilePage() {
 
         {/* Payout Setup Section (for hosts only) */}
         {userRole === 'host' && (
-          <div className="mt-8 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <div
+            id="host-payout-settings"
+            className="mt-8 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden scroll-mt-24"
+          >
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">

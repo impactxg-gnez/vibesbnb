@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
+import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 
 interface FeaturedProperty {
     id: string;
@@ -17,6 +18,10 @@ interface FeaturedProperty {
     image: string;
     bookingCount: number;
     amenities: string[];
+    type?: string;
+    guests: number;
+    bedrooms: number;
+    bathrooms: number;
 }
 
 export function FeaturedProperties() {
@@ -64,6 +69,13 @@ export function FeaturedProperties() {
                     image: p.images && p.images.length > 0 ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
                     bookingCount: bookingCounts[p.id] || 0,
                     amenities: (p.amenities || []).slice(0, 3),
+                    type: p.type ? String(p.type) : undefined,
+                    guests: Number(p.guests) || 2,
+                    bedrooms: Number(p.bedrooms) || 1,
+                    bathrooms: (() => {
+                        const b = Number(p.bathrooms);
+                        return Number.isFinite(b) && b >= 0 ? b : 1;
+                    })(),
                 }));
 
                 // Sort by booking count descending
@@ -160,6 +172,13 @@ export function FeaturedProperties() {
                                                 <MapPin className="w-4 h-4 text-primary-500" />
                                                 <span>{property.location}</span>
                                             </div>
+                                            <PropertyCardFeatureRow
+                                                propertyType={property.type}
+                                                guests={property.guests}
+                                                bedrooms={property.bedrooms}
+                                                bathrooms={property.bathrooms}
+                                                className="mt-3"
+                                            />
                                         </div>
                                     </div>
 

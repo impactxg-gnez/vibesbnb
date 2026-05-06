@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { getImpersonatedHostId, onImpersonationChanged } from '@/lib/adminHostImpersonation';
-import { MessageCircle, Bed, Home, Building, Trees, Sparkles, Plane, Briefcase, Plus, X, Check } from 'lucide-react';
+import { MessageCircle, Bed, Home, Building, Sparkles, Plane, Briefcase, Plus, X, Check, Wallet } from 'lucide-react';
 import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchModal';
 
 export function Header() {
@@ -522,6 +522,16 @@ export function Header() {
                                 onClick={() => setShowUserMenu(false)}
                               >
                                 My Properties
+                              </Link>
+                            )}
+                            {hasHostOrSupportAccess && isInHostingMode && (
+                              <Link
+                                href="/host/payouts"
+                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                <Wallet className="w-4 h-4 shrink-0 text-primary-500/90" aria-hidden />
+                                Payouts
                               </Link>
                             )}
                             {!isInHostingMode && (

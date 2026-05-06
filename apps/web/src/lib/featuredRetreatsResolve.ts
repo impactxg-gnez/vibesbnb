@@ -15,6 +15,7 @@ export type FeaturedRetreatPublic = {
   amenities: string[];
   badge: string;
   bedrooms: number;
+  bathrooms: number;
   guests: number;
   type?: string;
   hostId: string;
@@ -225,6 +226,10 @@ function mapRowToRetreat(
     amenities: Array.isArray(p.amenities) ? (p.amenities as string[]).slice(0, 2) : [],
     badge: p.wellness_friendly ? 'Wellness-friendly' : 'Featured',
     bedrooms: Number(p.bedrooms) || 1,
+    bathrooms: (() => {
+      const b = Number(p.bathrooms);
+      return Number.isFinite(b) && b >= 0 ? b : 1;
+    })(),
     guests: Number(p.guests) || 2,
     type: p.type ? String(p.type) : '',
     hostId,

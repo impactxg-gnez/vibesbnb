@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { listingCardMainImageUrl, listingThumbImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
@@ -272,25 +273,7 @@ export function PropertyCardMedia({
             indoor={wellnessConsumptionIndoorAllowed}
             outdoor={wellnessConsumptionOutdoorAllowed}
           />
-          {(smokingInsideAllowed || smokingOutsideAllowed) && (
-            <div
-              className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex flex-col gap-1 border border-amber-500/25"
-              title="Smoking policy"
-            >
-              <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                {smokingInsideAllowed && (
-                  <span className="flex items-center gap-1">
-                    INSIDE <span className="text-amber-300">✓</span>
-                  </span>
-                )}
-                {smokingOutsideAllowed && (
-                  <span className="flex items-center gap-1">
-                    OUTSIDE <span className="text-amber-300">✓</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          <SmokingPolicyPill inside={smokingInsideAllowed} outside={smokingOutsideAllowed} />
         </div>
       </div>
 

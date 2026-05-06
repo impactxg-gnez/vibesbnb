@@ -17,7 +17,6 @@ interface BookingSummaryItem {
   property_name?: string;
   created_at?: string;
 }
-import PropertiesMap from '@/components/PropertiesMap';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -1570,17 +1569,6 @@ export default function HostPropertiesPage() {
             <p className="text-3xl font-bold text-white">{stats.totalBookings}</p>
           </div>
         </div>
-
-        {/* Properties Map */}
-        {properties.filter(p => p.coordinates).length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center gap-2">
-              <Map size={24} />
-              Properties Map
-            </h2>
-            <PropertiesMap properties={properties} height="500px" />
-          </div>
-        )}
 
         {/* Properties List */}
         {properties.length > 0 && (

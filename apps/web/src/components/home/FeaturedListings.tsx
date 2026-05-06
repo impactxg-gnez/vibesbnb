@@ -7,6 +7,8 @@ import { motion, useInView } from 'framer-motion';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
+import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 
 interface Listing {
   id: string;
@@ -16,6 +18,9 @@ interface Listing {
   rating: number;
   images: string[];
   type: string;
+  guests: number;
+  bedrooms: number;
+  bathrooms: number;
   verified: boolean;
   wellnessFriendly?: boolean;
   wellnessConsumptionIndoor?: boolean;
@@ -51,6 +56,12 @@ export function FeaturedListings() {
             rating: p.rating != null ? Number(p.rating) : 4.5,
             images: (Array.isArray(p.images) ? p.images : []) as string[],
             type: (p.type ?? 'Property') as string,
+            guests: Number(p.guests) || 2,
+            bedrooms: Number(p.bedrooms) || 1,
+            bathrooms: (() => {
+              const b = Number(p.bathrooms);
+              return Number.isFinite(b) && b >= 0 ? b : 1;
+            })(),
             verified: true,
             wellnessFriendly: p.wellness_friendly === true,
             wellnessConsumptionIndoor: consumption.indoor,
@@ -126,22 +137,10 @@ export function FeaturedListings() {
                   )}
                   <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
                     <WellnessConsumptionPill indoor={!!listing.wellnessConsumptionIndoor} outdoor={!!listing.wellnessConsumptionOutdoor} />
-                    {(listing.smokingInsideAllowed || listing.smokingOutsideAllowed) && (
-                      <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex flex-col border border-amber-500/30">
-                        <div className="flex flex-col text-[10px] leading-tight font-bold text-white">
-                          {listing.smokingInsideAllowed && (
-                            <span className="flex items-center gap-1">
-                              INSIDE <span className="text-amber-300">✓</span>
-                            </span>
-                          )}
-                          {listing.smokingOutsideAllowed && (
-                            <span className="flex items-center gap-1">
-                              OUTSIDE <span className="text-amber-300">✓</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    <SmokingPolicyPill
+                      inside={!!listing.smokingInsideAllowed}
+                      outside={!!listing.smokingOutsideAllowed}
+                    />
                   </div>
                 </div>
                 
@@ -160,6 +159,14 @@ export function FeaturedListings() {
                       <span className="text-sm font-bold text-gray-900">{listing.rating}</span>
                     </div>
                   </div>
+                  
+                  <PropertyCardFeatureRow
+                    propertyType={listing.type}
+                    guests={listing.guests}
+                    bedrooms={listing.bedrooms}
+                    bathrooms={listing.bathrooms}
+                    className="mt-3 text-gray-600 [&_svg]:text-gray-500"
+                  />
                   
                   <div className="flex items-baseline gap-1 mt-4">
                     <span className="text-3xl font-bold text-gray-900">${listing.price}</span>
