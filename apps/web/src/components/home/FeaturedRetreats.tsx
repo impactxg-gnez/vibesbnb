@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
+import { FeaturedVibesLoading } from '@/components/home/FeaturedVibesLoading';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -114,7 +115,7 @@ export function FeaturedRetreats() {
   const favoritesBatchBusy = Boolean(user?.id && favoritesLoading);
 
   if (loading) {
-    return null;
+    return <FeaturedVibesLoading />;
   }
 
   if (retreats.length === 0) {

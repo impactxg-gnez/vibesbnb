@@ -8,6 +8,15 @@ module.exports = {
   ],
   theme: {
     extend: {
+      keyframes: {
+        'vibes-loadbar': {
+          '0%': { left: '-45%' },
+          '100%': { left: '100%' },
+        },
+      },
+      animation: {
+        'vibes-loadbar': 'vibes-loadbar 1.35s ease-in-out infinite',
+      },
       colors: {
         primary: {
           50: '#f0fdf4',
