@@ -588,17 +588,17 @@ export default function ListingDetailPage() {
               <>
                 <button
                   onClick={prevImage}
-                  className="absolute left-4 top-1/2 z-[15] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
+                  className="absolute left-4 top-1/2 z-[5] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
                 >
                   <ChevronLeft size={24} />
                 </button>
                 <button
                   onClick={nextImage}
-                  className="absolute right-4 top-1/2 z-[15] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
+                  className="absolute right-4 top-1/2 z-[5] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
                 >
                   <ChevronRight size={24} />
                 </button>
-                <div className="absolute bottom-4 left-1/2 z-[15] -translate-x-1/2 flex gap-2">
+                <div className="absolute bottom-4 left-1/2 z-[5] -translate-x-1/2 flex gap-2">
                   {property.images.map((_, index) => (
                     <button
                       key={index}
@@ -1040,15 +1040,23 @@ export default function ListingDetailPage() {
 
               <button
                 onClick={handleBooking}
-                className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold text-lg mb-4"
+                disabled={!!(user && property?.hostId && String(property.hostId) === String(user.id))}
+                className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed transition font-semibold text-lg mb-4"
               >
                 <Calendar size={20} className="inline mr-2" />
-                {checkInDate && checkOutDate ? 'Request to book' : 'Check Availability'}
+                {user && property?.hostId && String(property.hostId) === String(user.id)
+                  ? 'You are the host'
+                  : checkInDate && checkOutDate
+                    ? 'Request to book'
+                    : 'Check Availability'}
               </button>
 
               <PropertyChatButton
                 propertyId={property.id}
                 propertyName={property.name}
+                checkIn={checkInDate || undefined}
+                checkOut={checkOutDate || undefined}
+                selectedUnitIds={selectedRoomIds}
               />
 
               <div className="text-center text-sm text-gray-400">

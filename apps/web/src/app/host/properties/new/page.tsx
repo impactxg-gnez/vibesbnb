@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
-import { getHostScopeUserId, getHostScopeUserIdFromAuthOnly } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import LocationPicker from '@/components/LocationPicker';
 import ImageReorder from '@/components/properties/ImageReorder';
@@ -289,10 +288,9 @@ export default function NewPropertyPage() {
         }
       }
 
-      const userId =
-        supabaseUser && user
-          ? getHostScopeUserId(user, supabaseUser.id)
-          : getHostScopeUserIdFromAuthOnly(user) || user.id;
+      // In the host flow, always create listings for the signed-in host.
+      // Admin impersonation (sessionStorage) should not affect host-created listings.
+      const userId = (supabaseUser?.id || user.id) as string;
 
       if (isSupabaseConfigured && !supabaseUser) {
         toast.error('Still signing you in. Wait a moment, then tap Publish again.');

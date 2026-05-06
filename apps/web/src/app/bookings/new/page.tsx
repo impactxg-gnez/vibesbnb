@@ -240,6 +240,11 @@ export default function NewBookingPage() {
   const validateBookingForm = (): boolean => {
     if (!user || !property) return false;
 
+    if (property.host_id && String(property.host_id) === String(user.id)) {
+      toast.error('Hosts cannot book their own properties.');
+      return false;
+    }
+
     if (!formData.checkIn || !formData.checkOut) {
       toast.error('Please select check-in and check-out dates');
       return false;

@@ -76,6 +76,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (String(hostId) === String(userId)) {
+      return NextResponse.json(
+        { error: 'Hosts cannot create bookings for their own properties' },
+        { status: 400 }
+      );
+    }
+
     const signer = typeof guest_agreement_signer_name === 'string' ? guest_agreement_signer_name.trim() : '';
     if (guest_agreement_accepted !== true || signer.length < 2) {
       return NextResponse.json(
