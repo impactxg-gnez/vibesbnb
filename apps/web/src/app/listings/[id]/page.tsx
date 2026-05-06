@@ -38,6 +38,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
 import { PropertyMap } from '@/components/PropertyMap';
 import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
+import { saveWellnessCartForBooking } from '@/lib/wellnessBookingCart';
 import { DatePicker } from '@/components/ui/DatePicker';
 import {
   formatCalendarDate,
@@ -49,6 +50,7 @@ import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 
 const GALLERY_HERO_BLUR =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
@@ -63,6 +65,8 @@ interface Property {
   description: string;
   price: number;
   cleaningFee?: number;
+  /** When set, stay must be at least this many nights */
+  minBookingNights?: number | null;
   bedrooms: number;
   /** Total beds when set (may exceed bedroom count) */
   beds?: number | null;
@@ -294,6 +298,9 @@ export default function ListingDetailPage() {
             type: propertyData.type || 'Retreat',
             rooms: propertyData.rooms || [],
             vibesbnb_take: propertyData.vibesbnb_take,
+            minBookingNights: normalizeMinBookingNights(
+              propertyData.min_booking_nights ?? propertyData.minBookingNights
+            ),
           };
         };
 
@@ -390,6 +397,28 @@ export default function ListingDetailPage() {
   };
 
   const handleBooking = () => {
+    if (!property) return;
+    const minN = property.minBookingNights;
+    if (
+      minN != null &&
+      checkInDate &&
+      checkOutDate &&
+      stayDuration > 0 &&
+      stayDuration < minN
+    ) {
+      toast.error(`Minimum stay is ${minN} night${minN === 1 ? '' : 's'} for this property.`);
+      return;
+    }
+    saveWellnessCartForBooking(
+      params.id as string,
+      wellnessCart.map((i) => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        price: Number(i.price) || 0,
+        image: i.image ?? null,
+      }))
+    );
     const selectedRoomsParam =
       selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
     const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
@@ -959,6 +988,12 @@ export default function ListingDetailPage() {
                   </span>
                   <span className="text-gray-400">({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
                 </button>
+                {property.minBookingNights != null && (
+                  <p className="text-sm text-amber-200/90 mt-3 flex items-center gap-2">
+                    <Calendar size={14} className="shrink-0" aria-hidden />
+                    {minNightsLabel(property.minBookingNights)}
+                  </p>
+                )}
               </div>
 
               {/* Date Selection */}
@@ -993,6 +1028,12 @@ export default function ListingDetailPage() {
                       </span>
                       <span className="text-emerald-400 font-semibold">{stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
                     </div>
+                    {property.minBookingNights != null &&
+                      stayDuration < property.minBookingNights && (
+                        <p className="text-xs text-amber-300 mt-2">
+                          {minNightsLabel(property.minBookingNights)} — adjust your dates to continue.
+                        </p>
+                      )}
                   </div>
                 )}
               </div>

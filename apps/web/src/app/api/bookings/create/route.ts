@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { nightsBetweenYmd } from '@/lib/dateUtils';
+import { normalizeMinBookingNights } from '@/lib/minBookingNights';
+
+function totalsMatchCents(a: number, b: number): boolean {
+  return Math.round(a * 100) === Math.round(b * 100);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +28,7 @@ export async function POST(request: NextRequest) {
       selected_units,
       guest_agreement_accepted,
       guest_agreement_signer_name,
+      wellness_line_items,
     } = body;
 
     // Validate required fields
@@ -48,20 +55,22 @@ export async function POST(request: NextRequest) {
     const serviceSupabase = createServiceClient();
 
     // Get property to find host_id
-    const { data: property, error: propertyError } = await serviceSupabase
+    const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
-      .select('host_id, name, images, guest_agreement_url')
+      .select(
+        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee'
+      )
       .eq('id', property_id)
       .single();
 
-    if (propertyError || !property) {
+    if (propertyError || !propertyRow) {
       return NextResponse.json(
         { error: 'Property not found' },
         { status: 404 }
       );
     }
 
-    const hostId = property.host_id;
+    const hostId = propertyRow.host_id;
     if (!hostId) {
       return NextResponse.json(
         { error: 'Property has no host assigned' },
@@ -75,6 +84,70 @@ export async function POST(request: NextRequest) {
         {
           error:
             'You must accept the house rules and guest agreement and enter your full legal name before booking.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const stayNights = nightsBetweenYmd(
+      String(check_in),
+      String(check_out)
+    );
+    if (stayNights <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid check-in and check-out dates' },
+        { status: 400 }
+      );
+    }
+    const minStay = normalizeMinBookingNights(propertyRow.min_booking_nights);
+    if (minStay != null && stayNights < minStay) {
+      return NextResponse.json(
+        {
+          error: `This property requires a minimum stay of ${minStay} night${minStay === 1 ? '' : 's'}.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const wellnessRaw = Array.isArray(wellness_line_items) ? wellness_line_items : [];
+    const wellnessLineItemsSanitized = wellnessRaw
+      .filter(
+        (row: unknown) =>
+          row &&
+          typeof row === 'object' &&
+          typeof (row as { id?: unknown }).id === 'string' &&
+          typeof (row as { name?: unknown }).name === 'string'
+      )
+      .map((row: Record<string, unknown>) => ({
+        id: String(row.id),
+        name: String(row.name),
+        category: typeof row.category === 'string' ? row.category : '',
+        price: Math.max(0, Number(row.price) || 0),
+        image: typeof row.image === 'string' ? row.image : row.image === null ? null : undefined,
+      }));
+    const wellnessSuppliesTotal = wellnessLineItemsSanitized.reduce(
+      (s, i) => s + i.price,
+      0
+    );
+
+    let nightlyRate = Number(propertyRow.price) || 0;
+    if (Array.isArray(selected_units) && selected_units.length > 0) {
+      nightlyRate = selected_units.reduce(
+        (sum: number, u: { price?: unknown }) => sum + (Number(u?.price) || 0),
+        0
+      );
+    }
+    const cleaning = propertyRow.cleaning_fee != null ? Number(propertyRow.cleaning_fee) : 0;
+    const preService = nightlyRate * stayNights + cleaning;
+    const serviceFee = Math.round(preService * 0.1);
+    const lodgingTotal = preService + serviceFee;
+    const expectedGrandTotal = lodgingTotal + wellnessSuppliesTotal;
+
+    if (!totalsMatchCents(Number(total_price), expectedGrandTotal)) {
+      return NextResponse.json(
+        {
+          error:
+            'Total price mismatch. Refresh the checkout page and try again so stay + wellness supplies match.',
         },
         { status: 400 }
       );
@@ -131,7 +204,9 @@ export async function POST(request: NextRequest) {
         selected_units: selected_units || null,
         guest_agreement_accepted_at: new Date().toISOString(),
         guest_agreement_signer_name: signer,
-        guest_agreement_document_url: property.guest_agreement_url || null,
+        guest_agreement_document_url: propertyRow.guest_agreement_url || null,
+        wellness_line_items:
+          wellnessLineItemsSanitized.length > 0 ? wellnessLineItemsSanitized : [],
       })
       .select()
       .single();

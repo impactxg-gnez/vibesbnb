@@ -32,6 +32,8 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'smoking_inside_allowed',
   'smoking_outside_allowed',
   'smoke_friendly',
+  /** When set, stay must be at least this many nights (host optional rule). */
+  'min_booking_nights',
   /** Host storefront line; safe when column exists (IF NOT EXISTS migration). */
   'vibesbnb_take',
 ] as const;
@@ -68,6 +70,7 @@ const PROPERTY_BROWSE_FIELD_LIST = [
   'smoking_inside_allowed',
   'smoking_outside_allowed',
   'smoke_friendly',
+  'min_booking_nights',
   'vibesbnb_take',
 ] as const;
 

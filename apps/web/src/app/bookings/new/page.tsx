@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink } from 'lucide-react';
+import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink, Leaf } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -17,6 +17,13 @@ import {
 } from '@/lib/dateUtils';
 import { buildGuestAgreementNotice } from '@/lib/guestAgreementCopy';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
+import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import {
+  clearWellnessCartForBooking,
+  loadWellnessCartForBooking,
+  type WellnessBookingLineItem,
+  wellnessCartSum,
+} from '@/lib/wellnessBookingCart';
 
 interface Property {
   id: string;
@@ -27,6 +34,7 @@ interface Property {
   guests: number;
   host_id?: string;
   cleaningFee?: number;
+  minBookingNights?: number | null;
   /** Host-uploaded PDF URL (optional); snapshot stored on booking */
   guest_agreement_url?: string | null;
   smoking_inside_allowed?: boolean;
@@ -43,6 +51,7 @@ interface PriceBreakdown {
   basePrice: number;
   cleaningFee: number;
   serviceFee: number;
+  wellnessTotal: number;
   total: number;
 }
 
@@ -74,6 +83,15 @@ export default function NewBookingPage() {
     pets: 0,
     specialRequests: '',
   });
+  const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
+
+  useEffect(() => {
+    if (!propertyId) {
+      setWellnessLineItems([]);
+      return;
+    }
+    setWellnessLineItems(loadWellnessCartForBooking(propertyId));
+  }, [propertyId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -87,7 +105,7 @@ export default function NewBookingPage() {
     if (propertyId && user) {
       loadProperty();
     }
-  }, [propertyId, user]);
+  }, [propertyId, user?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -138,6 +156,7 @@ export default function NewBookingPage() {
               ? Number(propertyRow.cleaningFee)
               : 0,
         rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
+        minBookingNights: normalizeMinBookingNights(propertyRow.min_booking_nights),
       });
 
       // If units were selected, filter them
@@ -199,9 +218,10 @@ export default function NewBookingPage() {
     const cleaningFee = property.cleaningFee || 0;
     const preService = basePrice + cleaningFee;
     const serviceFee = Math.round(preService * 0.1);
-    const total = preService + serviceFee;
+    const wellnessTotal = wellnessCartSum(wellnessLineItems);
+    const total = preService + serviceFee + wellnessTotal;
 
-    return { nights, basePrice, cleaningFee, serviceFee, total };
+    return { nights, basePrice, cleaningFee, serviceFee, wellnessTotal, total };
   };
 
   const validateBookingForm = (): boolean => {
@@ -223,6 +243,15 @@ export default function NewBookingPage() {
 
     if (!checkOutDate || checkOutDate.getTime() <= checkInDate.getTime()) {
       toast.error('Check-out date must be after check-in date');
+      return false;
+    }
+
+    const nights = nightsBetweenYmd(formData.checkIn, formData.checkOut);
+    const minN = property.minBookingNights;
+    if (minN != null && nights < minN) {
+      toast.error(
+        `This property requires a minimum stay of ${minN} night${minN === 1 ? '' : 's'}.`
+      );
       return false;
     }
 
@@ -310,6 +339,7 @@ export default function NewBookingPage() {
           pets: formData.pets || 0,
           total_price: priceBreakdown.total,
           special_requests: formData.specialRequests || '',
+          wellness_line_items: wellnessLineItems,
           guest_name: user.user_metadata?.full_name || user.email || 'Guest',
           guest_email: user.email || '',
           selected_units: selectedUnits.length > 0 ? selectedUnits : null,
@@ -330,6 +360,7 @@ export default function NewBookingPage() {
       }
 
       setCheckoutBookingId(newId);
+      clearWellnessCartForBooking(property.id);
       toast.success('Request saved. Complete PayPal payment below—the host has been notified.');
     } catch (error: unknown) {
       console.error('Error creating booking:', error);
@@ -423,6 +454,12 @@ export default function NewBookingPage() {
                   />
                 </div>
               </div>
+              {property.minBookingNights != null && (
+                <p className="text-sm text-amber-200/90 flex items-center gap-2">
+                  <Calendar size={14} className="shrink-0" aria-hidden />
+                  {minNightsLabel(property.minBookingNights)}
+                </p>
+              )}
               {Object.keys(availability).length > 0 && (
                 <p className="text-xs text-red-400">
                   Note: Some dates are unavailable. If a selected range overlaps with blocked or booked nights, you'll be asked to choose new dates.
@@ -621,6 +658,27 @@ export default function NewBookingPage() {
                       <span className="text-gray-400">Service fee</span>
                       <span className="text-white">${priceBreakdown.serviceFee.toFixed(2)}</span>
                     </div>
+
+                    {priceBreakdown.wellnessTotal > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 text-xs font-semibold text-primary-400 uppercase tracking-wider pt-2">
+                          <Leaf size={14} />
+                          Wellness supplies
+                        </div>
+                        {wellnessLineItems.map((line, idx) => (
+                          <div key={`${line.id}-${idx}`} className="flex justify-between text-sm pl-2">
+                            <span className="text-gray-400 truncate pr-2" title={line.name}>
+                              {line.name}
+                            </span>
+                            <span className="text-white shrink-0">${Number(line.price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-sm border-t border-gray-800/80 pt-2">
+                          <span className="text-gray-400">Supplies subtotal</span>
+                          <span className="text-white">${priceBreakdown.wellnessTotal.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="pt-4 border-t border-gray-800 flex justify-between font-bold text-lg">
                     <span className="text-white">Total</span>
