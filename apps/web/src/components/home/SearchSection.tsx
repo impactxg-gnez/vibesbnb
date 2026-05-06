@@ -4,15 +4,18 @@ import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
-import { Bed, Home, Building, Trees, Sparkles } from 'lucide-react';
+import { Bed, Home, Building, Sparkles, Building2, MapPin } from 'lucide-react';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
+import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 
-interface Property {
+interface PropertyRow {
   id: string;
-  location: string;
-  guests?: number;
-  [key: string]: any;
+  displayName: string;
+  /** City (or best short label) for UI under property name */
+  cityLabel: string;
+  /** Full stored address for matching what the user types */
+  locationRaw: string;
 }
 
 interface SearchSectionProps {
@@ -37,6 +40,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [locations, setLocations] = useState<string[]>([]);
+  const [propertyRows, setPropertyRows] = useState<PropertyRow[]>([]);
   const [selectedLocation, setSelectedLocation] = useState(initialValues?.location || '');
   const [checkIn, setCheckIn] = useState(initialValues?.checkIn || '');
   const [checkOut, setCheckOut] = useState(initialValues?.checkOut || '');
@@ -98,19 +102,28 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
         const supabase = createClient();
         const { data: propertiesData, error } = await supabase
           .from('properties')
-          .select('location')
-          .eq('status', 'active')
-          .not('location', 'is', null);
+          .select('id, name, title, location')
+          .eq('status', 'active');
 
         if (error) {
           console.error('[SearchSection] Supabase error loading locations:', error);
         }
 
+        const rows: PropertyRow[] = [];
+
         if (propertiesData) {
-          propertiesData.forEach((p: any) => {
-            if (p.location) {
-              allLocations.add(p.location);
-            }
+          propertiesData.forEach((p: { id?: string; name?: string; title?: string; location?: string | null }) => {
+            const raw = (p.location || '').trim();
+            const city = cityLabelFromPropertyLocation(raw);
+            if (city) allLocations.add(city);
+            const displayName = ((p.name || p.title) ?? '').trim();
+            if (!displayName || !p.id) return;
+            rows.push({
+              id: String(p.id),
+              displayName,
+              cityLabel: city || raw,
+              locationRaw: raw,
+            });
           });
         }
 
@@ -120,10 +133,27 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
           keys.forEach(key => {
             if (key.startsWith('properties_')) {
               try {
-                const properties = JSON.parse(localStorage.getItem(key) || '[]') as Property[];
+                const properties = JSON.parse(localStorage.getItem(key) || '[]') as Array<{
+                  id?: string;
+                  name?: string;
+                  title?: string;
+                  location?: string;
+                  status?: string;
+                }>;
                 properties.forEach(property => {
-                  if (property.location && (property.status === 'active' || !property.status)) {
-                    allLocations.add(property.location);
+                  const raw = (property.location || '').trim();
+                  if (raw && (property.status === 'active' || !property.status)) {
+                    const city = cityLabelFromPropertyLocation(raw);
+                    if (city) allLocations.add(city);
+                  }
+                  const displayName = ((property.name || property.title) ?? '').trim();
+                  if (displayName && property.id) {
+                    rows.push({
+                      id: String(property.id),
+                      displayName,
+                      cityLabel: cityLabelFromPropertyLocation(raw) || raw,
+                      locationRaw: raw,
+                    });
                   }
                 });
               } catch (e) {
@@ -135,9 +165,11 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
 
         const uniqueLocations = Array.from(allLocations).sort();
         setLocations(uniqueLocations);
+        setPropertyRows(rows);
       } catch (error) {
         console.error('Error loading locations:', error);
         setLocations([]);
+        setPropertyRows([]);
       }
     };
 
@@ -199,6 +231,11 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     setShowLocationDropdown(false);
   };
 
+  const handlePropertySuggestionPick = (p: PropertyRow) => {
+    setSelectedLocation(p.displayName);
+    setShowLocationDropdown(false);
+  };
+
   const handleGuestChange = (delta: number) => {
     setGuests(prev => Math.max(1, prev + delta));
   };
@@ -224,6 +261,19 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
   const displayLocations = (selectedLocation === '' || locations.includes(selectedLocation)) 
     ? locations 
     : filteredLocations;
+
+  const q = selectedLocation.trim().toLowerCase();
+  const matchedProperties =
+    q.length === 0
+      ? []
+      : propertyRows
+          .filter(
+            (p) =>
+              p.displayName.toLowerCase().includes(q) ||
+              p.cityLabel.toLowerCase().includes(q) ||
+              p.locationRaw.toLowerCase().includes(q)
+          )
+          .slice(0, 8);
 
   const locationHeadingPart = selectedLocation.trim();
   const searchHeading =
@@ -354,7 +404,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">
                   {/* Where to? - Location Input */}
                   <div className="space-y-3" ref={locationDropdownRef}>
-                    <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Location</label>
+                    <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Location or property name</label>
                     <div className="relative">
                       <button
                         type="button"
@@ -369,8 +419,8 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="text-white font-medium">
-                          {selectedLocation || 'Where are you going?'}
+                        <span className="text-white font-medium truncate">
+                          {selectedLocation || 'City, area, or property name'}
                         </span>
                       </button>
 
@@ -381,25 +431,61 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                             type="text"
                             value={selectedLocation}
                             onChange={(e) => setSelectedLocation(e.target.value)}
-                            placeholder="Search vibes..."
+                            placeholder="City, area, or property name"
                             className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-primary-500 mb-2"
                             autoFocus
                           />
                           <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-hide">
-                            {displayLocations.length > 0 ? (
-                              displayLocations.map((location) => (
-                                <button
-                                  key={location}
-                                  type="button"
-                                  onClick={() => handleLocationSelect(location)}
-                                  className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium"
-                                >
-                                  {location}
-                                </button>
-                              ))
-                            ) : (
-                              <div className="px-4 py-3 text-muted text-sm italic">No locations found</div>
+                            {matchedProperties.length > 0 && (
+                              <>
+                                <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted">
+                                  Properties
+                                </div>
+                                {matchedProperties.map((p) => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => handlePropertySuggestionPick(p)}
+                                    className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium flex items-start gap-3"
+                                  >
+                                    <Building2 className="w-5 h-5 shrink-0 text-primary-500 mt-0.5" aria-hidden />
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block line-clamp-2">{p.displayName}</span>
+                                      {p.cityLabel ? (
+                                        <span className="flex items-center gap-1 text-xs text-muted font-normal mt-0.5 line-clamp-1">
+                                          <MapPin className="w-3.5 h-3.5 shrink-0 text-primary-500" aria-hidden />
+                                          {p.cityLabel}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </button>
+                                ))}
+                              </>
                             )}
+                            {matchedProperties.length > 0 && displayLocations.length > 0 && (
+                              <div className="border-t border-white/10 my-2 pt-2" aria-hidden />
+                            )}
+                            {displayLocations.length > 0 ? (
+                              <>
+                                {selectedLocation.trim().length > 0 && (
+                                  <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted">
+                                    Locations
+                                  </div>
+                                )}
+                                {displayLocations.map((location) => (
+                                  <button
+                                    key={location}
+                                    type="button"
+                                    onClick={() => handleLocationSelect(location)}
+                                    className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium"
+                                  >
+                                    {location}
+                                  </button>
+                                ))}
+                              </>
+                            ) : matchedProperties.length === 0 ? (
+                              <div className="px-4 py-3 text-muted text-sm italic">No matching places or properties</div>
+                            ) : null}
                           </div>
                         </div>
                       )}

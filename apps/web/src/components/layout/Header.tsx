@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { getImpersonatedHostId, onImpersonationChanged } from '@/lib/adminHostImpersonation';
 import { MessageCircle, Bed, Home, Building, Trees, Sparkles, Plane, Briefcase, Plus, X, Check } from 'lucide-react';
+import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchModal';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -24,6 +25,7 @@ export function Header() {
   const [mounted, setMounted] = useState(false);
   const [switchingEmail, setSwitchingEmail] = useState<string | null>(null);
   const [adminImpersonatingHostId, setAdminImpersonatingHostId] = useState<string | null>(null);
+  const [propertySearchOpen, setPropertySearchOpen] = useState(false);
 
   // Set mounted after hydration to prevent SSR/client mismatch
   useEffect(() => {
@@ -223,6 +225,7 @@ export function Header() {
   };
 
   return (
+    <>
     <header className="bg-surface-dark/90 backdrop-blur-xl border-b border-primary-500/10 sticky top-0 z-50 shadow-[0_4px_30px_-10px_rgba(16,185,129,0.15)]">
       <div className="container mx-auto px-3 sm:px-6 max-w-full">
         <div className="flex items-center justify-between gap-2 h-16 sm:h-20 min-w-0">
@@ -411,15 +414,16 @@ export function Header() {
               </>
             )}
 
-            <Link
-              href="/search"
+            <button
+              type="button"
+              onClick={() => setPropertySearchOpen(true)}
               className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-400 transition-colors duration-300 group"
-              aria-label="Search properties"
+              aria-label="Search by property name"
             >
               <svg className="w-5 h-5 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </Link>
+            </button>
 
             {!loading && (
               <>
@@ -668,5 +672,7 @@ export function Header() {
         </div>
       </div>
     </header>
+    <PropertyNameSearchModal open={propertySearchOpen} onOpenChange={setPropertySearchOpen} />
+    </>
   );
 }

@@ -384,6 +384,21 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
   });
 }
 
+/** Match location or property name/title for the main search box (works with all category filters). */
+function listingMatchesLocationOrNameQuery(listing: Listing, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+  const loc = (listing.location || '').toLowerCase();
+  const title = (listing.title || listing.name || '').toLowerCase();
+  const name = (listing.name || '').toLowerCase();
+  if (title.includes(q) || name.includes(q) || loc.includes(q)) return true;
+  const terms = q.split(/[,\s]+/).filter((t) => t.length > 1);
+  if (terms.length === 0) {
+    return title.includes(q) || name.includes(q) || loc.includes(q);
+  }
+  return terms.every((t) => loc.includes(t) || name.includes(t) || title.includes(t));
+}
+
 function applyLocationGuestFilters(
   listings: Listing[],
   locationRaw: string,
@@ -392,20 +407,9 @@ function applyLocationGuestFilters(
   let filteredListings = [...listings];
 
   if (locationRaw) {
-    const location = locationRaw;
-    const searchTerms = location
-      .toLowerCase()
-      .split(/[,\s]+/)
-      .filter((term) => term.length > 1);
-    filteredListings = filteredListings.filter((listing) => {
-      const listingLoc = listing.location.toLowerCase();
-      const listingName = listing.name.toLowerCase();
-      return (
-        searchTerms.some(
-          (term) => listingLoc.includes(term) || listingName.includes(term)
-        ) || listingLoc.includes(location.toLowerCase())
-      );
-    });
+    filteredListings = filteredListings.filter((listing) =>
+      listingMatchesLocationOrNameQuery(listing, locationRaw)
+    );
   }
 
   if (totalOccupancy > 0) {

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { todayLocalYmd } from '@/lib/dateUtils';
+import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 
 export function SearchBar() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export function SearchBar() {
 
           if (!error && data) {
             allLocations = data
-              .map((p: any) => p.location)
+              .map((p: { location?: string }) => cityLabelFromPropertyLocation(p.location || ''))
               .filter((loc: string) => loc && loc.trim() !== '');
           }
         }
@@ -61,9 +62,10 @@ export function SearchBar() {
               const activeProperties = userProperties.filter((p: any) => 
                 (p.status === 'active' || !p.status) && p.location
               );
-              activeProperties.forEach((p: any) => {
-                if (p.location && !allLocations.includes(p.location)) {
-                  allLocations.push(p.location);
+              activeProperties.forEach((p: { location?: string }) => {
+                const city = cityLabelFromPropertyLocation(p.location || '');
+                if (city && !allLocations.includes(city)) {
+                  allLocations.push(city);
                 }
               });
             } catch (e) {
