@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Heart } from 'lucide-react';
+import { Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { listingCardMainImageUrl, listingThumbImageUrl } from '@/lib/propertyImageUrls';
+import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 
@@ -17,28 +17,6 @@ const PLACEHOLDER =
 
 const MAIN_BLUR =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
-
-/** Native img avoids one `/_next/image` request per thumb (many cards × many photos = slow or broken tiles). */
-function ThumbnailImg({ optimizedSrc, originalSrc }: { optimizedSrc: string; originalSrc: string }) {
-  const [mode, setMode] = useState<'opt' | 'orig' | 'ph'>('opt');
-  const displaySrc =
-    mode === 'ph' ? PLACEHOLDER : mode === 'orig' ? originalSrc : optimizedSrc;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- intentional: small strip, avoid optimizer stampede
-    <img
-      src={displaySrc}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      fetchPriority="low"
-      onError={() => {
-        if (mode === 'opt' && optimizedSrc !== originalSrc) setMode('orig');
-        else setMode('ph');
-      }}
-      className="h-full w-full object-cover"
-    />
-  );
-}
 
 export type PropertyCardMediaProps = {
   images: string[];
@@ -166,15 +144,6 @@ export function PropertyCardMedia({
     }
   };
 
-  const goTo = useCallback(
-    (i: number) => (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIndex(i);
-    },
-    []
-  );
-
   const multi = slides.length > 1;
   const safeIndex = Math.min(Math.max(0, index), slides.length - 1);
   const mainSrc = slides[safeIndex];
@@ -182,51 +151,31 @@ export function PropertyCardMedia({
   const mainDisplaySrc =
     mainSrc.startsWith('data:') || mainUseOriginal ? mainSrc : listingCardMainImageUrl(mainSrc);
 
-  const thumbStripRef = useRef<HTMLDivElement | null>(null);
-  const [thumbsReveal, setThumbsReveal] = useState(false);
-
   useEffect(() => {
     setMainUseOriginal(false);
   }, [mainSrc]);
 
-  useEffect(() => {
-    if (!multi) return;
+  const handlePrevious = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIndex((prev) => (prev > 0 ? prev - 1 : slides.length - 1));
+    },
+    [slides.length]
+  );
 
-    const el = thumbStripRef.current;
-    if (!el) return;
-
-    let active = true;
-    const reveal = () => {
-      if (active) setThumbsReveal(true);
-    };
-
-    if (typeof IntersectionObserver === 'undefined') {
-      const t = window.setTimeout(reveal, 250);
-      return () => {
-        active = false;
-        window.clearTimeout(t);
-      };
-    }
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) reveal();
-      },
-      { rootMargin: '120px', threshold: 0.01 }
-    );
-    io.observe(el);
-
-    return () => {
-      active = false;
-      io.disconnect();
-    };
-  }, [multi]);
-
-  const revealThumbsNow = useCallback(() => setThumbsReveal(true), []);
+  const handleNext = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIndex((prev) => (prev < slides.length - 1 ? prev + 1 : 0));
+    },
+    [slides.length]
+  );
 
   return (
-    <div className={`flex flex-col bg-black/20 ${className}`}>
-      <div className={`relative w-full overflow-hidden ${mainHeightClass}`}>
+    <div className={`flex flex-col bg-black/20 group relative overflow-hidden rounded-[inherit] ${className}`}>
+      <div className={`relative w-full overflow-hidden rounded-[inherit] ${mainHeightClass}`}>
         <Image
           key={`${mainSrc}-${safeIndex}`}
           src={mainDisplaySrc}
@@ -275,40 +224,63 @@ export function PropertyCardMedia({
           />
           <SmokingPolicyPill inside={smokingInsideAllowed} outside={smokingOutsideAllowed} />
         </div>
-      </div>
 
-      {multi && (
-        <div
-          ref={thumbStripRef}
-          role="presentation"
-          onPointerEnter={revealThumbsNow}
-          className="flex gap-2 px-3 py-2.5 bg-[#12121a] border-t border-white/5 overflow-x-auto scrollbar-hide"
-        >
-          {slides.map((src, i) => (
+        {/* Carousel Navigation */}
+        {multi && (
+          <>
             <button
-              key={`thumb-${i}`}
               type="button"
-              onClick={goTo(i)}
-              aria-label={`Show photo ${i + 1}`}
-              aria-current={i === index ? 'true' : undefined}
-              className={`relative h-12 w-[4.25rem] flex-shrink-0 overflow-hidden rounded-lg transition-all ${
-                i === index
-                  ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-[#12121a] opacity-100'
-                  : 'opacity-55 hover:opacity-100 ring-1 ring-white/10'
-              }`}
+              onClick={handlePrevious}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
+              aria-label="Previous image"
             >
-              {thumbsReveal ? (
-                <ThumbnailImg
-                  optimizedSrc={listingThumbImageUrl(src)}
-                  originalSrc={src}
-                />
-              ) : (
-                <span className="block h-full w-full bg-white/10" aria-hidden />
-              )}
+              <ChevronLeft size={20} strokeWidth={2.5} />
             </button>
-          ))}
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={handleNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
+              aria-label="Next image"
+            >
+              <ChevronRight size={20} strokeWidth={2.5} />
+            </button>
+
+            {/* Dot Indicators */}
+            <div className="absolute bottom-3 left-0 right-0 z-[5] flex justify-center gap-1.5">
+              {slides.length <= 5 ? (
+                slides.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                      i === safeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                    }`}
+                  />
+                ))
+              ) : (
+                Array.from({ length: 5 }).map((_, i) => {
+                  let dotIndex = i;
+                  if (safeIndex > 2) {
+                    if (safeIndex >= slides.length - 2) {
+                      dotIndex = slides.length - 5 + i;
+                    } else {
+                      dotIndex = safeIndex - 2 + i;
+                    }
+                  }
+                  
+                  return (
+                    <div
+                      key={dotIndex}
+                      className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                        dotIndex === safeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+                      }`}
+                    />
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
