@@ -294,7 +294,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
         return inv;
       }
     } catch {
-      /* aborted or network — try Supabase client below */
+      /* aborted or network — fall through to local fallback below */
     } finally {
       if (timeoutId) window.clearTimeout(timeoutId);
     }
@@ -302,36 +302,8 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
     /* fall through */
   }
 
-  try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('properties')
-      .select(PROPERTY_BROWSE_LIST_COLUMNS)
-      .eq('status', 'active');
-
-    if (error || !data?.length) return null;
-
-    const propsList = data as Array<{ host_id?: string | null }>;
-    const hostIds = [
-      ...new Set(propsList.map((p) => p.host_id).filter(Boolean)),
-    ] as string[];
-    const profileById: Record<string, ProfileBrief> = {};
-    if (hostIds.length > 0) {
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, avatar_url, full_name')
-        .in('id', hostIds);
-      (profs || []).forEach((row: ProfileBrief & { id: string }) => {
-        profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
-      });
-    }
-
-    const inv = { properties: data, profileById };
-    return inv;
-  } catch {
-    const rows = collectLocalStorageFallbackProperties();
-    return rows.length ? { properties: rows, profileById: {} } : null;
-  }
+  const rows = collectLocalStorageFallbackProperties();
+  return rows.length ? { properties: rows, profileById: {} } : null;
 }
 
 function listingsFromInventory(inv: SearchInventory): Listing[] {

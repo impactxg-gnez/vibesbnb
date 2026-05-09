@@ -9,6 +9,32 @@ const HOST_ID_CHUNK = 80;
 const MAX_LIMIT_CAP = 48;
 
 /**
+ * Emergency-safe columns for when the full browse select triggers a PostgREST 500
+ * (e.g. due to a broken column, view, policy, or type cast). Keep small + card-safe.
+ */
+const PROPERTY_BROWSE_FALLBACK_COLUMNS = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'images',
+  'type',
+  'guests',
+  'status',
+  'created_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'latitude',
+  'longitude',
+] as const;
+
+const PROPERTY_BROWSE_FALLBACK_SELECT = PROPERTY_BROWSE_FALLBACK_COLUMNS.join(',');
+
+/**
  * CDN-cacheable aggregated payload: active properties (no embeddings) + host profile rows
  * needed for listing cards. Reduces duplicate browser→Supabase work and amortizes latency.
  */
@@ -48,11 +74,56 @@ export async function GET(request: NextRequest) {
       query = query.limit(limitParam);
     }
 
-    const { data: propertiesRaw, error: pErr } = await query;
+    let propertiesRaw: unknown = null;
+    let pErr: any = null;
+
+    const first = await query;
+    propertiesRaw = first.data;
+    pErr = first.error;
+
+    let usedFallback = false;
 
     if (pErr) {
-      console.error('[properties/browse]', pErr);
-      return NextResponse.json({ error: pErr.message }, { status: 500 });
+      console.error('[properties/browse] primary query failed', {
+        message: pErr.message,
+        code: pErr.code,
+        details: pErr.details,
+        hint: pErr.hint,
+      });
+
+      // Retry with a minimal select to keep the app usable while we fix the underlying DB issue.
+      let fallbackQuery = supabase
+        .from('properties')
+        .select(PROPERTY_BROWSE_FALLBACK_SELECT)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (limitParam !== undefined) {
+        fallbackQuery = fallbackQuery.limit(limitParam);
+      }
+
+      const fallback = await fallbackQuery;
+      if (fallback.error) {
+        console.error('[properties/browse] fallback query failed', {
+          message: fallback.error.message,
+          code: fallback.error.code,
+          details: fallback.error.details,
+          hint: fallback.error.hint,
+        });
+        return NextResponse.json(
+          {
+            error: fallback.error.message,
+            code: fallback.error.code,
+            details: fallback.error.details,
+            hint: fallback.error.hint,
+          },
+          { status: 500 }
+        );
+      }
+
+      usedFallback = true;
+      propertiesRaw = fallback.data;
+      pErr = null;
     }
 
     const rows = ((propertiesRaw ?? []) as unknown) as Record<string, unknown>[];
@@ -85,13 +156,14 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { properties: rows, profiles },
+      { properties: rows, profiles, usedFallback },
       {
         headers: {
           'Cache-Control':
             limitParam !== undefined
               ? 'public, s-maxage=120, stale-while-revalidate=600'
               : 'public, s-maxage=60, stale-while-revalidate=300',
+          ...(usedFallback ? { 'X-Properties-Browse-Fallback': '1' } : {}),
         },
       }
     );

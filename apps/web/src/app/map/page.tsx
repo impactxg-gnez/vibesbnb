@@ -36,7 +36,6 @@ export default function MapPage() {
                                       supabaseKey !== 'placeholder-key';
         
         let propertiesData: any[] = [];
-        let supabaseErrorOccurred = false;
         let loadedViaBrowse = false;
 
         if (isSupabaseConfigured) {
@@ -50,25 +49,10 @@ export default function MapPage() {
           } catch (e) {
             console.warn('[Map] browse failed', e);
           }
-
-          if (!loadedViaBrowse) {
-            const supabase = createClient();
-            const { data, error } = await supabase
-              .from('properties')
-              .select(PROPERTY_BROWSE_LIST_COLUMNS)
-              .eq('status', 'active');
-
-            if (error) {
-              console.error('[Map] Error loading properties from Supabase:', error);
-              supabaseErrorOccurred = true;
-            } else {
-              propertiesData = data || [];
-            }
-          }
         }
 
-        // Fallback to localStorage if Supabase is not configured or query failed
-        if (!isSupabaseConfigured || supabaseErrorOccurred) {
+        // Fallback to localStorage if Supabase is not configured or browse failed
+        if (!isSupabaseConfigured || !loadedViaBrowse) {
           console.log('[Map] Loading properties from localStorage fallback');
           const allProperties: any[] = [];
           
