@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import toast from 'react-hot-toast';
@@ -15,6 +16,7 @@ export default function LoginPage() {
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
   const hasProcessedSwitch = useRef(false);
@@ -103,16 +105,26 @@ export default function LoginPage() {
                   Forgot?
                 </Link>
               </div>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input !py-4"
-                placeholder="••••••••"
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input !py-4 w-full pr-12"
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary-500 transition-colors focus:outline-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             {/* Remember */}
