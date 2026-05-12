@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 
 export function Hero() {
   const router = useRouter();
@@ -20,8 +21,9 @@ export function Hero() {
 
   // Hero background image URL from Supabase Storage
   // Can be overridden with NEXT_PUBLIC_HERO_BACKGROUND_URL environment variable
-  const backgroundImageUrl = process.env.NEXT_PUBLIC_HERO_BACKGROUND_URL ||
+  const rawBackgroundImageUrl = process.env.NEXT_PUBLIC_HERO_BACKGROUND_URL ||
     'https://okmudgacbpgycixtpoqx.supabase.co/storage/v1/object/public/hero-images/a7af8f52-573a-49db-a8a8-ee3cb49cbe69.jfif';
+  const backgroundImageUrl = listingGalleryImageUrl(rawBackgroundImageUrl);
 
   return (
     <div className="relative h-[min(88dvh,620px)] sm:h-[580px] md:h-[700px] overflow-hidden">

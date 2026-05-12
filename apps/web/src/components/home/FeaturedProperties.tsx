@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
+import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
 
 interface FeaturedProperty {
     id: string;
@@ -66,7 +67,7 @@ export function FeaturedProperties() {
                     rating: p.rating ? Number(p.rating) : 4.8,
                     reviews: Math.floor(Math.random() * 50) + 10, // Mock reviews for now
                     price: p.price ? Number(p.price) : 0,
-                    image: p.images && p.images.length > 0 ? p.images[0] : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
+                    image: p.images && p.images.length > 0 ? listingCardMainImageUrl(p.images[0]) : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
                     bookingCount: bookingCounts[p.id] || 0,
                     amenities: (p.amenities || []).slice(0, 3),
                     type: p.type ? String(p.type) : undefined,

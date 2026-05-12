@@ -27,6 +27,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'www.esca-management.com', pathname: '/**' },
       { protocol: 'https', hostname: 'ammosfl.com', pathname: '/**' },
       { protocol: 'https', hostname: 'www.ammosfl.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'secure.365villas.com', pathname: '/**' },
       { protocol: 'https', hostname: 'a0.muscache.com', pathname: '/**' },
       { protocol: 'https', hostname: 'a1.muscache.com', pathname: '/**' },
       { protocol: 'https', hostname: 'a2.muscache.com', pathname: '/**' },

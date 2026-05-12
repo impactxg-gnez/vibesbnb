@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
@@ -122,7 +123,7 @@ export function FeaturedListings() {
               >
                 <div className="relative h-72 overflow-hidden">
                   <Image
-                    src={listing.images[0]}
+                    src={listingCardMainImageUrl(listing.images[0] || '')}
                     alt={listing.title}
                     fill
                     className="object-cover group-hover:scale-110 transition-transform duration-500"
