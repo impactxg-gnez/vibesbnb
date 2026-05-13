@@ -74,8 +74,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, []);
 
   useEffect(() => {
-    fetchPendingCounts();
-    const interval = setInterval(fetchPendingCounts, 10000);
+    void fetchPendingCounts();
+    const tick = () => {
+      if (document.visibilityState === 'visible') void fetchPendingCounts();
+    };
+    const interval = setInterval(tick, 60000);
     return () => clearInterval(interval);
   }, [fetchPendingCounts]);
 

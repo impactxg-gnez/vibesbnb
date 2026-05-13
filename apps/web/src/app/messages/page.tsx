@@ -84,19 +84,37 @@ export default function MessagesPage() {
     }
   }, [user, preselectedId]);
 
-  // Initial load and periodic refresh (no real-time to reduce connections)
+  // Initial load + infrequent refresh while visible (conversation list is not on Realtime by default)
   useEffect(() => {
     if (!user) return;
 
-    loadConversations(true);
+    void loadConversations(true);
 
-    // Periodic refresh every 30 seconds
-    const interval = setInterval(() => {
-      loadConversations(false);
-    }, 30000);
+    const intervalMs = 120000;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const arm = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          void loadConversations(false);
+        }
+      }, intervalMs);
+    };
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        void loadConversations(false);
+        arm();
+      }
+    };
+
+    arm();
+    document.addEventListener('visibilitychange', onVis);
 
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, [user, loadConversations]);
 

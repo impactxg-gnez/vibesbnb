@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,6 +89,8 @@ export async function POST(request: NextRequest) {
     } catch (availabilityError) {
       console.warn('Failed to release availability:', availabilityError);
     }
+
+    void invalidatePropertyListingCaches(String(booking.property_id));
 
     // Notify host
     if (booking.host_id) {

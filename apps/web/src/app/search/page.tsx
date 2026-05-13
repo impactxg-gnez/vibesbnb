@@ -591,6 +591,17 @@ export default function SearchPage() {
   const hasDateFilter = !!(checkIn && checkOut);
   const nights = hasDateFilter ? calculateNights(checkIn, checkOut) : 0;
 
+  const [debouncedCheckIn, setDebouncedCheckIn] = useState(checkIn);
+  const [debouncedCheckOut, setDebouncedCheckOut] = useState(checkOut);
+
+  useEffect(() => {
+    const h = window.setTimeout(() => {
+      setDebouncedCheckIn(checkIn);
+      setDebouncedCheckOut(checkOut);
+    }, 450);
+    return () => window.clearTimeout(h);
+  }, [checkIn, checkOut]);
+
   const urlLocation = searchParams.get('location') || '';
   const urlGuests = parseInt(searchParams.get('guests') || '0', 10);
   const urlKids = parseInt(searchParams.get('kids') || '0', 10);
@@ -649,50 +660,42 @@ export default function SearchPage() {
     const clearAvail = (): Listing[] =>
       filteredListings.map((l) => ({ ...l, isAvailable: undefined }));
 
-    if (!checkIn || !checkOut || !supabaseConfigured) {
+    if (!debouncedCheckIn || !debouncedCheckOut || !supabaseConfigured) {
       setBaseListings(clearAvail());
       return;
     }
 
     void (async () => {
       try {
-        const datesToCheck = enumerateStayNightsYmd(checkIn, checkOut);
+        const datesToCheck = enumerateStayNightsYmd(debouncedCheckIn, debouncedCheckOut);
         if (datesToCheck.length === 0) {
           if (!cancelled) setBaseListings(clearAvail());
           return;
         }
 
         const propertyIds = filteredListings.map((l) => l.id);
-        const supabase = createClient();
-        const idChunkSize = 120;
         const blockedDates: { property_id: string; day: string; status: string }[] = [];
         let availErr: { message?: string } | null = null;
 
-        const chunks: string[][] = [];
-        for (let i = 0; i < propertyIds.length; i += idChunkSize) {
-          chunks.push(propertyIds.slice(i, i + idChunkSize));
-        }
-
-        const sliceResults = await Promise.all(
-          chunks.map((idSlice) =>
-            supabase
-              .from('property_availability')
-              .select('property_id, day, status')
-              .in('property_id', idSlice)
-              .in('day', datesToCheck)
-              .in('status', ['blocked', 'booked'])
-          )
-        );
-
-        if (cancelled) return;
-
-        for (const { data: sliceData, error: sliceError } of sliceResults) {
-          if (sliceError) {
-            availErr = sliceError;
+        const batchSize = 120;
+        for (let i = 0; i < propertyIds.length; i += batchSize) {
+          const slice = propertyIds.slice(i, i + batchSize);
+          const res = await fetch('/api/properties/availability-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyIds: slice, nights: datesToCheck }),
+          });
+          if (!res.ok) {
+            availErr = { message: await res.text() };
             break;
           }
-          if (sliceData?.length) blockedDates.push(...sliceData);
+          const json = (await res.json()) as {
+            blocked?: { property_id: string; day: string; status: string }[];
+          };
+          if (json.blocked?.length) blockedDates.push(...json.blocked);
         }
+
+        if (cancelled) return;
 
         if (availErr) {
           setBaseListings(clearAvail());
@@ -721,7 +724,7 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [inventory, urlLocation, urlGuests, urlKids, checkIn, checkOut]);
+  }, [inventory, urlLocation, urlGuests, urlKids, debouncedCheckIn, debouncedCheckOut]);
 
   const nonPriceFiltered = useMemo(
     () => applyNonPriceListingFilters(baseListings, activeFilters),

@@ -10,6 +10,7 @@ import {
   releaseBookingAvailability,
 } from '@/lib/bookingAvailability';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 function ymd(d: string): string {
   return String(d).slice(0, 10);
@@ -158,6 +159,8 @@ export async function POST(request: NextRequest) {
       checkOutYmd: finalCheckOut,
       selectedUnits: booking.selected_units,
     });
+
+    void invalidatePropertyListingCaches(String(booking.property_id));
 
     let hostName = 'Your Host';
     try {

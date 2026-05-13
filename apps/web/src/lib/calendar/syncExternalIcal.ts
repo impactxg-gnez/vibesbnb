@@ -5,6 +5,8 @@ import {
   parseIcsStaysInWindow,
   formatYmdUtc,
 } from '@/lib/calendar/icsParseIncoming';
+import { getRedis } from '@/lib/cache/redis';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 const UPSERT_CHUNK = 200;
 
@@ -28,7 +30,7 @@ export async function syncOnePropertyIcalSource(opts: {
   };
   /** Bypass hash shortcut (manual sync only). */
   force?: boolean;
-}): Promise<{ skipped: boolean; events: number; error?: string }> {
+}): Promise<{ skipped: boolean; events: number; error?: string; dedupeLock?: boolean }> {
   const { service, calendar, force } = opts;
   const windowStart = startOfUtcDay();
   const windowEndExclusive = addMonthsUtc(windowStart, 6);
@@ -36,6 +38,8 @@ export async function syncOnePropertyIcalSource(opts: {
   const windowEndStr = formatYmdUtc(windowEndExclusive);
 
   const sourceTag = inferCalendarSource(calendar.ical_url, calendar.name ?? undefined);
+  const redis = getRedis();
+  let lockHeld = false;
 
   try {
     const ctl = new AbortController();
@@ -55,6 +59,14 @@ export async function syncOnePropertyIcalSource(opts: {
 
     if (!force && calendar.last_hash && calendar.last_hash === hash) {
       return { skipped: true, events: 0 };
+    }
+
+    if (redis) {
+      const acquired = await redis.set(`cal:lock:v1:${calendar.id}`, '1', { nx: true, ex: 180 });
+      if (!acquired) {
+        return { skipped: true, events: 0, dedupeLock: true };
+      }
+      lockHeld = true;
     }
 
     const stays = parseIcsStaysInWindow(body, windowStart, windowEndExclusive, `${calendar.id}:`);
@@ -106,6 +118,8 @@ export async function syncOnePropertyIcalSource(opts: {
 
     if (metaErr) throw metaErr;
 
+    void invalidatePropertyListingCaches(calendar.property_id);
+
     return { skipped: false, events: stays.length };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -118,7 +132,45 @@ export async function syncOnePropertyIcalSource(opts: {
       })
       .eq('id', calendar.id);
     return { skipped: false, events: 0, error: msg };
+  } finally {
+    if (lockHeld && redis) {
+      await redis.del(`cal:lock:v1:${calendar.id}`);
+    }
   }
+}
+
+export async function fetchIcalSourcesByIds(
+  service: SupabaseClient,
+  ids: string[]
+): Promise<
+  Array<{
+    id: string;
+    property_id: string;
+    host_id: string;
+    ical_url: string;
+    last_hash: string | null;
+    name: string | null;
+  }>
+> {
+  const unique = [...new Set(ids.filter((x) => typeof x === 'string' && x.length > 0))];
+  if (unique.length === 0) return [];
+
+  const { data, error } = await service
+    .from('property_ical_sources')
+    .select('id,property_id,host_id,ical_url,last_hash,name')
+    .in('id', unique)
+    .eq('is_active', true);
+
+  if (error) throw error;
+
+  return (data || []).map((r) => ({
+    id: r.id,
+    property_id: r.property_id,
+    host_id: r.host_id,
+    ical_url: r.ical_url,
+    last_hash: r.last_hash,
+    name: r.name,
+  }));
 }
 
 export async function pickIcalSourcesBatch(

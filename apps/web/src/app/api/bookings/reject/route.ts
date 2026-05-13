@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { releaseBookingAvailability } from '@/lib/bookingAvailability';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,6 +87,8 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       console.warn('Failed to release calendar holds for rejected booking:', e);
     }
+
+    void invalidatePropertyListingCaches(String(booking.property_id));
 
     // Create notification for guest
     await supabase

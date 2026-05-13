@@ -93,12 +93,21 @@ export default function ChatWindow({
   // Initial load and real-time subscription
   useEffect(() => {
     let isMounted = true;
-    let interval: NodeJS.Timeout | null = null;
     let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null;
+
+    const onFocus = () => {
+      if (isMounted) void loadMessages(false);
+    };
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && isMounted) {
+        void loadMessages(false);
+      }
+    };
 
     const setup = async () => {
       if (!isMounted) return;
-      
+
       await loadMessages(true);
       hasMarkedRead.current = false;
 
@@ -128,17 +137,16 @@ export default function ChatWindow({
         )
         .subscribe();
 
-      // Fallback polling every 30 seconds (less frequent)
-      interval = setInterval(() => {
-        if (isMounted) loadMessages(false);
-      }, 30000);
+      window.addEventListener('focus', onFocus);
+      document.addEventListener('visibilitychange', onVis);
     };
 
     setup();
 
     return () => {
       isMounted = false;
-      if (interval) clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
       if (channel) {
         const supabase = supabaseRef.current;
         if (supabase) supabase.removeChannel(channel);

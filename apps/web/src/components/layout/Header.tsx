@@ -143,15 +143,28 @@ export function Header() {
       }
     };
 
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void fetchUnreadMessages();
+    };
+
     if (user) {
-      fetchUnreadMessages();
-      interval = setInterval(fetchUnreadMessages, 20000);
+      void fetchUnreadMessages();
+      const tick = () => {
+        if (document.visibilityState === 'visible') {
+          void fetchUnreadMessages();
+        }
+      };
+      interval = setInterval(tick, 90000);
+      document.addEventListener('visibilitychange', onVis);
+      window.addEventListener('focus', onVis);
     } else {
       setUnreadMessages(0);
     }
 
     return () => {
       if (interval) clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onVis);
     };
   }, [user]);
 

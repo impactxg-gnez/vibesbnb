@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createBrowserClient } from '@supabase/supabase-js';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { getRedis } from '@/lib/cache/redis';
+import { browseCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
+import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
 /** POSTgREST-safe chunk size for `in()` profile lookups */
 const HOST_ID_CHUNK = 80;
@@ -59,7 +62,35 @@ export async function GET(request: NextRequest) {
     limitParam = Math.min(n, MAX_LIMIT_CAP);
   }
 
+  const browseLimitKey = limitParam !== undefined ? String(limitParam) : 'all';
+  const started = Date.now();
+
   try {
+    const redis = getRedis();
+    const bKey = browseCacheKey(browseLimitKey);
+    if (redis) {
+      const cached = await redis.get<string>(bKey);
+      if (cached) {
+        await bumpCacheStat('hit');
+        logApiPerf('GET /api/properties/browse', Date.now() - started, { cache: 'hit', limit: browseLimitKey });
+        const parsed = JSON.parse(cached) as {
+          properties: unknown[];
+          profiles: unknown[];
+          usedFallback?: boolean;
+        };
+        return NextResponse.json(parsed, {
+          headers: {
+            'Cache-Control':
+              limitParam !== undefined
+                ? 'public, s-maxage=120, stale-while-revalidate=600'
+                : 'public, s-maxage=60, stale-while-revalidate=300',
+            'X-Cache': 'redis-hit',
+          },
+        });
+      }
+      await bumpCacheStat('miss');
+    }
+
     const supabase = createBrowserClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -155,8 +186,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const payload = { properties: rows, profiles, usedFallback };
+
+    if (redis) {
+      await redis.set(bKey, JSON.stringify(payload), { ex: 45 });
+    }
+
+    logApiPerf('GET /api/properties/browse', Date.now() - started, {
+      cache: 'miss',
+      limit: browseLimitKey,
+      rows: rows.length,
+    });
+
     return NextResponse.json(
-      { properties: rows, profiles, usedFallback },
+      payload,
       {
         headers: {
           'Cache-Control':
@@ -164,6 +207,7 @@ export async function GET(request: NextRequest) {
               ? 'public, s-maxage=120, stale-while-revalidate=600'
               : 'public, s-maxage=60, stale-while-revalidate=300',
           ...(usedFallback ? { 'X-Properties-Browse-Fallback': '1' } : {}),
+          ...(redis ? { 'X-Cache': 'miss' } : {}),
         },
       }
     );
