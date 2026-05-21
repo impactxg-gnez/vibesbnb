@@ -67,6 +67,7 @@ interface Property {
   cleaningFee?: number;
   /** When set, stay must be at least this many nights */
   minBookingNights?: number | null;
+  allowDirectBooking?: boolean;
   bedrooms: number;
   /** Total beds when set (may exceed bedroom count) */
   beds?: number | null;
@@ -159,6 +160,7 @@ export default function ListingDetailPage() {
   // Date selection state - initialized from URL params
   const [checkInDate, setCheckInDate] = useState<string>(searchParams.get('checkIn') || '');
   const [checkOutDate, setCheckOutDate] = useState<string>(searchParams.get('checkOut') || '');
+  const [openBookingChat, setOpenBookingChat] = useState(false);
   
   // Calculate number of nights
   const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
@@ -301,6 +303,7 @@ export default function ListingDetailPage() {
             minBookingNights: normalizeMinBookingNights(
               propertyData.min_booking_nights ?? propertyData.minBookingNights
             ),
+            allowDirectBooking: propertyData.allow_direct_booking === true,
           };
         };
 
@@ -396,19 +399,27 @@ export default function ListingDetailPage() {
     router.push(`/users/${property.hostId}`);
   };
 
+  const buildBookingPath = () => {
+    const selectedRoomsParam =
+      selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
+    const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
+    return `/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`;
+  };
+
   const handleBooking = () => {
     if (!property) return;
+
+    if (!checkInDate || !checkOutDate || stayDuration <= 0) {
+      toast.error('Select available check-in and check-out dates first.');
+      return;
+    }
+
     const minN = property.minBookingNights;
-    if (
-      minN != null &&
-      checkInDate &&
-      checkOutDate &&
-      stayDuration > 0 &&
-      stayDuration < minN
-    ) {
+    if (minN != null && stayDuration < minN) {
       toast.error(`Minimum stay is ${minN} night${minN === 1 ? '' : 's'} for this property.`);
       return;
     }
+
     saveWellnessCartForBooking(
       params.id as string,
       wellnessCart.map((i) => ({
@@ -419,15 +430,20 @@ export default function ListingDetailPage() {
         image: i.image ?? null,
       }))
     );
-    const selectedRoomsParam =
-      selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
-    const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
-    const bookingPath = `/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`;
+
+    const bookingPath = buildBookingPath();
+
     if (!user) {
       router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
       return;
     }
-    router.push(bookingPath);
+
+    if (property.allowDirectBooking) {
+      router.push(bookingPath);
+      return;
+    }
+
+    setOpenBookingChat(true);
   };
 
   const toggleRoomSelection = (roomId: string) => {
@@ -1057,10 +1073,14 @@ export default function ListingDetailPage() {
                 checkIn={checkInDate || undefined}
                 checkOut={checkOutDate || undefined}
                 selectedUnitIds={selectedRoomIds}
+                autoOpen={openBookingChat}
+                onAutoOpenConsumed={() => setOpenBookingChat(false)}
               />
 
               <div className="text-center text-sm text-gray-400">
-                Request goes to the host for approval — pay only after they confirm dates
+                {property.allowDirectBooking
+                  ? 'You can complete payment right after submitting your request.'
+                  : 'Message the host first — after they approve, you can pay to secure your stay.'}
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">

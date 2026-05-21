@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { 
@@ -17,6 +17,8 @@ import { createClient } from '@/lib/supabase/client';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import toast from 'react-hot-toast';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
+import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 
 interface HostProfile {
   id: string;
@@ -29,10 +31,12 @@ interface HostProfile {
 interface Property {
   id: string;
   name: string;
+  title?: string;
   location: string;
   price: number;
   images: string[];
   bedrooms: number;
+  beds?: number;
   bathrooms: number;
   guests: number;
   type?: string;
@@ -44,7 +48,9 @@ interface Property {
 
 export default function HostProfilePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const hostId = params.id as string;
+  const activeCategory = searchParams.get('category');
   const [host, setHost] = useState<HostProfile | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +124,23 @@ export default function HostProfilePage() {
       fetchHostData();
     }
   }, [hostId]);
+
+  const filteredProperties = useMemo(
+    () =>
+      properties.filter((property) =>
+        listingMatchesHeaderCategory(
+          {
+            type: property.type,
+            title: property.title,
+            name: property.name,
+            bedrooms: property.bedrooms,
+            beds: property.beds,
+          },
+          activeCategory
+        )
+      ),
+    [properties, activeCategory]
+  );
 
   if (loading) {
     return (
@@ -224,14 +247,42 @@ export default function HostProfilePage() {
 
             {/* Properties */}
             <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Properties by this host</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h2 className="text-2xl font-bold text-white">Properties by this host</h2>
+                {properties.length > 0 && (
+                  <span className="text-gray-500 font-bold text-sm shrink-0">
+                    {activeCategory
+                      ? `${filteredProperties.length} of ${properties.length} listings`
+                      : `${properties.length} listings`}
+                  </span>
+                )}
+              </div>
+
+              {properties.length > 0 && (
+                <PropertyCategoryChips
+                  hrefBase={`/host/${hostId}`}
+                  activeCategory={activeCategory}
+                  className="mb-6"
+                />
+              )}
+
               {properties.length === 0 ? (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center text-gray-500">
                   No properties listed yet.
                 </div>
+              ) : filteredProperties.length === 0 ? (
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center text-gray-500">
+                  <p>No listings match this filter.</p>
+                  <Link
+                    href={`/host/${hostId}`}
+                    className="inline-block mt-4 text-emerald-400 font-semibold hover:text-emerald-300"
+                  >
+                    Clear filter
+                  </Link>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {properties.map((property) => (
+                  {filteredProperties.map((property) => (
                     <Link 
                       key={property.id} 
                       href={`/listings/${property.id}`}

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { 
   Star, 
@@ -17,6 +17,8 @@ import {
 import Link from 'next/link';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
+import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 
 interface HostProfile {
   id: string;
@@ -30,17 +32,23 @@ interface HostProfile {
 interface Property {
   id: string;
   name: string;
+  title?: string;
+  type?: string;
   location: string;
   price: number;
   rating: number;
   reviews: number;
   images: string[];
+  bedrooms?: number;
+  beds?: number;
   status?: string;
 }
 
 export default function UserProfilePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const userId = params.id as string;
+  const activeCategory = searchParams.get('category');
   const [profile, setProfile] = useState<HostProfile | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,11 +95,15 @@ export default function UserProfilePage() {
           const formattedProps = rows.map((p) => ({
             id: String(p.id),
             name: String(p.name ?? p.title ?? 'Untitled Property'),
+            title: p.title != null ? String(p.title) : undefined,
+            type: p.type != null ? String(p.type) : undefined,
             location: String(p.location ?? ''),
             price: Number(p.price || 0),
             rating: Number(p.rating || 0),
             reviews: 0, // In a real app, join with reviews
             images: Array.isArray(p.images) ? (p.images as string[]) : [],
+            bedrooms: typeof p.bedrooms === 'number' ? p.bedrooms : Number(p.bedrooms) || undefined,
+            beds: typeof p.beds === 'number' ? p.beds : Number(p.beds) || undefined,
             status: p.status != null ? String(p.status) : undefined,
           }));
           setProperties(formattedProps);
@@ -109,6 +121,23 @@ export default function UserProfilePage() {
 
     if (userId) loadProfileData();
   }, [userId]);
+
+  const filteredProperties = useMemo(
+    () =>
+      properties.filter((property) =>
+        listingMatchesHeaderCategory(
+          {
+            type: property.type,
+            title: property.title,
+            name: property.name,
+            bedrooms: property.bedrooms,
+            beds: property.beds,
+          },
+          activeCategory
+        )
+      ),
+    [properties, activeCategory]
+  );
 
   if (loading) {
     return (
@@ -212,13 +241,25 @@ export default function UserProfilePage() {
             
             {/* Properties Section */}
             <section>
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <h2 className="text-3xl font-bold">{profile.full_name.split(' ')[0]}'s Listings</h2>
-                <span className="text-gray-500 font-bold">{properties.length} listing{properties.length !== 1 ? 's' : ''}</span>
+                <span className="text-gray-500 font-bold shrink-0">
+                  {activeCategory
+                    ? `${filteredProperties.length} of ${properties.length} listing${properties.length !== 1 ? 's' : ''}`
+                    : `${properties.length} listing${properties.length !== 1 ? 's' : ''}`}
+                </span>
               </div>
+
+              {properties.length > 0 && (
+                <PropertyCategoryChips
+                  hrefBase={`/users/${userId}`}
+                  activeCategory={activeCategory}
+                  className="mb-8"
+                />
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {properties.map((property) => (
+                {filteredProperties.map((property) => (
                   <Link 
                     key={property.id} 
                     href={`/listings/${property.id}`}
@@ -259,6 +300,18 @@ export default function UserProfilePage() {
                 <div className="bg-white/5 border border-dashed border-white/10 rounded-3xl p-12 text-center">
                   <User size={48} className="mx-auto text-gray-600 mb-4" />
                   <p className="text-gray-500 font-medium">This host hasn't listed any properties yet.</p>
+                </div>
+              )}
+
+              {properties.length > 0 && filteredProperties.length === 0 && (
+                <div className="bg-white/5 border border-dashed border-white/10 rounded-3xl p-12 text-center mt-8">
+                  <p className="text-gray-500 font-medium">No listings match this filter.</p>
+                  <Link
+                    href={`/users/${userId}`}
+                    className="inline-block mt-4 text-primary-400 font-bold hover:text-primary-300"
+                  >
+                    Clear filter
+                  </Link>
                 </div>
               )}
             </section>

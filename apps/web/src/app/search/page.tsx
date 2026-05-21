@@ -21,6 +21,7 @@ import {
 import {
   listingHasAllAmenityChips,
   listingMatchesAnyPropertyTypeChip,
+  listingMatchesHeaderCategory,
 } from '@/lib/propertySearchFilters';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { useAuth } from '@/contexts/AuthContext';
@@ -759,11 +760,26 @@ export default function SearchPage() {
   }, [priceDistribution.min, priceDistribution.max]);
 
   const sortParam = searchParams.get('sort') || 'high-low';
+  const headerCategory = searchParams.get('category');
 
   const listings = useMemo(() => {
-    const priced = applyPriceRangeFilter(nonPriceFiltered, activeFilters.priceRange);
+    let priced = applyPriceRangeFilter(nonPriceFiltered, activeFilters.priceRange);
+    if (headerCategory) {
+      priced = priced.filter((listing) =>
+        listingMatchesHeaderCategory(
+          {
+            type: listing.type,
+            title: listing.title,
+            name: listing.name,
+            bedrooms: listing.bedrooms,
+            beds: listing.beds,
+          },
+          headerCategory
+        )
+      );
+    }
     return sortSearchListings(priced, sortParam, checkIn, checkOut);
-  }, [nonPriceFiltered, activeFilters.priceRange, sortParam, checkIn, checkOut]);
+  }, [nonPriceFiltered, activeFilters.priceRange, sortParam, checkIn, checkOut, headerCategory]);
 
   useEffect(() => {
     if (sortParam === 'low-high') setSortBy('Price: Low to High');

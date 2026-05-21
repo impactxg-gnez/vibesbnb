@@ -36,6 +36,8 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'min_booking_nights',
   /** Host storefront line; safe when column exists (IF NOT EXISTS migration). */
   'vibesbnb_take',
+  /** When true, guest may pay immediately without host pre-approval in messages. */
+  'allow_direct_booking',
 ] as const;
 
 /** Search, map, cards, APIs that list many properties */

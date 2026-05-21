@@ -7,8 +7,9 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { getImpersonatedHostId, onImpersonationChanged } from '@/lib/adminHostImpersonation';
-import { MessageCircle, Bed, Home, Building, Sparkles, Plane, Briefcase, Plus, X, Check, Wallet } from 'lucide-react';
+import { MessageCircle, Building, Sparkles, Plane, Briefcase, Plus, X, Check, Wallet } from 'lucide-react';
 import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchModal';
+import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -252,73 +253,10 @@ export function Header() {
 
           {/* Centered Navigation */}
           <nav className="hidden lg:flex items-center space-x-6">
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-2 py-1.5 shadow-inner">
-              <Link
-                href="/search?category=1-bed"
-                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
-                  headerCategoryChip === '1-bed'
-                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
-                }`}
-              >
-                <Bed
-                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                    headerCategoryChip === '1-bed' ? 'text-black' : 'text-gray-500'
-                  }`}
-                />
-                1 Bed
-              </Link>
-              <div className="w-px h-5 bg-white/10 mx-1" />
-              <Link
-                href="/search?category=2-bed"
-                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
-                  headerCategoryChip === '2-bed'
-                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
-                }`}
-              >
-                <Bed
-                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                    headerCategoryChip === '2-bed' ? 'text-black' : 'text-gray-500'
-                  }`}
-                />
-                2 Bed
-              </Link>
-            </div>
-
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-2 py-1.5 shadow-inner">
-              <Link
-                href="/search?category=studios"
-                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
-                  headerCategoryChip === 'studios'
-                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
-                }`}
-              >
-                <Building
-                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                    headerCategoryChip === 'studios' ? 'text-black' : 'text-gray-500'
-                  }`}
-                />
-                Studios
-              </Link>
-              <div className="w-px h-5 bg-white/10 mx-1" />
-              <Link
-                href="/search?category=condo"
-                className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
-                  headerCategoryChip === 'condo'
-                    ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
-                }`}
-              >
-                <Home
-                  className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                    headerCategoryChip === 'condo' ? 'text-black' : 'text-gray-500'
-                  }`}
-                />
-                Condos
-              </Link>
-            </div>
+            <PropertyCategoryChips
+              hrefBase="/search"
+              activeCategory={headerCategoryChip}
+            />
           </nav>
 
           {/* Right Side */}

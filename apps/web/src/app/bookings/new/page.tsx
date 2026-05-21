@@ -35,6 +35,7 @@ interface Property {
   host_id?: string;
   cleaningFee?: number;
   minBookingNights?: number | null;
+  allowDirectBooking?: boolean;
   /** Host-uploaded PDF URL (optional); snapshot stored on booking */
   guest_agreement_url?: string | null;
   smoking_inside_allowed?: boolean;
@@ -155,6 +156,7 @@ export default function NewBookingPage() {
               : 0,
         rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
         minBookingNights: normalizeMinBookingNights(propertyRow.min_booking_nights),
+        allowDirectBooking: propertyRow.allow_direct_booking === true,
       });
 
       // If units were selected, filter them
@@ -373,13 +375,24 @@ export default function NewBookingPage() {
       }
 
       const newId = data.booking?.id as string | undefined;
+      const conversationId = data.conversationId as string | undefined;
       if (!newId) {
         throw new Error('Booking created but no id returned');
       }
 
-      setCheckoutBookingId(newId);
       clearWellnessCartForBooking(property.id);
-      toast.success('Request saved. Complete PayPal payment below—the host has been notified.');
+
+      if (data.allowDirectBooking) {
+        setCheckoutBookingId(newId);
+        toast.success('Request saved. Complete PayPal payment below to secure your stay.');
+        return;
+      }
+
+      toast.success('Request sent! Message the host while you wait for approval.');
+      const messagesUrl = conversationId
+        ? `/messages?conversationId=${conversationId}&submitted=1`
+        : '/messages?submitted=1';
+      router.push(messagesUrl);
     } catch (error: unknown) {
       console.error('Error creating booking:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create booking');
@@ -429,7 +442,12 @@ export default function NewBookingPage() {
           Back to property
         </Link>
 
-        <h1 className="text-4xl font-bold text-white mb-8">Complete Your Booking</h1>
+        <h1 className="text-4xl font-bold text-white mb-8">Request to Book</h1>
+        <p className="text-gray-400 mb-8 -mt-4">
+          {property.allowDirectBooking
+            ? 'Submit your stay details and pay with PayPal to secure this property.'
+            : 'Submit your stay details. You’ll message the host next—they must approve before you can pay.'}
+        </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Booking Form */}
@@ -592,7 +610,7 @@ export default function NewBookingPage() {
                 </div>
               )}
 
-              {checkoutBookingId && (
+              {property.allowDirectBooking && checkoutBookingId && (
                 <div className="rounded-xl border border-yellow-500/30 bg-yellow-950/20 p-5 space-y-4">
                   <div className="flex items-center gap-2 text-yellow-200 font-semibold">
                     <CreditCard size={20} />
@@ -604,7 +622,7 @@ export default function NewBookingPage() {
                   </p>
                   <PayPalBookingButtons
                     bookingId={checkoutBookingId}
-                    successMessage="Payment received! The host has your paid request."
+                    successMessage="Payment received! Your stay is secured."
                     onPaid={() => router.push('/bookings')}
                   />
                 </div>
@@ -612,18 +630,24 @@ export default function NewBookingPage() {
 
               <button
                 type="submit"
-                disabled={submitting || !priceBreakdown || !!checkoutBookingId}
+                disabled={
+                  submitting ||
+                  !priceBreakdown ||
+                  (property.allowDirectBooking && !!checkoutBookingId)
+                }
                 className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold text-lg"
               >
-                {checkoutBookingId ? (
+                {property.allowDirectBooking && checkoutBookingId ? (
                   'Request saved — use PayPal above'
                 ) : submitting ? (
-                  'Saving request...'
-                ) : (
+                  'Sending request...'
+                ) : property.allowDirectBooking ? (
                   <>
                     <CreditCard size={20} />
                     Save request and pay with PayPal
                   </>
+                ) : (
+                  'Send request to host'
                 )}
               </button>
             </form>

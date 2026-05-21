@@ -24,7 +24,71 @@ export async function releaseBookingAvailability(
       note: null,
     })
     .eq('booking_id', bookingId)
-    .eq('status', 'booked');
+    .in('status', ['booked', 'blocked']);
+}
+
+/** Temporary hold while a booking request awaits host approval (status: blocked). */
+export async function holdBookingNights(
+  service: ServiceSupabase,
+  params: {
+    propertyId: string;
+    hostId: string;
+    bookingId: string;
+    checkInYmd: string;
+    checkOutYmd: string;
+    selectedUnits: SelectedUnit[] | null | undefined;
+  }
+): Promise<void> {
+  const start = new Date(params.checkInYmd + 'T12:00:00');
+  const end = new Date(params.checkOutYmd + 'T12:00:00');
+
+  const unitsToHold =
+    params.selectedUnits && params.selectedUnits.length > 0
+      ? params.selectedUnits
+      : [{ id: null as string | null }];
+
+  for (const unit of unitsToHold) {
+    for (let cursor = new Date(start); cursor < end; cursor.setDate(cursor.getDate() + 1)) {
+      const dateKey = cursor.toISOString().split('T')[0];
+      const block = {
+        day: dateKey,
+        status: 'blocked' as const,
+        property_id: params.propertyId,
+        host_id: params.hostId,
+        room_id: unit.id || null,
+        booking_id: params.bookingId,
+        note: 'pending_booking_request',
+      };
+
+      let updateQuery = service
+        .from('property_availability')
+        .update({
+          status: 'blocked',
+          booking_id: block.booking_id,
+          host_id: block.host_id,
+          note: block.note,
+        })
+        .eq('property_id', block.property_id)
+        .eq('day', block.day);
+
+      if (block.room_id) {
+        updateQuery = updateQuery.eq('room_id', block.room_id);
+      } else {
+        updateQuery = updateQuery.is('room_id', null);
+      }
+
+      const { data: updated, error: updateError } = await updateQuery.select();
+
+      if (!updateError && (!updated || updated.length === 0)) {
+        const { error: insertError } = await service.from('property_availability').insert(block);
+        if (insertError) {
+          console.warn('Failed to insert hold day:', block.day, insertError);
+        }
+      } else if (updateError) {
+        console.warn('Failed to update hold day:', block.day, updateError);
+      }
+    }
+  }
 }
 
 type SelectedUnit = { id?: string | null };
@@ -70,11 +134,16 @@ export async function assertStayDoesNotConflict(
     }
 
     for (const row of rows || []) {
+      const ownHold =
+        row.booking_id && String(row.booking_id) === params.bookingId;
+      if (ownHold) continue;
+
       const otherBooking =
         row.status === 'booked' &&
         row.booking_id &&
         String(row.booking_id) !== params.bookingId;
-      if (otherBooking || row.status === 'blocked') {
+      const otherHold = row.status === 'blocked';
+      if (otherBooking || otherHold) {
         return {
           ok: false,
           message:

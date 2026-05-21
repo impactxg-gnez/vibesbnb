@@ -46,6 +46,8 @@ interface Property {
   cleaningFee: number;
   /** When set, guests must book at least this many nights */
   minBookingNights: number | null;
+  /** When true, guests can pay immediately without messaging for approval first */
+  allowDirectBooking: boolean;
   amenities: string[];
   images: File[];
   imagePreviewUrls: string[];
@@ -83,6 +85,7 @@ export default function EditPropertyPage() {
     extraGuestPrice: 50,
     cleaningFee: 0,
     minBookingNights: null,
+    allowDirectBooking: false,
     amenities: [],
     images: [],
     imagePreviewUrls: [],
@@ -210,6 +213,7 @@ export default function EditPropertyPage() {
               type: propertyData.type || 'Entire House',
               guestAgreementUrl: propertyData.guest_agreement_url || '',
               minBookingNights: normalizeMinBookingNights(propertyData.min_booking_nights),
+              allowDirectBooking: propertyData.allow_direct_booking === true,
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
@@ -301,6 +305,7 @@ export default function EditPropertyPage() {
                 minBookingNights: normalizeMinBookingNights(
                   property.min_booking_nights ?? property.minBookingNights
                 ),
+                allowDirectBooking: property.allowDirectBooking === true || property.allow_direct_booking === true,
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -611,6 +616,7 @@ export default function EditPropertyPage() {
             extra_guest_price: formData.extraGuestPrice,
             cleaning_fee: formData.cleaningFee,
             min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+            allow_direct_booking: formData.allowDirectBooking,
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -1171,6 +1177,25 @@ export default function EditPropertyPage() {
                 />
               </div>
             )}
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-1">Booking approval</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              By default, guests send a request in Messages and you approve before they pay. Enable direct booking
+              to let guests pay with PayPal immediately after submitting their request.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.allowDirectBooking}
+                onChange={(e) =>
+                  setFormData({ ...formData, allowDirectBooking: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-gray-300 text-sm">Allow bookings directly (skip message approval)</span>
+            </label>
           </div>
 
           {/* Multi-Unit Configuration */}

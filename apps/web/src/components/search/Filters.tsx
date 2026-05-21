@@ -148,7 +148,26 @@ export default function Filters({
     });
   };
 
+  const defaultFilters = () => ({
+    priceRange: [0, ceil] as [number, number],
+    rooms: 0,
+    beds: 0,
+    bathrooms: 0,
+    propertyTypes: [] as string[],
+    amenities: [] as string[],
+  });
+
+  const hasActiveFilters =
+    minPrice !== 0 ||
+    maxPrice !== ceil ||
+    rooms > 0 ||
+    beds > 0 ||
+    bathrooms > 0 ||
+    propertyTypes.length > 0 ||
+    amenities.length > 0;
+
   const handleReset = () => {
+    const cleared = defaultFilters();
     setMinPrice(0);
     setMaxPrice(ceil);
     setRooms(0);
@@ -157,6 +176,12 @@ export default function Filters({
     setPropertyTypes([]);
     setAmenities([]);
     onPriceRangeLive?.(0, ceil);
+    return cleared;
+  };
+
+  const handleClearFilters = () => {
+    const cleared = handleReset();
+    onApply(cleared);
   };
 
   const leftPct = (minPrice / sliderSpan) * 100;
@@ -164,23 +189,36 @@ export default function Filters({
 
   return (
     <div className="flex flex-col h-full bg-gray-950 text-white overflow-hidden shadow-2xl">
-      <div className="flex items-center justify-between p-6 border-b border-white/10 glass-morphism sticky top-0 z-10">
+      <div className="flex items-center justify-between gap-3 p-6 border-b border-white/10 glass-morphism sticky top-0 z-10">
         <button
           onClick={onClose}
-          className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90"
+          className="p-2 hover:bg-white/10 rounded-full transition-all active:scale-90 shrink-0"
+          aria-label="Close filters"
         >
           <X size={24} />
         </button>
-        <h2 className="text-xl font-black tracking-tight uppercase">Refine Selection</h2>
-        <div className="w-10"></div>
+        <h2 className="text-xl font-black tracking-tight uppercase text-center flex-1 min-w-0 truncate">
+          Refine Selection
+        </h2>
+        <div className="w-10 shrink-0" aria-hidden />
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-12 scrollbar-hide">
         <section>
-          <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
-            Price range
-          </h3>
+          <div className="flex items-center justify-between gap-4 mb-1">
+            <h3 className="text-lg font-bold flex items-center gap-2 min-w-0">
+              <span className="w-1.5 h-6 bg-primary-500 rounded-full shrink-0"></span>
+              Price range
+            </h3>
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              disabled={!hasActiveFilters}
+              className="shrink-0 text-xs font-bold uppercase tracking-wider text-primary-400 hover:text-primary-300 disabled:text-white/25 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+            >
+              Clear filters
+            </button>
+          </div>
           <p className="text-muted text-sm mb-12 font-medium">
             Nightly rates (per night) for properties matching your search — min {fmtPrice(floor)}, max{' '}
             {fmtPrice(ceil)}.

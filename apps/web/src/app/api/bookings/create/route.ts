@@ -5,6 +5,12 @@ import { nightsBetweenYmd } from '@/lib/dateUtils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { computeBookingGrandTotal, totalsMatchCents } from '@/lib/bookingTotals';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
+import {
+  assertStayDoesNotConflict,
+  blockBookingNights,
+  holdBookingNights,
+} from '@/lib/bookingAvailability';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +62,7 @@ export async function POST(request: NextRequest) {
     const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
       .select(
-        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee'
+        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking'
       )
       .eq('id', property_id)
       .single();
@@ -176,6 +182,21 @@ export async function POST(request: NextRequest) {
       console.warn('Could not fetch host info with service role:', e);
     }
 
+    const allowDirectBooking = propertyRow.allow_direct_booking === true;
+
+    const conflict = await assertStayDoesNotConflict(serviceSupabase, {
+      propertyId: String(property_id),
+      bookingId: '00000000-0000-0000-0000-000000000000',
+      checkInYmd: String(check_in),
+      checkOutYmd: String(check_out),
+      selectedUnits: selected_units,
+    });
+    if (!conflict.ok) {
+      return NextResponse.json({ error: conflict.message }, { status: 409 });
+    }
+
+    const initialStatus = allowDirectBooking ? 'accepted' : 'pending_approval';
+
     // Create booking
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
@@ -192,7 +213,8 @@ export async function POST(request: NextRequest) {
         kids: kids || 0,
         pets: pets || 0,
         total_price,
-        status: 'pending_approval',
+        status: initialStatus,
+        ...(allowDirectBooking ? { host_approved_at: new Date().toISOString() } : {}),
         guest_name,
         guest_email,
         host_email: hostEmail,
@@ -217,7 +239,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calendar holds are created when the host approves (see /api/bookings/accept).
+    try {
+      if (allowDirectBooking) {
+        await blockBookingNights(serviceSupabase, {
+          propertyId: String(property_id),
+          hostId: String(hostId),
+          bookingId: String(booking.id),
+          checkInYmd: String(check_in),
+          checkOutYmd: String(check_out),
+          selectedUnits: selected_units,
+        });
+      } else {
+        await holdBookingNights(serviceSupabase, {
+          propertyId: String(property_id),
+          hostId: String(hostId),
+          bookingId: String(booking.id),
+          checkInYmd: String(check_in),
+          checkOutYmd: String(check_out),
+          selectedUnits: selected_units,
+        });
+      }
+      void invalidatePropertyListingCaches(String(property_id));
+    } catch (holdError) {
+      console.error('Failed to place calendar hold:', holdError);
+      await supabase.from('bookings').delete().eq('id', booking.id);
+      return NextResponse.json(
+        { error: 'Could not reserve those dates. Please try different dates.' },
+        { status: 409 }
+      );
+    }
 
     // Ensure conversation exists between traveller and host
     let conversationId: string | null = null;
@@ -289,6 +339,33 @@ export async function POST(request: NextRequest) {
         }
 
         conversationId = newConversation?.id ?? null;
+      }
+
+      if (conversationId) {
+        const requestSummary = [
+          `📋 New booking request for ${property_name}`,
+          `Dates: ${check_in} → ${check_out}`,
+          `Guests: ${guests}${kids ? ` (+${kids} kids)` : ''}${pets ? ` (+${pets} pets)` : ''}`,
+          special_requests ? `Special requests: ${special_requests}` : null,
+          `Total: $${total_price}`,
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          sender_id: userId,
+          body: requestSummary,
+        });
+
+        if (!allowDirectBooking) {
+          await supabase.from('messages').insert({
+            conversation_id: conversationId,
+            sender_id: userId,
+            body:
+              'Thanks for your request! The host has been notified and will respond soon. You can continue the conversation here while you wait.',
+          });
+        }
       }
     } catch (conversationError) {
       console.warn('Failed to ensure conversation:', conversationError);
@@ -396,6 +473,9 @@ export async function POST(request: NextRequest) {
         id: booking.id,
         status: booking.status,
       },
+      conversationId,
+      allowDirectBooking,
+      requiresHostApproval: !allowDirectBooking,
     });
   } catch (error: any) {
     console.error('Error in booking creation:', error);

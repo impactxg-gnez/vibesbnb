@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { createClient } from '@/lib/supabase/client';
 import ChatWindow from './ChatWindow';
+import { ConversationBookingPanel } from './ConversationBookingPanel';
 
 interface PropertyChatButtonProps {
   propertyId: string;
@@ -14,6 +14,9 @@ interface PropertyChatButtonProps {
   checkIn?: string;
   checkOut?: string;
   selectedUnitIds?: string[];
+  /** When true, opens the chat modal on mount (e.g. after "Request to book"). */
+  autoOpen?: boolean;
+  onAutoOpenConsumed?: () => void;
 }
 
 export default function PropertyChatButton({
@@ -22,6 +25,8 @@ export default function PropertyChatButton({
   checkIn,
   checkOut,
   selectedUnitIds,
+  autoOpen = false,
+  onAutoOpenConsumed,
 }: PropertyChatButtonProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -31,8 +36,7 @@ export default function PropertyChatButton({
   const [loading, setLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
-  const [booking, setBooking] = useState<any>(null);
-  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
 
   const openChat = async () => {
     if (!user) {
@@ -121,67 +125,15 @@ export default function PropertyChatButton({
     }
   };
 
+  const refreshBooking = () => {
+    setBookingRefreshKey((k) => k + 1);
+    if (conversationId) void loadConversationDetails(conversationId);
+  };
+
   useEffect(() => {
-    const bookingId = conversationDetails?.booking_id;
-    if (!bookingId || !isOpen) {
-      setBooking(null);
-      return;
-    }
-    let cancelled = false;
-    setBookingLoading(true);
-    const supabase = createClient();
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('bookings').select('*').eq('id', bookingId).single();
-        if (cancelled) return;
-        if (error) throw error;
-        setBooking(data);
-      } catch {
-        if (!cancelled) setBooking(null);
-      } finally {
-        if (!cancelled) setBookingLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [conversationDetails?.booking_id, isOpen]);
-
-  const acceptBookingFromChat = async () => {
-    if (!booking?.id) return;
-    try {
-      const response = await fetch('/api/bookings/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Failed to accept booking');
-      toast.success('Approved. Guest can pay now.');
-      await loadConversationDetails(conversationId as string);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to approve');
-    }
-  };
-
-  const rejectBookingFromChat = async () => {
-    if (!booking?.id) return;
-    const reason = window.prompt('Reason for declining?');
-    if (!reason) return;
-    try {
-      const response = await fetch('/api/bookings/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, reason }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Failed to reject booking');
-      toast.success('Declined. Guest has been notified.');
-      await loadConversationDetails(conversationId as string);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to decline');
-    }
-  };
+    if (!autoOpen || isOpen) return;
+    void openChat().finally(() => onAutoOpenConsumed?.());
+  }, [autoOpen]);
 
   return (
     <>
@@ -202,7 +154,7 @@ export default function PropertyChatButton({
                   Chat about {propertyName}
                 </h3>
                 <p className="text-sm text-gray-400">
-                  Ask the host anything before booking.
+                  Send your request here first. Complete the booking form when you&apos;re ready.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -238,8 +190,17 @@ export default function PropertyChatButton({
                 </button>
               </div>
             </div>
-            <div className="flex-1 p-4">
+            <div className="flex-1 p-4 flex flex-col min-h-0">
+              {conversationId && conversationDetails && (
+                <ConversationBookingPanel
+                  key={`${conversationDetails.booking_id}-${bookingRefreshKey}`}
+                  bookingId={conversationDetails.booking_id}
+                  isHost={isViewerHost}
+                  onBookingUpdated={refreshBooking}
+                />
+              )}
               {conversationId && conversationDetails ? (
+                <div className="flex-1 min-h-0">
                 <ChatWindow
                   conversationId={conversationId}
                   title={conversationDetails.properties?.name || 'Direct Messages'}
@@ -255,6 +216,7 @@ export default function PropertyChatButton({
                   }
                   onMessagesRead={() => loadConversationDetails(conversationId)}
                 />
+                </div>
               ) : (
                 <div className="text-gray-400 h-full flex flex-col items-center justify-center gap-3">
                   {(loading || detailsLoading) && (
@@ -285,41 +247,20 @@ export default function PropertyChatButton({
               )}
             </div>
 
-            {conversationId && conversationDetails && (
-              <div className="border-t border-gray-800 px-6 py-3 flex items-center justify-between gap-3">
-                <div className="text-xs text-gray-500">
-                  {bookingLoading
-                    ? 'Checking booking status…'
-                    : booking?.status
-                      ? `Booking: ${String(booking.status).replaceAll('_', ' ')}`
-                      : 'No booking request attached yet.'}
-                </div>
-                <div className="flex items-center gap-2">
-                  {!isViewerHost && (
-                    <button
-                      onClick={() => router.push(bookingPath)}
-                      className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold"
-                    >
-                      Request to book
-                    </button>
-                  )}
-                  {isViewerHost && booking?.status === 'pending_approval' && (
-                    <>
-                      <button
-                        onClick={rejectBookingFromChat}
-                        className="px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 text-sm font-semibold"
-                      >
-                        Decline
-                      </button>
-                      <button
-                        onClick={acceptBookingFromChat}
-                        className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold"
-                      >
-                        Approve
-                      </button>
-                    </>
-                  )}
-                </div>
+            {conversationId && conversationDetails && !conversationDetails.booking_id && !isViewerHost && (
+              <div className="border-t border-gray-800 px-6 py-3 flex justify-end">
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
+                      return;
+                    }
+                    router.push(bookingPath);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold"
+                >
+                  Request to book
+                </button>
               </div>
             )}
           </div>

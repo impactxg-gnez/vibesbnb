@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
+import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
 
 interface Conversation {
@@ -33,6 +34,7 @@ export default function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedId = searchParams.get('conversationId');
+  const justSubmitted = searchParams.get('submitted') === '1';
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(
@@ -227,15 +229,25 @@ export default function MessagesPage() {
               </div>
             )}
           </div>
-          <div className="lg:col-span-2 h-[70vh]">
+          <div className="lg:col-span-2 h-[70vh] flex flex-col min-h-0">
             {selectedConversationObj ? (
-              <ChatWindow
-                conversationId={selectedConversationObj.id}
-                title={selectedConversationObj.properties?.name || 'Chat'}
-                counterpartName={getCounterpartName(selectedConversationObj)}
-                counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
-                onMessagesRead={handleMessagesRead}
-              />
+              <>
+                <ConversationBookingPanel
+                  bookingId={selectedConversationObj.booking_id}
+                  isHost={getViewerRole(selectedConversationObj) === 'host'}
+                  showSubmittedBanner={justSubmitted}
+                  onBookingUpdated={() => loadConversations(false)}
+                />
+                <div className="flex-1 min-h-0">
+                  <ChatWindow
+                    conversationId={selectedConversationObj.id}
+                    title={selectedConversationObj.properties?.name || 'Chat'}
+                    counterpartName={getCounterpartName(selectedConversationObj)}
+                    counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
+                    onMessagesRead={handleMessagesRead}
+                  />
+                </div>
+              </>
             ) : (
               <div className="h-full border border-gray-800 rounded-xl bg-gray-900 flex items-center justify-center text-gray-500">
                 Select a conversation to start messaging.
