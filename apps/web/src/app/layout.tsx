@@ -21,6 +21,14 @@ export const metadata: Metadata = {
   icons: {
     icon: '/logo.png',
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
 };
 
 function imageOriginHints() {
