@@ -4,15 +4,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, User, Mail, Calendar, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building } from 'lucide-react';
+import { Search, User, Mail, Phone, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { setImpersonatedHost } from '@/lib/adminHostImpersonation';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface UserData {
   id: string;
   email: string;
+  phone: string | null;
   name: string;
   role: string;
   created_at: string;
@@ -88,7 +90,8 @@ export default function ManageUsersPage() {
         (u) =>
           u.email.toLowerCase().includes(query) ||
           u.name.toLowerCase().includes(query) ||
-          u.role.toLowerCase().includes(query)
+          u.role.toLowerCase().includes(query) ||
+          (u.phone || '').toLowerCase().includes(query)
       );
     }
 
@@ -98,115 +101,39 @@ export default function ManageUsersPage() {
   const loadUsers = async () => {
     setLoadingUsers(true);
     try {
-      const supabase = createClient();
-      
-      // Get all profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (profilesError) {
-        console.error('Profiles error:', profilesError);
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
+        throw new Error('No valid session — please sign in again.');
       }
 
-      // Get all bookings to calculate stats
-      const { data: bookingsData } = await supabase
-        .from('bookings')
-        .select('user_id, total_price, host_id');
-
-      // Get all properties to calculate host stats
-      const { data: propertiesData } = await supabase
-        .from('properties')
-        .select('host_id, id');
-
-      // Build user data from profiles
-      const usersData: UserData[] = [];
-      const seenIds = new Set<string>();
-
-      // Add users from profiles
-      if (profilesData) {
-        for (const profile of profilesData) {
-          if (seenIds.has(profile.id)) continue;
-          seenIds.add(profile.id);
-
-          const userBookings = bookingsData?.filter((b) => b.user_id === profile.id) || [];
-          const totalSpent = userBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
-
-          const userProperties = propertiesData?.filter((p) => p.host_id === profile.id) || [];
-          const hostEarnings = bookingsData?.filter((b) => b.host_id === profile.id)
-            .reduce((sum, b) => sum + Number(b.total_price || 0), 0) || 0;
-
-          usersData.push({
-            id: profile.id,
-            email: profile.email || `user-${profile.id.substring(0, 8)}`,
-            name: profile.full_name || profile.name || 'Anonymous User',
-            role: profile.role || 'traveller',
-            created_at: profile.created_at || new Date().toISOString(),
-            enabled: profile.enabled !== false,
-            bookings_count: userBookings.length,
-            total_spent: totalSpent,
-            properties_count: userProperties.length,
-            total_earnings: hostEarnings,
-            avatar_url: profile.avatar_url,
-          });
-        }
+      const response = await fetch('/api/admin/users', { headers: { ...headers } });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load users');
       }
 
-      // Also check for users with bookings who might not have profiles
-      if (bookingsData) {
-        const bookingUserIds = new Set(bookingsData.map(b => b.user_id).filter(Boolean));
-        for (const userId of bookingUserIds) {
-          if (seenIds.has(userId)) continue;
-          seenIds.add(userId);
-
-          const userBookingsList = bookingsData.filter((b) => b.user_id === userId);
-          const totalSpent = userBookingsList.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
-
-          usersData.push({
-            id: userId,
-            email: `user-${userId.substring(0, 8)}`,
-            name: `User ${userId.substring(0, 8)}`,
-            role: 'traveller',
-            created_at: new Date().toISOString(),
-            enabled: true,
-            bookings_count: userBookingsList.length,
-            total_spent: totalSpent,
-          });
-        }
-      }
-
-      // Check for hosts from properties who might not have profiles
-      if (propertiesData) {
-        const hostIds = new Set(propertiesData.map(p => p.host_id).filter(Boolean));
-        for (const hostId of hostIds) {
-          if (seenIds.has(hostId)) continue;
-          seenIds.add(hostId);
-
-          const hostProperties = propertiesData.filter((p) => p.host_id === hostId);
-          const hostEarnings = bookingsData?.filter((b) => b.host_id === hostId)
-            .reduce((sum, b) => sum + Number(b.total_price || 0), 0) || 0;
-
-          usersData.push({
-            id: hostId,
-            email: `host-${hostId.substring(0, 8)}`,
-            name: `Host ${hostId.substring(0, 8)}`,
-            role: 'host',
-            created_at: new Date().toISOString(),
-            enabled: true,
-            bookings_count: 0,
-            total_spent: 0,
-            properties_count: hostProperties.length,
-            total_earnings: hostEarnings,
-          });
-        }
-      }
+      const usersData: UserData[] = (data.users || []).map(
+        (u: UserData & { avatar_url?: string }) => ({
+          id: u.id,
+          email: u.email,
+          phone: u.phone ?? null,
+          name: u.name,
+          role: u.role,
+          created_at: u.created_at,
+          enabled: u.enabled,
+          bookings_count: u.bookings_count ?? 0,
+          total_spent: u.total_spent ?? 0,
+          properties_count: u.properties_count,
+          total_earnings: u.total_earnings,
+          avatar_url: u.avatar_url,
+        })
+      );
 
       setUsers(usersData);
       setFilteredUsers(usersData);
     } catch (error) {
       console.error('Error loading users:', error);
-      toast.error('Failed to load users');
+      toast.error(error instanceof Error ? error.message : 'Failed to load users');
     } finally {
       setLoadingUsers(false);
     }
@@ -409,6 +336,12 @@ export default function ManageUsersPage() {
                     User
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
                   </th>
                   {activeTab !== 'hosts' && (
@@ -442,7 +375,7 @@ export default function ManageUsersPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
                       {loadingUsers ? 'Loading users...' : 'No users found'}
                     </td>
                   </tr>
@@ -460,9 +393,29 @@ export default function ManageUsersPage() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{userData.name}</div>
-                            <div className="text-sm text-gray-500">{userData.email}</div>
+                            <div className="text-xs text-gray-400 font-mono">
+                              {userData.id.substring(0, 8)}…
+                            </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-sm text-gray-900">
+                          <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          {userData.email}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {userData.phone ? (
+                          <div className="flex items-center gap-1.5 text-sm text-gray-900">
+                            <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            {userData.phone}
+                          </div>
+                        ) : (
+                          <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                            Missing — ask user to update profile
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -566,6 +519,9 @@ export default function ManageUsersPage() {
                       {selectedUser.role === 'host' ? 'Properties & Bookings' : 'Bookings'} for {selectedUser.name}
                     </h2>
                     <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                    {selectedUser.phone && (
+                      <p className="text-sm text-gray-500">{selectedUser.phone}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => {

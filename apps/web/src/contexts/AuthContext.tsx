@@ -79,6 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUpInFlightRef = useRef(false);
   /** Auto-promote legacy host_pending → host in JWT (no admin approval). */
   const hostPendingPromotedRef = useRef(false);
+  const profileSyncedRef = useRef(false);
+
+  const syncProfileContact = async () => {
+    if (profileSyncedRef.current || typeof window === 'undefined') return;
+    profileSyncedRef.current = true;
+    try {
+      await fetch('/api/profile/sync', { method: 'POST' });
+    } catch {
+      profileSyncedRef.current = false;
+    }
+  };
 
   const persistSavedSession = (session: Session | null) => {
     if (!session?.user?.email || typeof window === 'undefined') return;
@@ -126,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               
               console.log('[AuthContext] Session initialized:', session.user?.id);
+              void syncProfileContact();
               setLoading(false);
               return;
             }
@@ -191,6 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
           setUser(session.user);
           persistSavedSession(session);
+          void syncProfileContact();
           if (typeof window !== 'undefined') {
             localStorage.removeItem('demoUser');
           }

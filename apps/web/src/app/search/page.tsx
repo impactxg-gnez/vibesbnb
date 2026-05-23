@@ -10,6 +10,9 @@ import PropertiesMap from '@/components/PropertiesMap';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
+import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
+import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import { resolveHostBadge, type HostBadge } from '@/lib/hostBadge';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import {
@@ -44,6 +47,7 @@ interface Listing {
   host_id?: string;
   hostName?: string;
   hostAvatarUrl?: string;
+  hostBadge?: HostBadge | null;
   status?: 'active' | 'draft' | 'inactive';
   coordinates?: { lat: number; lng: number };
   isAvailable?: boolean;
@@ -53,6 +57,7 @@ interface Listing {
   smokingInsideAllowed?: boolean;
   smokingOutsideAllowed?: boolean;
   minBookingNights?: number | null;
+  createdAt?: string | null;
   [key: string]: any;
 }
 
@@ -188,7 +193,11 @@ function sortSearchListings(
 const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v1';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 
-type ProfileBrief = { avatar_url: string | null; full_name: string | null };
+type ProfileBrief = {
+  avatar_url: string | null;
+  full_name: string | null;
+  host_badge?: string | null;
+};
 type SearchInventory = { properties: any[]; profileById: Record<string, ProfileBrief> };
 
 function normalizeListingImageUrl(url: string): string {
@@ -279,6 +288,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
             profileById[row.id] = {
               avatar_url: row.avatar_url ?? null,
               full_name: row.full_name ?? null,
+              host_badge: row.host_badge ?? null,
             };
           }
         }
@@ -350,8 +360,13 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
       host_id: hostId,
       hostName,
       hostAvatarUrl,
+      hostBadge:
+        prof?.host_badge === 'superbud' || prof?.host_badge === 'vibesetter'
+          ? resolveHostBadge(prof.host_badge, null, true)
+          : null,
       status: p.status || 'active',
       minBookingNights: normalizeMinBookingNights(p.min_booking_nights ?? p.minBookingNights),
+      createdAt: typeof p.created_at === 'string' ? p.created_at : null,
       coordinates: p.coordinates
         ? { lat: Number(p.coordinates.lat), lng: Number(p.coordinates.lng) }
         : p.latitude && p.longitude
@@ -505,16 +520,18 @@ function ListingCard({
                 <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
                   {listing.title}
                 </h3>
+                {listing.hostBadge ? (
+                  <div className="mb-1">
+                    <HostStatusBadge badge={listing.hostBadge} size="sm" />
+                  </div>
+                ) : null}
                 <p className="text-muted text-sm line-clamp-2">{listing.location}</p>
               </div>
-              <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0">
-                <span className={listing.reviews && listing.reviews > 0 ? 'text-primary-500 text-xs' : 'text-gray-500 text-xs'}>
-                  ★
-                </span>
-                <span className="text-xs font-bold text-white">
-                  {listing.reviews && listing.reviews > 0 ? listing.rating?.toFixed(1) : 'New'}
-                </span>
-              </div>
+              <PropertyCardRatingBadge
+                rating={listing.rating}
+                reviewCount={listing.reviews}
+                createdAt={listing.createdAt}
+              />
             </div>
 
             <PropertyCardFeatureRow

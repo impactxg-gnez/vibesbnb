@@ -196,6 +196,8 @@ export default function PropertyChatButton({
                   key={`${conversationDetails.booking_id}-${bookingRefreshKey}`}
                   bookingId={conversationDetails.booking_id}
                   isHost={isViewerHost}
+                  propertyId={conversationDetails.property_id}
+                  travellerId={conversationDetails.traveller_id}
                   onBookingUpdated={refreshBooking}
                 />
               )}

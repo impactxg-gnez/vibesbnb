@@ -186,6 +186,37 @@ export default function HostBookingsPage() {
     }
   };
 
+  const handleHostCancelBooking = async (bookingId: string) => {
+    const reason =
+      window.prompt(
+        'Why are you cancelling? (e.g. guest did not pay in time)\n\nThe traveller will receive this reason.'
+      ) || '';
+    if (!reason.trim()) {
+      toast.error('Cancellation reason is required');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, reason: reason.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel booking');
+      }
+      toast.success('Booking cancelled. Guest has been notified.');
+      loadBookings();
+      loadNotifications();
+    } catch (error: unknown) {
+      console.error('Error cancelling booking:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to cancel booking'
+      );
+    }
+  };
+
   const handleRejectBooking = async (bookingId: string, reason?: string) => {
     if (!reason || reason.trim() === '') {
       toast.error('Please provide a reason for rejection');
@@ -491,10 +522,29 @@ export default function HostBookingsPage() {
                       </>
                     )}
                     {booking.status === 'accepted' && booking.payment_status === 'pending' && (
-                      <div className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm text-center">
-                        Awaiting Payment
-                      </div>
+                      <>
+                        <div className="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm text-center">
+                          Awaiting Payment
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleHostCancelBooking(booking.id)}
+                          className="px-4 py-2 border border-red-500/60 text-red-400 rounded-lg hover:bg-red-950/40 transition text-sm font-semibold"
+                        >
+                          Cancel (guest did not pay)
+                        </button>
+                      </>
                     )}
+                    {booking.status === 'confirmed' &&
+                      booking.payment_status !== 'paid' && (
+                        <button
+                          type="button"
+                          onClick={() => handleHostCancelBooking(booking.id)}
+                          className="px-4 py-2 border border-red-500/60 text-red-400 rounded-lg hover:bg-red-950/40 transition text-sm font-semibold"
+                        >
+                          Cancel booking
+                        </button>
+                      )}
                     {booking.status === 'confirmed' && booking.payment_status === 'paid' && (
                       <div className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm text-center">
                         Confirmed & Paid

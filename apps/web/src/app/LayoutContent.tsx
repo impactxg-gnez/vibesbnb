@@ -1,6 +1,7 @@
 'use client';
 
 import { Header } from '@/components/layout/Header';
+import { PhoneReminderBanner } from '@/components/layout/PhoneReminderBanner';
 import { Footer } from '@/components/layout/Footer';
 import { AppVersionStamp } from '@/components/layout/AppVersionStamp';
 import { HostPendingBrowseModal } from '@/components/auth/HostPendingBrowseModal';
@@ -19,6 +20,7 @@ export function LayoutContent({ children }: LayoutContentProps) {
         </div>
       </div>
       <Header />
+      <PhoneReminderBanner />
       <main className="flex-grow pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
         {children}
       </main>

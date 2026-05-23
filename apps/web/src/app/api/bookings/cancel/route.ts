@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { releaseBookingAvailability } from '@/lib/bookingAvailability';
+import { dispatchHostCancelledBooking } from '@/lib/notifications/dispatchHostCancelledBooking';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+
+const HOST_CANCELLABLE = new Set([
+  'pending_approval',
+  'pending',
+  'accepted',
+  'confirmed',
+]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +24,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { bookingId } = await request.json();
+    const body = await request.json();
+    const bookingId = body?.bookingId as string | undefined;
+    const reason =
+      typeof body?.reason === 'string' ? body.reason.trim() : '';
 
     if (!bookingId) {
       return NextResponse.json({ error: 'bookingId is required' }, { status: 400 });
@@ -30,12 +43,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    if (booking.user_id !== user.id) {
+    const isGuest = booking.user_id === user.id;
+    const isHost = booking.host_id === user.id;
+
+    if (!isGuest && !isHost) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (['cancelled', 'rejected'].includes(booking.status)) {
+    if (['cancelled', 'rejected'].includes(String(booking.status))) {
       return NextResponse.json({ error: 'Booking already cancelled' }, { status: 400 });
+    }
+
+    if (isHost) {
+      if (!reason) {
+        return NextResponse.json(
+          { error: 'Cancellation reason is required' },
+          { status: 400 }
+        );
+      }
+      if (!HOST_CANCELLABLE.has(String(booking.status))) {
+        return NextResponse.json(
+          { error: 'This booking cannot be cancelled in its current state' },
+          { status: 400 }
+        );
+      }
     }
 
     const newPaymentStatus =
@@ -46,6 +77,9 @@ export async function POST(request: NextRequest) {
       .update({
         status: 'cancelled',
         payment_status: newPaymentStatus,
+        cancellation_reason: reason || null,
+        cancelled_by: isHost ? 'host' : 'guest',
+        cancelled_at: new Date().toISOString(),
       })
       .eq('id', bookingId);
 
@@ -53,65 +87,54 @@ export async function POST(request: NextRequest) {
       throw updateError;
     }
 
-    // Release availability slots
     try {
-      const start = new Date(booking.check_in);
-      const end = new Date(booking.check_out);
-      const days: string[] = [];
-      for (
-        let cursor = new Date(start);
-        cursor < end;
-        cursor.setDate(cursor.getDate() + 1)
-      ) {
-        days.push(cursor.toISOString().split('T')[0]);
-      }
-      if (days.length > 0) {
-        const unitsToRelease = (booking.selected_units && Array.isArray(booking.selected_units) && booking.selected_units.length > 0)
-          ? booking.selected_units
-          : [{ id: null }];
-
-        for (const unit of unitsToRelease) {
-          let deleteQuery = supabase
-            .from('property_availability')
-            .delete()
-            .eq('property_id', booking.property_id)
-            .in('day', days);
-
-          if (unit.id) {
-            deleteQuery = deleteQuery.eq('room_id', unit.id);
-          } else {
-            deleteQuery = deleteQuery.is('room_id', null);
-          }
-
-          await deleteQuery;
-        }
-      }
+      await releaseBookingAvailability(createServiceClient(), bookingId);
     } catch (availabilityError) {
       console.warn('Failed to release availability:', availabilityError);
     }
 
     void invalidatePropertyListingCaches(String(booking.property_id));
 
-    // Notify host
-    if (booking.host_id) {
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+      request.nextUrl.origin;
+
+    if (isHost) {
+      let hostName = 'Your host';
+      try {
+        const { data: hostProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', booking.host_id)
+          .maybeSingle();
+        if (hostProfile?.full_name) hostName = hostProfile.full_name;
+      } catch {
+        /* optional */
+      }
+
+      void dispatchHostCancelledBooking(
+        createServiceClient(),
+        booking,
+        reason,
+        hostName,
+        appUrl
+      );
+    } else if (booking.host_id) {
       await supabase.from('notifications').insert({
         user_id: booking.host_id,
         type: 'booking_cancelled',
         title: 'Booking Cancelled',
-        message: `${booking.guest_name || 'Guest'} cancelled their booking for ${booking.property_name || 'your property'
-          }.`,
+        message: `${booking.guest_name || 'Guest'} cancelled their booking for ${
+          booking.property_name || 'your property'
+        }.`,
         related_booking_id: booking.id,
       });
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error cancelling booking:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to cancel booking' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to cancel booking';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-

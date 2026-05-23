@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
       {
         id: userId,
         full_name: name,
+        email,
         role: 'host',
+        host_badge: 'vibesetter',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

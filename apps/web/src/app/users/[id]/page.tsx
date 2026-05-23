@@ -19,6 +19,9 @@ import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
+import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
+import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import type { HostBadge } from '@/lib/hostBadge';
 
 interface HostProfile {
   id: string;
@@ -27,6 +30,7 @@ interface HostProfile {
   bio: string;
   role: string;
   created_at: string;
+  host_badge?: string | null;
 }
 
 interface Property {
@@ -42,6 +46,7 @@ interface Property {
   bedrooms?: number;
   beds?: number;
   status?: string;
+  createdAt?: string | null;
 }
 
 export default function UserProfilePage() {
@@ -53,6 +58,8 @@ export default function UserProfilePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewsCount, setReviewsCount] = useState(0);
+  const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
+  const [hostAvgRating, setHostAvgRating] = useState<number | null>(null);
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -63,7 +70,7 @@ export default function UserProfilePage() {
         // 1. Fetch Profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, full_name, avatar_url, bio, role, created_at')
+          .select('id, full_name, avatar_url, bio, role, created_at, host_badge')
           .eq('id', userId)
           .single();
 
@@ -100,7 +107,8 @@ export default function UserProfilePage() {
             location: String(p.location ?? ''),
             price: Number(p.price || 0),
             rating: Number(p.rating || 0),
-            reviews: 0, // In a real app, join with reviews
+            reviews: Number((p as { reviews_count?: number }).reviews_count) || 0,
+            createdAt: typeof p.created_at === 'string' ? p.created_at : null,
             images: Array.isArray(p.images) ? (p.images as string[]) : [],
             bedrooms: typeof p.bedrooms === 'number' ? p.bedrooms : Number(p.bedrooms) || undefined,
             beds: typeof p.beds === 'number' ? p.beds : Number(p.beds) || undefined,
@@ -110,6 +118,30 @@ export default function UserProfilePage() {
           
           // Total reviews across all properties (mocked or fetched)
           setReviewsCount(rows.reduce((acc, p) => acc + Number((p as { reviews_count?: number }).reviews_count || 0), 0));
+        }
+
+        const isHostProfile =
+          profileData?.role === 'host' ||
+          (propsData && propsData.length > 0);
+
+        if (isHostProfile && userId) {
+          fetch('/api/hosts/badge-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hostId: userId }),
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((payload) => {
+              if (payload?.badge === 'superbud' || payload?.badge === 'vibesetter') {
+                setHostDisplayBadge(payload.badge);
+              }
+              if (payload?.stats?.reviewCount > 0 && payload.stats.avgRating > 0) {
+                setHostAvgRating(Number(payload.stats.avgRating.toFixed(1)));
+              }
+            })
+            .catch(() => {
+              /* non-blocking */
+            });
         }
 
       } catch (err) {
@@ -173,10 +205,16 @@ export default function UserProfilePage() {
                 </div>
                 
                 <h1 className="text-3xl font-bold mb-2">{profile.full_name}</h1>
-                <p className="text-primary-400 font-semibold mb-6 flex items-center gap-2">
-                  <Award size={18} />
-                  Identity Verified
-                </p>
+                {hostDisplayBadge ? (
+                  <div className="mb-4 flex justify-center">
+                    <HostStatusBadge badge={hostDisplayBadge} size="md" />
+                  </div>
+                ) : (
+                  <p className="text-primary-400 font-semibold mb-6 flex items-center gap-2">
+                    <Award size={18} />
+                    Identity Verified
+                  </p>
+                )}
                 
                 <div className="grid grid-cols-2 gap-4 w-full mb-8">
                   <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
@@ -184,7 +222,9 @@ export default function UserProfilePage() {
                     <div className="text-xs text-gray-500 uppercase tracking-wider font-bold">Reviews</div>
                   </div>
                   <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                    <div className="text-2xl font-bold text-white">4.9★</div>
+                    <div className="text-2xl font-bold text-white">
+                      {hostAvgRating != null ? `${hostAvgRating}★` : reviewsCount > 0 ? '—' : 'New'}
+                    </div>
                     <div className="text-xs text-gray-500 uppercase tracking-wider font-bold">Rating</div>
                   </div>
                 </div>
@@ -278,10 +318,11 @@ export default function UserProfilePage() {
                     <div className="p-6">
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-bold text-xl line-clamp-1 group-hover:text-primary-500 transition-colors uppercase tracking-tight">{property.name}</h3>
-                        <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
-                          <Star size={12} className="text-primary-500 fill-primary-500" />
-                          <span className="text-xs font-bold text-white">{property.rating || 'New'}</span>
-                        </div>
+                        <PropertyCardRatingBadge
+                          rating={property.rating}
+                          reviewCount={property.reviews}
+                          createdAt={property.createdAt}
+                        />
                       </div>
                       <p className="text-gray-400 text-sm flex items-center gap-1 mb-4">
                         <MapPin size={14} />

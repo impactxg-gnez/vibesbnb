@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { validateMessage } from '@/lib/utils/contactFilter';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
+import { dispatchNewMessageNotification } from '@/lib/notifications/dispatchNewMessageNotification';
 
 export async function GET(
   request: NextRequest,
@@ -166,7 +167,17 @@ export async function POST(
     const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select(
-        'id, host_id, traveller_id, booking_id, host_unread_count, traveller_unread_count, host_name, traveller_name'
+        `
+        id,
+        host_id,
+        traveller_id,
+        booking_id,
+        host_unread_count,
+        traveller_unread_count,
+        host_name,
+        traveller_name,
+        properties ( name )
+      `
       )
       .eq('id', params.conversationId)
       .single();
@@ -234,6 +245,23 @@ export async function POST(
       stage: 'new_message',
       bookingId: conversation.booking_id || undefined,
       conversationId: params.conversationId,
+    });
+
+    const propertyName =
+      (conversation.properties as { name?: string } | null)?.name || 'your property';
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+      request.nextUrl.origin;
+
+    void dispatchNewMessageNotification({
+      service: serviceSupabase,
+      recipientId,
+      recipientIsHost: !isHostSender,
+      senderLabel,
+      propertyName,
+      messagePreview: message,
+      conversationId: params.conversationId,
+      appUrl,
     });
 
     return NextResponse.json({ message: data });

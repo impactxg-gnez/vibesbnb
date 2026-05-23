@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { hostApplicationApprovedEmailHtml } from '@/lib/email/hostApplicationApproved';
+import {
+  travellerBookingInvoiceEmailHtml,
+  hostBookingConfirmationEmailHtml,
+  type BookingInvoiceContext,
+} from '@/lib/email/bookingInvoiceEmail';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -49,9 +54,27 @@ interface BookingCancelledData {
   bookingId: string;
 }
 
+interface BookingCancelledByHostData {
+  propertyName: string;
+  hostName: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  reason: string;
+  bookingsUrl: string;
+}
+
 interface HostApplicationApprovedData {
   hostName: string;
   appUrl?: string;
+}
+
+interface NewMessageData {
+  senderName: string;
+  propertyName: string;
+  messagePreview: string;
+  inboxUrl: string;
+  recipientName?: string;
 }
 
 type EmailTemplateData =
@@ -60,7 +83,9 @@ type EmailTemplateData =
   | BookingConfirmationData
   | BookingRejectedData
   | BookingCancelledData
-  | HostApplicationApprovedData;
+  | BookingCancelledByHostData
+  | HostApplicationApprovedData
+  | NewMessageData;
 
 function generateEmailHtml(template: string, data: EmailTemplateData): string {
   const baseStyles = `
@@ -332,6 +357,46 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
       `;
     }
 
+    case 'booking_cancelled_by_host': {
+      const d = data as BookingCancelledByHostData;
+      const safeReason = String(d.reason || '').replace(/</g, '&lt;');
+      const safeProperty = String(d.propertyName || 'your stay').replace(/</g, '&lt;');
+      const safeHost = String(d.hostName || 'Your host').replace(/</g, '&lt;');
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #dc2626; margin-bottom: 24px;">Booking cancelled</h1>
+            <p style="color: #374151; font-size: 16px; margin-bottom: 24px;">
+              Hi ${String(d.guestName || 'there').replace(/</g, '&lt;')}, <strong>${safeHost}</strong> cancelled your booking for <strong>${safeProperty}</strong>.
+            </p>
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <p style="color: #991b1b; font-size: 13px; margin: 0 0 8px; font-weight: 600;">Reason from host</p>
+              <p style="color: #7f1d1d; font-size: 15px; margin: 0; white-space: pre-wrap;">${safeReason}</p>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+                <tr>
+                  <td style="padding: 8px 0; color: #991b1b;">Check-in</td>
+                  <td style="padding: 8px 0; color: #991b1b; font-weight: 600; text-align: right;">${new Date(d.checkIn).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #991b1b;">Check-out</td>
+                  <td style="padding: 8px 0; color: #991b1b; font-weight: 600; text-align: right;">${new Date(d.checkOut).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                </tr>
+              </table>
+            </div>
+            <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">
+              You can browse other stays or message the host if you have questions.
+            </p>
+            <a href="${d.bookingsUrl || `${appUrl}/bookings`}" style="${buttonStyles}">
+              View my bookings
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            This email was sent by VibesBnB.
+          </p>
+        </div>
+      `;
+    }
+
     case 'booking_cancelled': {
       const d = data as BookingCancelledData;
       return `
@@ -377,6 +442,49 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
         hostName: d.hostName || 'there',
         appUrl: d.appUrl || appUrl,
       });
+    }
+
+    case 'booking_invoice_traveller': {
+      const d = data as BookingInvoiceContext & { appUrl?: string };
+      return travellerBookingInvoiceEmailHtml(d, d.appUrl || appUrl);
+    }
+
+    case 'booking_invoice_host': {
+      const d = data as BookingInvoiceContext & { appUrl?: string };
+      return hostBookingConfirmationEmailHtml(d, d.appUrl || appUrl);
+    }
+
+    case 'new_message': {
+      const d = data as NewMessageData;
+      const safePreview = String(d.messagePreview || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const safeSender = String(d.senderName || 'Someone').replace(/</g, '&lt;');
+      const safeProperty = String(d.propertyName || 'your stay').replace(/</g, '&lt;');
+      const greeting = d.recipientName ? `Hi ${String(d.recipientName).replace(/</g, '&lt;')},` : 'Hi,';
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #059669; margin-bottom: 16px;">💬 New message</h1>
+            <p style="color: #374151; font-size: 16px; margin-bottom: 20px;">
+              ${greeting} <strong>${safeSender}</strong> sent you a message about <strong>${safeProperty}</strong>.
+            </p>
+            <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #059669;">
+              <p style="color: #374151; font-size: 15px; margin: 0; white-space: pre-wrap;">${safePreview}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">
+              Reply on VibesBNB to keep your booking protected.
+            </p>
+            <a href="${d.inboxUrl || `${appUrl}/messages`}" style="${buttonStyles}">
+              Open conversation
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            You received this because you have an active conversation on VibesBNB.
+          </p>
+        </div>
+      `;
     }
 
     default:

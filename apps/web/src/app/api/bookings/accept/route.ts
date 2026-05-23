@@ -10,6 +10,7 @@ import {
   releaseBookingAvailability,
 } from '@/lib/bookingAvailability';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
+import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 function ymd(d: string): string {
@@ -177,13 +178,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (alreadyPaid) {
-      await supabase.from('notifications').insert({
-        user_id: booking.user_id,
-        type: 'booking_confirmed',
-        title: 'Booking confirmed!',
-        message: `Your stay at ${booking.property_name} is confirmed. The host accepted your request.`,
-        related_booking_id: booking.id,
-      });
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+        request.nextUrl.origin;
+      void dispatchBookingConfirmedEmails(
+        serviceSupabase,
+        bookingId,
+        appUrl
+      );
     }
 
     await dispatchPushToUser(
@@ -198,7 +200,7 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    if (booking.guest_email) {
+    if (booking.guest_email && !alreadyPaid) {
       try {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
         await fetch(`${appUrl}/api/notifications/send-email`, {
@@ -206,10 +208,8 @@ export async function POST(request: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to: booking.guest_email,
-            subject: alreadyPaid
-              ? `Booking confirmed: ${booking.property_name}`
-              : `Complete payment: ${booking.property_name}`,
-            template: alreadyPaid ? 'booking_confirmed' : 'booking_accepted',
+            subject: `Complete payment: ${booking.property_name}`,
+            template: 'booking_accepted',
             data: {
               propertyName: booking.property_name,
               hostName: hostName,

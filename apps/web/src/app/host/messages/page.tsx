@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
+import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
 import { MessageSquare, Calendar, Home, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -282,16 +283,27 @@ export default function HostMessagesPage() {
             </div>
           </div>
 
-          {/* Chat Window */}
-          <div className="lg:col-span-2 h-full bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
+          {/* Chat + booking actions */}
+          <div className="lg:col-span-2 h-full bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col min-h-0">
             {selectedConversationObj ? (
-              <ChatWindow
-                conversationId={selectedConversationObj.id}
-                title={selectedConversationObj.properties?.name || 'Chat'}
-                counterpartName={getCounterpartName(selectedConversationObj)}
-                counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
-                onMessagesRead={handleMessagesRead}
-              />
+              <>
+                <ConversationBookingPanel
+                  bookingId={selectedConversationObj.booking_id}
+                  isHost
+                  propertyId={selectedConversationObj.property_id}
+                  travellerId={selectedConversationObj.traveller_id}
+                  onBookingUpdated={() => loadConversations(false)}
+                />
+                <div className="flex-1 min-h-0">
+                  <ChatWindow
+                    conversationId={selectedConversationObj.id}
+                    title={selectedConversationObj.properties?.name || 'Chat'}
+                    counterpartName={getCounterpartName(selectedConversationObj)}
+                    counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
+                    onMessagesRead={handleMessagesRead}
+                  />
+                </div>
+              </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-gray-900/50">
                 <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-6">

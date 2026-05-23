@@ -174,7 +174,10 @@ export async function GET(request: NextRequest) {
       }
       const chunkResults = await Promise.all(
         chunks.map((slice) =>
-          supabase.from('profiles').select('id, avatar_url, full_name').in('id', slice)
+          supabase
+            .from('profiles')
+            .select('id, avatar_url, full_name, host_badge')
+            .in('id', slice)
         )
       );
       for (const { data: profSlice, error: prErr } of chunkResults) {

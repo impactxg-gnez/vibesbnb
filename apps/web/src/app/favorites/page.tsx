@@ -1,15 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, MapPin, Star, Users } from 'lucide-react';
+import { Heart, MapPin, Star, Users, Calendar, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { DatePicker } from '@/components/ui/DatePicker';
+import {
+  enumerateStayNightsYmd,
+  formatCalendarDate,
+  nightsBetweenYmd,
+  todayLocalYmd,
+} from '@/lib/dateUtils';
 
 interface Favorite {
   id: string;
@@ -22,13 +29,51 @@ interface Favorite {
   amenities?: string[];
   guests?: number;
   status?: string;
+  isAvailable?: boolean;
+}
+
+function formatDateShort(ymd: string): string {
+  return formatCalendarDate(ymd, { month: 'short', day: 'numeric' });
 }
 
 export default function FavoritesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  const checkIn = searchParams.get('checkIn') || '';
+  const checkOut = searchParams.get('checkOut') || '';
+  const hasDateFilter = !!(checkIn && checkOut);
+  const nights = hasDateFilter ? nightsBetweenYmd(checkIn, checkOut) : 0;
+
+  const [debouncedCheckIn, setDebouncedCheckIn] = useState(checkIn);
+  const [debouncedCheckOut, setDebouncedCheckOut] = useState(checkOut);
+
+  useEffect(() => {
+    const h = window.setTimeout(() => {
+      setDebouncedCheckIn(checkIn);
+      setDebouncedCheckOut(checkOut);
+    }, 450);
+    return () => window.clearTimeout(h);
+  }, [checkIn, checkOut]);
+
+  const updateDateParams = useCallback(
+    (nextCheckIn: string, nextCheckOut: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextCheckIn) params.set('checkIn', nextCheckIn);
+      else params.delete('checkIn');
+      if (nextCheckOut) params.set('checkOut', nextCheckOut);
+      else params.delete('checkOut');
+      const qs = params.toString();
+      router.replace(qs ? `/favorites?${qs}` : '/favorites', { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const clearDates = () => updateDateParams('', '');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,6 +86,95 @@ export default function FavoritesPage() {
       loadFavorites();
     }
   }, [user]);
+
+  const favoriteIdsKey = useMemo(
+    () => favorites.map((f) => f.id).join('|'),
+    [favorites]
+  );
+
+  useEffect(() => {
+    const propertyIds = favoriteIdsKey ? favoriteIdsKey.split('|').filter(Boolean) : [];
+
+    if (!debouncedCheckIn || !debouncedCheckOut || propertyIds.length === 0) {
+      setFavorites((prev) => prev.map((f) => ({ ...f, isAvailable: undefined })));
+      setCheckingAvailability(false);
+      return;
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseConfigured =
+      !!supabaseUrl &&
+      supabaseUrl !== '' &&
+      supabaseUrl !== 'https://placeholder.supabase.co' &&
+      !!supabaseKey &&
+      supabaseKey !== '' &&
+      supabaseKey !== 'placeholder-key';
+
+    if (!supabaseConfigured) {
+      setFavorites((prev) => prev.map((f) => ({ ...f, isAvailable: undefined })));
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingAvailability(true);
+
+    void (async () => {
+      try {
+        const datesToCheck = enumerateStayNightsYmd(debouncedCheckIn, debouncedCheckOut);
+        if (datesToCheck.length === 0) {
+          if (!cancelled) {
+            setFavorites((prev) => prev.map((f) => ({ ...f, isAvailable: undefined })));
+          }
+          return;
+        }
+
+        const blockedDates: { property_id: string }[] = [];
+
+        const batchSize = 120;
+        for (let i = 0; i < propertyIds.length; i += batchSize) {
+          const slice = propertyIds.slice(i, i + batchSize);
+          const res = await fetch('/api/properties/availability-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyIds: slice, nights: datesToCheck }),
+          });
+          if (!res.ok) break;
+          const json = (await res.json()) as {
+            blocked?: { property_id: string }[];
+          };
+          if (json.blocked?.length) blockedDates.push(...json.blocked);
+        }
+
+        if (cancelled) return;
+
+        const unavailableIds = new Set(blockedDates.map((b) => b.property_id));
+        setFavorites((prev) =>
+          prev.map((f) => ({
+            ...f,
+            isAvailable: !unavailableIds.has(f.id),
+          }))
+        );
+      } catch (e) {
+        console.warn('[Favorites] availability check failed:', e);
+        if (!cancelled) {
+          setFavorites((prev) => prev.map((f) => ({ ...f, isAvailable: undefined })));
+        }
+      } finally {
+        if (!cancelled) setCheckingAvailability(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedCheckIn, debouncedCheckOut, favoriteIdsKey]);
+
+  const displayedFavorites = useMemo(() => {
+    if (!hasDateFilter) return favorites;
+    if (checkingAvailability) return [];
+    return favorites.filter((f) => f.isAvailable === true);
+  }, [favorites, hasDateFilter, checkingAvailability]);
 
   const loadFavorites = async () => {
     setLoadingFavorites(true);
@@ -223,7 +357,77 @@ export default function FavoritesPage() {
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold mb-2">Favorite Properties</h1>
-          <p className="text-gray-400 mb-8">Properties you've saved for later</p>
+          <p className="text-gray-400 mb-6">Properties you&apos;ve saved for later</p>
+
+          {favorites.length > 0 ? (
+            <div className="mb-8 rounded-2xl border border-gray-800 bg-gray-900 p-4 md:p-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-emerald-500" />
+                    Filter by stay dates
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Pick check-in and check-out to see only favorites available for those nights.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-end">
+                  <div className="min-w-[140px]">
+                    <label className="block text-xs text-gray-400 mb-1.5">Check in</label>
+                    <DatePicker
+                      value={checkIn}
+                      min={todayLocalYmd()}
+                      onChange={(dateStr) => {
+                        let nextOut = checkOut;
+                        if (nextOut && dateStr && nextOut <= dateStr) nextOut = '';
+                        updateDateParams(dateStr, nextOut);
+                      }}
+                      className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white"
+                      placeholderText="Add date"
+                    />
+                  </div>
+                  <div className="min-w-[140px]">
+                    <label className="block text-xs text-gray-400 mb-1.5">Check out</label>
+                    <DatePicker
+                      value={checkOut}
+                      min={checkIn || todayLocalYmd()}
+                      onChange={(dateStr) => updateDateParams(checkIn, dateStr)}
+                      className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white"
+                      placeholderText="Add date"
+                    />
+                  </div>
+                  {hasDateFilter ? (
+                    <button
+                      type="button"
+                      onClick={clearDates}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-gray-700 text-sm text-gray-300 hover:bg-gray-800 transition"
+                    >
+                      <X className="w-4 h-4" />
+                      Clear dates
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              {hasDateFilter ? (
+                <p className="mt-4 text-sm text-emerald-400 flex flex-wrap items-center gap-2">
+                  {checkingAvailability ? (
+                    <span className="text-gray-400">Checking availability…</span>
+                  ) : (
+                    <>
+                      <span>
+                        {formatDateShort(checkIn)} – {formatDateShort(checkOut)} ({nights}{' '}
+                        {nights === 1 ? 'night' : 'nights'})
+                      </span>
+                      <span className="text-gray-500">•</span>
+                      <span>
+                        {displayedFavorites.length} of {favorites.length} available
+                      </span>
+                    </>
+                  )}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {favorites.length === 0 ? (
             <div className="bg-gray-900 rounded-2xl p-12 text-center border border-gray-800">
@@ -237,14 +441,52 @@ export default function FavoritesPage() {
                 Browse Properties
               </Link>
             </div>
+          ) : checkingAvailability && hasDateFilter ? (
+            <div className="flex items-center justify-center min-h-[40vh]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4" />
+                <p className="text-gray-400">Checking availability for your dates…</p>
+              </div>
+            </div>
+          ) : displayedFavorites.length === 0 && hasDateFilter ? (
+            <div className="bg-gray-900 rounded-2xl p-12 text-center border border-gray-800">
+              <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-semibold mb-2">No favorites available</h2>
+              <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                None of your saved properties are free for{' '}
+                {formatDateShort(checkIn)} – {formatDateShort(checkOut)}. Try different dates or
+                browse more stays.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={clearDates}
+                  className="px-5 py-2.5 rounded-xl border border-gray-700 text-white hover:bg-gray-800 transition"
+                >
+                  Clear dates
+                </button>
+                <Link
+                  href="/search"
+                  className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-semibold transition"
+                >
+                  Browse properties
+                </Link>
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {favorites.map((favorite) => (
+              {displayedFavorites.map((favorite) => {
+                const listingUrl = `/listings/${favorite.id}${
+                  hasDateFilter ? `?checkIn=${checkIn}&checkOut=${checkOut}` : ''
+                }`;
+                const totalPrice = nights > 0 ? favorite.price * nights : 0;
+
+                return (
                 <div
                   key={favorite.id}
                   className="group bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-800 hover:shadow-xl hover:border-emerald-500/50 transition relative"
                 >
-                  <Link href={`/listings/${favorite.id}`}>
+                  <Link href={listingUrl}>
                     <div className="relative h-64">
                       <Image
                         src={favorite.images[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=300&fit=crop'}
@@ -299,12 +541,19 @@ export default function FavoritesPage() {
                         ))}
                       </div>
                       <p className="text-white font-bold text-lg">
-                        ${favorite.price} <span className="font-normal text-gray-400 text-sm">/ night</span>
+                        ${favorite.price}{' '}
+                        <span className="font-normal text-gray-400 text-sm">/ night</span>
                       </p>
+                      {hasDateFilter && nights > 0 ? (
+                        <p className="text-emerald-400 text-sm mt-1 font-medium">
+                          ${totalPrice} total for {nights} {nights === 1 ? 'night' : 'nights'}
+                        </p>
+                      ) : null}
                     </div>
                   </Link>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>

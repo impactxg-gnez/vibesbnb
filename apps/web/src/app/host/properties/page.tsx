@@ -654,6 +654,39 @@ export default function HostPropertiesPage() {
     return new Date(date).toLocaleDateString();
   };
 
+  const handleHostCancelBooking = async (bookingId: string) => {
+    const reason =
+      window.prompt(
+        'Why are you cancelling this booking? (e.g. guest did not pay in time)\n\nThis reason will be sent to the traveller.'
+      ) || '';
+    if (!reason.trim()) {
+      toast.error('Cancellation reason is required.');
+      return;
+    }
+
+    setBookingActionLoading(`cancel-${bookingId}`);
+    try {
+      const response = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, reason: reason.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel booking');
+      }
+      toast.success('Booking cancelled. The traveller has been notified.');
+      await loadStats();
+    } catch (error: unknown) {
+      console.error('Host cancel booking error:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to cancel booking.'
+      );
+    } finally {
+      setBookingActionLoading(null);
+    }
+  };
+
   const handleBookingAction = async (bookingId: string, action: 'accept' | 'reject') => {
     try {
       let reason: string | undefined;
@@ -1475,6 +1508,10 @@ export default function HostPropertiesPage() {
                     typeof booking.status === 'string' && booking.status.includes('pending');
                   const acceptLoading = bookingActionLoading === `accept-${booking.id}`;
                   const rejectLoading = bookingActionLoading === `reject-${booking.id}`;
+                  const cancelLoading = bookingActionLoading === `cancel-${booking.id}`;
+                  const showHostCancel =
+                    bookingDetails.type === 'upcoming' &&
+                    ['accepted', 'confirmed'].includes(String(booking.status));
 
                   return (
                     <div
@@ -1521,6 +1558,23 @@ export default function HostPropertiesPage() {
                           >
                             {rejectLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                             Reject
+                          </button>
+                        </div>
+                      )}
+
+                      {showHostCancel && (
+                        <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-gray-800">
+                          <p className="text-xs text-gray-500 flex-1 min-w-[200px]">
+                            Cancel if the guest did not pay in time or you cannot host these dates.
+                          </p>
+                          <button
+                            type="button"
+                            disabled={cancelLoading}
+                            onClick={() => handleHostCancelBooking(booking.id)}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-500/50 text-red-400 text-sm font-semibold hover:bg-red-950/50 disabled:opacity-60"
+                          >
+                            {cancelLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Cancel booking
                           </button>
                         </div>
                       )}

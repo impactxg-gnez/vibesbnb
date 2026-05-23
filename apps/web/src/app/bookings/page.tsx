@@ -28,6 +28,8 @@ const BOOKING_GUEST_LIST_COLUMNS = [
   'status',
   'payment_status',
   'rating',
+  'cancellation_reason',
+  'cancelled_by',
 ].join(',');
 
 interface Booking {
@@ -45,6 +47,8 @@ interface Booking {
   status: 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled';
   payment_status?: 'pending' | 'paid' | 'refunded' | 'failed';
   rating?: number;
+  cancellation_reason?: string | null;
+  cancelled_by?: 'host' | 'guest' | null;
 }
 
 export default function BookingsPage() {
@@ -98,6 +102,8 @@ export default function BookingsPage() {
               status: booking.status,
               payment_status: booking.payment_status,
               rating: booking.rating,
+              cancellation_reason: booking.cancellation_reason,
+              cancelled_by: booking.cancelled_by,
             }));
             setBookings(transformedBookings);
             setLoadingBookings(false);
@@ -390,8 +396,21 @@ export default function BookingsPage() {
                         </div>
                       )}
                       {booking.status === 'cancelled' && tab === 'cancelled' && (
-                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                          <p className="text-red-400 text-sm">🛑 You cancelled this booking.</p>
+                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg space-y-1">
+                          {booking.cancelled_by === 'host' ? (
+                            <>
+                              <p className="text-red-400 text-sm font-medium">
+                                Cancelled by the host
+                              </p>
+                              {booking.cancellation_reason && (
+                                <p className="text-red-300/90 text-sm">
+                                  Reason: {booking.cancellation_reason}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-red-400 text-sm">You cancelled this booking.</p>
+                          )}
                         </div>
                       )}
                     </div>

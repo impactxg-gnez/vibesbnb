@@ -19,6 +19,8 @@ import toast from 'react-hot-toast';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
+import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import type { HostBadge } from '@/lib/hostBadge';
 
 interface HostProfile {
   id: string;
@@ -59,6 +61,7 @@ export default function HostProfilePage() {
     totalBookings: 0,
     totalEarnings: 0
   });
+  const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
 
   useEffect(() => {
     const fetchHostData = async () => {
@@ -111,6 +114,21 @@ export default function HostProfilePage() {
             totalEarnings: 0
           });
         }
+
+        fetch('/api/hosts/badge-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostId }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((payload) => {
+            if (payload?.badge === 'superbud' || payload?.badge === 'vibesetter') {
+              setHostDisplayBadge(payload.badge);
+            }
+          })
+          .catch(() => {
+            /* non-blocking */
+          });
 
       } catch (error: any) {
         console.error('Error fetching host data:', error);
@@ -184,6 +202,11 @@ export default function HostProfilePage() {
                 )}
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">{host.full_name}</h1>
+              {hostDisplayBadge ? (
+                <div className="mb-4 flex justify-center">
+                  <HostStatusBadge badge={hostDisplayBadge} size="md" />
+                </div>
+              ) : null}
               <p className="text-gray-400 mb-6 flex items-center justify-center gap-2">
                 <Calendar size={18} className="text-emerald-500" />
                 Member since {memberSince}

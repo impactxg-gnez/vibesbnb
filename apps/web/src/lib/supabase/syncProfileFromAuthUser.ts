@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { User } from '@supabase/supabase-js';
+import { profileContactPayloadFromAuthUser } from '@/lib/supabase/profileContactFromUser';
 
 /** Maps auth metadata role to profiles.role (defaults traveller). */
 function profileRoleFromMetadata(role: unknown): string {
@@ -43,16 +44,30 @@ export async function syncProfileFromAuthUser(user: User | null | undefined) {
 
   const fullName = typeof meta.full_name === 'string' ? meta.full_name.trim() : '';
   const role = profileRoleFromMetadata(meta.role);
+  const contact = profileContactPayloadFromAuthUser(user);
 
-  const { error } = await admin.from('profiles').upsert(
-    {
-      id: user.id,
-      full_name: fullName || null,
-      role,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'id' }
-  );
+  const { data: existingProfile } = await admin
+    .from('profiles')
+    .select('host_badge')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const profileRow: Record<string, unknown> = {
+    id: user.id,
+    full_name: fullName || null,
+    role,
+    email: contact.email,
+    phone: contact.phone,
+    whatsapp: contact.whatsapp,
+    host_email: contact.host_email,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (role === 'host' && !existingProfile?.host_badge) {
+    profileRow.host_badge = 'vibesetter';
+  }
+
+  const { error } = await admin.from('profiles').upsert(profileRow, { onConflict: 'id' });
 
   if (error) {
     console.warn('[syncProfileFromAuthUser] profiles upsert:', error.message);

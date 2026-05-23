@@ -5,6 +5,8 @@ import {
   formatPayPalAmount,
   getPayPalOrder,
 } from '@/lib/paypal';
+import { createServiceClient } from '@/lib/supabase/service';
+import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 
 function extractCaptureMeta(result: Awaited<ReturnType<typeof capturePayPalOrder>>): {
   captureId: string;
@@ -133,6 +135,17 @@ export async function POST(request: NextRequest) {
         message: `${booking.guest_name || 'A guest'} paid for ${booking.property_name}.`,
         related_booking_id: booking.id,
       });
+    }
+
+    if (transitioned) {
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+        request.nextUrl.origin;
+      void dispatchBookingConfirmedEmails(
+        createServiceClient(),
+        bookingId,
+        appUrl
+      );
     }
 
     return NextResponse.json({ success: true, captureId });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { formatPayPalAmount, verifyPayPalWebhookSignature } from '@/lib/paypal';
+import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 
 /**
  * PayPal webhooks: register LIVE URL in Developer Dashboard → Live app → Webhooks:
@@ -93,6 +94,13 @@ async function markBookingPaid(bookingId: string, captureId: string, amountValue
       message: `${booking.guest_name || 'A guest'} paid for ${booking.property_name}.`,
       related_booking_id: booking.id,
     });
+  }
+
+  if (transitioned) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || '';
+    if (appUrl) {
+      void dispatchBookingConfirmedEmails(supabase, bookingId, appUrl);
+    }
   }
 }
 

@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
         id: userId,
         role: 'host',
         is_host: true,
+        host_badge: 'vibesetter',
         updated_at: new Date().toISOString(),
       };
       const { error: profileErr } = await supabaseAdmin
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
           {
             id: userId,
             role: 'host',
+            host_badge: 'vibesetter',
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' }

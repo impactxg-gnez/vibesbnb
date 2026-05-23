@@ -229,13 +229,15 @@ export default function MessagesPage() {
               </div>
             )}
           </div>
-          <div className="lg:col-span-2 h-[70vh] flex flex-col min-h-0">
+          <div className="lg:col-span-2 h-[70vh] flex flex-col min-h-0 border border-gray-800 rounded-xl bg-gray-900 overflow-hidden">
             {selectedConversationObj ? (
               <>
                 <ConversationBookingPanel
                   bookingId={selectedConversationObj.booking_id}
                   isHost={getViewerRole(selectedConversationObj) === 'host'}
                   showSubmittedBanner={justSubmitted}
+                  propertyId={selectedConversationObj.property_id}
+                  travellerId={selectedConversationObj.traveller_id}
                   onBookingUpdated={() => loadConversations(false)}
                 />
                 <div className="flex-1 min-h-0">
@@ -249,7 +251,7 @@ export default function MessagesPage() {
                 </div>
               </>
             ) : (
-              <div className="h-full border border-gray-800 rounded-xl bg-gray-900 flex items-center justify-center text-gray-500">
+              <div className="h-full flex items-center justify-center text-gray-500">
                 Select a conversation to start messaging.
               </div>
             )}

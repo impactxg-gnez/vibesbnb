@@ -50,6 +50,9 @@ import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
+import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import type { HostBadge } from '@/lib/hostBadge';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 
 const GALLERY_HERO_BLUR =
@@ -82,6 +85,7 @@ interface Property {
   smokingOutsideAllowed: boolean;
   rating: number;
   reviews: number;
+  createdAt?: string | null;
   latitude?: number;
   longitude?: number;
   hostId: string;
@@ -146,7 +150,8 @@ export default function ListingDetailPage() {
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
   const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
-  
+  const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
+
   const scrollToReviews = () => {
     setIsAboutExpanded(true);
     setTimeout(() => {
@@ -290,6 +295,10 @@ export default function ListingDetailPage() {
             smokingOutsideAllowed: smoking.outside,
             rating: avgRating || Number(propertyData.rating || 0),
             reviews: reviews.length,
+            createdAt:
+              typeof propertyData.created_at === 'string'
+                ? propertyData.created_at
+                : null,
             hostId: propertyData.host_id || '',
             hostName: host.hostName,
             hostImage: host.hostImage,
@@ -325,7 +334,7 @@ export default function ListingDetailPage() {
               propertyData.host_id
                 ? supabase
                     .from('profiles')
-                    .select('id, full_name, avatar_url, bio, created_at')
+                    .select('id, full_name, avatar_url, bio, created_at, role, host_badge')
                     .eq('id', propertyData.host_id)
                     .single()
                 : Promise.resolve({ data: null as { full_name?: string | null; avatar_url?: string | null; bio?: string | null; created_at?: string } | null }),
@@ -352,6 +361,23 @@ export default function ListingDetailPage() {
 
             setProperty(buildProperty(reviews, host));
             setReviewsData(reviews);
+
+            if (propertyData.host_id) {
+              fetch('/api/hosts/badge-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hostId: propertyData.host_id }),
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((payload) => {
+                  if (payload?.badge === 'superbud' || payload?.badge === 'vibesetter') {
+                    setHostDisplayBadge(payload.badge);
+                  }
+                })
+                .catch(() => {
+                  /* non-blocking */
+                });
+            }
           } catch (e) {
             console.error('[Listing Detail] Error loading host profile or reviews:', e);
           }
@@ -526,16 +552,13 @@ export default function ListingDetailPage() {
                 {property.type ? `${property.type} in ` : ''}{getGeneralLocation(property.location)}
               </p>
               <span className="hidden md:block text-gray-700">•</span>
-              <button 
-                onClick={scrollToReviews} 
-                className="flex items-center gap-1 hover:text-emerald-400 hover:underline transition-colors focus:outline-none"
-              >
-                <Star size={18} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-600"} />
-                <span className="text-white font-semibold">
-                  {property.reviews > 0 ? property.rating : 'New'}
-                </span>
-                <span className="text-sm">({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
-              </button>
+              <PropertyListingRating
+                rating={property.rating}
+                reviewCount={property.reviews}
+                createdAt={property.createdAt}
+                onClick={scrollToReviews}
+                starSize={18}
+              />
             </div>
           </div>
           <div className="flex gap-3">
@@ -664,7 +687,12 @@ export default function ListingDetailPage() {
                   />
                   <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Hosted by</p>
-                    <p className="text-white font-semibold text-lg leading-tight truncate">{property.hostName}</p>
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <p className="text-white font-semibold text-lg leading-tight truncate">{property.hostName}</p>
+                      {hostDisplayBadge ? (
+                        <HostStatusBadge badge={hostDisplayBadge} size="sm" />
+                      ) : null}
+                    </div>
                     {property.hostBio?.trim() ? (
                       <p className="text-sm text-gray-400 mt-2 leading-relaxed line-clamp-3">{property.hostBio.trim()}</p>
                     ) : (
@@ -959,10 +987,16 @@ export default function ListingDetailPage() {
                 
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-xl font-bold text-white mb-1">{property.hostName}</h3>
-                  <div className="flex items-center justify-center md:justify-start gap-4 text-gray-400 text-sm mb-3">
-                    <span className="flex items-center gap-1"><Star size={14} className="text-primary-500" /> Superhost</span>
-                    <span>•</span>
-                    <span>Joined in {property.hostJoinedDate}</span>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-gray-400 text-sm mb-3">
+                    {hostDisplayBadge ? (
+                      <HostStatusBadge badge={hostDisplayBadge} size="md" />
+                    ) : null}
+                    {property.hostJoinedDate ? (
+                      <>
+                        {hostDisplayBadge ? <span className="text-gray-600">•</span> : null}
+                        <span>Joined in {property.hostJoinedDate}</span>
+                      </>
+                    ) : null}
                   </div>
                   <p className="text-gray-400 text-sm line-clamp-2 mb-4 leading-relaxed">
                     {property.hostBio || "Hi, I'm your host! I love sharing my unique spaces and helping travelers feel at home while exploring the vibes of the city."}
@@ -997,13 +1031,14 @@ export default function ListingDetailPage() {
                   <span className="text-3xl font-bold text-white">${currentPrice}</span>
                   <span className="text-gray-400">/ night</span>
                 </div>
-                <button onClick={scrollToReviews} className="flex items-center gap-1 text-sm hover:text-emerald-400 hover:underline transition-colors focus:outline-none">
-                  <Star size={16} className={property.reviews > 0 ? "text-primary-500 fill-primary-500" : "text-gray-500"} />
-                  <span className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
-                    {property.reviews > 0 ? property.rating : 'New'}
-                  </span>
-                  <span className="text-gray-400">({property.reviews} {property.reviews === 1 ? 'review' : 'reviews'})</span>
-                </button>
+                <PropertyListingRating
+                  rating={property.rating}
+                  reviewCount={property.reviews}
+                  createdAt={property.createdAt}
+                  onClick={scrollToReviews}
+                  starSize={16}
+                  className="text-sm"
+                />
                 {property.minBookingNights != null && (
                   <p className="text-sm text-amber-200/90 mt-3 flex items-center gap-2">
                     <Calendar size={14} className="shrink-0" aria-hidden />

@@ -94,10 +94,35 @@ export default function ProfilePage() {
         setHasPayoutSetup(!!payoutInfo.account_number_masked);
       }
 
-      // Load avatar status
       loadAvatarStatus();
+      loadProfileContact();
     }
   }, [user]);
+
+  const loadProfileContact = async () => {
+    if (!user?.id) return;
+    try {
+      const supabase = createClient();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('phone, whatsapp, location, bio, host_email')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile) {
+        setFormData((prev) => ({
+          ...prev,
+          phone: profile.phone || profile.whatsapp || prev.phone,
+          location: profile.location || prev.location,
+          bio: profile.bio || prev.bio,
+          whatsapp: profile.whatsapp || prev.whatsapp,
+          hostEmail: profile.host_email || prev.hostEmail,
+        }));
+      }
+    } catch {
+      /* profiles row may not exist yet */
+    }
+  };
 
   const loadAvatarStatus = async () => {
     if (!user?.id) return;
@@ -384,29 +409,35 @@ export default function ProfilePage() {
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
       
       if (supabaseUser) {
-        // Update user metadata in Supabase
+        const phone = formData.phone.trim() || null;
+        const whatsapp = formData.whatsapp.trim() || phone;
+
         const { error: updateError } = await supabase.auth.updateUser({
           data: {
             ...user?.user_metadata,
             full_name: formData.fullName,
-            phone: formData.phone,
+            phone,
             location: formData.location,
             bio: formData.bio,
-            whatsapp: formData.whatsapp,
+            whatsapp,
             host_email: formData.hostEmail,
           },
         });
         
         if (updateError) throw updateError;
         
-        // Also update the profiles table if it exists
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
             id: supabaseUser.id,
             full_name: formData.fullName,
+            email: supabaseUser.email?.toLowerCase() || null,
+            phone,
+            whatsapp,
             bio: formData.bio,
-            updated_at: new Date().toISOString()
+            location: formData.location || null,
+            host_email: formData.hostEmail.trim() || null,
+            updated_at: new Date().toISOString(),
           });
           
         if (profileError) {
@@ -751,6 +782,11 @@ export default function ProfilePage() {
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
                   Phone Number
+                  {userRole !== 'host' && (
+                    <span className="text-amber-400 font-normal ml-1">
+                      — required for WhatsApp booking updates
+                    </span>
+                  )}
                 </label>
                 {editing ? (
                   <input
