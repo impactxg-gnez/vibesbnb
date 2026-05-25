@@ -18,7 +18,14 @@ BEGIN
     RETURN;
   END IF;
 
-  DELETE FROM public.reviews WHERE is_team_review = true OR user_id IS NULL;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'reviews' AND column_name = 'is_team_review'
+  ) THEN
+    DELETE FROM public.reviews WHERE is_team_review = true OR user_id IS NULL;
+  ELSE
+    DELETE FROM public.reviews WHERE user_id IS NULL;
+  END IF;
 
   DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
   DROP POLICY IF EXISTS "Authenticated users can create reviews" ON public.reviews;
@@ -47,17 +54,37 @@ END $$;
 
 -- ---------------------------------------------------------------------------
 -- 2) Roll back SUPABASE_ADMIN_REALTIME_RLS.sql
+-- (DROP POLICY requires the table to exist — skip missing tables)
 -- ---------------------------------------------------------------------------
 
-DROP POLICY IF EXISTS "Admins can view all bookings" ON public.bookings;
-DROP POLICY IF EXISTS "Admins can view all properties" ON public.properties;
-DROP POLICY IF EXISTS "Admins can view all pending host applications (jwt)" ON public.pending_host_applications;
-DROP POLICY IF EXISTS "Admins can update pending host applications (jwt)" ON public.pending_host_applications;
-DROP POLICY IF EXISTS "Admins can view all profile pictures" ON public.pending_profile_pictures;
-DROP POLICY IF EXISTS "Admins can update profile pictures" ON public.pending_profile_pictures;
-DROP POLICY IF EXISTS "Admins can read all dispensaries" ON public.dispensaries;
-DROP POLICY IF EXISTS "Admins can update dispensaries" ON public.dispensaries;
-DROP POLICY IF EXISTS "Admins can delete dispensaries" ON public.dispensaries;
+DO $$
+BEGIN
+  IF to_regclass('public.bookings') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all bookings" ON public.bookings;
+  END IF;
+
+  IF to_regclass('public.properties') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all properties" ON public.properties;
+  END IF;
+
+  IF to_regclass('public.pending_host_applications') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all pending host applications (jwt)" ON public.pending_host_applications;
+    DROP POLICY IF EXISTS "Admins can update pending host applications (jwt)" ON public.pending_host_applications;
+  ELSE
+    RAISE NOTICE 'pending_host_applications not found — skipped admin policies';
+  END IF;
+
+  IF to_regclass('public.pending_profile_pictures') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all profile pictures" ON public.pending_profile_pictures;
+    DROP POLICY IF EXISTS "Admins can update profile pictures" ON public.pending_profile_pictures;
+  END IF;
+
+  IF to_regclass('public.dispensaries') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can read all dispensaries" ON public.dispensaries;
+    DROP POLICY IF EXISTS "Admins can update dispensaries" ON public.dispensaries;
+    DROP POLICY IF EXISTS "Admins can delete dispensaries" ON public.dispensaries;
+  END IF;
+END $$;
 
 DROP FUNCTION IF EXISTS public.is_vibesbnb_admin_jwt();
 
