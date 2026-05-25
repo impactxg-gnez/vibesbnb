@@ -27,6 +27,7 @@ import {
   listingMatchesHeaderCategory,
 } from '@/lib/propertySearchFilters';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { toTravelerPrice } from '@/lib/platformPricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 
@@ -122,7 +123,10 @@ function applyPriceRangeFilter(
   const [priceMin, priceMax] = priceRange || [0, Number.MAX_SAFE_INTEGER];
   const safeMin = Math.max(0, Number(priceMin) || 0);
   const safeMax = Math.max(safeMin, Number(priceMax) || 0);
-  return listings.filter((listing) => listing.price >= safeMin && listing.price <= safeMax);
+  return listings.filter((listing) => {
+    const guestPrice = toTravelerPrice(listing.price);
+    return guestPrice >= safeMin && guestPrice <= safeMax;
+  });
 }
 
 function computePriceDistribution(
@@ -131,7 +135,7 @@ function computePriceDistribution(
 ): { min: number; max: number; buckets: number[] } {
   const buckets = Array(binCount).fill(0);
   const prices = listings
-    .map((l) => l.price)
+    .map((l) => toTravelerPrice(l.price))
     .filter((p) => Number.isFinite(p) && p >= 0);
   if (prices.length === 0) {
     return { min: 0, max: 1, buckets };
@@ -144,7 +148,7 @@ function computePriceDistribution(
   }
   const span = hi - lo;
   for (const listing of listings) {
-    const p = listing.price;
+    const p = toTravelerPrice(listing.price);
     if (!Number.isFinite(p)) continue;
     const clamped = Math.min(hi, Math.max(lo, p));
     const idx = Math.min(binCount - 1, Math.floor(((clamped - lo) / span) * binCount));
@@ -168,7 +172,7 @@ function sortSearchListings(
         if (a.isAvailable && !b.isAvailable) return -1;
         if (!a.isAvailable && b.isAvailable) return 1;
       }
-      return a.price - b.price;
+      return toTravelerPrice(a.price) - toTravelerPrice(b.price);
     });
   } else if (sortParam === 'recent') {
     copy.sort((a, b) => {
@@ -184,7 +188,7 @@ function sortSearchListings(
         if (a.isAvailable && !b.isAvailable) return -1;
         if (!a.isAvailable && b.isAvailable) return 1;
       }
-      return b.price - a.price;
+      return toTravelerPrice(b.price) - toTravelerPrice(a.price);
     });
   }
   return copy;
@@ -443,7 +447,8 @@ function ListingCard({
   
   // Calculate stay info
   const nights = checkIn && checkOut ? calculateNights(checkIn, checkOut) : 0;
-  const totalPrice = nights > 0 ? listing.price * nights : listing.price;
+  const guestNightly = toTravelerPrice(listing.price);
+  const totalPrice = nights > 0 ? guestNightly * nights : guestNightly;
 
   const availabilitySlot =
     checkIn && checkOut && listing.isAvailable !== undefined ? (
@@ -568,11 +573,11 @@ function ListingCard({
               <p className="text-white font-bold text-xl">
                 ${totalPrice} <span className="font-normal text-muted text-xs">total</span>
               </p>
-              <p className="text-muted text-xs">${listing.price} × {nights} nights</p>
+              <p className="text-muted text-xs">${guestNightly} × {nights} nights</p>
             </div>
           ) : (
             <p className="text-white font-bold text-xl">
-              ${listing.price} <span className="font-normal text-muted text-xs">/ night</span>
+              ${guestNightly} <span className="font-normal text-muted text-xs">/ night</span>
             </p>
           )}
         </div>

@@ -8,6 +8,7 @@ import { Star, Search, Check, X, Plus, MessageSquarePlus, Loader2, Trash2 } from
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { createClient } from '@/lib/supabase/client';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Review {
   id: string;
@@ -115,29 +116,23 @@ export default function ReviewsManagementPage() {
   const loadReviews = async () => {
     setLoadingReviews(true);
     try {
-      // Get auth token for admin access
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Use service approach - fetch all reviews as admin
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from('reviews')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (reviewsError) {
-        console.error('Reviews error:', reviewsError);
-        // If error, try without RLS check
+      const headers = await getHeadersForAdminFetch();
+      const res = await fetch('/api/admin/reviews', { headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to load reviews');
       }
+      const reviewsData = (payload.reviews || []) as Review[];
 
       // Get property names
-      const propertyIds = [...new Set((reviewsData || []).map(r => r.property_id))];
+      const propertyIds = [...new Set(reviewsData.map((r) => r.property_id))];
       const { data: propertiesData } = await supabase
         .from('properties')
         .select('id, name')
         .in('id', propertyIds.length > 0 ? propertyIds : ['none']);
 
       // Get user profiles
-      const userIds = [...new Set((reviewsData || []).filter(r => r.user_id).map(r => r.user_id))];
+      const userIds = [...new Set(reviewsData.filter((r) => r.user_id).map((r) => r.user_id!))];
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name')
@@ -147,7 +142,7 @@ export default function ReviewsManagementPage() {
       const propertyMap = new Map((propertiesData || []).map(p => [p.id, p.name]));
       const userMap = new Map((profilesData || []).map(u => [u.id, u.full_name]));
 
-      const enrichedReviews: Review[] = (reviewsData || []).map(review => ({
+      const enrichedReviews: Review[] = reviewsData.map((review) => ({
         ...review,
         property_name: propertyMap.get(review.property_id) || 'Unknown Property',
         user_name: review.is_team_review 
@@ -228,27 +223,33 @@ export default function ReviewsManagementPage() {
 
     setSubmittingTeamReview(true);
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .insert({
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await getHeadersForAdminFetch()),
+      };
+      const res = await fetch('/api/admin/reviews', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
           property_id: teamReviewForm.property_id,
           rating: teamReviewForm.rating,
           comment: teamReviewForm.comment,
-          status: 'approved',
-          is_team_review: true,
           reviewer_name: 'VibesBNB Team',
-          user_id: null,
-        });
-
-      if (error) throw error;
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to add team review');
+      }
 
       toast.success('Team review added successfully');
       setShowTeamReviewForm(false);
       setTeamReviewForm({ property_id: '', rating: 5, comment: '' });
       loadReviews();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding team review:', error);
-      toast.error('Failed to add team review');
+      const message = error instanceof Error ? error.message : 'Failed to add team review';
+      toast.error(message);
     } finally {
       setSubmittingTeamReview(false);
     }

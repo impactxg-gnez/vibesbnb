@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
 
 /**
  * Legacy: creates a host with a pre-confirmed email (admin client).
@@ -19,11 +20,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const password = typeof body.password === 'string' ? body.password : '';
     const name = typeof body.name === 'string' ? body.name.trim() : '';
 
-    if (!email || !password || !name) {
+    const emailCheck = validateSignupEmail(
+      typeof body.email === 'string' ? body.email : ''
+    );
+    if (!emailCheck.ok) {
+      return NextResponse.json({ error: emailCheck.error }, { status: 400 });
+    }
+    const email = emailCheck.email;
+
+    if (!password || !name) {
       return NextResponse.json(
         { error: 'Email, password, and name are required.' },
         { status: 400 }

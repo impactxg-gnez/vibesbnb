@@ -1,4 +1,5 @@
 import { computeBookingGrandTotal } from '@/lib/bookingTotals';
+import { computeLodgingWithBakedFee } from '@/lib/platformPricing';
 import {
   escapeHtml,
   invoiceTable,
@@ -89,25 +90,27 @@ export function buildBookingInvoiceContext(params: {
     wellnessLineItems: wellnessItems,
   });
 
-  let nightlyRate = nightly;
+  let hostNightlyRate = nightly;
   if (selectedUnits?.length) {
-    nightlyRate = selectedUnits.reduce((s, u) => s + (Number(u?.price) || 0), 0);
+    hostNightlyRate = selectedUnits.reduce((s, u) => s + (Number(u?.price) || 0), 0);
   }
-  const preService = nightlyRate * stayNights + cleaning;
-  const serviceFee = Math.round(preService * 0.1);
+  const lodging = computeLodgingWithBakedFee({
+    hostNightlyRate,
+    nights: stayNights,
+    hostCleaningFee: cleaning,
+  });
+  const serviceFee = lodging.platformFee;
   const wellnessTotal = wellnessItems.reduce((s, i) => s + i.price, 0);
-  const accommodationSubtotal = nightlyRate * stayNights;
 
   const lineItems: BookingInvoiceLine[] = [
     {
       label: `Accommodation (${stayNights} night${stayNights === 1 ? '' : 's'})`,
-      amount: accommodationSubtotal,
+      amount: lodging.travelerAccommodationSubtotal,
     },
   ];
-  if (cleaning > 0) {
-    lineItems.push({ label: 'Cleaning fee', amount: cleaning });
+  if (lodging.travelerCleaningFee > 0) {
+    lineItems.push({ label: 'Cleaning fee', amount: lodging.travelerCleaningFee });
   }
-  lineItems.push({ label: 'VibesBNB service fee (10%)', amount: serviceFee });
   for (const w of wellnessItems) {
     if (w.price > 0) {
       lineItems.push({ label: w.name, amount: w.price });
@@ -136,7 +139,7 @@ export function buildBookingInvoiceContext(params: {
     lineItems,
     serviceFee,
     totalPaid,
-    estimatedHostPayout: preService,
+    estimatedHostPayout: lodging.hostSubtotal,
     wellnessTotal,
     nights: stayNights,
     paymentReference: (booking.payment_intent_id as string) || null,
@@ -223,7 +226,7 @@ export function hostBookingConfirmationEmailHtml(ctx: BookingInvoiceContext, app
   const payoutBlock = ctx.payoutSummary
     ? `<div style="margin:20px 0;padding:16px;background:rgba(91,33,182,0.2);border:1px solid rgba(91,33,182,0.45);border-radius:12px;">
         <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#c4b5fd;">Payout information</p>
-        <p style="margin:4px 0;font-size:14px;color:#fff;">Estimated payout: <strong>${formatMoney(ctx.estimatedHostPayout)}</strong> (accommodation + cleaning, before platform service fee)</p>
+        <p style="margin:4px 0;font-size:14px;color:#fff;">Estimated payout: <strong>${formatMoney(ctx.estimatedHostPayout)}</strong> (your listed accommodation + cleaning)</p>
         <p style="margin:8px 0 4px;font-size:13px;color:${VIBESBNB_EMAIL.muted};">Deposit to:</p>
         <p style="margin:2px 0;font-size:14px;color:#fff;">${escapeHtml(ctx.payoutSummary.accountHolderName)}</p>
         <p style="margin:2px 0;font-size:14px;color:#fff;">${escapeHtml(ctx.payoutSummary.bankName)} · ${escapeHtml(ctx.payoutSummary.currency)}</p>

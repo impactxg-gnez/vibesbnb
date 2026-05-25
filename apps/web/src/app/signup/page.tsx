@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -44,6 +45,12 @@ export default function SignupPage() {
       return;
     }
 
+    const emailCheck = validateSignupEmail(formData.email);
+    if (!emailCheck.ok) {
+      toast.error(emailCheck.error);
+      return;
+    }
+
     submitGuardRef.current = true;
     setIsLoading(true);
 
@@ -51,7 +58,7 @@ export default function SignupPage() {
     const role = formData.accountType === 'traveler' ? 'traveller' : formData.accountType;
 
     try {
-      const { error } = await signUp(formData.email, formData.password, formData.name, role);
+      const { error } = await signUp(emailCheck.email, formData.password, formData.name, role);
 
       if (error) {
         toast.error(error.message || 'Failed to sign up');
@@ -160,7 +167,11 @@ export default function SignupPage() {
                 className="input !py-4"
                 placeholder="you@example.com"
                 disabled={isLoading}
+                autoComplete="email"
               />
+              <p className="text-xs text-muted ml-1">
+                Use a real inbox you can access. We&apos;ll send a verification link — temporary or fake emails are not allowed.
+              </p>
             </div>
 
             {/* Password */}

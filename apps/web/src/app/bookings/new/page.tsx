@@ -24,6 +24,7 @@ import {
   type WellnessBookingLineItem,
   wellnessCartSum,
 } from '@/lib/wellnessBookingCart';
+import { computeLodgingWithBakedFee, toTravelerPrice } from '@/lib/platformPricing';
 
 interface Property {
   id: string;
@@ -49,9 +50,9 @@ interface Property {
 
 interface PriceBreakdown {
   nights: number;
-  basePrice: number;
+  travelerNightlyRate: number;
+  accommodationSubtotal: number;
   cleaningFee: number;
-  serviceFee: number;
   wellnessTotal: number;
   total: number;
 }
@@ -228,15 +229,24 @@ export default function NewBookingPage() {
       return property.price || 0;
     };
 
-    const dailyPrice = getDailyPrice();
-    const basePrice = dailyPrice * nights;
+    const hostNightlyRate = getDailyPrice();
     const cleaningFee = property.cleaningFee || 0;
-    const preService = basePrice + cleaningFee;
-    const serviceFee = Math.round(preService * 0.1);
+    const lodging = computeLodgingWithBakedFee({
+      hostNightlyRate,
+      nights,
+      hostCleaningFee: cleaningFee,
+    });
     const wellnessTotal = wellnessCartSum(wellnessLineItems);
-    const total = preService + serviceFee + wellnessTotal;
+    const total = lodging.travelerLodgingTotal + wellnessTotal;
 
-    return { nights, basePrice, cleaningFee, serviceFee, wellnessTotal, total };
+    return {
+      nights,
+      travelerNightlyRate: lodging.travelerNightlyRate,
+      accommodationSubtotal: lodging.travelerAccommodationSubtotal,
+      cleaningFee: lodging.travelerCleaningFee,
+      wellnessTotal,
+      total,
+    };
   };
 
   const validateBookingForm = (): boolean => {
@@ -667,16 +677,17 @@ export default function NewBookingPage() {
                         {selectedUnits.map(unit => (
                           <div key={unit.id} className="flex justify-between text-sm">
                             <span className="text-white">{unit.name}</span>
-                            <span className="text-emerald-400 font-medium">${unit.price}</span>
+                            <span className="text-emerald-400 font-medium">${toTravelerPrice(unit.price || 0)}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">
-                          ${property.price} × {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
+                          ${priceBreakdown.travelerNightlyRate.toFixed(2)} × {priceBreakdown.nights}{' '}
+                          {priceBreakdown.nights === 1 ? 'night' : 'nights'}
                         </span>
-                        <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
+                        <span className="text-white">${priceBreakdown.accommodationSubtotal.toFixed(2)}</span>
                       </div>
                     )}
 
@@ -685,7 +696,7 @@ export default function NewBookingPage() {
                         <span className="text-gray-400">
                           Total for {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
                         </span>
-                        <span className="text-white">${priceBreakdown.basePrice.toFixed(2)}</span>
+                        <span className="text-white">${priceBreakdown.accommodationSubtotal.toFixed(2)}</span>
                       </div>
                     )}
 
@@ -695,11 +706,6 @@ export default function NewBookingPage() {
                         <span className="text-white">${priceBreakdown.cleaningFee.toFixed(2)}</span>
                       </div>
                     )}
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Service fee</span>
-                      <span className="text-white">${priceBreakdown.serviceFee.toFixed(2)}</span>
-                    </div>
 
                     {priceBreakdown.wellnessTotal > 0 && (
                       <>

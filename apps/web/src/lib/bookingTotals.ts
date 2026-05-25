@@ -1,4 +1,5 @@
 import { nightsBetweenYmd } from '@/lib/dateUtils';
+import { computeLodgingWithBakedFee } from '@/lib/platformPricing';
 
 export function computeBookingGrandTotal(params: {
   propertyNightlyPrice: number;
@@ -9,19 +10,23 @@ export function computeBookingGrandTotal(params: {
   wellnessLineItems: Array<{ price: number }>;
 }): { stayNights: number; grandTotal: number } {
   const stayNights = nightsBetweenYmd(params.checkInYmd, params.checkOutYmd);
-  let nightlyRate = params.propertyNightlyPrice;
+  let hostNightlyRate = params.propertyNightlyPrice;
   if (params.selectedUnits && params.selectedUnits.length > 0) {
-    nightlyRate = params.selectedUnits.reduce(
+    hostNightlyRate = params.selectedUnits.reduce(
       (sum, u) => sum + (Number(u?.price) || 0),
       0
     );
   }
-  const cleaning = params.cleaningFee;
-  const preService = nightlyRate * stayNights + cleaning;
-  const serviceFee = Math.round(preService * 0.1);
-  const lodgingTotal = preService + serviceFee;
-  const wellnessSuppliesTotal = params.wellnessLineItems.reduce((s, i) => s + (Number(i.price) || 0), 0);
-  return { stayNights, grandTotal: lodgingTotal + wellnessSuppliesTotal };
+  const { travelerLodgingTotal } = computeLodgingWithBakedFee({
+    hostNightlyRate,
+    nights: stayNights,
+    hostCleaningFee: params.cleaningFee,
+  });
+  const wellnessSuppliesTotal = params.wellnessLineItems.reduce(
+    (s, i) => s + (Number(i.price) || 0),
+    0
+  );
+  return { stayNights, grandTotal: travelerLodgingTotal + wellnessSuppliesTotal };
 }
 
 export function totalsMatchCents(a: number, b: number): boolean {

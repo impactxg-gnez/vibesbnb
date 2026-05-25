@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { toTravelerPrice } from '@/lib/platformPricing';
 
 interface Property {
   id: string;
@@ -326,7 +327,7 @@ export default function PropertiesMap({
             <div style="color: #000; min-width: 200px; cursor: pointer;" onclick="window.location.href='/listings/${property.id}'">
               <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 16px;">${property.name}</h3>
               <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${property.location}</p>
-              <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 16px;">$${property.price}/night</p>
+              <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 16px;">$${toTravelerPrice(property.price)}/night</p>
               ${property.status ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: ${property.status === 'active' ? '#10b981' : '#f59e0b'};">
                 ${property.status === 'active' ? '✓ Published' : 'Draft'}
               </p>` : ''}
@@ -342,7 +343,7 @@ export default function PropertiesMap({
                   <div style="padding: 8px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="window.location.href='/listings/${p.id}'">
                     <h4 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${p.name}</h4>
                     <p style="margin: 0 0 2px 0; color: #666; font-size: 12px;">${p.location}</p>
-                    <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 14px;">$${p.price}/night</p>
+                    <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 14px;">$${toTravelerPrice(p.price)}/night</p>
                   </div>
                 `).join('')}
               </div>

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
+import { toTravelerPrice } from '@/lib/platformPricing';
 
 interface FeaturedProperty {
     id: string;
@@ -201,7 +202,7 @@ export function FeaturedProperties() {
                                             <span className="text-muted text-xs ml-1">({property.reviews})</span>
                                         </div>
                                         <div>
-                                            <span className="text-white font-black text-2xl">${property.price}</span>
+                                            <span className="text-white font-black text-2xl">${toTravelerPrice(property.price)}</span>
                                             <span className="text-muted text-sm ml-1">/ night</span>
                                         </div>
                                     </div>

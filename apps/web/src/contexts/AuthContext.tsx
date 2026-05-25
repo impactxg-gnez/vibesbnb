@@ -10,6 +10,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
+import { isDemoAuthEmail, requiresEmailVerification } from '@/lib/auth/emailVerification';
+import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
 
 interface AuthContextType {
   user: User | null;
@@ -81,6 +83,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hostPendingPromotedRef = useRef(false);
   const profileSyncedRef = useRef(false);
 
+  const gateUnverifiedSession = async (sessionUser: User) => {
+    if (!requiresEmailVerification(sessionUser)) return true;
+    const path = typeof window !== 'undefined' ? window.location.pathname : '';
+    const allowed =
+      path.startsWith('/verify-email') ||
+      path.startsWith('/auth/') ||
+      path === '/signup' ||
+      path === '/login' ||
+      path === '/forgot-password' ||
+      path.startsWith('/reset-password');
+    if (allowed) return true;
+    await supabase.auth.signOut({ scope: 'local' });
+    router.push(
+      `/verify-email?email=${encodeURIComponent(sessionUser.email ?? '')}&reason=unverified`
+    );
+    return false;
+  };
+
   const syncProfileContact = async () => {
     if (profileSyncedRef.current || typeof window === 'undefined') return;
     profileSyncedRef.current = true;
@@ -93,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const persistSavedSession = (session: Session | null) => {
     if (!session?.user?.email || typeof window === 'undefined') return;
+    if (requiresEmailVerification(session.user)) return;
 
     try {
       const saved = localStorage.getItem(SAVED_SESSIONS_KEY);
@@ -121,6 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { data: { session }, error } = await supabase.auth.getSession();
             
             if (session && !error) {
+              if (session.user && !(await gateUnverifiedSession(session.user))) {
+                setSession(null);
+                setUser(null);
+                setLoading(false);
+                return;
+              }
               setSession(session);
               setUser(session?.user ?? null);
               persistSavedSession(session);
@@ -200,6 +227,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
 
         if (session?.user) {
+          if (!(await gateUnverifiedSession(session.user))) {
+            setSession(null);
+            setUser(null);
+            return;
+          }
           setSession(session);
           setUser(session.user);
           persistSavedSession(session);
@@ -398,11 +430,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Supabase authentication for non-demo accounts
     const { error, data } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
 
     if (!error && data.user) {
+      if (requiresEmailVerification(data.user) && !isDemoAuthEmail(data.user.email)) {
+        await supabase.auth.signOut({ scope: 'local' });
+        return {
+          error: {
+            message:
+              'Please verify your email before signing in. Check your inbox for the confirmation link.',
+            code: 'email_not_confirmed',
+          },
+        };
+      }
       if (typeof window !== 'undefined') {
         localStorage.removeItem('demoUser');
       }
@@ -459,6 +501,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, name: string, role: string = 'traveller') => {
     // Map 'traveler' to 'traveller' for consistency
     const normalizedRole = role === 'traveler' ? 'traveller' : role;
+
+    const emailCheck = validateSignupEmail(email);
+    if (!emailCheck.ok) {
+      return { error: { message: emailCheck.error } };
+    }
+    const normalizedEmail = emailCheck.email;
     
     if (!useSupabase) {
       // Demo mode - just create a mock user
@@ -504,7 +552,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let signUpResult: { error: any; data: any };
     try {
       signUpResult = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
           data: {
@@ -524,6 +572,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       : null;
 
     if (!error && data.user) {
+      // Do not keep a session until the inbox link is confirmed (when Supabase returns one).
+      if (data.session && requiresEmailVerification(data.user)) {
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+
       const rolesStr = localStorage.getItem('userRoles');
       const roles = rolesStr ? JSON.parse(rolesStr) : [];
       if (!roles.includes(normalizedRole)) {
@@ -532,7 +585,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (normalizedRole !== 'dispensary') {
-        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        router.push(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
       }
     }
 

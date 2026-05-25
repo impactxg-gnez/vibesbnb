@@ -21,5 +21,13 @@ export function formatAuthErrorMessage(error: { message?: string; code?: string;
     return 'Too many verification emails were sent from this browser or network. Please wait a few minutes, then try again or use Sign in if you already created an account.';
   }
 
+  if (
+    code === 'email_not_confirmed' ||
+    msg.includes('email not confirmed') ||
+    msg.includes('email not verified')
+  ) {
+    return 'Please verify your email before signing in. Check your inbox for the confirmation link, or use Resend on the verification page.';
+  }
+
   return error.message || 'Something went wrong';
 }

@@ -34,6 +34,7 @@ import LocationPicker from '@/components/LocationPicker';
 import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import { toTravelerPrice } from '@/lib/platformPricing';
 
 interface Room {
   id: string;
@@ -975,7 +976,12 @@ export default function NewPropertyPage() {
             min="0"
           />
         </div>
-        <p className="text-gray-400">per night</p>
+        <p className="text-gray-400">per night (your payout rate)</p>
+        {formData.price > 0 && (
+          <p className="text-gray-500 text-sm mt-3">
+            Guests will see ${toTravelerPrice(formData.price)} / night — platform fee is included in that price.
+          </p>
+        )}
       </div>
 
       {/* Extra Guest Policy */}
@@ -1112,10 +1118,12 @@ export default function NewPropertyPage() {
                 <p className="text-gray-400">{formData.location}</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-white">${formData.price}</p>
-                <p className="text-gray-400 text-sm">per night</p>
+                <p className="text-2xl font-bold text-white">${toTravelerPrice(formData.price)}</p>
+                <p className="text-gray-400 text-sm">per night (guest price)</p>
                 {formData.cleaningFee > 0 && (
-                  <p className="text-emerald-400/90 text-sm mt-1">+ ${formData.cleaningFee} cleaning / stay</p>
+                  <p className="text-emerald-400/90 text-sm mt-1">
+                    + ${toTravelerPrice(formData.cleaningFee)} cleaning / stay
+                  </p>
                 )}
               </div>
             </div>

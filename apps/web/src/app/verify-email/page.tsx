@@ -12,6 +12,7 @@ const RESEND_COOLDOWN_MS = 60_000;
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
+  const reason = searchParams.get('reason');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -69,8 +70,13 @@ function VerifyEmailContent() {
       </div>
       <h1 className="text-3xl font-bold text-white mb-4 tracking-tight text-center">Check your email</h1>
       <p className="text-gray-400 mb-8 leading-relaxed text-center">
-        We&apos;ve sent a verification link to your inbox. Tap the link to activate your VibesBNB account.
+        {reason === 'unverified'
+          ? 'Your email is not verified yet. Open the link we sent you, or resend it below — you need a verified email to book stays or use your dashboard.'
+          : "We've sent a verification link to your inbox. Tap the link to activate your VibesBNB account."}
       </p>
+      {email && (
+        <p className="text-sm text-gray-500 text-center mb-4 break-all">{email}</p>
+      )}
       <div className="p-4 bg-gray-800/60 rounded-2xl border border-gray-700/80">
         <p className="text-sm text-gray-400 text-center">
           Can&apos;t find it? Check <span className="text-white font-semibold">Spam</span> or{' '}

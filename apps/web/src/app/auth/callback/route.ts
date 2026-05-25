@@ -39,6 +39,11 @@ export async function GET(request: Request) {
         (user?.email_confirmed_at &&
           new Date(user.email_confirmed_at).getTime() > Date.now() - 5 * 60 * 1000);
 
+      if (type === 'recovery') {
+        const resetPath = next || '/reset-password';
+        return NextResponse.redirect(`${base}${resetPath}`);
+      }
+
       if (isEmailVerification) {
         const userRole = user?.user_metadata?.role;
         if (userRole === 'host' || userRole === 'host_pending') {

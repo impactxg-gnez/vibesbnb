@@ -17,6 +17,7 @@ import {
   nightsBetweenYmd,
   todayLocalYmd,
 } from '@/lib/dateUtils';
+import { toTravelerPrice } from '@/lib/platformPricing';
 
 interface Favorite {
   id: string;
@@ -541,7 +542,7 @@ export default function FavoritesPage() {
                         ))}
                       </div>
                       <p className="text-white font-bold text-lg">
-                        ${favorite.price}{' '}
+                        ${toTravelerPrice(favorite.price)}{' '}
                         <span className="font-normal text-gray-400 text-sm">/ night</span>
                       </p>
                       {hasDateFilter && nights > 0 ? (

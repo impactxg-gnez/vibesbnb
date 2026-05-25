@@ -22,6 +22,7 @@ import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryC
 import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
+import { toTravelerPrice } from '@/lib/platformPricing';
 
 interface HostProfile {
   id: string;
@@ -312,7 +313,7 @@ export default function UserProfilePage() {
                         alt={property.name}
                       />
                       <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/10">
-                        ${property.price} / night
+                        ${toTravelerPrice(property.price)} / night
                       </div>
                     </div>
                     <div className="p-6">

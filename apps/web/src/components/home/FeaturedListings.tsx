@@ -7,6 +7,7 @@ import { motion, useInView } from 'framer-motion';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
+import { toTravelerPrice } from '@/lib/platformPricing';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
@@ -170,7 +171,7 @@ export function FeaturedListings() {
                   />
                   
                   <div className="flex items-baseline gap-1 mt-4">
-                    <span className="text-3xl font-bold text-gray-900">${listing.price}</span>
+                    <span className="text-3xl font-bold text-gray-900">${toTravelerPrice(listing.price)}</span>
                     <span className="text-gray-600">/ night</span>
                   </div>
                 </div>

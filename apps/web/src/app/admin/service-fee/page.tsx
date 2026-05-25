@@ -63,7 +63,9 @@ export default function ManageServiceFeePage() {
       <div>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Manage Service Fee</h1>
-          <p className="text-gray-500 mt-1">Update the service fee percentage applied to bookings</p>
+          <p className="text-gray-500 mt-1">
+            Set the platform fee baked into guest-facing prices. Hosts enter their payout rate; guests see the marked-up total.
+          </p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl">
@@ -88,7 +90,7 @@ export default function ManageServiceFeePage() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-2">
-                This percentage will be added to all booking totals as a service fee.
+                This percentage is included in prices shown to travelers. It is not shown as a separate line at checkout.
               </p>
             </div>
 
@@ -97,16 +99,20 @@ export default function ManageServiceFeePage() {
               <h3 className="font-semibold text-gray-900 mb-2">Example Calculation</h3>
               <div className="space-y-1 text-sm text-gray-600">
                 <div className="flex justify-between">
-                  <span>Booking Amount:</span>
-                  <span>$100.00</span>
+                  <span>Host enters (payout rate):</span>
+                  <span>$100.00 / night</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Service Fee ({serviceFee}%):</span>
-                  <span>${((100 * serviceFee) / 100).toFixed(2)}</span>
+                  <span>Traveler sees:</span>
+                  <span>${(100 + Math.round((100 * serviceFee) / 100)).toFixed(2)} / night</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Platform keeps ({serviceFee}%):</span>
+                  <span>${Math.round((100 * serviceFee) / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Total:</span>
-                  <span>${(100 + (100 * serviceFee) / 100).toFixed(2)}</span>
+                  <span>Host receives:</span>
+                  <span>$100.00</span>
                 </div>
               </div>
             </div>

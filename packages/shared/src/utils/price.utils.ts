@@ -23,9 +23,10 @@ export function calculateBookingPrice(
     current.setDate(current.getDate() + 1);
   }
 
-  const serviceFee = Math.round(subtotal * (PLATFORM_FEE_PERCENT / 100));
-  const taxes = Math.round((subtotal + cleaningFee + serviceFee) * (TAX_RATE_PERCENT / 100));
-  const total = subtotal + cleaningFee + serviceFee + taxes;
+  const hostLodgingSubtotal = subtotal + cleaningFee;
+  const serviceFee = Math.round(hostLodgingSubtotal * (PLATFORM_FEE_PERCENT / 100));
+  const taxes = Math.round((hostLodgingSubtotal + serviceFee) * (TAX_RATE_PERCENT / 100));
+  const total = hostLodgingSubtotal + serviceFee + taxes;
 
   return {
     nights,

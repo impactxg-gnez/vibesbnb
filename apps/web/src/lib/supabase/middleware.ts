@@ -1,5 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { requiresEmailVerification } from '@/lib/auth/emailVerification';
+import { pathRequiresVerifiedEmail } from '@/lib/auth/protectedRoutes';
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -62,7 +64,18 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+  if (user && pathRequiresVerifiedEmail(pathname) && requiresEmailVerification(user)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/verify-email';
+    redirectUrl.searchParams.set('email', user.email ?? '');
+    redirectUrl.searchParams.set('reason', 'unverified');
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return response;
 }

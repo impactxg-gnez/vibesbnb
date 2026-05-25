@@ -21,6 +21,7 @@ import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
+import { toTravelerPrice } from '@/lib/platformPricing';
 
 interface HostProfile {
   id: string;
@@ -318,7 +319,7 @@ export default function HostProfilePage() {
                           className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                         />
                         <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-white text-xs font-semibold">
-                          ${property.price}/night
+                          ${toTravelerPrice(property.price)}/night
                         </div>
                       </div>
                       <div className="p-4">

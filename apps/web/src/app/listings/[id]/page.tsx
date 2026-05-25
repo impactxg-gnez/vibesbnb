@@ -48,6 +48,7 @@ import {
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
+import { computeLodgingWithBakedFee, toTravelerPrice } from '@/lib/platformPricing';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
@@ -171,6 +172,11 @@ export default function ListingDetailPage() {
   const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
   
   const stayDuration = calculateNights();
+
+  const primaryTeamReview = useMemo(
+    () => reviewsData.find((r) => r.is_team_review),
+    [reviewsData]
+  );
 
   useEffect(() => {
     setGalleryUseOriginal(false);
@@ -347,8 +353,13 @@ export default function ListingDetailPage() {
             ]);
 
             const profile = 'data' in profileResult ? profileResult.data : null;
-            const reviews =
+            const rawReviews =
               'data' in reviewsResult && reviewsResult.data ? reviewsResult.data : [];
+            const reviews = [...rawReviews].sort((a, b) => {
+              if (a.is_team_review && !b.is_team_review) return -1;
+              if (!a.is_team_review && b.is_team_review) return 1;
+              return 0;
+            });
 
             const host = {
               hostName: profile?.full_name || defaultHostName,
@@ -496,12 +507,21 @@ export default function ListingDetailPage() {
   };
 
   const wellnessTotal = wellnessCart.reduce((sum, item) => sum + item.price, 0);
-  const currentPrice = calculateTotalPrice();
-  const nightlySubtotal = stayDuration > 0 ? currentPrice * stayDuration : 0;
-  const cleaningFeeAmount = stayDuration > 0 ? property?.cleaningFee || 0 : 0;
-  const preServiceSubtotal = nightlySubtotal + cleaningFeeAmount;
-  const serviceFee = stayDuration > 0 ? Math.round(preServiceSubtotal * 0.1) : 0;
-  const finalTotal = stayDuration > 0 ? preServiceSubtotal + serviceFee + wellnessTotal : wellnessTotal;
+  const hostNightlyRate = calculateTotalPrice();
+  const displayNightlyRate = toTravelerPrice(hostNightlyRate);
+  const hostCleaningFee = property?.cleaningFee || 0;
+  const lodgingBreakdown =
+    stayDuration > 0
+      ? computeLodgingWithBakedFee({
+          hostNightlyRate,
+          nights: stayDuration,
+          hostCleaningFee,
+        })
+      : null;
+  const finalTotal =
+    lodgingBreakdown != null
+      ? lodgingBreakdown.travelerLodgingTotal + wellnessTotal
+      : wellnessTotal;
 
   if (loading) {
     return (
@@ -797,7 +817,7 @@ export default function ListingDetailPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-white font-bold">${room.price}</div>
+                        <div className="text-white font-bold">${toTravelerPrice(room.price)}</div>
                         <div className="text-xs text-gray-400">per night</div>
                       </div>
                     </div>
@@ -822,7 +842,11 @@ export default function ListingDetailPage() {
               <div className={`transition-all duration-500 overflow-hidden ${isAboutExpanded ? 'max-h-[2000px] border-t border-white/5' : 'max-h-0'}`}>
                 <div className="p-6 py-2 space-y-6">
                   {/* Two Categories Summary */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                  <div
+                    className={`grid grid-cols-1 gap-4 my-6 ${
+                      primaryTeamReview ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2'
+                    }`}
+                  >
                     {/* Category 1: AI Summary */}
                     <div className="bg-primary-500/5 border border-primary-500/20 rounded-2xl p-5 relative group overflow-hidden">
                       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -851,14 +875,68 @@ export default function ListingDetailPage() {
                       <div className="text-gray-300 text-sm leading-relaxed relative z-10">
                         {property.reviews > 0 ? (
                           <>
-                            Guests generally praise the <span className="text-white font-medium">cleanliness</span> and <span className="text-white font-medium">amenities</span>. 
-                            The average rating of <span className="text-white font-medium">{property.rating}★</span> suggests an exceptional stay experience based on {property.reviews} recent {property.reviews === 1 ? 'review' : 'reviews'}.
+                            {primaryTeamReview ? (
+                              <>
+                                This listing is <span className="text-white font-medium">verified by VibesBNB Trust & Safety</span>
+                                {property.reviews > 1 ? (
+                                  <>
+                                    {' '}
+                                    and has <span className="text-white font-medium">{property.reviews}</span> total{' '}
+                                    {property.reviews === 1 ? 'review' : 'reviews'}.
+                                  </>
+                                ) : (
+                                  '.'
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                Guests generally praise the <span className="text-white font-medium">cleanliness</span> and{' '}
+                                <span className="text-white font-medium">amenities</span>. The average rating of{' '}
+                                <span className="text-white font-medium">{property.rating}★</span> suggests an exceptional stay
+                                experience based on {property.reviews} recent {property.reviews === 1 ? 'review' : 'reviews'}.
+                              </>
+                            )}
                           </>
                         ) : (
                           <span className="text-gray-400 italic">There aren't many user reviews for this property yet. Be one of the first to share your experience!</span>
                         )}
                       </div>
                     </div>
+
+                    {/* VibesBNB Approved — Trust & Safety team review */}
+                    {primaryTeamReview && (
+                      <div className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-5 relative group overflow-hidden">
+                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <ShieldCheck size={48} className="text-purple-400" />
+                        </div>
+                        <div className="flex items-center gap-2 mb-3 text-purple-400 font-bold text-sm uppercase tracking-wider">
+                          <ShieldCheck size={16} />
+                          VibesBNB Approved
+                        </div>
+                        <div className="flex items-center gap-1 mb-3">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              size={14}
+                              className={
+                                i < (primaryTeamReview.rating || 5)
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-gray-600'
+                              }
+                            />
+                          ))}
+                          <span className="text-gray-500 text-xs ml-1">
+                            {primaryTeamReview.rating}/5 · Trust & Safety
+                          </span>
+                        </div>
+                        <p className="text-gray-300 text-sm leading-relaxed relative z-10">
+                          &ldquo;{primaryTeamReview.comment}&rdquo;
+                        </p>
+                        <p className="text-purple-400/80 text-xs mt-3 relative z-10 font-medium">
+                          {primaryTeamReview.reviewer_name || 'VibesBNB Team'}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Category 3: VibesBNB Take */}
                     {property.vibesbnb_take && (
@@ -1028,7 +1106,7 @@ export default function ListingDetailPage() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <div className="mb-6">
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-3xl font-bold text-white">${currentPrice}</span>
+                  <span className="text-3xl font-bold text-white">${displayNightlyRate}</span>
                   <span className="text-gray-400">/ night</span>
                 </div>
                 <PropertyListingRating
@@ -1119,16 +1197,16 @@ export default function ListingDetailPage() {
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
-                {stayDuration > 0 ? (
+                {stayDuration > 0 && lodgingBreakdown ? (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">${currentPrice} × {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
-                      <span className="text-white">${nightlySubtotal}</span>
+                      <span className="text-gray-400">${lodgingBreakdown.travelerNightlyRate} × {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
+                      <span className="text-white">${lodgingBreakdown.travelerAccommodationSubtotal}</span>
                     </div>
-                    {cleaningFeeAmount > 0 && (
+                    {lodgingBreakdown.travelerCleaningFee > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Cleaning fee (per stay)</span>
-                        <span className="text-white">${cleaningFeeAmount}</span>
+                        <span className="text-white">${lodgingBreakdown.travelerCleaningFee}</span>
                       </div>
                     )}
                     {wellnessCart.length > 0 && (
@@ -1140,10 +1218,6 @@ export default function ListingDetailPage() {
                         <span className="text-primary-500 font-bold">+ ${wellnessTotal}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Service fee</span>
-                      <span className="text-white">${serviceFee}</span>
-                    </div>
                     <div className="flex justify-between font-semibold pt-3 border-t border-gray-800">
                       <span className="text-white">Total</span>
                       <span className="text-white text-xl text-primary-500">${finalTotal}</span>
