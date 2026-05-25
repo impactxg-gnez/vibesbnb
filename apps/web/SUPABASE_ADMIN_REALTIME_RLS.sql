@@ -1,14 +1,10 @@
 -- Admin Realtime (postgres_changes): run in Supabase SQL Editor
 --
--- Supabase only delivers postgres_changes for rows the JWT may SELECT under RLS.
--- Sign in with a real Supabase session (not client demo shortcuts) so the browser
--- has a valid access token.
+-- PREREQUISITE: Run SUPABASE_00_SCHEMA_BOOTSTRAP.sql first if you saw
+--   "relation bookings does not exist" or "relation reviews does not exist".
 --
 -- Keep the email list inside is_vibesbnb_admin_jwt() in sync with
 -- apps/web/src/lib/auth/isAdmin.ts (ADMIN_EMAILS).
---
--- Also ensure these tables are in the Realtime publication (this block adds them if missing):
---   bookings, properties, pending_host_applications, pending_profile_pictures, dispensaries
 
 -- ---------------------------------------------------------------------------
 -- JWT helper: role = admin OR allowlisted admin email
@@ -37,55 +33,67 @@ REVOKE ALL ON FUNCTION public.is_vibesbnb_admin_jwt() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_vibesbnb_admin_jwt() TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- RLS: admins can read all rows (matches app isAdminUser)
+-- RLS: admins can read all rows (only on tables that exist)
 -- ---------------------------------------------------------------------------
 
-DROP POLICY IF EXISTS "Admins can view all bookings" ON bookings;
-CREATE POLICY "Admins can view all bookings"
-  ON bookings FOR SELECT
-  USING (public.is_vibesbnb_admin_jwt());
+DO $$
+BEGIN
+  IF to_regclass('public.bookings') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all bookings" ON public.bookings;
+    CREATE POLICY "Admins can view all bookings"
+      ON public.bookings FOR SELECT
+      USING (public.is_vibesbnb_admin_jwt());
+  END IF;
 
-DROP POLICY IF EXISTS "Admins can view all properties" ON properties;
-CREATE POLICY "Admins can view all properties"
-  ON properties FOR SELECT
-  USING (public.is_vibesbnb_admin_jwt());
+  IF to_regclass('public.properties') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all properties" ON public.properties;
+    CREATE POLICY "Admins can view all properties"
+      ON public.properties FOR SELECT
+      USING (public.is_vibesbnb_admin_jwt());
+  END IF;
 
-DROP POLICY IF EXISTS "Admins can view all pending host applications (jwt)" ON pending_host_applications;
-CREATE POLICY "Admins can view all pending host applications (jwt)"
-  ON pending_host_applications FOR SELECT
-  USING (public.is_vibesbnb_admin_jwt());
+  IF to_regclass('public.pending_host_applications') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all pending host applications (jwt)" ON public.pending_host_applications;
+    CREATE POLICY "Admins can view all pending host applications (jwt)"
+      ON public.pending_host_applications FOR SELECT
+      USING (public.is_vibesbnb_admin_jwt());
 
-DROP POLICY IF EXISTS "Admins can update pending host applications (jwt)" ON pending_host_applications;
-CREATE POLICY "Admins can update pending host applications (jwt)"
-  ON pending_host_applications FOR UPDATE
-  USING (public.is_vibesbnb_admin_jwt());
+    DROP POLICY IF EXISTS "Admins can update pending host applications (jwt)" ON public.pending_host_applications;
+    CREATE POLICY "Admins can update pending host applications (jwt)"
+      ON public.pending_host_applications FOR UPDATE
+      USING (public.is_vibesbnb_admin_jwt());
+  END IF;
 
--- Align with AdminLayout realtime + admin actions (role-only policies miss allowlisted emails)
-DROP POLICY IF EXISTS "Admins can view all profile pictures" ON pending_profile_pictures;
-CREATE POLICY "Admins can view all profile pictures"
-  ON pending_profile_pictures FOR SELECT
-  USING (public.is_vibesbnb_admin_jwt());
+  IF to_regclass('public.pending_profile_pictures') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can view all profile pictures" ON public.pending_profile_pictures;
+    CREATE POLICY "Admins can view all profile pictures"
+      ON public.pending_profile_pictures FOR SELECT
+      USING (public.is_vibesbnb_admin_jwt());
 
-DROP POLICY IF EXISTS "Admins can update profile pictures" ON pending_profile_pictures;
-CREATE POLICY "Admins can update profile pictures"
-  ON pending_profile_pictures FOR UPDATE
-  USING (public.is_vibesbnb_admin_jwt());
+    DROP POLICY IF EXISTS "Admins can update profile pictures" ON public.pending_profile_pictures;
+    CREATE POLICY "Admins can update profile pictures"
+      ON public.pending_profile_pictures FOR UPDATE
+      USING (public.is_vibesbnb_admin_jwt());
+  END IF;
 
-DROP POLICY IF EXISTS "Admins can read all dispensaries" ON dispensaries;
-DROP POLICY IF EXISTS "Admins can update dispensaries" ON dispensaries;
-DROP POLICY IF EXISTS "Admins can delete dispensaries" ON dispensaries;
-CREATE POLICY "Admins can read all dispensaries"
-  ON dispensaries FOR SELECT
-  USING (public.is_vibesbnb_admin_jwt());
-CREATE POLICY "Admins can update dispensaries"
-  ON dispensaries FOR UPDATE
-  USING (public.is_vibesbnb_admin_jwt());
-CREATE POLICY "Admins can delete dispensaries"
-  ON dispensaries FOR DELETE
-  USING (public.is_vibesbnb_admin_jwt());
+  IF to_regclass('public.dispensaries') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Admins can read all dispensaries" ON public.dispensaries;
+    DROP POLICY IF EXISTS "Admins can update dispensaries" ON public.dispensaries;
+    DROP POLICY IF EXISTS "Admins can delete dispensaries" ON public.dispensaries;
+    CREATE POLICY "Admins can read all dispensaries"
+      ON public.dispensaries FOR SELECT
+      USING (public.is_vibesbnb_admin_jwt());
+    CREATE POLICY "Admins can update dispensaries"
+      ON public.dispensaries FOR UPDATE
+      USING (public.is_vibesbnb_admin_jwt());
+    CREATE POLICY "Admins can delete dispensaries"
+      ON public.dispensaries FOR DELETE
+      USING (public.is_vibesbnb_admin_jwt());
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
--- Realtime publication (idempotent)
+-- Realtime publication (idempotent — skips missing tables)
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -96,11 +104,17 @@ DECLARE
     'properties',
     'pending_host_applications',
     'pending_profile_pictures',
-    'dispensaries'
+    'dispensaries',
+    'reviews'
   ];
 BEGIN
   FOREACH t IN ARRAY tables
   LOOP
+    IF to_regclass('public.' || t) IS NULL THEN
+      RAISE NOTICE 'Skipping realtime for missing table: %', t;
+      CONTINUE;
+    END IF;
+
     IF NOT EXISTS (
       SELECT 1
       FROM pg_publication_tables
@@ -112,3 +126,5 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+SELECT 'Admin JWT helper + conditional RLS/realtime applied.' AS status;
