@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
       .select(
-        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking'
+        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit'
       )
       .eq('id', property_id)
       .single();
@@ -145,6 +145,16 @@ export async function POST(request: NextRequest) {
       checkOutYmd: String(check_out),
       selectedUnits: selected_units,
       wellnessLineItems: wellnessLineItemsSanitized,
+      includedGuests: Number(propertyRow.guests) || 1,
+      adults: Number(guests) || 1,
+      kids: kids != null ? Number(kids) : 0,
+      pets: pets != null ? Number(pets) : 0,
+      allowExtraGuests: propertyRow.allow_extra_guests === true,
+      extraGuestPrice:
+        propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
+      refundableDeposit:
+        propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
+      applyCardFee: propertyRow.allow_direct_booking === true,
     });
 
     if (!totalsMatchCents(Number(total_price), expectedGrandTotal)) {

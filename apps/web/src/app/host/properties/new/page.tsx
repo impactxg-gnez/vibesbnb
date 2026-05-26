@@ -122,6 +122,7 @@ export default function NewPropertyPage() {
     allowExtraGuests: false,
     extraGuestPrice: 50,
     cleaningFee: 0,
+    refundableDeposit: 0,
     minBookingNights: null as number | null,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
@@ -337,6 +338,7 @@ export default function NewPropertyPage() {
         allow_extra_guests: formData.allowExtraGuests,
         extra_guest_price: formData.extraGuestPrice,
         cleaning_fee: formData.cleaningFee,
+        refundable_deposit: formData.refundableDeposit,
         min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
         latitude: formData.coordinates?.lat,
         longitude: formData.coordinates?.lng,
@@ -979,7 +981,7 @@ export default function NewPropertyPage() {
         <p className="text-gray-400">per night (your payout rate)</p>
         {formData.price > 0 && (
           <p className="text-gray-500 text-sm mt-3">
-            Guests will see ${toTravelerPrice(formData.price)} / night — platform fee is included in that price.
+            Guests will see ${formData.price} / night on your listing. Platform fee, taxes, and fees are itemized at checkout.
           </p>
         )}
       </div>
@@ -1037,6 +1039,30 @@ export default function NewPropertyPage() {
             value={formData.cleaningFee}
             onChange={(e) =>
               setFormData({ ...formData, cleaningFee: Math.max(0, parseInt(e.target.value, 10) || 0) })
+            }
+            className="w-full pl-8 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white"
+          />
+        </div>
+      </div>
+
+      <div className="mt-8 p-6 bg-gray-900 border border-gray-800 rounded-xl">
+        <h3 className="text-white font-medium mb-1">Refundable deposit (optional)</h3>
+        <p className="text-gray-400 text-sm mb-4">
+          Security deposit held for the stay and shown separately on the guest&apos;s reservation quote. Use $0 if
+          not required.
+        </p>
+        <div className="relative w-40">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={formData.refundableDeposit}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                refundableDeposit: Math.max(0, parseInt(e.target.value, 10) || 0),
+              })
             }
             className="w-full pl-8 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white"
           />
@@ -1118,11 +1144,16 @@ export default function NewPropertyPage() {
                 <p className="text-gray-400">{formData.location}</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-white">${toTravelerPrice(formData.price)}</p>
-                <p className="text-gray-400 text-sm">per night (guest price)</p>
+                <p className="text-2xl font-bold text-white">${formData.price}</p>
+                <p className="text-gray-400 text-sm">per night (listed rate)</p>
                 {formData.cleaningFee > 0 && (
                   <p className="text-emerald-400/90 text-sm mt-1">
-                    + ${toTravelerPrice(formData.cleaningFee)} cleaning / stay
+                    + ${formData.cleaningFee} cleaning / stay
+                  </p>
+                )}
+                {formData.refundableDeposit > 0 && (
+                  <p className="text-amber-200/90 text-sm mt-1">
+                    ${formData.refundableDeposit} refundable deposit
                   </p>
                 )}
               </div>

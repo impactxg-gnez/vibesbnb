@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink, Leaf } from 'lucide-react';
+import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
@@ -22,9 +22,9 @@ import {
   clearWellnessCartForBooking,
   loadWellnessCartForBooking,
   type WellnessBookingLineItem,
-  wellnessCartSum,
 } from '@/lib/wellnessBookingCart';
-import { computeLodgingWithBakedFee, toTravelerPrice } from '@/lib/platformPricing';
+import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import { ReservationQuote } from '@/components/booking/ReservationQuote';
 
 interface Property {
   id: string;
@@ -35,6 +35,9 @@ interface Property {
   guests: number;
   host_id?: string;
   cleaningFee?: number;
+  refundableDeposit?: number;
+  allowExtraGuests?: boolean;
+  extraGuestPrice?: number;
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
   /** Host-uploaded PDF URL (optional); snapshot stored on booking */
@@ -46,15 +49,6 @@ interface Property {
     price: number;
     guests: number;
   }>;
-}
-
-interface PriceBreakdown {
-  nights: number;
-  travelerNightlyRate: number;
-  accommodationSubtotal: number;
-  cleaningFee: number;
-  wellnessTotal: number;
-  total: number;
 }
 
 export default function NewBookingPage() {
@@ -76,13 +70,16 @@ export default function NewBookingPage() {
   // Initialize with URL params if available
   const initialCheckIn = searchParams.get('checkIn') || '';
   const initialCheckOut = searchParams.get('checkOut') || '';
-  
+  const initialGuests = Math.max(1, parseInt(searchParams.get('guests') || '1', 10) || 1);
+  const initialKids = Math.max(0, parseInt(searchParams.get('kids') || '0', 10) || 0);
+  const initialPets = Math.max(0, parseInt(searchParams.get('pets') || '0', 10) || 0);
+
   const [formData, setFormData] = useState({
     checkIn: initialCheckIn,
     checkOut: initialCheckOut,
-    guests: 1,
-    kids: 0,
-    pets: 0,
+    guests: initialGuests,
+    kids: initialKids,
+    pets: initialPets,
     specialRequests: '',
   });
   const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
@@ -155,6 +152,11 @@ export default function NewBookingPage() {
             : propertyRow.cleaningFee != null
               ? Number(propertyRow.cleaningFee)
               : 0,
+        refundableDeposit:
+          propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
+        allowExtraGuests: propertyRow.allow_extra_guests === true,
+        extraGuestPrice:
+          propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
         rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
         minBookingNights: normalizeMinBookingNights(propertyRow.min_booking_nights),
         allowDirectBooking: propertyRow.allow_direct_booking === true,
@@ -168,9 +170,10 @@ export default function NewBookingPage() {
         setSelectedUnits(filtered);
       }
 
+      const maxGuests = Number(propertyRow.guests ?? 1) || 1;
       setFormData((prev) => ({
         ...prev,
-        guests: Number(propertyRow.guests ?? 1) || 1,
+        guests: Math.min(Math.max(prev.guests, 1), maxGuests),
       }));
 
       await loadAvailability(String(propertyRow.id));
@@ -215,39 +218,27 @@ export default function NewBookingPage() {
     }
   };
 
-  const calculateTotal = (): PriceBreakdown | null => {
-    if (!property || !formData.checkIn || !formData.checkOut) return null;
-
-    const nights = nightsBetweenYmd(formData.checkIn, formData.checkOut);
-
-    if (nights <= 0) return null;
-
-    const getDailyPrice = () => {
-      if (selectedUnits.length > 0) {
-        return selectedUnits.reduce((sum, unit) => sum + (unit.price || 0), 0);
-      }
-      return property.price || 0;
-    };
-
-    const hostNightlyRate = getDailyPrice();
-    const cleaningFee = property.cleaningFee || 0;
-    const lodging = computeLodgingWithBakedFee({
-      hostNightlyRate,
-      nights,
-      hostCleaningFee: cleaningFee,
-    });
-    const wellnessTotal = wellnessCartSum(wellnessLineItems);
-    const total = lodging.travelerLodgingTotal + wellnessTotal;
-
-    return {
-      nights,
-      travelerNightlyRate: lodging.travelerNightlyRate,
-      accommodationSubtotal: lodging.travelerAccommodationSubtotal,
-      cleaningFee: lodging.travelerCleaningFee,
-      wellnessTotal,
-      total,
-    };
-  };
+  const bookingQuote =
+    property && formData.checkIn && formData.checkOut
+      ? buildBookingQuoteFromProperty({
+          property: {
+            price: property.price,
+            cleaning_fee: property.cleaningFee,
+            guests: property.guests,
+            allow_extra_guests: property.allowExtraGuests,
+            extra_guest_price: property.extraGuestPrice,
+            refundable_deposit: property.refundableDeposit,
+          },
+          checkInYmd: formData.checkIn,
+          checkOutYmd: formData.checkOut,
+          selectedUnits,
+          adults: formData.guests,
+          kids: formData.kids,
+          pets: formData.pets,
+          wellnessLineItems: wellnessLineItems,
+          applyCardFee: property.allowDirectBooking === true,
+        })
+      : null;
 
   const validateBookingForm = (): boolean => {
     if (!user || !property) return false;
@@ -285,8 +276,12 @@ export default function NewBookingPage() {
       return false;
     }
 
-    if (formData.guests > property.guests) {
+    if (!property.allowExtraGuests && formData.guests > property.guests) {
       toast.error(`This property can only accommodate ${property.guests} guests`);
+      return false;
+    }
+    if (property.allowExtraGuests && formData.guests < 1) {
+      toast.error('Please enter at least 1 adult');
       return false;
     }
 
@@ -313,8 +308,7 @@ export default function NewBookingPage() {
       }
     }
 
-    const priceBreakdown = calculateTotal();
-    if (!priceBreakdown) {
+    if (!bookingQuote) {
       toast.error('Please select valid dates to calculate the total price');
       return false;
     }
@@ -335,8 +329,7 @@ export default function NewBookingPage() {
     if (checkoutBookingId) return;
     if (!validateBookingForm() || !user || !property) return;
 
-    const priceBreakdown = calculateTotal();
-    if (!priceBreakdown) return;
+    if (!bookingQuote) return;
 
     const signed = agreementSignerName.trim();
 
@@ -367,7 +360,7 @@ export default function NewBookingPage() {
           guests: formData.guests,
           kids: formData.kids || 0,
           pets: formData.pets || 0,
-          total_price: priceBreakdown.total,
+          total_price: bookingQuote.grandTotal,
           special_requests: formData.specialRequests || '',
           wellness_line_items: wellnessLineItems,
           guest_name: user.user_metadata?.full_name || user.email || 'Guest',
@@ -432,7 +425,6 @@ export default function NewBookingPage() {
     );
   }
 
-  const priceBreakdown = calculateTotal();
   const agreementNotice = property
     ? buildGuestAgreementNotice({
         propertyName: property.name,
@@ -512,22 +504,26 @@ export default function NewBookingPage() {
                 </p>
               )}
 
-              {/* Guests */}
+              {/* Party size */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
                   <Users size={16} className="inline mr-2" />
-                  Number of Guests
+                  Adults
                 </label>
                 <input
                   type="number"
                   min={1}
-                  max={property.guests}
+                  max={property.allowExtraGuests ? undefined : property.guests}
                   value={formData.guests}
                   onChange={(e) => setFormData({ ...formData, guests: parseInt(e.target.value) || 1 })}
                   required
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                 />
-                <p className="text-xs text-gray-500 mt-1">Maximum {property.guests} guests</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {property.allowExtraGuests
+                    ? `Base rate includes up to ${property.guests} adults; extra guests are charged per night.`
+                    : `Maximum ${property.guests} adults`}
+                </p>
               </div>
 
               {/* Kids and Pets */}
@@ -642,7 +638,7 @@ export default function NewBookingPage() {
                 type="submit"
                 disabled={
                   submitting ||
-                  !priceBreakdown ||
+                  !bookingQuote ||
                   (property.allowDirectBooking && !!checkoutBookingId)
                 }
                 className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold text-lg"
@@ -666,73 +662,25 @@ export default function NewBookingPage() {
           {/* Price Summary */}
           <div className="lg:col-span-1">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
-              <h3 className="text-xl font-bold text-white mb-6">Price Summary</h3>
+              <h3 className="text-xl font-bold text-white mb-6">Reservation Quote</h3>
 
-              {priceBreakdown ? (
-                <>
-                  <div className="space-y-3 mb-6">
-                    {selectedUnits.length > 0 ? (
-                      <div className="space-y-2 mb-4 p-3 bg-gray-800/50 rounded-lg">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Units Selected</p>
-                        {selectedUnits.map(unit => (
-                          <div key={unit.id} className="flex justify-between text-sm">
-                            <span className="text-white">{unit.name}</span>
-                            <span className="text-emerald-400 font-medium">${toTravelerPrice(unit.price || 0)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">
-                          ${priceBreakdown.travelerNightlyRate.toFixed(2)} × {priceBreakdown.nights}{' '}
-                          {priceBreakdown.nights === 1 ? 'night' : 'nights'}
-                        </span>
-                        <span className="text-white">${priceBreakdown.accommodationSubtotal.toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    {selectedUnits.length > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">
-                          Total for {priceBreakdown.nights} {priceBreakdown.nights === 1 ? 'night' : 'nights'}
-                        </span>
-                        <span className="text-white">${priceBreakdown.accommodationSubtotal.toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    {priceBreakdown.cleaningFee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Cleaning fee (per stay)</span>
-                        <span className="text-white">${priceBreakdown.cleaningFee.toFixed(2)}</span>
-                      </div>
-                    )}
-
-                    {priceBreakdown.wellnessTotal > 0 && (
-                      <>
-                        <div className="flex items-center gap-2 text-xs font-semibold text-primary-400 uppercase tracking-wider pt-2">
-                          <Leaf size={14} />
-                          Wellness supplies
-                        </div>
-                        {wellnessLineItems.map((line, idx) => (
-                          <div key={`${line.id}-${idx}`} className="flex justify-between text-sm pl-2">
-                            <span className="text-gray-400 truncate pr-2" title={line.name}>
-                              {line.name}
-                            </span>
-                            <span className="text-white shrink-0">${Number(line.price).toFixed(2)}</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between text-sm border-t border-gray-800/80 pt-2">
-                          <span className="text-gray-400">Supplies subtotal</span>
-                          <span className="text-white">${priceBreakdown.wellnessTotal.toFixed(2)}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="pt-4 border-t border-gray-800 flex justify-between font-bold text-lg">
-                    <span className="text-white">Total</span>
-                    <span className="text-white">${priceBreakdown.total.toFixed(2)}</span>
-                  </div>
-                </>
+              {bookingQuote && property ? (
+                <ReservationQuote
+                  propertyName={property.name}
+                  checkInYmd={formData.checkIn}
+                  checkOutYmd={formData.checkOut}
+                  quote={bookingQuote}
+                  selectedUnits={
+                    selectedUnits.length > 0
+                      ? selectedUnits.map((u) => ({
+                          id: u.id,
+                          name: u.name,
+                          price: Number(u.price) || 0,
+                        }))
+                      : undefined
+                  }
+                  showCardFee={property.allowDirectBooking === true}
+                />
               ) : (
                 <p className="text-gray-400 text-sm">Select dates to see pricing</p>
               )}

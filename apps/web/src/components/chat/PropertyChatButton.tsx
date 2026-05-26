@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +38,20 @@ export default function PropertyChatButton({
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
 
   const openChat = async () => {
     if (!user) {
@@ -145,12 +160,20 @@ export default function PropertyChatButton({
         Message Host
       </button>
 
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/70 z-[200] flex items-center justify-center p-4">
-          <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col">
+      {mounted &&
+        isOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 isolate"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="property-chat-title"
+          >
+            <div className="absolute inset-0 bg-black/95" aria-hidden />
+            <div className="relative z-10 bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
               <div>
-                <h3 className="text-xl font-semibold text-white">
+                <h3 id="property-chat-title" className="text-xl font-semibold text-white">
                   Chat about {propertyName}
                 </h3>
                 <p className="text-sm text-gray-400">
@@ -265,9 +288,10 @@ export default function PropertyChatButton({
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

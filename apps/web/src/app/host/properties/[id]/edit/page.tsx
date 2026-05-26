@@ -44,6 +44,7 @@ interface Property {
   allowExtraGuests: boolean;
   extraGuestPrice: number;
   cleaningFee: number;
+  refundableDeposit: number;
   /** When set, guests must book at least this many nights */
   minBookingNights: number | null;
   /** When true, guests can pay immediately without messaging for approval first */
@@ -84,6 +85,7 @@ export default function EditPropertyPage() {
     allowExtraGuests: false,
     extraGuestPrice: 50,
     cleaningFee: 0,
+    refundableDeposit: 0,
     minBookingNights: null,
     allowDirectBooking: false,
     amenities: [],
@@ -205,6 +207,10 @@ export default function EditPropertyPage() {
               allowExtraGuests: propertyData.allow_extra_guests || false,
               extraGuestPrice: propertyData.extra_guest_price ? Number(propertyData.extra_guest_price) : 50,
               cleaningFee: propertyData.cleaning_fee != null ? Number(propertyData.cleaning_fee) : 0,
+              refundableDeposit:
+                propertyData.refundable_deposit != null
+                  ? Number(propertyData.refundable_deposit)
+                  : 0,
               amenities: propertyData.amenities || [],
               images: [],
               imagePreviewUrls: propertyData.images || [],
@@ -291,6 +297,12 @@ export default function EditPropertyPage() {
                     ? Number(property.cleaningFee)
                     : property.cleaning_fee != null
                       ? Number(property.cleaning_fee)
+                      : 0,
+                refundableDeposit:
+                  property.refundableDeposit != null
+                    ? Number(property.refundableDeposit)
+                    : property.refundable_deposit != null
+                      ? Number(property.refundable_deposit)
                       : 0,
                 amenities: property.amenities || [],
                 images: [],
@@ -615,6 +627,7 @@ export default function EditPropertyPage() {
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             cleaning_fee: formData.cleaningFee,
+            refundable_deposit: formData.refundableDeposit,
             min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
             allow_direct_booking: formData.allowDirectBooking,
             amenities: formData.amenities,
@@ -662,6 +675,8 @@ export default function EditPropertyPage() {
                   formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
                 cleaning_fee: formData.cleaningFee,
                 cleaningFee: formData.cleaningFee,
+                refundable_deposit: formData.refundableDeposit,
+                refundableDeposit: formData.refundableDeposit,
                 min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
                 minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
                 amenities: formData.amenities,
@@ -706,6 +721,8 @@ export default function EditPropertyPage() {
                   formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
                 cleaning_fee: formData.cleaningFee,
                 cleaningFee: formData.cleaningFee,
+                refundable_deposit: formData.refundableDeposit,
+                refundableDeposit: formData.refundableDeposit,
                 min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
                 minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
                 amenities: formData.amenities,
@@ -719,7 +736,7 @@ export default function EditPropertyPage() {
               }
             : p
         );
-
+        
         localStorage.setItem(`properties_${cacheScope}`, JSON.stringify(updatedProperties));
         toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
@@ -1127,6 +1144,30 @@ export default function EditPropertyPage() {
                 value={formData.cleaningFee}
                 onChange={(e) =>
                   setFormData({ ...formData, cleaningFee: Math.max(0, parseInt(e.target.value, 10) || 0) })
+                }
+                className="w-full pl-8 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-1">Refundable deposit</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Optional security deposit shown on the guest&apos;s reservation quote (separate from the grand total).
+              Use $0 if not required.
+            </p>
+            <div className="relative max-w-xs">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+              <input
+                type="number"
+                min="0"
+                value={formData.refundableDeposit}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    refundableDeposit: Math.max(0, parseInt(e.target.value, 10) || 0),
+                  })
                 }
                 className="w-full pl-8 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                 placeholder="0"

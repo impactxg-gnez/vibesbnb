@@ -25,6 +25,7 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'wellness_consumption_indoor_allowed',
   'wellness_consumption_outdoor_allowed',
   'cleaning_fee',
+  'refundable_deposit',
   'google_maps_url',
   'latitude',
   'longitude',

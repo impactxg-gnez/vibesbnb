@@ -1,5 +1,11 @@
 export const PLATFORM_FEE_PERCENT = 10;
-export const TAX_RATE_PERCENT = 8; // Varies by jurisdiction
+/** Florida sales tax applied to taxable lodging + platform fee + extras (wellness, extra guests). */
+export const SALES_TAX_PERCENT = 7;
+/** Tourist & development tax on the same taxable base. */
+export const TOURIST_DEVELOPMENT_TAX_PERCENT = 6;
+/** PayPal card processing fee shown at checkout when paying with PayPal. */
+export const PAYPAL_CARD_FEE_PERCENT = 3.99;
+export const TAX_RATE_PERCENT = 8; // Legacy shared util; booking quote uses SALES + TOURIST above
 export const MIN_BOOKING_DAYS = 1;
 export const MAX_BOOKING_DAYS = 90;
 export const MAX_GUESTS_PER_LISTING = 16;

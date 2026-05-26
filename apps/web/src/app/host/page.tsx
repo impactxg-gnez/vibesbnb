@@ -60,8 +60,8 @@ export default function HostPage() {
                 Become a <span className="text-primary-500">VibesBNB</span> Host
               </h1>
               <p className="text-lg sm:text-xl mb-10 text-muted leading-relaxed">
-                Share your wellness-friendly space with travelers who appreciate it. Create a host account, verify your
-                email, and you&apos;re in — hosts are not manually approved. Add listings from your dashboard when you&apos;re
+                Share your wellness friendly space with travelers who appreciate it. Create a host account, verify your
+                email, and you&apos;re in. Hosts are not manually approved. Add listings from your dashboard when you&apos;re
                 ready.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -118,9 +118,9 @@ export default function HostPage() {
                       🧘
                     </div>
                     <div>
-                      <h3 className="text-lg sm:text-xl font-bold mb-2 text-white">Wellness-Friendly</h3>
+                      <h3 className="text-lg sm:text-xl font-bold mb-2 text-white">Wellness Friendly</h3>
                       <p className="text-muted text-sm sm:text-base leading-relaxed">
-                        Connect with guests who respect and appreciate your wellness-friendly policies and amenities.
+                        Connect with guests who respect and appreciate your wellness friendly policies and amenities.
                       </p>
                     </div>
                   </div>
@@ -131,7 +131,7 @@ export default function HostPage() {
                 <div className="absolute top-0 right-0 w-40 h-40 bg-primary-500/20 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
                 <h3 className="text-xl sm:text-2xl font-bold text-white mb-4 relative z-10">Join our community</h3>
                 <p className="text-white/70 text-sm sm:text-base mb-8 relative z-10">
-                  Meet other VibesBNB hosts, swap hosting tips, and hear about product updates first — all in our Facebook
+                  Meet other VibesBNB hosts, swap hosting tips, and hear about product updates first, all in our Facebook
                   group.
                 </p>
                 <a
@@ -153,8 +153,8 @@ export default function HostPage() {
               <h2 className="text-3xl font-bold text-white mb-2">How it works</h2>
               <ol className="text-muted space-y-4 mt-8 list-decimal list-inside leading-relaxed">
                 <li>Choose <strong className="text-white">List my property (Host)</strong> on sign up.</li>
-                <li>Confirm your email — you&apos;ll go straight to your host dashboard.</li>
-                <li>Add a listing and publish — it can appear in search when marked active.</li>
+                <li>Confirm your email and you&apos;ll go straight to your host dashboard.</li>
+                <li>Add a listing and publish. It can appear in search when marked active.</li>
               </ol>
             </div>
           </div>

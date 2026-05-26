@@ -48,7 +48,8 @@ import {
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
-import { computeLodgingWithBakedFee, toTravelerPrice } from '@/lib/platformPricing';
+import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
@@ -69,6 +70,9 @@ interface Property {
   description: string;
   price: number;
   cleaningFee?: number;
+  refundableDeposit?: number;
+  allowExtraGuests?: boolean;
+  extraGuestPrice?: number;
   /** When set, stay must be at least this many nights */
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
@@ -165,6 +169,15 @@ export default function ListingDetailPage() {
   
   // Date selection state - initialized from URL params
   const [checkInDate, setCheckInDate] = useState<string>(searchParams.get('checkIn') || '');
+  const [partyAdults, setPartyAdults] = useState(
+    Math.max(1, parseInt(searchParams.get('guests') || '1', 10) || 1)
+  );
+  const [partyKids, setPartyKids] = useState(
+    Math.max(0, parseInt(searchParams.get('kids') || '0', 10) || 0)
+  );
+  const [partyPets, setPartyPets] = useState(
+    Math.max(0, parseInt(searchParams.get('pets') || '0', 10) || 0)
+  );
   const [checkOutDate, setCheckOutDate] = useState<string>(searchParams.get('checkOut') || '');
   const [openBookingChat, setOpenBookingChat] = useState(false);
   
@@ -319,6 +332,15 @@ export default function ListingDetailPage() {
               propertyData.min_booking_nights ?? propertyData.minBookingNights
             ),
             allowDirectBooking: propertyData.allow_direct_booking === true,
+            refundableDeposit:
+              propertyData.refundable_deposit != null
+                ? Number(propertyData.refundable_deposit)
+                : 0,
+            allowExtraGuests: propertyData.allow_extra_guests === true,
+            extraGuestPrice:
+              propertyData.extra_guest_price != null
+                ? Number(propertyData.extra_guest_price)
+                : 0,
           };
         };
 
@@ -440,7 +462,8 @@ export default function ListingDetailPage() {
     const selectedRoomsParam =
       selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
     const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
-    return `/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}`;
+    const partyParams = `&guests=${partyAdults}&kids=${partyKids}&pets=${partyPets}`;
+    return `/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}${partyParams}`;
   };
 
   const handleBooking = () => {
@@ -506,22 +529,31 @@ export default function ListingDetailPage() {
     toast.success(`Added ${item.name} to wellness supplies`);
   };
 
-  const wellnessTotal = wellnessCart.reduce((sum, item) => sum + item.price, 0);
   const hostNightlyRate = calculateTotalPrice();
-  const displayNightlyRate = toTravelerPrice(hostNightlyRate);
-  const hostCleaningFee = property?.cleaningFee || 0;
-  const lodgingBreakdown =
-    stayDuration > 0
-      ? computeLodgingWithBakedFee({
-          hostNightlyRate,
-          nights: stayDuration,
-          hostCleaningFee,
+  const displayNightlyRate = hostNightlyRate;
+  const selectedRoomsForQuote =
+    property?.rooms?.filter((room) => selectedRoomIds.includes(room.id)) ?? [];
+  const listingQuote =
+    property && checkInDate && checkOutDate && stayDuration > 0
+      ? buildBookingQuoteFromProperty({
+          property: {
+            price: property.price,
+            cleaning_fee: property.cleaningFee,
+            guests: property.guests,
+            allow_extra_guests: property.allowExtraGuests,
+            extra_guest_price: property.extraGuestPrice,
+            refundable_deposit: property.refundableDeposit,
+          },
+          checkInYmd: checkInDate,
+          checkOutYmd: checkOutDate,
+          selectedUnits: selectedRoomsForQuote,
+          adults: partyAdults,
+          kids: partyKids,
+          pets: partyPets,
+          wellnessLineItems: wellnessCart,
+          applyCardFee: property.allowDirectBooking === true,
         })
       : null;
-  const finalTotal =
-    lodgingBreakdown != null
-      ? lodgingBreakdown.travelerLodgingTotal + wellnessTotal
-      : wellnessTotal;
 
   if (loading) {
     return (
@@ -603,7 +635,7 @@ export default function ListingDetailPage() {
         {/* Image Gallery and Map Side by Side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Image Gallery */}
-          <div className="relative h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900">
+          <div className="relative z-0 h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900">
             <Image
               key={`${property.id}-${currentImageIndex}`}
               src={heroDisplaySrc}
@@ -784,8 +816,8 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Room/Unit Selection — optional; whole-property pricing applies when none selected */}
-            {property.rooms && property.rooms.length > 0 && (
+            {/* Room/Unit Selection — only when the listing has multiple bookable units */}
+            {property.rooms && property.rooms.length > 1 && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
                 <h2 className="text-2xl font-bold text-white mb-2">Available Units</h2>
                 <p className="text-sm text-gray-400 mb-6">
@@ -817,7 +849,7 @@ export default function ListingDetailPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-white font-bold">${toTravelerPrice(room.price)}</div>
+                        <div className="text-white font-bold">${room.price}</div>
                         <div className="text-xs text-gray-400">per night</div>
                       </div>
                     </div>
@@ -1167,6 +1199,51 @@ export default function ListingDetailPage() {
                 )}
               </div>
 
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                    Adults
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={partyAdults}
+                    onChange={(e) =>
+                      setPartyAdults(Math.max(1, parseInt(e.target.value, 10) || 1))
+                    }
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                    Kids
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={partyKids}
+                    onChange={(e) =>
+                      setPartyKids(Math.max(0, parseInt(e.target.value, 10) || 0))
+                    }
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                    Pets
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={partyPets}
+                    onChange={(e) =>
+                      setPartyPets(Math.max(0, parseInt(e.target.value, 10) || 0))
+                    }
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+              </div>
+
               <button
                 onClick={handleBooking}
                 disabled={!!(user && property?.hostId && String(property.hostId) === String(user.id))}
@@ -1196,35 +1273,21 @@ export default function ListingDetailPage() {
                   : 'Message the host first — after they approve, you can pay to secure your stay.'}
               </div>
 
-              <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
-                {stayDuration > 0 && lodgingBreakdown ? (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">${lodgingBreakdown.travelerNightlyRate} × {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
-                      <span className="text-white">${lodgingBreakdown.travelerAccommodationSubtotal}</span>
-                    </div>
-                    {lodgingBreakdown.travelerCleaningFee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Cleaning fee (per stay)</span>
-                        <span className="text-white">${lodgingBreakdown.travelerCleaningFee}</span>
-                      </div>
-                    )}
-                    {wellnessCart.length > 0 && (
-                      <div className="flex justify-between text-sm animate-in fade-in slide-in-from-left-2 transition-all">
-                        <span className="text-primary-500 font-medium flex items-center gap-1">
-                          <Leaf className="w-3 h-3" />
-                          Wellness Supplies ({wellnessCart.length})
-                        </span>
-                        <span className="text-primary-500 font-bold">+ ${wellnessTotal}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-semibold pt-3 border-t border-gray-800">
-                      <span className="text-white">Total</span>
-                      <span className="text-white text-xl text-primary-500">${finalTotal}</span>
-                    </div>
-                  </>
+              <div className="mt-6 pt-6 border-t border-gray-800">
+                {listingQuote && property && checkInDate && checkOutDate ? (
+                  <ReservationQuote
+                    propertyName={property.name}
+                    checkInYmd={checkInDate}
+                    checkOutYmd={checkOutDate}
+                    quote={listingQuote}
+                    selectedUnits={
+                      selectedRoomsForQuote.length > 0 ? selectedRoomsForQuote : undefined
+                    }
+                    showCardFee={property.allowDirectBooking === true}
+                    compact
+                  />
                 ) : (
-                  <p className="text-gray-400 text-sm text-center">Select dates to see total price</p>
+                  <p className="text-gray-400 text-sm text-center">Select dates to see your quote</p>
                 )}
               </div>
             </div>

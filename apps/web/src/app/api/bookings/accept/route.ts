@@ -68,7 +68,9 @@ export async function POST(request: NextRequest) {
 
     const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
-      .select('min_booking_nights, price, cleaning_fee')
+      .select(
+        'min_booking_nights, price, cleaning_fee, guests, allow_extra_guests, extra_guest_price, refundable_deposit, allow_direct_booking'
+      )
       .eq('id', booking.property_id)
       .single();
 
@@ -114,6 +116,16 @@ export async function POST(request: NextRequest) {
       checkOutYmd: finalCheckOut,
       selectedUnits: booking.selected_units,
       wellnessLineItems,
+      includedGuests: Number(propertyRow.guests) || 1,
+      adults: Number(booking.guests) || 1,
+      kids: booking.kids != null ? Number(booking.kids) : 0,
+      pets: booking.pets != null ? Number(booking.pets) : 0,
+      allowExtraGuests: propertyRow.allow_extra_guests === true,
+      extraGuestPrice:
+        propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
+      refundableDeposit:
+        propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
+      applyCardFee: propertyRow.allow_direct_booking === true,
     });
 
     const conflict = await assertStayDoesNotConflict(serviceSupabase, {
