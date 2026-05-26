@@ -49,7 +49,7 @@ export default function MessagesPage() {
     if (user && isAdminUser(user)) {
       loadConversations();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const loadConversations = async () => {
     try {

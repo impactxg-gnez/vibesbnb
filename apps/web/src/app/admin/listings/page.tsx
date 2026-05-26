@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import Link from 'next/link';
 import { setImpersonatedHost } from '@/lib/adminHostImpersonation';
+import { useAdminDataLoad } from '@/lib/admin/useAdminDataLoad';
 
 interface Property {
   id: string;
@@ -60,8 +61,6 @@ export default function ManageListingsPage() {
     maxPrice: '',
     status: searchParams.get('status') || 'all',
   });
-  const [loadingProperties, setLoadingProperties] = useState(true);
-
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -70,12 +69,6 @@ export default function ManageListingsPage() {
       router.push('/');
     }
   }, [user, loading, router]);
-
-  useEffect(() => {
-    if (user && isAdminUser(user)) {
-      loadProperties();
-    }
-  }, [user]);
 
   useEffect(() => {
     let filtered = properties;
@@ -114,8 +107,7 @@ export default function ManageListingsPage() {
     setFilteredProperties(filtered);
   }, [searchQuery, filters, properties]);
 
-  const loadProperties = async () => {
-    setLoadingProperties(true);
+  const loadProperties = useCallback(async () => {
     try {
       const headers = await getHeadersForAdminFetch();
       if (!headers.Authorization)
@@ -149,10 +141,14 @@ export default function ManageListingsPage() {
       const message =
         error instanceof Error && error.message ? error.message : 'Failed to load properties';
       toast.error(message);
-    } finally {
-      setLoadingProperties(false);
     }
-  };
+  }, []);
+
+  const { initialLoading: loadingProperties, reload: reloadProperties } = useAdminDataLoad(
+    user?.id,
+    Boolean(user && isAdminUser(user)),
+    loadProperties
+  );
 
   const [syncing, setSyncing] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -217,7 +213,7 @@ export default function ManageListingsPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to save');
       toast.success('Listing updated');
       setEditModalProperty(null);
-      loadProperties();
+      await reloadProperties({ silent: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to save');
     } finally {
@@ -248,7 +244,7 @@ export default function ManageListingsPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to delete');
       toast.success('Listing deleted');
       if (editModalProperty?.id === property.id) setEditModalProperty(null);
-      loadProperties();
+      await reloadProperties({ silent: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to delete');
     } finally {
@@ -277,7 +273,7 @@ export default function ManageListingsPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to approve property');
 
       toast.success('Property approved and published!');
-      loadProperties();
+      await reloadProperties({ silent: true });
     } catch (error: any) {
       console.error('Error approving property:', error);
       toast.error('Failed to approve property');
@@ -310,7 +306,7 @@ export default function ManageListingsPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to reject property');
 
       toast.success('Property rejected and moved to draft');
-      loadProperties();
+      await reloadProperties({ silent: true });
     } catch (error: any) {
       console.error('Error rejecting property:', error);
       toast.error('Failed to reject property');
@@ -337,7 +333,7 @@ export default function ManageListingsPage() {
       if (!response.ok) throw new Error(data.error || 'Failed to sync coordinates');
 
       toast.success(`Successfully synced ${data.summary.successful} property(ies)`, { id: toastId });
-      loadProperties();
+      await reloadProperties({ silent: true });
     } catch (error: any) {
       console.error('Sync error:', error);
       toast.error(error.message || 'An error occurred during sync', { id: toastId });

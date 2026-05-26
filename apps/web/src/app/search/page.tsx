@@ -39,6 +39,7 @@ interface Listing {
   price: number;
   rating?: number;
   reviews?: number;
+  hasTeamReview?: boolean;
   images: string[];
   type?: string;
   amenities?: string[];
@@ -349,6 +350,7 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
       price: p.price ? Number(p.price) : 0,
       rating: p.rating ? Number(p.rating) : 0,
       reviews: p.reviews_count || 0,
+      hasTeamReview: p.has_team_review === true,
       images,
       type: p.type || 'Property',
       amenities: p.amenities || [],
@@ -535,6 +537,7 @@ function ListingCard({
               <PropertyCardRatingBadge
                 rating={listing.rating}
                 reviewCount={listing.reviews}
+                hasTeamReview={listing.hasTeamReview}
                 createdAt={listing.createdAt}
               />
             </div>

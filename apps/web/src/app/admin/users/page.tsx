@@ -67,7 +67,7 @@ export default function ManageUsersPage() {
     if (user && isAdminUser(user)) {
       loadUsers();
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     filterUsers();
@@ -177,13 +177,21 @@ export default function ManageUsersPage() {
     }
 
     try {
-      const supabase = createClient();
-      await supabase.from('profiles').delete().eq('id', userId);
-      
-      setUsers(users.filter((u) => u.id !== userId));
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
+        throw new Error('No valid session — please sign in again.');
+      }
+      const res = await fetch(`/api/admin/users?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+        headers: { ...headers },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to delete user');
+
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
       toast.success('User deleted');
     } catch (error) {
-      toast.error('Failed to delete user');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete user');
     }
   };
 

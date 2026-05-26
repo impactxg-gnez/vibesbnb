@@ -71,7 +71,7 @@ export default function FeaturedRetreatsAdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, loadConfig, loadAllProperties]);
+  }, [user?.id, loadConfig, loadAllProperties]);
 
   const propertyById = useMemo(() => {
     const m = new Map<string, AdminProperty>();

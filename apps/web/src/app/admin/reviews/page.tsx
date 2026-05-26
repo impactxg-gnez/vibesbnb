@@ -66,7 +66,7 @@ export default function ReviewsManagementPage() {
       loadReviews();
       loadProperties();
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     let filtered = reviews;

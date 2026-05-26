@@ -6,6 +6,8 @@ import { shouldShowNewVibeBadge } from '@/lib/propertyNewVibe';
 type PropertyCardRatingBadgeProps = {
   rating?: number | null;
   reviewCount?: number | null;
+  /** True when a VibesBNB team review exists for the listing. */
+  hasTeamReview?: boolean | null;
   createdAt?: string | null;
   className?: string;
   /** Compact badge for tight card headers */
@@ -18,6 +20,7 @@ type PropertyCardRatingBadgeProps = {
 export function PropertyCardRatingBadge({
   rating,
   reviewCount,
+  hasTeamReview,
   createdAt,
   className = '',
   size = 'sm',
@@ -31,8 +34,19 @@ export function PropertyCardRatingBadge({
         : '—';
     return (
       <div
-        className={`flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0 ${className}`}
+        className={`flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0 ${className}`}
+        title={hasTeamReview ? 'Includes a VibesBNB team review' : undefined}
       >
+        {hasTeamReview ? (
+          <Image
+            src="/logo.png"
+            alt=""
+            width={14}
+            height={14}
+            className="object-contain shrink-0"
+            aria-hidden
+          />
+        ) : null}
         <span className="text-primary-500 text-xs" aria-hidden>
           ★
         </span>

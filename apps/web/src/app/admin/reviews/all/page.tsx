@@ -42,7 +42,7 @@ export default function AllReviewsPage() {
     if (user && isAdminUser(user)) {
       loadReviews();
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (searchQuery.trim()) {

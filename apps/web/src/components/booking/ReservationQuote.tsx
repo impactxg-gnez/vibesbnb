@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ChevronDown, ChevronRight, Leaf } from 'lucide-react';
 import type { BookingQuote, WellnessQuoteLine } from '@/lib/bookingQuote';
 import { formatCalendarDate } from '@/lib/dateUtils';
+import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import type { HostBadge } from '@/lib/hostBadge';
 
 function money(n: number): string {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -13,11 +16,20 @@ function formatStayDate(ymd: string): string {
   return formatCalendarDate(ymd, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+export type ReservationQuoteHost = {
+  id?: string;
+  name: string;
+  imageUrl?: string;
+  badge?: HostBadge | null;
+  joinedYear?: string;
+};
+
 export type ReservationQuoteProps = {
   propertyName: string;
   checkInYmd: string;
   checkOutYmd: string;
   quote: BookingQuote;
+  host?: ReservationQuoteHost | null;
   selectedUnits?: Array<{ id: string; name: string; price: number }>;
   showCardFee?: boolean;
   compact?: boolean;
@@ -28,12 +40,52 @@ export function ReservationQuote({
   checkInYmd,
   checkOutYmd,
   quote,
+  host,
   selectedUnits,
   showCardFee = false,
   compact = false,
 }: ReservationQuoteProps) {
   const [taxesOpen, setTaxesOpen] = useState(false);
   const hasTaxes = quote.salesTax > 0 || quote.touristTax > 0;
+  const hostAvatarSize = compact ? 'h-10 w-10' : 'h-12 w-12';
+  const hostSeed = host?.name?.trim() || 'Host';
+  const hostImage =
+    host?.imageUrl?.trim() ||
+    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostSeed)}`;
+
+  const hostBlock = host?.name ? (
+    <div className="flex gap-3 items-center min-w-0">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={hostImage}
+        alt=""
+        width={compact ? 40 : 48}
+        height={compact ? 40 : 48}
+        className={`${hostAvatarSize} shrink-0 rounded-full object-cover border border-gray-700 bg-gray-800`}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-0.5">
+          Hosted by
+        </p>
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {host.id ? (
+            <Link
+              href={`/users/${host.id}`}
+              className="text-white font-semibold leading-tight truncate hover:text-emerald-400 transition"
+            >
+              {host.name}
+            </Link>
+          ) : (
+            <p className="text-white font-semibold leading-tight truncate">{host.name}</p>
+          )}
+          {host.badge ? <HostStatusBadge badge={host.badge} size="sm" /> : null}
+        </div>
+        {host.joinedYear ? (
+          <p className="text-xs text-gray-500 mt-0.5">Hosting since {host.joinedYear}</p>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className={compact ? 'space-y-4' : 'space-y-5'}>
@@ -42,6 +94,7 @@ export function ReservationQuote({
           <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Property</p>
           <p className="text-white font-medium leading-snug">{propertyName}</p>
         </div>
+        {hostBlock ? <div className="pt-1">{hostBlock}</div> : null}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-gray-500">Check in</p>

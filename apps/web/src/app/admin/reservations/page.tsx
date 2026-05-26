@@ -54,7 +54,7 @@ export default function ManageReservationsPage() {
     if (user && isAdminUser(user)) {
       loadReservations();
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     let filtered = reservations;

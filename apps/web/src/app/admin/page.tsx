@@ -89,7 +89,7 @@ export default function AdminDashboard() {
     if (user && isAdminUser(user)) {
       fetchStats();
     }
-  }, [user, fetchStats]);
+  }, [user?.id, fetchStats]);
 
   useEffect(() => {
     if (!user || !isAdminUser(user)) return;
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
       clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [user, fetchStats]);
+  }, [user?.id, fetchStats]);
 
   const handleCleanupProperties = async () => {
     if (!confirm('This will clean up all property names (remove "Property Listing" prefix) and ensure all properties have at least 1 photo. Continue?')) {

@@ -125,6 +125,9 @@ export async function GET(request: NextRequest) {
     for (const b of bookingsData || []) {
       const userId = b.user_id as string | null;
       if (!userId || seenIds.has(userId)) continue;
+      // If a user was deleted from Supabase Auth and has no profile row,
+      // do not resurrect them from legacy bookings rows.
+      if (!authById.has(userId)) continue;
       seenIds.add(userId);
       const authInfo = authById.get(userId);
       extraUsers.push({
@@ -142,6 +145,8 @@ export async function GET(request: NextRequest) {
     for (const p of propertiesData || []) {
       const hostId = p.host_id as string | null;
       if (!hostId || seenIds.has(hostId)) continue;
+      // Avoid resurrecting deleted hosts via orphaned properties rows.
+      if (!authById.has(hostId)) continue;
       seenIds.add(hostId);
       const authInfo = authById.get(hostId);
       extraUsers.push({
@@ -185,6 +190,42 @@ export async function GET(request: NextRequest) {
   } catch (e: unknown) {
     console.error('[admin/users GET]', e);
     const message = e instanceof Error ? e.message : 'Failed to load users';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await authenticateAdminRequest(request);
+    if ('response' in auth) return auth.response;
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId')?.trim();
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
+    }
+
+    const service = createServiceClient();
+
+    // Delete from Supabase Auth first (best-effort; some demo/legacy users may not exist).
+    const { error: authDeleteErr } = await service.auth.admin.deleteUser(userId);
+    if (authDeleteErr) {
+      console.warn('[admin/users DELETE] auth delete:', authDeleteErr.message);
+    }
+
+    // Clean up profile row so it disappears from the admin UI list.
+    const { error: profileDeleteErr } = await service
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+    if (profileDeleteErr) {
+      console.warn('[admin/users DELETE] profile delete:', profileDeleteErr.message);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    console.error('[admin/users DELETE]', e);
+    const message = e instanceof Error ? e.message : 'Failed to delete user';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

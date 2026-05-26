@@ -78,7 +78,7 @@ export default function ReportManagementPage() {
     if (user && isAdminUser(user)) {
       loadReports();
     }
-  }, [user, loadReports]);
+  }, [user?.id, loadReports]);
 
   useEffect(() => {
     if (!user || !isAdminUser(user)) return;
@@ -99,7 +99,7 @@ export default function ReportManagementPage() {
       clearTimeout(t);
       supabase.removeChannel(ch);
     };
-  }, [user, loadReports]);
+  }, [user?.id, loadReports]);
 
   const handleExport = () => {
     if (!reportData) return;

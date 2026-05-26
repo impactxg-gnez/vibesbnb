@@ -25,6 +25,7 @@ import {
 } from '@/lib/wellnessBookingCart';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
+import type { HostBadge } from '@/lib/hostBadge';
 
 interface Property {
   id: string;
@@ -34,6 +35,9 @@ interface Property {
   images: string[];
   guests: number;
   host_id?: string;
+  hostName?: string;
+  hostImage?: string;
+  hostJoinedYear?: string;
   cleaningFee?: number;
   refundableDeposit?: number;
   allowExtraGuests?: boolean;
@@ -83,6 +87,7 @@ export default function NewBookingPage() {
     specialRequests: '',
   });
   const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
+  const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
   const bookingPropertyReloadRef = useRef<string | null>(null);
   const agreementSignerSeedRef = useRef<string | null>(null);
 
@@ -116,6 +121,7 @@ export default function NewBookingPage() {
 
   const loadProperty = async () => {
     setLoading(true);
+    setHostDisplayBadge(null);
     try {
       const supabase = createClient();
       const { data: rawProperty, error } = await supabase
@@ -132,6 +138,44 @@ export default function NewBookingPage() {
       }
 
       const propertyRow = rawProperty as unknown as Record<string, unknown>;
+      const hostId =
+        propertyRow.host_id != null ? String(propertyRow.host_id) : undefined;
+      const defaultHostName = 'Property Host';
+      const defaultHostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${hostId || 'host'}`;
+
+      let hostName = defaultHostName;
+      let hostImage = defaultHostImage;
+      let hostJoinedYear: string | undefined;
+
+      if (hostId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url, created_at')
+          .eq('id', hostId)
+          .maybeSingle();
+        if (profile?.full_name) hostName = String(profile.full_name);
+        if (profile?.avatar_url) hostImage = String(profile.avatar_url);
+        if (profile?.created_at) {
+          hostJoinedYear = new Date(String(profile.created_at)).getFullYear().toString();
+        }
+
+        fetch('/api/hosts/badge-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostId }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((payload) => {
+            if (payload?.badge === 'superbud' || payload?.badge === 'vibesetter') {
+              setHostDisplayBadge(payload.badge);
+            } else {
+              setHostDisplayBadge(null);
+            }
+          })
+          .catch(() => setHostDisplayBadge(null));
+      } else {
+        setHostDisplayBadge(null);
+      }
 
       setProperty({
         id: String(propertyRow.id),
@@ -140,7 +184,10 @@ export default function NewBookingPage() {
         price: propertyRow.price != null ? Number(propertyRow.price) : 0,
         images: Array.isArray(propertyRow.images) ? (propertyRow.images as string[]) : [],
         guests: Number(propertyRow.guests ?? 1) || 1,
-        host_id: propertyRow.host_id != null ? String(propertyRow.host_id) : undefined,
+        host_id: hostId,
+        hostName,
+        hostImage,
+        hostJoinedYear,
         guest_agreement_url:
           typeof propertyRow.guest_agreement_url === 'string'
             ? propertyRow.guest_agreement_url
@@ -670,6 +717,17 @@ export default function NewBookingPage() {
                   checkInYmd={formData.checkIn}
                   checkOutYmd={formData.checkOut}
                   quote={bookingQuote}
+                  host={
+                    property.hostName
+                      ? {
+                          id: property.host_id,
+                          name: property.hostName,
+                          imageUrl: property.hostImage,
+                          badge: hostDisplayBadge,
+                          joinedYear: property.hostJoinedYear,
+                        }
+                      : null
+                  }
                   selectedUnits={
                     selectedUnits.length > 0
                       ? selectedUnits.map((u) => ({

@@ -23,6 +23,8 @@ const PROPERTY_BROWSE_FALLBACK_COLUMNS = [
   'location',
   'price',
   'rating',
+  'reviews_count',
+  'has_team_review',
   'images',
   'type',
   'guests',

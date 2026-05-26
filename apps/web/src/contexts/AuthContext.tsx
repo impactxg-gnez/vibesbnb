@@ -233,7 +233,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
           setSession(session);
-          setUser(session.user);
+          // TOKEN_REFRESHED on tab focus must not replace `user` with a new object reference,
+          // or admin forms refetch and lose unsaved edits.
+          setUser((prev) =>
+            event === 'TOKEN_REFRESHED' && prev?.id === session.user.id ? prev : session.user
+          );
           persistSavedSession(session);
           void syncProfileContact();
           if (typeof window !== 'undefined') {

@@ -152,10 +152,15 @@ export default function ListingDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [reviewsData, setReviewsData] = useState<any[]>([]);
+  const [isReviewsModalOpen, setIsReviewsModalOpen] = useState(false);
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
   const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
+
+  const openReviewsModal = () => {
+    setIsReviewsModalOpen(true);
+  };
 
   const scrollToReviews = () => {
     setIsAboutExpanded(true);
@@ -586,6 +591,104 @@ export default function ListingDetailPage() {
   return (
     <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4">
+        {isReviewsModalOpen && property && (
+          <div
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reviews-modal-title"
+          >
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              aria-label="Close reviews"
+              onClick={() => setIsReviewsModalOpen(false)}
+            />
+            <div className="relative z-10 w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/10 bg-gray-950 shadow-2xl">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+                <div className="min-w-0">
+                  <h2 id="reviews-modal-title" className="text-lg sm:text-xl font-bold text-white truncate">
+                    Reviews for {property.name}
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    {property.reviews} {property.reviews === 1 ? 'review' : 'reviews'} · {property.rating}★
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsReviewsModalOpen(false)}
+                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition text-sm font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto custom-scrollbar max-h-[calc(85vh-4.25rem)]">
+                {reviewsData.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {reviewsData.map((review) => (
+                      <div
+                        key={review.id}
+                        className={`bg-white/5 border rounded-2xl p-5 ${
+                          review.is_team_review ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          {review.is_team_review ? (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center border border-purple-400/30">
+                              <span className="text-white text-xs font-bold">VB</span>
+                            </div>
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                review.profiles?.avatar_url ||
+                                `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`
+                              }
+                              className="w-10 h-10 rounded-full border border-white/10"
+                              alt="reviewer"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`font-bold text-sm truncate ${
+                                  review.is_team_review ? 'text-purple-400' : 'text-white'
+                                }`}
+                              >
+                                {review.is_team_review
+                                  ? review.reviewer_name || 'VibesBNB Team'
+                                  : review.profiles?.full_name || 'Guest'}
+                              </span>
+                              {review.is_team_review && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/20 text-purple-400 rounded">
+                                  VibesBNB review
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-500 text-xs">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                            <span className="text-primary-500 text-[10px]">★</span>
+                            <span className="text-white text-[10px] font-bold">{review.rating}</span>
+                          </div>
+                        </div>
+                        <p className="text-gray-400 text-sm italic">"{review.comment}"</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center text-gray-500">
+                    <MessageSquare size={32} className="mx-auto mb-3 opacity-20" />
+                    <p>No reviews for this property yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Back Button */}
         <Link
           href="/search"
@@ -608,7 +711,7 @@ export default function ListingDetailPage() {
                 rating={property.rating}
                 reviewCount={property.reviews}
                 createdAt={property.createdAt}
-                onClick={scrollToReviews}
+                onClick={openReviewsModal}
                 starSize={18}
               />
             </div>
@@ -1044,7 +1147,11 @@ export default function ListingDetailPage() {
                           ))}
                         </div>
                         {property.reviews > 4 && (
-                          <button className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors">
+                          <button
+                            type="button"
+                            onClick={openReviewsModal}
+                            className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors"
+                          >
                             Show all {property.reviews} reviews
                           </button>
                         )}
@@ -1145,7 +1252,7 @@ export default function ListingDetailPage() {
                   rating={property.rating}
                   reviewCount={property.reviews}
                   createdAt={property.createdAt}
-                  onClick={scrollToReviews}
+                  onClick={openReviewsModal}
                   starSize={16}
                   className="text-sm"
                 />
@@ -1280,6 +1387,13 @@ export default function ListingDetailPage() {
                     checkInYmd={checkInDate}
                     checkOutYmd={checkOutDate}
                     quote={listingQuote}
+                    host={{
+                      id: property.hostId,
+                      name: property.hostName,
+                      imageUrl: property.hostImage,
+                      badge: hostDisplayBadge,
+                      joinedYear: property.hostJoinedDate,
+                    }}
                     selectedUnits={
                       selectedRoomsForQuote.length > 0 ? selectedRoomsForQuote : undefined
                     }

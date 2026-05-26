@@ -46,7 +46,7 @@ export default function ProfilePicturesPage() {
     if (user && isAdminUser(user)) {
       loadPictures();
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     let filtered = pictures;

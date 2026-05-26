@@ -69,7 +69,7 @@ export default function DocumentVerificationPage() {
     if (user && isAdminUser(user)) {
       loadDocuments();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const filtered = useMemo(() => {
     if (statusFilter === 'all') return documents;
