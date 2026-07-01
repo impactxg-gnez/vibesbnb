@@ -117,7 +117,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Host Registrations', href: '/admin/hosts', icon: <UserPlus className="w-5 h-5" /> },
     { label: 'Dispensary Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
       { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
-    { label: 'Property Approvals', href: '/admin/listings', icon: <Building className="w-5 h-5" /> },
+    { label: 'Property Management', href: '/admin/listings', icon: <Building className="w-5 h-5" /> },
     { label: 'Profile Pictures', href: '/admin/profile-pictures', icon: <Image className="w-5 h-5" /> },
     { label: 'Manage Reservations', href: '/admin/reservations', icon: <Calendar className="w-5 h-5" /> },
     { label: 'Reviews Management', href: '/admin/reviews', icon: <Star className="w-5 h-5" /> },
@@ -142,7 +142,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   // Get badge count for a nav item
   const getBadgeCount = (label: string): number => {
-    if (label === 'Property Approvals') return pendingPropertyCount;
+    if (label === 'Property Management') return pendingPropertyCount;
     if (label === 'Host Registrations') return pendingHostCount;
     if (label === 'Profile Pictures') return pendingPictureCount;
     if (label === 'Dispensary Applications') return pendingDispensaryCount;

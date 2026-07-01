@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Star, Search, Check, X, Plus, MessageSquarePlus, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -32,6 +32,7 @@ interface Property {
 export default function ReviewsManagementPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -60,6 +61,11 @@ export default function ReviewsManagementPage() {
       router.push('/');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const propertyId = searchParams.get('property');
+    if (propertyId) setPropertyFilter(propertyId);
+  }, [searchParams]);
 
   useEffect(() => {
     if (user && isAdminUser(user)) {

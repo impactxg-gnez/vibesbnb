@@ -400,7 +400,7 @@ Check browser console for full details and property data.`;
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-1">{statsData.listings?.total ?? 0}</div>
             <div className="text-sm text-gray-600 font-medium">Properties</div>
-            <p className="mt-4 text-xs text-gray-500">Manage all listings</p>
+            <p className="mt-4 text-xs text-gray-500">Property management</p>
           </div>
 
           {/* Pending Dispensary Applications */}

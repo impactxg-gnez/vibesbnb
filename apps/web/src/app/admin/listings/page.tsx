@@ -19,12 +19,14 @@ import {
   Clock,
   Trash2,
   X,
+  PanelRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import Link from 'next/link';
 import { setImpersonatedHost } from '@/lib/adminHostImpersonation';
 import { useAdminDataLoad } from '@/lib/admin/useAdminDataLoad';
+import { AdminTeamReviewForm } from '@/components/admin/AdminTeamReviewForm';
 
 interface Property {
   id: string;
@@ -152,7 +154,7 @@ export default function ManageListingsPage() {
 
   const [syncing, setSyncing] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [editModalProperty, setEditModalProperty] = useState<Property | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',
     location: '',
@@ -166,8 +168,8 @@ export default function ManageListingsPage() {
   const [savingQuickEdit, setSavingQuickEdit] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const openQuickEdit = (property: Property) => {
-    setEditModalProperty(property);
+  const openPropertyManagement = (property: Property) => {
+    setSelectedProperty(property);
     setEditForm({
       name: (property.name || property.title || '').trim(),
       location: (property.location || '').trim(),
@@ -180,8 +182,15 @@ export default function ManageListingsPage() {
     });
   };
 
+  useEffect(() => {
+    const propertyId = searchParams.get('property');
+    if (!propertyId || properties.length === 0) return;
+    const match = properties.find((p) => p.id === propertyId);
+    if (match) openPropertyManagement(match);
+  }, [searchParams, properties]);
+
   const handleSaveQuickEdit = async () => {
-    if (!editModalProperty) return;
+    if (!selectedProperty) return;
     if (editForm.price !== '' && !Number.isFinite(Number(editForm.price))) {
       toast.error('Please enter a valid price');
       return;
@@ -197,7 +206,7 @@ export default function ManageListingsPage() {
           ...authHeaders,
         },
         body: JSON.stringify({
-          propertyId: editModalProperty.id,
+          propertyId: selectedProperty.id,
           name: editForm.name.trim(),
           title: editForm.name.trim(),
           location: editForm.location.trim(),
@@ -212,8 +221,20 @@ export default function ManageListingsPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to save');
       toast.success('Listing updated');
-      setEditModalProperty(null);
       await reloadProperties({ silent: true });
+      setSelectedProperty((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: editForm.name.trim(),
+              title: editForm.name.trim(),
+              location: editForm.location.trim(),
+              price: editForm.price === '' ? prev.price : Number(editForm.price),
+              description: editForm.description,
+              status: editForm.status,
+            }
+          : null
+      );
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to save');
     } finally {
@@ -243,7 +264,7 @@ export default function ManageListingsPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to delete');
       toast.success('Listing deleted');
-      if (editModalProperty?.id === property.id) setEditModalProperty(null);
+      if (selectedProperty?.id === property.id) setSelectedProperty(null);
       await reloadProperties({ silent: true });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Failed to delete');
@@ -274,6 +295,10 @@ export default function ManageListingsPage() {
 
       toast.success('Property approved and published!');
       await reloadProperties({ silent: true });
+      if (selectedProperty?.id === propertyId) {
+        setSelectedProperty((prev) => (prev ? { ...prev, status: 'active' } : null));
+        setEditForm((f) => ({ ...f, status: 'active' }));
+      }
     } catch (error: any) {
       console.error('Error approving property:', error);
       toast.error('Failed to approve property');
@@ -307,6 +332,10 @@ export default function ManageListingsPage() {
 
       toast.success('Property rejected and moved to draft');
       await reloadProperties({ silent: true });
+      if (selectedProperty?.id === propertyId) {
+        setSelectedProperty((prev) => (prev ? { ...prev, status: 'draft' } : null));
+        setEditForm((f) => ({ ...f, status: 'draft' }));
+      }
     } catch (error: any) {
       console.error('Error rejecting property:', error);
       toast.error('Failed to reject property');
@@ -360,7 +389,12 @@ export default function ManageListingsPage() {
     <AdminLayout>
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Manage Listings</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Property Management</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Select a property to edit details, approve listings, or publish team reviews.
+            </p>
+          </div>
           <button
             onClick={handleSyncAllCoordinates}
             disabled={syncing}
@@ -420,8 +454,9 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
         {/* Properties Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${selectedProperty ? 'xl:flex-1' : 'w-full lg:grid-cols-3'}`}>
           {filteredProperties.length === 0 ? (
             <div className="col-span-full text-center py-12">
               <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -431,7 +466,12 @@ export default function ManageListingsPage() {
             filteredProperties.map((property) => (
               <div
                 key={property.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition"
+                className={`bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition cursor-pointer ${
+                  selectedProperty?.id === property.id
+                    ? 'border-purple-500 ring-2 ring-purple-200'
+                    : 'border-gray-200'
+                }`}
+                onClick={() => openPropertyManagement(property)}
               >
                 {/* Image */}
                 <div className="relative h-48 bg-gray-200">
@@ -499,22 +539,20 @@ export default function ManageListingsPage() {
                     </div>
                   )}
 
-                  {/* Reviews Link */}
-                  {property.rating && (
-                    <div className="mb-3">
-                      <Link
-                        href={`/admin/reviews?property=${property.id}`}
-                        className="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
-                      >
-                        <Star className="w-4 h-4" />
-                        View Reviews ({property.rating.toFixed(1)})
-                      </Link>
+                  {/* Reviews */}
+                  <div className="mb-3">
+                    <div className="text-sm text-gray-600 flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      {property.rating ? property.rating.toFixed(1) : 'No rating yet'}
                     </div>
-                  )}
+                  </div>
 
                   {/* Approval Actions for Pending Properties */}
                   {property.status === 'pending_approval' && (
-                    <div className="flex items-center gap-2 pt-3 border-t border-gray-200 mb-3">
+                    <div
+                      className="flex items-center gap-2 pt-3 border-t border-gray-200 mb-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => handleApproveProperty(property.id)}
                         disabled={approvingId === property.id}
@@ -541,7 +579,20 @@ export default function ManageListingsPage() {
                   {/* Actions */}
                   <div
                     className={`flex flex-col gap-2 ${property.status !== 'pending_approval' ? 'pt-3 border-t border-gray-200' : ''}`}
+                    onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      type="button"
+                      onClick={() => openPropertyManagement(property)}
+                      className={`w-full px-3 py-2 rounded-lg transition text-sm flex items-center justify-center gap-1 ${
+                        selectedProperty?.id === property.id
+                          ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                          : 'bg-purple-600 text-white hover:bg-purple-700'
+                      }`}
+                    >
+                      <PanelRight className="w-4 h-4" />
+                      {selectedProperty?.id === property.id ? 'Selected' : 'Manage'}
+                    </button>
                     <div className="flex gap-2">
                       <Link
                         href={`/listings/${property.id}`}
@@ -553,12 +604,12 @@ export default function ManageListingsPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => openQuickEdit(property)}
+                        onClick={() => openPropertyManagement(property)}
                         disabled={deletingId === property.id}
                         className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm flex items-center justify-center gap-1 disabled:opacity-50"
                       >
                         <Edit className="w-4 h-4" />
-                        Quick edit
+                        Edit
                       </button>
                     </div>
                     <div className="flex gap-2">
@@ -598,34 +649,59 @@ export default function ManageListingsPage() {
           )}
         </div>
 
-        {editModalProperty && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50">
-            <div
-              className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-200"
-              role="dialog"
-              aria-labelledby="admin-quick-edit-title"
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-                <h2 id="admin-quick-edit-title" className="text-lg font-bold text-gray-900">
-                  Quick edit listing
+        {selectedProperty && (
+          <aside className="w-full xl:w-[380px] shrink-0 xl:sticky xl:top-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-900 truncate">
+                  {selectedProperty.name || selectedProperty.title}
                 </h2>
-                <button
-                  type="button"
-                  onClick={() => setEditModalProperty(null)}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <p className="text-xs text-gray-500 font-mono truncate">{selectedProperty.id}</p>
               </div>
-              <div className="p-5 space-y-4">
-                <p className="text-sm text-gray-500">
-                  ID: <span className="font-mono text-gray-700">{editModalProperty.id}</span>
-                </p>
+              <button
+                type="button"
+                onClick={() => setSelectedProperty(null)}
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 shrink-0"
+                aria-label="Close panel"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto">
+              {selectedProperty.status === 'pending_approval' && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApproveProperty(selectedProperty.id)}
+                    disabled={approvingId === selectedProperty.id}
+                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                  >
+                    {approvingId === selectedProperty.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRejectProperty(selectedProperty.id)}
+                    disabled={approvingId === selectedProperty.id}
+                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Reject
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-900">Listing details</h3>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Name</label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
                     value={editForm.name}
                     onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                   />
@@ -633,7 +709,7 @@ export default function ManageListingsPage() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
                   <input
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
                     value={editForm.location}
                     onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
                   />
@@ -644,7 +720,7 @@ export default function ManageListingsPage() {
                     <input
                       type="number"
                       min={0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
                       value={editForm.price}
                       onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
                     />
@@ -652,7 +728,7 @@ export default function ManageListingsPage() {
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Status</label>
                     <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
                       value={editForm.status}
                       onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
                     >
@@ -663,87 +739,73 @@ export default function ManageListingsPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Bedrooms</label>
-                    <input
-                      type="number"
-                      min={0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
-                      value={editForm.bedrooms}
-                      onChange={(e) => setEditForm((f) => ({ ...f, bedrooms: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Bathrooms</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
-                      value={editForm.bathrooms}
-                      onChange={(e) => setEditForm((f) => ({ ...f, bathrooms: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Guests</label>
-                    <input
-                      type="number"
-                      min={0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
-                      value={editForm.guests}
-                      onChange={(e) => setEditForm((f) => ({ ...f, guests: e.target.value }))}
-                    />
-                  </div>
-                </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
                   <textarea
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm"
                     value={editForm.description}
                     onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                   />
                 </div>
-                <p className="text-xs text-gray-500">
-                  For photos, amenities, and advanced fields, use{' '}
-                  <Link
-                    href={`/host/properties/${editModalProperty.id}/edit`}
-                    onClick={() => {
-                      if (editModalProperty.host_id) {
-                        setImpersonatedHost(
-                          editModalProperty.host_id,
-                          editModalProperty.host_name || editModalProperty.host_email || 'Host'
-                        );
-                      }
-                    }}
-                    className="text-purple-600 font-semibold hover:underline"
-                  >
-                    Full editor
-                  </Link>
-                  .
-                </p>
-              </div>
-              <div className="flex gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50">
-                <button
-                  type="button"
-                  onClick={() => setEditModalProperty(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white"
-                >
-                  Cancel
-                </button>
                 <button
                   type="button"
                   onClick={handleSaveQuickEdit}
                   disabled={savingQuickEdit || !editForm.name.trim()}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold"
                 >
-                  {savingQuickEdit ? 'Saving…' : 'Save changes'}
+                  {savingQuickEdit ? 'Saving…' : 'Save listing changes'}
+                </button>
+              </div>
+
+              <div className="border-t border-gray-200 pt-5">
+                <AdminTeamReviewForm
+                  propertyId={selectedProperty.id}
+                  propertyName={selectedProperty.name || selectedProperty.title}
+                  onSubmitted={async () => {
+                    await reloadProperties({ silent: true });
+                    const headers = await getHeadersForAdminFetch();
+                    const res = await fetch('/api/admin/properties', { headers: { ...headers } });
+                    const payload = await res.json().catch(() => ({}));
+                    if (res.ok && payload.properties) {
+                      const updated = payload.properties.find(
+                        (p: Property) => p.id === selectedProperty.id
+                      );
+                      if (updated) {
+                        setSelectedProperty((prev) => (prev ? { ...prev, rating: updated.rating } : null));
+                      }
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-gray-200 pt-5">
+                <Link
+                  href={`/listings/${selectedProperty.id}`}
+                  target="_blank"
+                  className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm text-center"
+                >
+                  View public listing
+                </Link>
+                <Link
+                  href={`/admin/reviews?property=${selectedProperty.id}`}
+                  className="w-full px-3 py-2 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 text-sm text-center"
+                >
+                  View all reviews
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProperty(selectedProperty)}
+                  disabled={deletingId === selectedProperty.id}
+                  className="w-full px-3 py-2 border border-red-200 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm disabled:opacity-50"
+                >
+                  {deletingId === selectedProperty.id ? 'Deleting…' : 'Delete listing'}
                 </button>
               </div>
             </div>
-          </div>
+          </aside>
         )}
+        </div>
       </div>
     </AdminLayout>
   );
