@@ -17,7 +17,7 @@
   "crons": [
     {
       "path": "/api/cron/calendar-sync-batch",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
