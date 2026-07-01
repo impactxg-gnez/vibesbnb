@@ -8,6 +8,7 @@ import { Star, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { createClient } from '@/lib/supabase/client';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Review {
   id: string;
@@ -64,14 +65,25 @@ export default function AllReviewsPage() {
     setLoadingReviews(true);
     const supabase = createClient();
     try {
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from('reviews')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const headers = await getHeadersForAdminFetch();
+      const res = await fetch('/api/admin/reviews', { headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to load reviews');
+      }
+      const reviewsData = (payload.reviews || []) as Array<{
+        id: string;
+        property_id: string;
+        user_id: string | null;
+        reviewer_name?: string;
+        is_team_review?: boolean;
+        rating: number;
+        comment: string;
+        status: 'pending' | 'approved' | 'rejected';
+        created_at: string;
+      }>;
 
-      if (reviewsError) throw reviewsError;
-
-      const propertyIds = [...new Set((reviewsData || []).map((r) => r.property_id))];
+      const propertyIds = [...new Set(reviewsData.map((r) => r.property_id))];
       const { data: propertiesData } = await supabase
         .from('properties')
         .select('id, name')
@@ -79,7 +91,7 @@ export default function AllReviewsPage() {
 
       const userIds = [
         ...new Set(
-          (reviewsData || [])
+          reviewsData
             .filter((r) => r.user_id)
             .map((r) => r.user_id as string)
         ),
@@ -92,7 +104,7 @@ export default function AllReviewsPage() {
       const propertyMap = new Map((propertiesData || []).map((p) => [p.id, p.name]));
       const userMap = new Map((profilesData || []).map((u) => [u.id, u.full_name]));
 
-      const enriched: Review[] = (reviewsData || []).map((review) => ({
+      const enriched: Review[] = reviewsData.map((review) => ({
         id: review.id,
         property_id: review.property_id,
         property_name: propertyMap.get(review.property_id) || 'Unknown Property',

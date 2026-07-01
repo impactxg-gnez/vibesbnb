@@ -72,7 +72,7 @@ function VerifyEmailContent() {
       <p className="text-gray-400 mb-8 leading-relaxed text-center">
         {reason === 'unverified'
           ? 'Your email is not verified yet. Open the link we sent you, or resend it below — you need a verified email to book stays or use your dashboard.'
-          : "We've sent a verification link to your inbox. Tap the link to activate your VibesBNB account."}
+          : "We've sent a verification link to your inbox. Tap the link to activate your VibesBNB account. After that, you'll verify your phone with a one-time SMS code before booking."}
       </p>
       {email && (
         <p className="text-sm text-gray-500 text-center mb-4 break-all">{email}</p>

@@ -12,6 +12,7 @@ import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import { isDemoAuthEmail, requiresEmailVerification } from '@/lib/auth/emailVerification';
 import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
+import { getAuthRedirectOrigin } from '@/lib/supabase/authRedirect';
 
 interface AuthContextType {
   user: User | null;
@@ -22,7 +23,13 @@ interface AuthContextType {
     password: string,
     options?: { returnTo?: string | null }
   ) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string, role?: string) => Promise<{ error: any; data?: any }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    role?: string,
+    phone?: string
+  ) => Promise<{ error: any; data?: any }>;
   signOut: (options?: { preserveSavedAccounts?: boolean }) => Promise<void>;
   signInWithGoogle: (returnTo?: string | null) => Promise<void>;
 }
@@ -502,7 +509,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, name: string, role: string = 'traveller') => {
+  const signUp = async (
+    email: string,
+    password: string,
+    name: string,
+    role: string = 'traveller',
+    phone?: string
+  ) => {
     // Map 'traveler' to 'traveller' for consistency
     const normalizedRole = role === 'traveler' ? 'traveller' : role;
 
@@ -520,6 +533,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user_metadata: {
           full_name: name,
           role: normalizedRole,
+          phone: phone || null,
         },
         app_metadata: {},
         aud: 'authenticated',
@@ -541,7 +555,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (normalizedRole === 'host') {
         router.push('/host/properties');
       } else if (normalizedRole !== 'dispensary') {
-        router.push('/');
+        router.push(phone ? '/verify-phone' : '/');
       }
       
       router.refresh();
@@ -562,8 +576,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: name,
             role: normalizedRole,
+            ...(phone ? { phone } : {}),
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
+          emailRedirectTo: `${getAuthRedirectOrigin()}/auth/callback?type=signup`,
         },
       });
     } finally {
@@ -589,7 +604,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (normalizedRole !== 'dispensary') {
-        router.push(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
+        if (data.session && !requiresEmailVerification(data.user) && phone) {
+          router.push('/verify-phone');
+        } else {
+          const verifyPhoneParam = phone ? `&phone=${encodeURIComponent(phone)}` : '';
+          router.push(`/verify-email?email=${encodeURIComponent(normalizedEmail)}${verifyPhoneParam}`);
+        }
       }
     }
 
@@ -625,14 +645,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!useSupabase) {
       throw new Error('OAuth is only available with Supabase. Please use demo accounts or set up Supabase.');
     }
+    const origin = getAuthRedirectOrigin();
+    if (!origin) {
+      throw new Error('Could not determine app URL for Google sign-in.');
+    }
     const safe = safeInternalReturnPath(returnTo ?? null);
     const q = safe ? `?next=${encodeURIComponent(safe)}` : '';
-    await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback${q}`,
+        redirectTo: `${origin}/auth/callback${q}`,
       },
     });
+    if (error) {
+      throw new Error(
+        error.message ||
+          'Google sign-in failed. Enable Google under Supabase Dashboard → Authentication → Providers.'
+      );
+    }
+    if (data?.url) {
+      window.location.assign(data.url);
+    } else {
+      throw new Error(
+        'Google sign-in could not start. Enable Google in Supabase and add your callback URL to Redirect URLs.'
+      );
+    }
   };
 
   const value = {

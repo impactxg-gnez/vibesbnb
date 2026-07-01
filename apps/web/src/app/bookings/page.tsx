@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
+import { isBookingEligibleForReview } from '@/lib/reviews/eligibility';
 
 /** Guest booking list — avoid select('*') on wide booking rows */
 const BOOKING_GUEST_LIST_COLUMNS = [
@@ -54,6 +55,8 @@ interface Booking {
 export default function BookingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const payBookingId = searchParams.get('pay');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [tab, setTab] = useState<'upcoming' | 'cancelled'>('upcoming');
@@ -69,6 +72,19 @@ export default function BookingsPage() {
       loadBookings();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!payBookingId || loadingBookings || bookings.length === 0) return;
+    const el = document.getElementById(`booking-${payBookingId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-yellow-400');
+      const t = window.setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-yellow-400');
+      }, 4000);
+      return () => window.clearTimeout(t);
+    }
+  }, [payBookingId, loadingBookings, bookings]);
 
   const loadBookings = async () => {
     setLoadingBookings(true);
@@ -254,7 +270,8 @@ export default function BookingsPage() {
                 .map((booking) => (
                 <div
                   key={booking.id}
-                  className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-emerald-500/50 transition"
+                  id={`booking-${booking.id}`}
+                  className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-emerald-500/50 transition scroll-mt-24"
                 >
                   <div className="flex flex-col md:flex-row">
                     <Link
@@ -412,6 +429,19 @@ export default function BookingsPage() {
                             <p className="text-red-400 text-sm">You cancelled this booking.</p>
                           )}
                         </div>
+                      )}
+                      {isBookingEligibleForReview({
+                        status: booking.status,
+                        checkOut: booking.checkOut,
+                        payment_status: booking.payment_status,
+                      }) && (
+                        <Link
+                          href={`/listings/${booking.propertyId}#reviews-section`}
+                          className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-400 hover:text-emerald-300"
+                        >
+                          <Star className="w-4 h-4" />
+                          Leave a review
+                        </Link>
                       )}
                     </div>
                   </div>

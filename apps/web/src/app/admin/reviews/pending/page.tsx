@@ -8,6 +8,7 @@ import { Star, Search, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { createClient } from '@/lib/supabase/client';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 
 interface Review {
   id: string;
@@ -64,15 +65,25 @@ export default function PendingReviewsPage() {
     setLoadingReviews(true);
     const supabase = createClient();
     try {
-      const { data: reviewsData, error: reviewsError } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+      const headers = await getHeadersForAdminFetch();
+      const res = await fetch('/api/admin/reviews?status=pending', { headers });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to load pending reviews');
+      }
+      const reviewsData = (payload.reviews || []) as Array<{
+        id: string;
+        property_id: string;
+        user_id: string | null;
+        reviewer_name?: string;
+        is_team_review?: boolean;
+        rating: number;
+        comment: string;
+        status: 'pending' | 'approved' | 'rejected';
+        created_at: string;
+      }>;
 
-      if (reviewsError) throw reviewsError;
-
-      const propertyIds = [...new Set((reviewsData || []).map((r) => r.property_id))];
+      const propertyIds = [...new Set(reviewsData.map((r) => r.property_id))];
       const { data: propertiesData } = await supabase
         .from('properties')
         .select('id, name')
@@ -80,7 +91,7 @@ export default function PendingReviewsPage() {
 
       const userIds = [
         ...new Set(
-          (reviewsData || [])
+          reviewsData
             .filter((r) => r.user_id)
             .map((r) => r.user_id as string)
         ),
@@ -93,7 +104,7 @@ export default function PendingReviewsPage() {
       const propertyMap = new Map((propertiesData || []).map((p) => [p.id, p.name]));
       const userMap = new Map((profilesData || []).map((u) => [u.id, u.full_name]));
 
-      const enriched: Review[] = (reviewsData || []).map((review) => ({
+      const enriched: Review[] = reviewsData.map((review) => ({
         id: review.id,
         property_id: review.property_id,
         property_name: propertyMap.get(review.property_id) || 'Unknown Property',
@@ -120,38 +131,46 @@ export default function PendingReviewsPage() {
   };
 
   const handleApproveReview = async (reviewId: string) => {
-    const supabase = createClient();
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .update({ status: 'approved' })
-        .eq('id', reviewId);
-
-      if (error) throw error;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await getHeadersForAdminFetch()),
+      };
+      const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: 'approved' }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to approve review');
 
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
       setFilteredReviews((prev) => prev.filter((r) => r.id !== reviewId));
       toast.success('Review approved');
-    } catch {
-      toast.error('Failed to approve review');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to approve review');
     }
   };
 
   const handleRejectReview = async (reviewId: string) => {
-    const supabase = createClient();
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .update({ status: 'rejected' })
-        .eq('id', reviewId);
-
-      if (error) throw error;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await getHeadersForAdminFetch()),
+      };
+      const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: 'rejected' }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to reject review');
 
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
       setFilteredReviews((prev) => prev.filter((r) => r.id !== reviewId));
       toast.success('Review rejected');
-    } catch {
-      toast.error('Failed to reject review');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reject review');
     }
   };
 

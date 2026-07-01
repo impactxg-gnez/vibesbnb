@@ -20,7 +20,7 @@ import {
   Save,
   ChevronRight
 } from 'lucide-react';
-import { resolveDispensaryItemImageUrl } from '@/lib/dispensaryInventoryImage';
+import { DispensaryItemImage } from '@/components/dispensary/DispensaryItemImage';
 
 interface Dispensary {
   id: string;
@@ -374,9 +374,10 @@ export default function DispensaryDashboard() {
               {inventory.map(item => (
                 <div key={item.id} className="card group">
                   <div className="relative h-48">
-                    <img
-                      src={resolveDispensaryItemImageUrl(item.image, item.category, item.name)}
-                      alt={item.name}
+                    <DispensaryItemImage
+                      image={item.image}
+                      category={item.category}
+                      name={item.name}
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute top-4 right-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">

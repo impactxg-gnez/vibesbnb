@@ -10,6 +10,7 @@ import {
   blockBookingNights,
   holdBookingNights,
 } from '@/lib/bookingAvailability';
+import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 export async function POST(request: NextRequest) {
@@ -55,6 +56,17 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = user.id;
+
+    if (travellerNeedsPhoneVerification(user)) {
+      return NextResponse.json(
+        {
+          error:
+            'A verified phone number is required before booking. Please verify your mobile number in your profile.',
+          code: 'PHONE_NOT_VERIFIED',
+        },
+        { status: 403 }
+      );
+    }
 
     const serviceSupabase = createServiceClient();
 

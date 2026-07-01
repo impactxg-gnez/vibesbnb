@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -53,6 +53,8 @@ import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
+import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
+import { PropertyReviewForm } from '@/components/properties/PropertyReviewForm';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
@@ -119,18 +121,6 @@ const getGeneralLocation = (location: string): string => {
   return parts.slice(-2).join(', ');
 };
 
-// Helper to add some randomness to coordinates for privacy (within ~500m)
-const obfuscateCoordinates = (lat?: number, lng?: number): { lat?: number; lng?: number } => {
-  if (!lat || !lng) return { lat: undefined, lng: undefined };
-  // Add random offset of up to ~500 meters (0.005 degrees ≈ 500m)
-  const latOffset = (Math.random() - 0.5) * 0.01;
-  const lngOffset = (Math.random() - 0.5) * 0.01;
-  return {
-    lat: lat + latOffset,
-    lng: lng + lngOffset
-  };
-};
-
 const amenityIcons: { [key: string]: any } = {
   'WiFi': Wifi,
   'Parking': Car,
@@ -161,6 +151,35 @@ export default function ListingDetailPage() {
   const openReviewsModal = () => {
     setIsReviewsModalOpen(true);
   };
+
+  const refreshReviews = useCallback(async (propertyId: string) => {
+    try {
+      const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/reviews`);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+      setReviewsData(reviews);
+      setProperty((prev) => {
+        if (!prev) return prev;
+        const avg =
+          reviews.length > 0
+            ? Number(
+                (
+                  reviews.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) /
+                  reviews.length
+                ).toFixed(1)
+              )
+            : 0;
+        return {
+          ...prev,
+          rating: avg,
+          reviews: reviews.length,
+        };
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
 
   const scrollToReviews = () => {
     setIsAboutExpanded(true);
@@ -199,12 +218,6 @@ export default function ListingDetailPage() {
   useEffect(() => {
     setGalleryUseOriginal(false);
   }, [currentImageIndex, property?.id]);
-
-  /** Obfuscation uses randomness — memoize so gallery (re)renders don't change coords and remount the map. */
-  const mapApproxCoords = useMemo(() => {
-    if (!property?.latitude || !property?.longitude) return null;
-    return obfuscateCoordinates(property.latitude, property.longitude);
-  }, [property?.id, property?.latitude, property?.longitude]);
 
   useEffect(() => {
     const loadProperty = async () => {
@@ -371,17 +384,16 @@ export default function ListingDetailPage() {
                     .eq('id', propertyData.host_id)
                     .single()
                 : Promise.resolve({ data: null as { full_name?: string | null; avatar_url?: string | null; bio?: string | null; created_at?: string } | null }),
-              supabase
-                .from('reviews')
-                .select('*, profiles(full_name, avatar_url)')
-                .eq('property_id', propertyId)
-                .eq('status', 'approved')
-                .order('created_at', { ascending: false }),
+              fetch(`/api/properties/${encodeURIComponent(propertyId)}/reviews`).then(async (res) => {
+                const payload = await res.json().catch(() => ({}));
+                return {
+                  data: res.ok && Array.isArray(payload.reviews) ? payload.reviews : [],
+                };
+              }),
             ]);
 
             const profile = 'data' in profileResult ? profileResult.data : null;
-            const rawReviews =
-              'data' in reviewsResult && reviewsResult.data ? reviewsResult.data : [];
+            const rawReviews = 'data' in reviewsResult ? reviewsResult.data : [];
             const reviews = [...rawReviews].sort((a, b) => {
               if (a.is_team_review && !b.is_team_review) return -1;
               if (!a.is_team_review && b.is_team_review) return 1;
@@ -581,6 +593,17 @@ export default function ListingDetailPage() {
     );
   }
 
+  const displayReviewCount = Math.max(property.reviews, reviewsData.length);
+  const displayRating =
+    reviewsData.length > 0
+      ? Number(
+          (
+            reviewsData.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) /
+            reviewsData.length
+          ).toFixed(1)
+        )
+      : property.rating;
+
   const heroRaw =
     property.images[currentImageIndex] ??
     property.images[0] ??
@@ -591,104 +614,6 @@ export default function ListingDetailPage() {
   return (
     <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4">
-        {isReviewsModalOpen && property && (
-          <div
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reviews-modal-title"
-          >
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              aria-label="Close reviews"
-              onClick={() => setIsReviewsModalOpen(false)}
-            />
-            <div className="relative z-10 w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/10 bg-gray-950 shadow-2xl">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-                <div className="min-w-0">
-                  <h2 id="reviews-modal-title" className="text-lg sm:text-xl font-bold text-white truncate">
-                    Reviews for {property.name}
-                  </h2>
-                  <p className="text-sm text-gray-400">
-                    {property.reviews} {property.reviews === 1 ? 'review' : 'reviews'} · {property.rating}★
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsReviewsModalOpen(false)}
-                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition text-sm font-semibold"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="p-6 overflow-y-auto custom-scrollbar max-h-[calc(85vh-4.25rem)]">
-                {reviewsData.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {reviewsData.map((review) => (
-                      <div
-                        key={review.id}
-                        className={`bg-white/5 border rounded-2xl p-5 ${
-                          review.is_team_review ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          {review.is_team_review ? (
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center border border-purple-400/30">
-                              <span className="text-white text-xs font-bold">VB</span>
-                            </div>
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={
-                                review.profiles?.avatar_url ||
-                                `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`
-                              }
-                              className="w-10 h-10 rounded-full border border-white/10"
-                              alt="reviewer"
-                            />
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`font-bold text-sm truncate ${
-                                  review.is_team_review ? 'text-purple-400' : 'text-white'
-                                }`}
-                              >
-                                {review.is_team_review
-                                  ? review.reviewer_name || 'VibesBNB Team'
-                                  : review.profiles?.full_name || 'Guest'}
-                              </span>
-                              {review.is_team_review && (
-                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/20 text-purple-400 rounded">
-                                  VibesBNB review
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-gray-500 text-xs">
-                              {new Date(review.created_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
-                            <span className="text-primary-500 text-[10px]">★</span>
-                            <span className="text-white text-[10px] font-bold">{review.rating}</span>
-                          </div>
-                        </div>
-                        <p className="text-gray-400 text-sm italic">"{review.comment}"</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center text-gray-500">
-                    <MessageSquare size={32} className="mx-auto mb-3 opacity-20" />
-                    <p>No reviews for this property yet.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
         {/* Back Button */}
         <Link
           href="/search"
@@ -708,8 +633,8 @@ export default function ListingDetailPage() {
               </p>
               <span className="hidden md:block text-gray-700">•</span>
               <PropertyListingRating
-                rating={property.rating}
-                reviewCount={property.reviews}
+                rating={displayRating}
+                reviewCount={displayReviewCount}
                 createdAt={property.createdAt}
                 onClick={openReviewsModal}
                 starSize={18}
@@ -806,19 +731,22 @@ export default function ListingDetailPage() {
             )}
           </div>
 
-          {/* Map - Shows approximate location only (coords memoized so photo carousel does not reset the map) */}
-          {mapApproxCoords?.lat != null && mapApproxCoords?.lng != null && (
+          {/* Map — 20m radius at host-entered coordinates (no exact pin) */}
+          {property.latitude != null && property.longitude != null && (
             <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800 relative">
               <PropertyMap
                 key={property.id}
-                latitude={mapApproxCoords.lat}
-                longitude={mapApproxCoords.lng}
+                latitude={property.latitude}
+                longitude={property.longitude}
                 propertyName={property.name}
               />
               <div className="absolute bottom-4 left-4 right-4 bg-gray-900/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-700">
                 <p className="text-sm text-gray-300 flex items-center gap-2">
                   <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
-                  <span>Approximate location shown. Exact address provided after booking confirmation.</span>
+                  <span>
+                    Green circle shows the approximate stay area (about 20 meters). Exact address
+                    is shared after booking confirmation.
+                  </span>
                 </p>
               </div>
             </div>
@@ -1109,6 +1037,14 @@ export default function ListingDetailPage() {
                   {/* Reviews List */}
                   <div id="reviews-section" className="mt-8 pt-8 border-t border-white/5 pb-6">
                     <h3 className="text-xl font-bold text-white mb-6">Recent Guest Reviews</h3>
+                    {property && (
+                      <PropertyReviewForm
+                        propertyId={property.id}
+                        propertyName={property.name}
+                        onSubmitted={() => refreshReviews(property.id)}
+                        className="mb-6"
+                      />
+                    )}
                     {reviewsData.length > 0 ? (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1146,13 +1082,13 @@ export default function ListingDetailPage() {
                             </div>
                           ))}
                         </div>
-                        {property.reviews > 4 && (
+                        {displayReviewCount > 4 && (
                           <button
                             type="button"
                             onClick={openReviewsModal}
                             className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors"
                           >
-                            Show all {property.reviews} reviews
+                            Show all {displayReviewCount} reviews
                           </button>
                         )}
                       </>
@@ -1249,8 +1185,8 @@ export default function ListingDetailPage() {
                   <span className="text-gray-400">/ night</span>
                 </div>
                 <PropertyListingRating
-                  rating={property.rating}
-                  reviewCount={property.reviews}
+                  rating={displayRating}
+                  reviewCount={displayReviewCount}
                   createdAt={property.createdAt}
                   onClick={openReviewsModal}
                   starSize={16}
@@ -1408,6 +1344,16 @@ export default function ListingDetailPage() {
           </div>
         </div>
       </div>
+
+      <PropertyReviewsModal
+        open={isReviewsModalOpen}
+        onClose={() => setIsReviewsModalOpen(false)}
+        propertyId={property.id}
+        propertyName={property.name}
+        rating={displayRating}
+        reviewCount={displayReviewCount}
+        initialReviews={reviewsData}
+      />
     </div>
   );
 }

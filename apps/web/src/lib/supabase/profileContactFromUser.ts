@@ -11,7 +11,10 @@ export function phoneFromAuthMetadata(meta: Record<string, unknown> | undefined)
 
 export function profileContactPayloadFromAuthUser(user: User) {
   const meta = (user.user_metadata || {}) as Record<string, unknown>;
-  const phone = phoneFromAuthMetadata(meta);
+  const metaPhone = phoneFromAuthMetadata(meta);
+  const authPhone = typeof user.phone === 'string' ? user.phone.trim() : '';
+  const phone =
+    authPhone && user.phone_confirmed_at ? authPhone : metaPhone;
   const whatsapp =
     typeof meta.whatsapp === 'string' && meta.whatsapp.trim()
       ? meta.whatsapp.trim()

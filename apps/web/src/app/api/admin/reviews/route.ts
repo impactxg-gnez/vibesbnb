@@ -1,31 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
-
-function serviceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
+import { createServiceClient } from '@/lib/supabase/service';
 
 /** List all reviews (admin). */
 export async function GET(request: NextRequest) {
   const auth = await authenticateAdminRequest(request);
   if ('response' in auth) return auth.response;
 
-  const supabase = serviceClient();
-  if (!supabase) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  const supabase = createServiceClient();
+  const status = request.nextUrl.searchParams.get('status')?.trim();
+
+  let query = supabase.from('reviews').select('*').order('created_at', { ascending: false });
+  if (status === 'pending' || status === 'approved' || status === 'rejected') {
+    query = query.eq('status', status);
   }
 
-  const { data, error } = await supabase
-    .from('reviews')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data, error } = await query;
 
   if (error) {
     console.error('[admin/reviews] GET', error);
@@ -35,15 +26,12 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ reviews: data ?? [] });
 }
 
-/** Create a VibesBNB team review for a property. */
+/** Create a VibesBNB team review for a property (no booking required). */
 export async function POST(request: NextRequest) {
   const auth = await authenticateAdminRequest(request);
   if ('response' in auth) return auth.response;
 
-  const supabase = serviceClient();
-  if (!supabase) {
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-  }
+  const supabase = createServiceClient();
 
   let body: {
     property_id?: string;

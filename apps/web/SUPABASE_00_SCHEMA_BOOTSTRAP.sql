@@ -145,6 +145,30 @@ CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
 
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON reviews;
+CREATE POLICY "Reviews are viewable by everyone" ON reviews
+  FOR SELECT USING (status = 'approved');
+
+DROP POLICY IF EXISTS "Users can view their own reviews" ON reviews;
+CREATE POLICY "Users can view their own reviews" ON reviews
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Authenticated users can create reviews" ON reviews;
+CREATE POLICY "Authenticated users can create reviews" ON reviews
+  FOR INSERT WITH CHECK (auth.uid() = user_id AND is_team_review IS NOT TRUE);
+
+DROP POLICY IF EXISTS "Users can update their own reviews" ON reviews;
+CREATE POLICY "Users can update their own reviews" ON reviews
+  FOR UPDATE USING (auth.uid() = user_id);
+
+GRANT SELECT, INSERT, UPDATE ON reviews TO authenticated;
+GRANT SELECT ON reviews TO anon;
+
+-- One review per user per property (team reviews use null user_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_user_property_unique
+  ON reviews(property_id, user_id)
+  WHERE user_id IS NOT NULL;
+
 -- ---------------------------------------------------------------------------
 -- updated_at trigger (shared)
 -- ---------------------------------------------------------------------------

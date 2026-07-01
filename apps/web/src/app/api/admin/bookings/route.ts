@@ -7,7 +7,6 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateAdminRequest(request);
     if ('response' in auth) return auth.response;
 
-    // Use service client to bypass RLS
     const serviceSupabase = createServiceClient();
     const { data, error } = await serviceSupabase
       .from('bookings')
@@ -18,14 +17,43 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ bookings: data || [] });
-  } catch (error: any) {
+    const bookings = data || [];
+    const userIds = [...new Set(bookings.map((b) => b.user_id).filter(Boolean))];
+
+    const profileByUserId = new Map<
+      string,
+      { phone: string | null; whatsapp: string | null; email: string | null }
+    >();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await serviceSupabase
+        .from('profiles')
+        .select('id, phone, whatsapp, email')
+        .in('id', userIds);
+
+      for (const profile of profiles || []) {
+        profileByUserId.set(profile.id, {
+          phone: profile.phone?.trim() || null,
+          whatsapp: profile.whatsapp?.trim() || null,
+          email: profile.email?.trim() || null,
+        });
+      }
+    }
+
+    const enriched = bookings.map((booking) => {
+      const contact = profileByUserId.get(booking.user_id);
+      return {
+        ...booking,
+        guest_phone: contact?.phone || null,
+        guest_whatsapp: contact?.whatsapp || null,
+        profile_email: contact?.email || null,
+      };
+    });
+
+    return NextResponse.json({ bookings: enriched });
+  } catch (error: unknown) {
     console.error('Failed to load admin bookings:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to load bookings' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to load bookings';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-

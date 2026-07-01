@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { BookingRequestDetails, type BookingRequestInfo } from './BookingRequestDetails';
 import { BookingRequestPendingBanner } from './BookingRequestPendingBanner';
 import toast from 'react-hot-toast';
@@ -11,6 +12,9 @@ import toast from 'react-hot-toast';
 type ConversationBookingPanelProps = {
   bookingId: string | null | undefined;
   isHost: boolean;
+  /** Admin console: approve/reject on behalf of the host */
+  isAdmin?: boolean;
+  theme?: 'dark' | 'light';
   showSubmittedBanner?: boolean;
   onBookingUpdated?: () => void;
   /** Fallback when conversation.booking_id is missing */
@@ -21,6 +25,8 @@ type ConversationBookingPanelProps = {
 export function ConversationBookingPanel({
   bookingId,
   isHost,
+  isAdmin = false,
+  theme = 'dark',
   showSubmittedBanner = false,
   onBookingUpdated,
   propertyId,
@@ -36,49 +42,140 @@ export function ConversationBookingPanel({
   const [approveCheckIn, setApproveCheckIn] = useState('');
   const [approveCheckOut, setApproveCheckOut] = useState('');
 
-  const refreshBooking = useCallback(async (id: string) => {
+  const postBookingAction = async (
+    action: 'accept' | 'reject' | 'cancel',
+    body: Record<string, unknown>
+  ) => {
+    if (isAdmin) {
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
+        throw new Error('No valid session — please sign in again.');
+      }
+      const bookingIdForPath = String(body.bookingId ?? booking?.id ?? '');
+      if (action === 'cancel') {
+        throw new Error('Admin cancel is not supported from messages');
+      }
+      const path =
+        action === 'accept'
+          ? `/api/admin/bookings/${bookingIdForPath}/accept`
+          : `/api/admin/bookings/${bookingIdForPath}/reject`;
+      const payload =
+        action === 'accept'
+          ? {
+              checkIn: body.checkIn,
+              checkOut: body.checkOut,
+            }
+          : { reason: body.reason };
+      return fetch(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    const path =
+      action === 'accept'
+        ? '/api/bookings/accept'
+        : action === 'reject'
+          ? '/api/bookings/reject'
+          : '/api/bookings/cancel';
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  };
+
+  const canManage = isHost || isAdmin;
+  const isLight = theme === 'light';
+
+  const fetchBookingById = useCallback(
+    async (id: string) => {
+      if (isAdmin) {
+        const headers = await getHeadersForAdminFetch();
+        if (!headers.Authorization) {
+          throw new Error('No valid session — please sign in again.');
+        }
+        const response = await fetch(`/api/admin/bookings/${id}`, { headers });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Failed to load booking');
+        return data.booking as BookingRequestInfo;
+      }
+
+      const supabase = createClient();
+      const { data, error } = await supabase.from('bookings').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data as BookingRequestInfo;
+    },
+    [isAdmin]
+  );
+
+  const fetchPendingBooking = useCallback(async () => {
+    if (!propertyId || !travellerId) return null;
+
+    if (isAdmin) {
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
+        throw new Error('No valid session — please sign in again.');
+      }
+      const params = new URLSearchParams({
+        propertyId,
+        travellerId,
+        status: 'pending_approval',
+      });
+      const response = await fetch(`/api/admin/bookings/lookup?${params}`, { headers });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Failed to lookup booking');
+      return (data.booking as BookingRequestInfo | null) ?? null;
+    }
+
     const supabase = createClient();
-    const { data, error } = await supabase.from('bookings').select('*').eq('id', id).single();
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('property_id', propertyId)
+      .eq('user_id', travellerId)
+      .eq('status', 'pending_approval')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (error) throw error;
-    setBooking(data as BookingRequestInfo);
-    setResolvedBookingId(id);
-    return data as BookingRequestInfo;
-  }, []);
+    return (data as BookingRequestInfo | null) ?? null;
+  }, [isAdmin, propertyId, travellerId]);
+
+  const refreshBooking = useCallback(
+    async (id: string) => {
+      const data = await fetchBookingById(id);
+      setBooking(data);
+      setResolvedBookingId(id);
+      return data;
+    },
+    [fetchBookingById]
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
-      const supabase = createClient();
 
       try {
         if (bookingId) {
-          const { data, error } = await supabase
-            .from('bookings')
-            .select('*')
-            .eq('id', bookingId)
-            .single();
+          const data = await fetchBookingById(bookingId);
           if (cancelled) return;
-          if (error) throw error;
-          setBooking(data as BookingRequestInfo);
+          setBooking(data);
           setResolvedBookingId(bookingId);
           return;
         }
 
-        if (isHost && propertyId && travellerId) {
-          const { data, error } = await supabase
-            .from('bookings')
-            .select('*')
-            .eq('property_id', propertyId)
-            .eq('user_id', travellerId)
-            .eq('status', 'pending_approval')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        if (canManage && propertyId && travellerId) {
+          const data = await fetchPendingBooking();
           if (cancelled) return;
-          if (!error && data) {
-            setBooking(data as BookingRequestInfo);
+          if (data) {
+            setBooking(data);
             setResolvedBookingId(data.id);
             return;
           }
@@ -102,7 +199,7 @@ export function ConversationBookingPanel({
     return () => {
       cancelled = true;
     };
-  }, [bookingId, isHost, propertyId, travellerId]);
+  }, [bookingId, canManage, propertyId, travellerId, fetchBookingById, fetchPendingBooking]);
 
   const openApproveModal = () => {
     if (!booking?.check_in || !booking?.check_out) return;
@@ -120,18 +217,18 @@ export function ConversationBookingPanel({
     if (!booking?.id) return;
     setActing(true);
     try {
-      const response = await fetch('/api/bookings/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          checkIn: approveCheckIn,
-          checkOut: approveCheckOut,
-        }),
+      const response = await postBookingAction('accept', {
+        bookingId: booking.id,
+        checkIn: approveCheckIn,
+        checkOut: approveCheckOut,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Failed to approve');
-      toast.success('Booking approved. Guest can pay now.');
+      toast.success(
+        isAdmin
+          ? 'Booking approved — guest notified to pay and confirm.'
+          : 'Booking approved. Guest can pay now.'
+      );
       await refreshBooking(booking.id);
       setApproveModalOpen(false);
       onBookingUpdated?.();
@@ -147,14 +244,14 @@ export function ConversationBookingPanel({
     if (!booking?.id) return;
     setActing(true);
     try {
-      const response = await fetch('/api/bookings/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
+      const response = await postBookingAction('accept', { bookingId: booking.id });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Failed to pre-approve');
-      toast.success('Pre-approved. Guest can pay for their requested dates.');
+      toast.success(
+        isAdmin
+          ? 'Booking approved — guest notified to pay and confirm.'
+          : 'Pre-approved. Guest can pay for their requested dates.'
+      );
       await refreshBooking(booking.id);
       onBookingUpdated?.();
     } catch (e: unknown) {
@@ -165,7 +262,7 @@ export function ConversationBookingPanel({
   };
 
   const hostCancelBooking = async () => {
-    if (!booking?.id) return;
+    if (!booking?.id || isAdmin) return;
     const reason =
       window.prompt(
         'Why are you cancelling? (e.g. guest did not pay in time)\n\nThe traveller will receive this reason.'
@@ -176,10 +273,9 @@ export function ConversationBookingPanel({
     }
     setActing(true);
     try {
-      const response = await fetch('/api/bookings/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, reason: reason.trim() }),
+      const response = await postBookingAction('cancel', {
+        bookingId: booking.id,
+        reason: reason.trim(),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Failed to cancel');
@@ -195,21 +291,26 @@ export function ConversationBookingPanel({
 
   const rejectBooking = async () => {
     if (!booking?.id) return;
-    const reason = window.prompt('Reason for declining this request?');
+    const reason = window.prompt(
+      isAdmin
+        ? 'Reason for rejecting this booking (sent to the traveller):'
+        : 'Reason for declining this request?'
+    );
     if (!reason?.trim()) {
       toast.error('Please provide a reason for rejection');
       return;
     }
     setActing(true);
     try {
-      const response = await fetch('/api/bookings/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, reason: reason.trim() }),
+      const response = await postBookingAction('reject', {
+        bookingId: booking.id,
+        reason: reason.trim(),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Failed to reject');
-      toast.success('Booking rejected. Guest has been notified.');
+      toast.success(
+        isAdmin ? 'Booking rejected — guest notified.' : 'Booking rejected. Guest has been notified.'
+      );
       await refreshBooking(booking.id);
       onBookingUpdated?.();
     } catch (e: unknown) {
@@ -219,21 +320,25 @@ export function ConversationBookingPanel({
     }
   };
 
-  const hasLookup = Boolean(bookingId || (isHost && propertyId && travellerId));
+  const hasLookup = Boolean(bookingId || (canManage && propertyId && travellerId));
   if (!hasLookup) return null;
+
+  const panelBorder = isLight ? 'border-gray-200' : 'border-gray-800';
+  const panelBg = isLight ? 'bg-gray-50' : 'bg-gray-900/80';
+  const mutedText = isLight ? 'text-gray-500' : 'text-gray-500';
 
   if (loading) {
     return (
-      <p className="text-xs text-gray-500 px-4 py-3 border-b border-gray-800">
+      <p className={`text-xs ${mutedText} px-4 py-3 border-b ${panelBorder}`}>
         Loading booking request…
       </p>
     );
   }
 
   if (!booking || !resolvedBookingId) {
-    if (isHost) {
+    if (canManage) {
       return (
-        <p className="text-xs text-gray-500 px-4 py-3 border-b border-gray-800">
+        <p className={`text-xs ${mutedText} px-4 py-3 border-b ${panelBorder}`}>
           No pending booking request linked to this conversation.
         </p>
       );
@@ -248,12 +353,18 @@ export function ConversationBookingPanel({
 
   return (
     <>
-      <div className="shrink-0 px-4 py-3 border-b border-gray-800 space-y-3 bg-gray-900/80">
-        {!isHost && (showSubmittedBanner || isPending) && <BookingRequestPendingBanner />}
+      <div className={`shrink-0 px-4 py-3 border-b ${panelBorder} space-y-3 ${panelBg}`}>
+        {!canManage && (showSubmittedBanner || isPending) && <BookingRequestPendingBanner />}
 
-        {isHost && <BookingRequestDetails booking={booking} />}
+        {canManage && (
+          <BookingRequestDetails
+            booking={booking}
+            variant={isLight ? 'light' : 'dark'}
+            showGuestName
+          />
+        )}
 
-        {!isHost && isAccepted && (
+        {!canManage && isAccepted && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
             The host approved your request.{' '}
             <Link href="/bookings" className="font-bold underline hover:text-emerald-100">
@@ -263,7 +374,7 @@ export function ConversationBookingPanel({
           </div>
         )}
 
-        {isHost && isPending && (
+        {canManage && isPending && (
           <div className="flex flex-wrap items-center gap-2 justify-end">
             <button
               type="button"
@@ -278,7 +389,11 @@ export function ConversationBookingPanel({
               type="button"
               onClick={preapproveBooking}
               disabled={acting}
-              className="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 text-sm font-semibold disabled:opacity-50"
+              className={
+                isLight
+                  ? 'px-4 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 text-sm font-semibold disabled:opacity-50'
+                  : 'px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 text-sm font-semibold disabled:opacity-50'
+              }
               title="Approve the guest's requested dates without changes"
             >
               Pre-approve
@@ -295,24 +410,39 @@ export function ConversationBookingPanel({
           </div>
         )}
 
-        {isHost &&
-          (booking.status === 'accepted' || booking.status === 'confirmed') && (
-            <div className="flex flex-wrap items-center gap-2 justify-end pt-1 border-t border-white/10">
-              {booking.status === 'accepted' && (
-                <p className="text-xs text-emerald-400 flex-1 min-w-[140px]">
-                  Approved — awaiting guest payment.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={hostCancelBooking}
-                disabled={acting}
-                className="px-3 py-1.5 rounded-lg border border-red-500/50 text-red-400 text-xs font-semibold hover:bg-red-950/40 disabled:opacity-50"
+        {canManage && !isAdmin && (booking.status === 'accepted' || booking.status === 'confirmed') && (
+          <div
+            className={`flex flex-wrap items-center gap-2 justify-end pt-1 border-t ${
+              isLight ? 'border-gray-200' : 'border-white/10'
+            }`}
+          >
+            {booking.status === 'accepted' && (
+              <p
+                className={`text-xs flex-1 min-w-[140px] ${
+                  isLight ? 'text-emerald-700' : 'text-emerald-400'
+                }`}
               >
-                Cancel booking
-              </button>
-            </div>
-          )}
+                Approved — awaiting guest payment.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={hostCancelBooking}
+              disabled={acting}
+              className={
+                isLight
+                  ? 'px-3 py-1.5 rounded-lg border border-red-300 text-red-600 text-xs font-semibold hover:bg-red-50 disabled:opacity-50'
+                  : 'px-3 py-1.5 rounded-lg border border-red-500/50 text-red-400 text-xs font-semibold hover:bg-red-950/40 disabled:opacity-50'
+              }
+            >
+              Cancel booking
+            </button>
+          </div>
+        )}
+
+        {isAdmin && booking.status === 'accepted' && (
+          <p className="text-xs text-emerald-700">Approved — awaiting guest payment.</p>
+        )}
       </div>
 
       {approveModalOpen && (
@@ -324,29 +454,48 @@ export function ConversationBookingPanel({
           onClick={closeApproveModal}
         >
           <div
-            className="bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-6 shadow-xl"
+            className={
+              isLight
+                ? 'bg-white border border-gray-200 rounded-xl max-w-md w-full p-6 shadow-xl'
+                : 'bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-6 shadow-xl'
+            }
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="chat-approve-booking-title" className="text-xl font-bold text-white mb-2">
+            <h2
+              id="chat-approve-booking-title"
+              className={`text-xl font-bold mb-2 ${isLight ? 'text-gray-900' : 'text-white'}`}
+            >
               Approve stay
             </h2>
-            <p className="text-gray-400 text-sm mb-4">
+            <p className={`text-sm mb-4 ${isLight ? 'text-gray-600' : 'text-gray-400'}`}>
               Confirm or adjust check-in and check-out before the guest pays.
             </p>
             <div className="space-y-3 mb-6">
               <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className={`block text-xs uppercase tracking-wide mb-1 ${
+                    isLight ? 'text-gray-500' : 'text-gray-500'
+                  }`}
+                >
                   Check-in
                 </label>
                 <input
                   type="date"
                   value={approveCheckIn}
                   onChange={(e) => setApproveCheckIn(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  className={
+                    isLight
+                      ? 'w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900'
+                      : 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white'
+                  }
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">
+                <label
+                  className={`block text-xs uppercase tracking-wide mb-1 ${
+                    isLight ? 'text-gray-500' : 'text-gray-500'
+                  }`}
+                >
                   Check-out
                 </label>
                 <input
@@ -354,7 +503,11 @@ export function ConversationBookingPanel({
                   value={approveCheckOut}
                   onChange={(e) => setApproveCheckOut(e.target.value)}
                   min={approveCheckIn}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  className={
+                    isLight
+                      ? 'w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900'
+                      : 'w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white'
+                  }
                 />
               </div>
             </div>
@@ -363,7 +516,11 @@ export function ConversationBookingPanel({
                 type="button"
                 onClick={closeApproveModal}
                 disabled={acting}
-                className="px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50"
+                className={
+                  isLight
+                    ? 'px-4 py-2 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:opacity-50'
+                    : 'px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50'
+                }
               >
                 Cancel
               </button>

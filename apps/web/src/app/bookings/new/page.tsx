@@ -25,6 +25,7 @@ import {
 } from '@/lib/wellnessBookingCart';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
+import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import type { HostBadge } from '@/lib/hostBadge';
 
 interface Property {
@@ -100,10 +101,15 @@ export default function NewBookingPage() {
   }, [propertyId]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      const qs = searchParams.toString();
-      const nextPath = `/bookings/new${qs ? `?${qs}` : ''}`;
+    if (authLoading) return;
+    const qs = searchParams.toString();
+    const nextPath = `/bookings/new${qs ? `?${qs}` : ''}`;
+    if (!user) {
       router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
+      return;
+    }
+    if (travellerNeedsPhoneVerification(user)) {
+      router.replace(`/verify-phone?next=${encodeURIComponent(nextPath)}`);
     }
   }, [user, authLoading, router, searchParams]);
 
@@ -377,6 +383,14 @@ export default function NewBookingPage() {
     if (!validateBookingForm() || !user || !property) return;
 
     if (!bookingQuote) return;
+
+    if (travellerNeedsPhoneVerification(user)) {
+      const qs = searchParams.toString();
+      const nextPath = `/bookings/new${qs ? `?${qs}` : ''}`;
+      toast.error('Verify your phone number before booking.');
+      router.push(`/verify-phone?next=${encodeURIComponent(nextPath)}`);
+      return;
+    }
 
     const signed = agreementSignerName.trim();
 

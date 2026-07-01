@@ -63,12 +63,15 @@ DROP POLICY IF EXISTS "Admins can delete reviews" ON reviews;
 CREATE POLICY "Reviews are viewable by everyone" ON reviews
   FOR SELECT USING (status = 'approved');
 
+CREATE POLICY "Users can view their own reviews" ON reviews
+  FOR SELECT USING (auth.uid() = user_id);
+
 CREATE POLICY "Admins can view all reviews" ON reviews
   FOR SELECT USING (public.is_vibesbnb_admin_jwt());
 
 CREATE POLICY "Authenticated users can create reviews" ON reviews
   FOR INSERT WITH CHECK (
-    auth.uid() = user_id
+    (auth.uid() = user_id AND is_team_review IS NOT TRUE)
     OR (public.is_vibesbnb_admin_jwt() AND is_team_review = true)
   );
 
@@ -80,6 +83,10 @@ CREATE POLICY "Users can update their own reviews" ON reviews
 
 CREATE POLICY "Admins can delete reviews" ON reviews
   FOR DELETE USING (public.is_vibesbnb_admin_jwt());
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_user_property_unique
+  ON reviews(property_id, user_id)
+  WHERE user_id IS NOT NULL;
 
 GRANT ALL ON reviews TO authenticated;
 

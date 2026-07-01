@@ -12,6 +12,8 @@ type PropertyCardRatingBadgeProps = {
   className?: string;
   /** Compact badge for tight card headers */
   size?: 'sm' | 'md';
+  /** Opens reviews modal; use stopPropagation when inside a link. */
+  onClick?: () => void;
 };
 
 /**
@@ -24,6 +26,7 @@ export function PropertyCardRatingBadge({
   createdAt,
   className = '',
   size = 'sm',
+  onClick,
 }: PropertyCardRatingBadgeProps) {
   const reviews = reviewCount ?? 0;
 
@@ -32,10 +35,31 @@ export function PropertyCardRatingBadge({
       rating != null && Number.isFinite(Number(rating)) && Number(rating) > 0
         ? Number(rating).toFixed(1)
         : '—';
+    const interactive = Boolean(onClick);
+    const Wrapper = interactive ? 'button' : 'div';
     return (
-      <div
-        className={`flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0 ${className}`}
-        title={hasTeamReview ? 'Includes a VibesBNB team review' : undefined}
+      <Wrapper
+        type={interactive ? 'button' : undefined}
+        onClick={
+          interactive
+            ? (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClick?.();
+              }
+            : undefined
+        }
+        className={`flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-lg flex-shrink-0 ${
+          interactive ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''
+        } ${className}`}
+        title={
+          hasTeamReview
+            ? 'Includes a VibesBNB team review — click to read'
+            : interactive
+              ? 'View reviews'
+              : undefined
+        }
+        aria-label={interactive ? `View ${reviews} reviews` : undefined}
       >
         {hasTeamReview ? (
           <Image
@@ -51,7 +75,7 @@ export function PropertyCardRatingBadge({
           ★
         </span>
         <span className="text-xs font-bold text-white">{display}</span>
-      </div>
+      </Wrapper>
     );
   }
 

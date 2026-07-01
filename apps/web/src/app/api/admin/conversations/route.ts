@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createSupabaseForAdminApi } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
+
+function accessTokenFromRequest(request: NextRequest): string {
+  return request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
+}
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateAdminRequest(request);
     if ('response' in auth) return auth.response;
 
-    const serviceSupabase = createServiceClient();
+    const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
     const { data: conversations, error } = await serviceSupabase
       .from('conversations')
       .select(

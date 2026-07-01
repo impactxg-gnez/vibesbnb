@@ -36,6 +36,7 @@ interface BookingConfirmationData {
   totalPrice: number;
   bookingId: string;
   location?: string;
+  payUrl?: string;
 }
 
 interface BookingRejectedData {
@@ -209,6 +210,9 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
 
     case 'booking_accepted': {
       const d = data as BookingConfirmationData;
+      const payHref =
+        d.payUrl ||
+        (d.bookingId ? `${appUrl}/bookings?pay=${encodeURIComponent(d.bookingId)}` : `${appUrl}/bookings`);
       return `
         <div style="${baseStyles}">
           <div style="${cardStyles}">
@@ -246,8 +250,8 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
                 </tr>
               </table>
             </div>
-            <a href="${appUrl}/bookings" style="${buttonStyles}">
-              Pay now
+            <a href="${payHref}" style="${buttonStyles}">
+              Pay now &amp; confirm booking
             </a>
           </div>
           <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">

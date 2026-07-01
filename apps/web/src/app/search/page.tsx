@@ -11,6 +11,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
+import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import { resolveHostBadge, type HostBadge } from '@/lib/hostBadge';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
@@ -431,6 +432,7 @@ function ListingCard({
   favoritesBatchLoading,
   favoritedFromBatch,
   onFavoriteChange,
+  onOpenReviews,
 }: {
   listing: Listing;
   onHover: (id: string | null) => void;
@@ -441,6 +443,7 @@ function ListingCard({
   favoritesBatchLoading?: boolean;
   favoritedFromBatch?: boolean;
   onFavoriteChange?: (propertyId: string, favorited: boolean) => void;
+  onOpenReviews?: (listing: Listing) => void;
 }) {
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
   
@@ -539,6 +542,11 @@ function ListingCard({
                 reviewCount={listing.reviews}
                 hasTeamReview={listing.hasTeamReview}
                 createdAt={listing.createdAt}
+                onClick={
+                  (listing.reviews ?? 0) > 0 && onOpenReviews
+                    ? () => onOpenReviews(listing)
+                    : undefined
+                }
               />
             </div>
 
@@ -600,6 +608,7 @@ export default function SearchPage() {
   const [showGuestPicker, setShowGuestPicker] = useState(false);
   const [sortBy, setSortBy] = useState('Price: High to Low');
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
+  const [reviewsModalListing, setReviewsModalListing] = useState<Listing | null>(null);
   const [hideUnavailable, setHideUnavailable] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState<SearchModalFilters>({
@@ -1196,6 +1205,7 @@ export default function SearchPage() {
                     favoritesBatchLoading={user?.id ? favoritesBatchBusy : undefined}
                     favoritedFromBatch={user?.id ? batchedFavoriteIds.has(listing.id) : undefined}
                     onFavoriteChange={user?.id ? syncFavoriteToggle : undefined}
+                    onOpenReviews={setReviewsModalListing}
                   />
                 ))}
               </div>
@@ -1212,6 +1222,15 @@ export default function SearchPage() {
           </div>
         </div>
       </div>
+
+      <PropertyReviewsModal
+        open={reviewsModalListing != null}
+        onClose={() => setReviewsModalListing(null)}
+        propertyId={reviewsModalListing?.id ?? ''}
+        propertyName={reviewsModalListing?.title || reviewsModalListing?.name || 'Property'}
+        rating={reviewsModalListing?.rating}
+        reviewCount={reviewsModalListing?.reviews}
+      />
     </div>
   );
 }

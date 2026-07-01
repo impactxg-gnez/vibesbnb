@@ -162,35 +162,45 @@ export default function ReviewsManagementPage() {
 
   const handleApproveReview = async (reviewId: string) => {
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .update({ status: 'approved' })
-        .eq('id', reviewId);
-
-      if (error) throw error;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await getHeadersForAdminFetch()),
+      };
+      const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: 'approved' }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to approve review');
 
       setReviews(reviews.map((r) => (r.id === reviewId ? { ...r, status: 'approved' as const } : r)));
       toast.success('Review approved');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error approving review:', error);
-      toast.error('Failed to approve review');
+      toast.error(error instanceof Error ? error.message : 'Failed to approve review');
     }
   };
 
   const handleRejectReview = async (reviewId: string) => {
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .update({ status: 'rejected' })
-        .eq('id', reviewId);
-
-      if (error) throw error;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await getHeadersForAdminFetch()),
+      };
+      const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: 'rejected' }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to reject review');
 
       setReviews(reviews.map((r) => (r.id === reviewId ? { ...r, status: 'rejected' as const } : r)));
       toast.success('Review rejected');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error rejecting review:', error);
-      toast.error('Failed to reject review');
+      toast.error(error instanceof Error ? error.message : 'Failed to reject review');
     }
   };
 
@@ -198,18 +208,19 @@ export default function ReviewsManagementPage() {
     if (!confirm('Are you sure you want to delete this review?')) return;
 
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .delete()
-        .eq('id', reviewId);
-
-      if (error) throw error;
+      const headers = await getHeadersForAdminFetch();
+      const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+        method: 'DELETE',
+        headers,
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to delete review');
 
       setReviews(reviews.filter((r) => r.id !== reviewId));
       toast.success('Review deleted');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting review:', error);
-      toast.error('Failed to delete review');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete review');
     }
   };
 

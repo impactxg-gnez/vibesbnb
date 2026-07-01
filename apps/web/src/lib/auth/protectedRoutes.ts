@@ -19,6 +19,7 @@ export const AUTH_PUBLIC_PATH_PREFIXES = [
   '/login',
   '/signup',
   '/verify-email',
+  '/verify-phone',
   '/auth',
   '/forgot-password',
   '/reset-password',

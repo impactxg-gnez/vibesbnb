@@ -64,15 +64,42 @@ export function defaultDispensaryItemVectorDataUrl(category: string, name: strin
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+const PLACEHOLDER_SENTINELS = new Set([
+  'null',
+  'undefined',
+  'none',
+  'n/a',
+  'na',
+  '-',
+  'placeholder',
+]);
+
 /**
- * Use the dispensary-provided image URL when present; otherwise the default category vector.
+ * True when the value is a loadable absolute image URL (http/https or inline data image).
+ */
+export function isUsableDispensaryImageUrl(value: string | null | undefined): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed || PLACEHOLDER_SENTINELS.has(trimmed.toLowerCase())) return false;
+
+  if (trimmed.startsWith('data:image/')) return true;
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Use the dispensary-provided image URL when present and valid; otherwise the default category vector.
  */
 export function resolveDispensaryItemImageUrl(
   image: string | null | undefined,
   category: string,
   name: string
 ): string {
-  const trimmed = typeof image === 'string' ? image.trim() : '';
-  if (trimmed.length > 0) return trimmed;
+  if (isUsableDispensaryImageUrl(image)) return image.trim();
   return defaultDispensaryItemVectorDataUrl(category, name);
 }

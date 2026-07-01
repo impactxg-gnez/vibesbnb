@@ -1,76 +1,75 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { syncProfileFromAuthUser } from '@/lib/supabase/syncProfileFromAuthUser';
-import { NextResponse } from 'next/server';
+import { getAuthRedirectOrigin } from '@/lib/supabase/authRedirect';
+import { resolvePostAuthRedirectPath, safeOAuthNextPath } from '@/lib/auth/oauthCallback';
+import { NextResponse, type NextRequest } from 'next/server';
 
-function baseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '').trim();
-  if (fromEnv) return fromEnv;
-  return new URL(request.url).origin;
-}
-
-/** Internal path only; avoids open redirects and bad URLs that become 404s */
-function safeInternalPath(next: string | null): string | null {
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
-  return next;
-}
-
-export async function GET(request: Request) {
-  const base = baseUrl(request);
-  const { searchParams } = new URL(request.url);
+export async function GET(request: NextRequest) {
+  const base = getAuthRedirectOrigin(request);
+  const { searchParams } = request.nextUrl;
   const code = searchParams.get('code');
-  const next = safeInternalPath(searchParams.get('next'));
+  const next = safeOAuthNextPath(searchParams.get('next'));
   const type = searchParams.get('type');
+  const oauthError = searchParams.get('error');
+  const oauthErrorDescription = searchParams.get('error_description');
 
-  const home = `${base}/`;
+  const loginWithError = (errorCode: string) => {
+    const loginUrl = new URL('/login', base);
+    loginUrl.searchParams.set('error', errorCode);
+    if (next) loginUrl.searchParams.set('next', next);
+    return NextResponse.redirect(loginUrl.toString());
+  };
 
-  if (code) {
-    const supabase = createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      await syncProfileFromAuthUser(user);
-
-      const isEmailVerification =
-        type === 'signup' ||
-        type === 'email' ||
-        (user?.email_confirmed_at &&
-          new Date(user.email_confirmed_at).getTime() > Date.now() - 5 * 60 * 1000);
-
-      if (type === 'recovery') {
-        const resetPath = next || '/reset-password';
-        return NextResponse.redirect(`${base}${resetPath}`);
-      }
-
-      if (isEmailVerification) {
-        const userRole = user?.user_metadata?.role;
-        if (userRole === 'host' || userRole === 'host_pending') {
-          return NextResponse.redirect(`${base}/host/properties`);
-        }
-        const celebrate = new URL('/auth/verify-success', base);
-        if (next) {
-          celebrate.searchParams.set('next', next);
-        }
-        return NextResponse.redirect(celebrate.toString());
-      }
-
-      if (next) {
-        return NextResponse.redirect(`${base}${next}`);
-      }
-
-      const userRole = user?.user_metadata?.role;
-      if (userRole === 'host_pending') {
-        return NextResponse.redirect(`${base}/host/properties`);
-      }
-      if (userRole === 'host') {
-        return NextResponse.redirect(`${base}/host/properties`);
-      }
-
-      return NextResponse.redirect(home);
-    }
+  if (oauthError) {
+    console.error('[auth/callback] OAuth provider error:', oauthError, oauthErrorDescription);
+    return loginWithError('oauth_denied');
   }
 
-  return NextResponse.redirect(home);
+  if (!code) {
+    return loginWithError('missing_code');
+  }
+
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const supabaseKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+
+  if (!supabaseUrl || !supabaseKey || supabaseUrl === 'https://placeholder.supabase.co') {
+    return loginWithError('not_configured');
+  }
+
+  const sessionCookies: { name: string; value: string; options: CookieOptions }[] = [];
+
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          sessionCookies.push({ name, value, options });
+        });
+      },
+    },
+  });
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    console.error('[auth/callback] exchangeCodeForSession:', error.message);
+    return loginWithError('auth_callback');
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  await syncProfileFromAuthUser(user);
+
+  const destPath = resolvePostAuthRedirectPath(user, next, type);
+  const response = NextResponse.redirect(`${base}${destPath}`);
+
+  sessionCookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options);
+  });
+
+  return response;
 }
