@@ -19,8 +19,10 @@ function redirectWwwApexToCanonical(request: NextRequest): NextResponse | null {
     return null;
   }
 
+  // Compare hostnames only (no port). Host header and URL.host can disagree
+  // when NEXT_PUBLIC_APP_URL includes a non-default port (e.g. :3000).
   const requestHost = (request.headers.get('host') || '').split(':')[0].toLowerCase();
-  const canonicalHost = canonical.host.toLowerCase();
+  const canonicalHost = canonical.hostname.toLowerCase();
   if (!requestHost || !isWwwApexAlias(requestHost, canonicalHost)) return null;
 
   const url = request.nextUrl.clone();
