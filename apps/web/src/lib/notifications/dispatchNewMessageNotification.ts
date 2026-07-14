@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveUserContact, normalizeWhatsAppNumber } from '@/lib/notifications/resolveUserContact';
+import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
 
 export type NewMessageNotificationParams = {
   service: SupabaseClient;
@@ -27,8 +27,9 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Email + WhatsApp when someone receives a new in-app message.
+ * Email when someone receives a new in-app message.
  * Failures are logged only; does not throw.
+ * WhatsApp delivery is deferred until a non-Twilio provider is wired.
  */
 export async function dispatchNewMessageNotification(
   params: NewMessageNotificationParams
@@ -73,35 +74,6 @@ export async function dispatchNewMessageNotification(
         });
       } catch (e) {
         console.warn('[dispatchNewMessageNotification] email failed:', e);
-      }
-    }
-
-    const whatsappTo = contact.whatsapp
-      ? normalizeWhatsAppNumber(contact.whatsapp)
-      : null;
-    if (whatsappTo) {
-      try {
-        const waBody = [
-          `💬 New message on VibesBNB`,
-          ``,
-          `From: ${senderLabel}`,
-          `Property: ${propertyName}`,
-          ``,
-          `"${truncate(messagePreview, 120)}"`,
-          ``,
-          `Reply: ${inboxUrl}`,
-        ].join('\n');
-
-        await fetch(`${appUrl}/api/notifications/send-whatsapp`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: whatsappTo,
-            message: waBody,
-          }),
-        });
-      } catch (e) {
-        console.warn('[dispatchNewMessageNotification] whatsapp failed:', e);
       }
     }
   } catch (e) {

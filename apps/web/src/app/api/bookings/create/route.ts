@@ -180,9 +180,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get host contact information
-    // We'll use service role key to access host user metadata
     let hostEmail = '';
-    let hostWhatsApp = '';
     let hostName = 'Host';
     let hostAvatar = '';
 
@@ -190,7 +188,6 @@ export async function POST(request: NextRequest) {
       const { data: hostUser } = await serviceSupabase.auth.admin.getUserById(hostId);
       if (hostUser?.user) {
         hostEmail = hostUser.user.user_metadata?.host_email || hostUser.user.email || '';
-        hostWhatsApp = hostUser.user.user_metadata?.whatsapp || '';
         hostName =
           hostUser.user.user_metadata?.full_name ||
           hostUser.user.user_metadata?.display_name ||
@@ -240,7 +237,7 @@ export async function POST(request: NextRequest) {
         guest_name,
         guest_email,
         host_email: hostEmail,
-        host_whatsapp: hostWhatsApp,
+        host_whatsapp: null,
         special_requests: special_requests || null,
         payment_status: 'pending',
         selected_units: selected_units || null,
@@ -422,24 +419,6 @@ export async function POST(request: NextRequest) {
         } catch (emailError) {
           console.warn('Failed to send email notification:', emailError);
           // Don't fail the booking if email fails
-        }
-      }
-
-      // WhatsApp notification (if host WhatsApp is provided)
-      if (hostWhatsApp) {
-        try {
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-          await fetch(`${appUrl}/api/notifications/send-whatsapp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: hostWhatsApp,
-              message: `🔔 New Booking Request!\n\nProperty: ${property_name}\nGuest: ${guest_name}\nDates: ${check_in} to ${check_out}\nGuests: ${guests}\nTotal: $${total_price}\n\nPlease check your dashboard to accept or decline.`,
-            }),
-          });
-        } catch (whatsappError) {
-          console.warn('Failed to send WhatsApp notification:', whatsappError);
-          // Don't fail the booking if WhatsApp fails
         }
       }
 

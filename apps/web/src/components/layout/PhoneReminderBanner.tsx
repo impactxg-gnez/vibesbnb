@@ -17,7 +17,7 @@ export function PhoneReminderBanner() {
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-2 text-sm text-amber-900">
         <Phone className="w-4 h-4 shrink-0" aria-hidden />
         <span>
-          Verify your phone number to book stays and receive WhatsApp updates.
+          Verify your phone number to book stays.
         </span>
         <Link
           href="/verify-phone"

@@ -47,7 +47,7 @@ export async function resolveUserContact(
   return { email, whatsapp, name };
 }
 
-/** Normalize to E.164-ish for Twilio WhatsApp (digits with leading +). */
+/** Normalize to E.164-ish for messaging providers (digits with leading +). */
 export function normalizeWhatsAppNumber(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;

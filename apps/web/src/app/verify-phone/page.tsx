@@ -49,7 +49,7 @@ function VerifyPhoneContent() {
       </div>
       <h1 className="text-2xl font-bold text-white text-center mb-2">Verify your phone</h1>
       <p className="text-muted text-center mb-8 text-sm leading-relaxed">
-        A verified mobile number is required to book stays and receive WhatsApp updates about your trips.
+        A verified mobile number is required to book stays. We&apos;ll text a one-time code to confirm it&apos;s yours.
       </p>
       <PhoneOtpVerification
         initialPhone={initialPhone}

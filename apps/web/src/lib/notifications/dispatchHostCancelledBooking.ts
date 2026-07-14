@@ -1,8 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  resolveUserContact,
-  normalizeWhatsAppNumber,
-} from '@/lib/notifications/resolveUserContact';
+import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
 
 type BookingRow = {
@@ -17,7 +14,8 @@ type BookingRow = {
 };
 
 /**
- * Notify traveller when the host cancels a booking (in-app, email, WhatsApp, push).
+ * Notify traveller when the host cancels a booking (in-app, email, push).
+ * WhatsApp delivery is deferred until a non-Twilio provider is wired.
  */
 export async function dispatchHostCancelledBooking(
   service: SupabaseClient,
@@ -67,32 +65,6 @@ export async function dispatchHostCancelledBooking(
       });
     } catch (e) {
       console.warn('[dispatchHostCancelledBooking] email:', e);
-    }
-  }
-
-  const contact = await resolveUserContact(service, booking.user_id);
-  const whatsapp = contact.whatsapp ? normalizeWhatsAppNumber(contact.whatsapp) : null;
-  if (whatsapp) {
-    try {
-      await fetch(`${appUrl}/api/notifications/send-whatsapp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: whatsapp,
-          message: [
-            `⚠️ Booking cancelled by host`,
-            ``,
-            `Property: ${propertyName}`,
-            `Dates: ${booking.check_in} → ${booking.check_out}`,
-            ``,
-            `Reason: ${reason}`,
-            ``,
-            `View details: ${appUrl.replace(/\/$/, '')}/bookings`,
-          ].join('\n'),
-        }),
-      });
-    } catch (e) {
-      console.warn('[dispatchHostCancelledBooking] whatsapp:', e);
     }
   }
 
