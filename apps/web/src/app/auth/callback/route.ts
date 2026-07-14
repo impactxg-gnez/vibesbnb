@@ -54,7 +54,13 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    console.error('[auth/callback] exchangeCodeForSession:', error.message);
+    const hasVerifier = request.cookies
+      .getAll()
+      .some((c) => c.name.includes('code-verifier'));
+    console.error('[auth/callback] exchangeCodeForSession:', error.message, {
+      hasVerifier,
+      host: request.nextUrl.host,
+    });
     return loginWithError('auth_callback');
   }
 

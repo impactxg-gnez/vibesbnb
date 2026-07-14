@@ -3,7 +3,7 @@ const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   missing_code:
     'The sign-in link was invalid or expired. Please try Google sign-in again.',
   auth_callback:
-    'Could not complete Google sign-in. Ensure Google is enabled in Supabase (Authentication → Providers) and your redirect URLs include https://www.vibesbnb.com/auth/callback.',
+    'Could not complete Google sign-in. Please try again. If it keeps failing, make sure you stay on the same site address (www or non-www) for the whole sign-in.',
   not_configured:
     'Authentication is not configured on this deployment. Contact support if this persists.',
 };
