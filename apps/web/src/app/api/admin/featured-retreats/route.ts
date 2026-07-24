@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
-import { clampDisplayCount, uniqueOrderedIds } from '@/lib/featuredRetreatsResolve';
+import {
+  FEATURED_VIBES_HOME_LIMIT,
+  clampDisplayCount,
+  uniqueOrderedIds,
+} from '@/lib/featuredRetreatsResolve';
 
-const MAX_STORED_IDS = 24;
+const MAX_STORED_IDS = FEATURED_VIBES_HOME_LIMIT;
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +25,7 @@ export async function GET(request: NextRequest) {
       if (error.message?.includes('featured_retreats_config') || error.code === '42P01') {
         return NextResponse.json({
           propertyIds: [] as string[],
-          displayCount: 6,
+          displayCount: FEATURED_VIBES_HOME_LIMIT,
           updatedAt: null,
           migrationRequired: true,
         });
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
     if (!data) {
       return NextResponse.json({
         propertyIds: [] as string[],
-        displayCount: 6,
+        displayCount: FEATURED_VIBES_HOME_LIMIT,
         updatedAt: null,
         migrationRequired: true,
       });

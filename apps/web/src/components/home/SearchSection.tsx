@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { Bed, Home, Building, Sparkles, Building2, MapPin } from 'lucide-react';
-import { DatePicker } from '@/components/ui/DatePicker';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
 import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 
@@ -517,34 +517,20 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
                       </button>
 
                       {showDatePicker && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,24rem)] sm:max-w-none sm:min-w-[280px]">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="block text-xs font-bold text-muted uppercase">Check In</label>
-                              <DatePicker
-                                value={checkIn}
-                                onChange={(dateStr) => {
-                                  setCheckIn(dateStr);
-                                  if (checkOut && dateStr >= checkOut) setCheckOut('');
-                                }}
-                                min={todayLocalYmd()}
-                                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="block text-xs font-bold text-muted uppercase">Check Out</label>
-                              <DatePicker
-                                value={checkOut}
-                                onChange={(dateStr) => setCheckOut(dateStr)}
-                                min={checkIn || todayLocalYmd()}
-                                className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                              />
-                            </div>
-                          </div>
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,24rem)] sm:max-w-none sm:min-w-[320px]">
+                          <DateRangePicker
+                            checkIn={checkIn}
+                            checkOut={checkOut}
+                            min={todayLocalYmd()}
+                            onChange={(nextIn, nextOut) => {
+                              setCheckIn(nextIn);
+                              setCheckOut(nextOut);
+                            }}
+                          />
                           <button
                             type="button"
                             onClick={() => setShowDatePicker(false)}
-                            className="mt-6 w-full btn-primary !py-3"
+                            className="mt-4 w-full btn-primary !py-3"
                           >
                             Confirm Dates
                           </button>

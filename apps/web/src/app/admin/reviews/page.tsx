@@ -302,7 +302,7 @@ export default function ReviewsManagementPage() {
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             <MessageSquarePlus className="w-5 h-5" />
-            Add Team Review
+            Add VibesBNB Review
           </button>
         </div>
 
@@ -321,7 +321,7 @@ export default function ReviewsManagementPage() {
             <p className="text-2xl font-bold text-red-600">{rejectedCount}</p>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <p className="text-sm text-gray-500">Team Reviews</p>
+            <p className="text-sm text-gray-500">VibesBNB Reviews</p>
             <p className="text-2xl font-bold text-purple-600">{teamReviewCount}</p>
           </div>
         </div>
@@ -358,7 +358,7 @@ export default function ReviewsManagementPage() {
             >
               <option value="all">All Types</option>
               <option value="user">User Reviews</option>
-              <option value="team">Team Reviews</option>
+              <option value="team">VibesBNB Reviews</option>
             </select>
             <select
               value={statusFilter}
@@ -479,7 +479,7 @@ export default function ReviewsManagementPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Add VibesBNB Team Review</h2>
+                <h2 className="text-xl font-bold text-gray-900">Add VibesBNB Review</h2>
                 <button
                   onClick={() => setShowTeamReviewForm(false)}
                   className="text-gray-400 hover:text-gray-600"

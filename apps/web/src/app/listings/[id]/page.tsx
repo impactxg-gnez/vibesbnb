@@ -143,10 +143,12 @@ export default function ListingDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [galleryUseOriginal, setGalleryUseOriginal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [loadingFavorite, setLoadingFavorite] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [reviewsData, setReviewsData] = useState<any[]>([]);
   const [isReviewsModalOpen, setIsReviewsModalOpen] = useState(false);
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
+  const [aboutTab, setAboutTab] = useState<'description' | 'vibesbnb'>('description');
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
   const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
@@ -186,6 +188,7 @@ export default function ListingDetailPage() {
 
   const scrollToReviews = () => {
     setIsAboutExpanded(true);
+    setAboutTab('description');
     setTimeout(() => {
       const element = document.getElementById('reviews-section');
       if (element) {
@@ -217,6 +220,16 @@ export default function ListingDetailPage() {
     () => reviewsData.find((r) => r.is_team_review),
     [reviewsData]
   );
+  const guestReviews = useMemo(
+    () => reviewsData.filter((r) => !r.is_team_review),
+    [reviewsData]
+  );
+
+  useEffect(() => {
+    if (!primaryTeamReview && aboutTab === 'vibesbnb') {
+      setAboutTab('description');
+    }
+  }, [primaryTeamReview, aboutTab]);
 
   useEffect(() => {
     setGalleryUseOriginal(false);
@@ -458,9 +471,67 @@ export default function ListingDetailPage() {
     }
   };
 
-  const handleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites');
+  useEffect(() => {
+    if (!user || !property?.id) {
+      setIsFavorite(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('property_id', property.id)
+          .maybeSingle();
+        if (!cancelled) setIsFavorite(Boolean(data) && !error);
+      } catch {
+        if (!cancelled) setIsFavorite(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, property?.id]);
+
+  const handleFavorite = async () => {
+    if (!property?.id) return;
+    if (!user) {
+      toast.error('Please login to save favorites');
+      router.push('/login');
+      return;
+    }
+
+    setLoadingFavorite(true);
+    const next = !isFavorite;
+    try {
+      const supabase = createClient();
+      if (!next) {
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('property_id', property.id);
+        if (error) throw error;
+        setIsFavorite(false);
+        toast.success('Removed from favorites');
+      } else {
+        const { error } = await supabase.from('favorites').insert({
+          user_id: user.id,
+          property_id: property.id,
+        });
+        if (error) throw error;
+        setIsFavorite(true);
+        toast.success('Added to favorites');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error('Failed to update favorite');
+    } finally {
+      setLoadingFavorite(false);
+    }
   };
 
   const handleShare = () => {
@@ -653,7 +724,9 @@ export default function ListingDetailPage() {
             </button>
             <button
               onClick={handleFavorite}
-              className={`p-3 rounded-lg transition ${isFavorite
+              disabled={loadingFavorite}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Save to favorites'}
+              className={`p-3 rounded-lg transition disabled:opacity-50 ${isFavorite
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-800 text-white hover:bg-gray-700'
                 }`}
@@ -799,13 +872,7 @@ export default function ListingDetailPage() {
                     </div>
                     {property.hostBio?.trim() ? (
                       <p className="text-sm text-gray-400 mt-2 leading-relaxed line-clamp-3">{property.hostBio.trim()}</p>
-                    ) : (
-                      <p className="text-sm text-gray-500 mt-2">
-                        {property.hostJoinedDate
-                          ? `Hosting on VibesBNB since ${property.hostJoinedDate}`
-                          : 'Your host for this stay'}
-                      </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-8 gap-y-3 lg:shrink-0 lg:pt-1">
@@ -912,25 +979,107 @@ export default function ListingDetailPage() {
 
             {/* About this place */}
             <div id="about-section" className="bg-gray-900 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-              <div 
+              <div
                 className="p-6 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
                 onClick={() => setIsAboutExpanded(!isAboutExpanded)}
               >
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   About this place
-                  <span className="bg-primary-500/10 text-primary-400 text-xs px-2 py-1 rounded-full border border-primary-500/20">Official</span>
+                  {primaryTeamReview ? (
+                    <span className="bg-primary-500/10 text-primary-400 text-xs px-2 py-1 rounded-full border border-primary-500/20">
+                      Official
+                    </span>
+                  ) : null}
                 </h2>
                 {isAboutExpanded ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
               </div>
 
-              <div className={`transition-all duration-500 overflow-hidden ${isAboutExpanded ? 'max-h-[2000px] border-t border-white/5' : 'max-h-0'}`}>
+              <div className={`transition-all duration-500 overflow-hidden ${isAboutExpanded ? 'max-h-[2400px] border-t border-white/5' : 'max-h-0'}`}>
+                {primaryTeamReview ? (
+                  <div className="px-6 pt-4 flex gap-2 border-b border-white/5" role="tablist" aria-label="About this place">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={aboutTab === 'description'}
+                      onClick={() => setAboutTab('description')}
+                      className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                        aboutTab === 'description'
+                          ? 'text-white border-primary-500 bg-white/5'
+                          : 'text-gray-400 border-transparent hover:text-gray-200'
+                      }`}
+                    >
+                      Description
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={aboutTab === 'vibesbnb'}
+                      onClick={() => setAboutTab('vibesbnb')}
+                      className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors inline-flex items-center gap-2 ${
+                        aboutTab === 'vibesbnb'
+                          ? 'text-purple-300 border-purple-500 bg-purple-500/10'
+                          : 'text-gray-400 border-transparent hover:text-gray-200'
+                      }`}
+                    >
+                      <ShieldCheck size={14} />
+                      VibesBNB review
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="p-6 py-2 space-y-6">
+                  {aboutTab === 'vibesbnb' && primaryTeamReview ? (
+                    <div className="my-4 space-y-6">
+                      <div className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                          <ShieldCheck size={64} className="text-purple-400" />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 mb-4 relative z-10">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center border border-purple-400/30">
+                            <span className="text-white text-sm font-bold">VB</span>
+                          </div>
+                          <div>
+                            <p className="text-white font-semibold">
+                              {primaryTeamReview.reviewer_name || 'VibesBNB Team'}
+                            </p>
+                            <p className="text-purple-400/80 text-xs font-medium">
+                              Official VibesBNB review · Trust &amp; Safety
+                            </p>
+                          </div>
+                          <span className="ml-auto px-2 py-1 text-[10px] font-bold bg-purple-500/20 text-purple-300 rounded">
+                            VERIFIED
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 mb-4 relative z-10">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              size={18}
+                              className={
+                                i < (primaryTeamReview.rating || 5)
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-gray-600'
+                              }
+                            />
+                          ))}
+                          <span className="text-gray-400 text-sm ml-2">
+                            {primaryTeamReview.rating}/5
+                          </span>
+                          {primaryTeamReview.created_at ? (
+                            <span className="text-gray-500 text-xs ml-auto">
+                              {new Date(primaryTeamReview.created_at).toLocaleDateString()}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-gray-200 text-base leading-relaxed relative z-10 whitespace-pre-wrap">
+                          {primaryTeamReview.comment}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                   {/* Two Categories Summary */}
-                  <div
-                    className={`grid grid-cols-1 gap-4 my-6 ${
-                      primaryTeamReview ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2'
-                    }`}
-                  >
+                  <div className="grid grid-cols-1 gap-4 my-6 md:grid-cols-2">
                     {/* Category 1: AI Summary */}
                     <div className="bg-primary-500/5 border border-primary-500/20 rounded-2xl p-5 relative group overflow-hidden">
                       <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -957,70 +1106,26 @@ export default function ListingDetailPage() {
                         Guest Sentiment
                       </div>
                       <div className="text-gray-300 text-sm leading-relaxed relative z-10">
-                        {property.reviews > 0 ? (
+                        {guestReviews.length > 0 ? (
                           <>
-                            {primaryTeamReview ? (
-                              <>
-                                This listing is <span className="text-white font-medium">verified by VibesBNB Trust & Safety</span>
-                                {property.reviews > 1 ? (
-                                  <>
-                                    {' '}
-                                    and has <span className="text-white font-medium">{property.reviews}</span> total{' '}
-                                    {property.reviews === 1 ? 'review' : 'reviews'}.
-                                  </>
-                                ) : (
-                                  '.'
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                Guests generally praise the <span className="text-white font-medium">cleanliness</span> and{' '}
-                                <span className="text-white font-medium">amenities</span>. The average rating of{' '}
-                                <span className="text-white font-medium">{property.rating}★</span> suggests an exceptional stay
-                                experience based on {property.reviews} recent {property.reviews === 1 ? 'review' : 'reviews'}.
-                              </>
-                            )}
+                            Guests generally praise the <span className="text-white font-medium">cleanliness</span> and{' '}
+                            <span className="text-white font-medium">amenities</span>. The average rating of{' '}
+                            <span className="text-white font-medium">{displayRating}★</span> suggests an exceptional stay
+                            experience based on {guestReviews.length} recent{' '}
+                            {guestReviews.length === 1 ? 'review' : 'reviews'}.
+                          </>
+                        ) : primaryTeamReview ? (
+                          <>
+                            This listing is{' '}
+                            <span className="text-white font-medium">verified by VibesBNB Trust &amp; Safety</span>.
+                            Open the <span className="text-purple-300 font-medium">VibesBNB review</span> tab for the
+                            official write-up.
                           </>
                         ) : (
-                          <span className="text-gray-400 italic">There aren't many user reviews for this property yet. Be one of the first to share your experience!</span>
+                          <span className="text-gray-400 italic">There aren&apos;t many user reviews for this property yet. Be one of the first to share your experience!</span>
                         )}
                       </div>
                     </div>
-
-                    {/* VibesBNB Approved — Trust & Safety team review */}
-                    {primaryTeamReview && (
-                      <div className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-5 relative group overflow-hidden">
-                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                          <ShieldCheck size={48} className="text-purple-400" />
-                        </div>
-                        <div className="flex items-center gap-2 mb-3 text-purple-400 font-bold text-sm uppercase tracking-wider">
-                          <ShieldCheck size={16} />
-                          VibesBNB Approved
-                        </div>
-                        <div className="flex items-center gap-1 mb-3">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              size={14}
-                              className={
-                                i < (primaryTeamReview.rating || 5)
-                                  ? 'text-amber-400 fill-amber-400'
-                                  : 'text-gray-600'
-                              }
-                            />
-                          ))}
-                          <span className="text-gray-500 text-xs ml-1">
-                            {primaryTeamReview.rating}/5 · Trust & Safety
-                          </span>
-                        </div>
-                        <p className="text-gray-300 text-sm leading-relaxed relative z-10">
-                          &ldquo;{primaryTeamReview.comment}&rdquo;
-                        </p>
-                        <p className="text-purple-400/80 text-xs mt-3 relative z-10 font-medium">
-                          {primaryTeamReview.reviewer_name || 'VibesBNB Team'}
-                        </p>
-                      </div>
-                    )}
 
                     {/* Category 3: VibesBNB Take */}
                     {property.vibesbnb_take && (
@@ -1033,7 +1138,7 @@ export default function ListingDetailPage() {
                           VibesBNB Take
                         </div>
                         <div className="text-gray-300 text-base leading-relaxed relative z-10 italic">
-                          "{property.vibesbnb_take}"
+                          &quot;{property.vibesbnb_take}&quot;
                         </div>
                       </div>
                     )}
@@ -1066,31 +1171,22 @@ export default function ListingDetailPage() {
                         className="mb-6"
                       />
                     )}
-                    {reviewsData.length > 0 ? (
+                    {guestReviews.length > 0 ? (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {reviewsData.slice(0, 4).map((review) => (
-                            <div key={review.id} className={`bg-white/5 border rounded-2xl p-5 ${review.is_team_review ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/5'}`}>
+                          {guestReviews.slice(0, 4).map((review) => (
+                            <div key={review.id} className="bg-white/5 border border-white/5 rounded-2xl p-5">
                               <div className="flex items-center gap-3 mb-3">
-                                {review.is_team_review ? (
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center border border-purple-400/30">
-                                    <span className="text-white text-xs font-bold">VB</span>
-                                  </div>
-                                ) : (
                                   <img 
                                     src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
                                     className="w-10 h-10 rounded-full border border-white/10" 
                                     alt="reviewer"
                                   />
-                                )}
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className={`font-bold text-sm ${review.is_team_review ? 'text-purple-400' : 'text-white'}`}>
-                                      {review.is_team_review ? (review.reviewer_name || 'VibesBNB Team') : (review.profiles?.full_name || 'Guest')}
+                                    <span className="font-bold text-sm text-white">
+                                      {review.profiles?.full_name || 'Guest'}
                                     </span>
-                                    {review.is_team_review && (
-                                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/20 text-purple-400 rounded">VERIFIED</span>
-                                    )}
                                   </div>
                                   <div className="text-gray-500 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
                                 </div>
@@ -1099,17 +1195,17 @@ export default function ListingDetailPage() {
                                   <span className="text-white text-[10px] font-bold">{review.rating}</span>
                                 </div>
                               </div>
-                              <p className="text-gray-400 text-sm italic">"{review.comment}"</p>
+                              <p className="text-gray-400 text-sm italic">&quot;{review.comment}&quot;</p>
                             </div>
                           ))}
                         </div>
-                        {displayReviewCount > 4 && (
+                        {guestReviews.length > 4 && (
                           <button
                             type="button"
                             onClick={openReviewsModal}
                             className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors"
                           >
-                            Show all {displayReviewCount} reviews
+                            Show all {guestReviews.length} reviews
                           </button>
                         )}
                       </>
@@ -1120,6 +1216,8 @@ export default function ListingDetailPage() {
                       </div>
                     )}
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

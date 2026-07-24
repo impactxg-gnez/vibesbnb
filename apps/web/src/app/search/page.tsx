@@ -7,7 +7,7 @@ import Filters from '@/components/search/Filters';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
-import { DatePicker } from '@/components/ui/DatePicker';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
@@ -980,37 +980,20 @@ export default function SearchPage() {
                     <span className="hidden sm:inline">Dates</span>
                   </button>
                   {showDatePicker && (
-                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 w-[min(calc(100vw-1.5rem),20rem)] min-w-0 sm:min-w-[280px] sm:w-auto">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-2">Check In</label>
-                          <DatePicker
-                            value={searchParams.get('checkIn') || ''}
-                            onChange={(dateStr) => {
-                              const params = new URLSearchParams(searchParams.toString());
-                              if (dateStr) params.set('checkIn', dateStr);
-                              else params.delete('checkIn');
-                              router.push(`/search?${params.toString()}`);
-                            }}
-                            min={todayLocalYmd()}
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-2">Check Out</label>
-                          <DatePicker
-                            value={searchParams.get('checkOut') || ''}
-                            onChange={(dateStr) => {
-                              const params = new URLSearchParams(searchParams.toString());
-                              if (dateStr) params.set('checkOut', dateStr);
-                              else params.delete('checkOut');
-                              router.push(`/search?${params.toString()}`);
-                            }}
-                            min={searchParams.get('checkIn') || todayLocalYmd()}
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                          />
-                        </div>
-                      </div>
+                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 w-[min(calc(100vw-1.5rem),22rem)] min-w-0 sm:min-w-[320px] sm:w-auto">
+                      <DateRangePicker
+                        checkIn={searchParams.get('checkIn') || ''}
+                        checkOut={searchParams.get('checkOut') || ''}
+                        min={todayLocalYmd()}
+                        onChange={(nextIn, nextOut) => {
+                          const params = new URLSearchParams(searchParams.toString());
+                          if (nextIn) params.set('checkIn', nextIn);
+                          else params.delete('checkIn');
+                          if (nextOut) params.set('checkOut', nextOut);
+                          else params.delete('checkOut');
+                          router.push(`/search?${params.toString()}`);
+                        }}
+                      />
                       <button
                         onClick={() => setShowDatePicker(false)}
                         className="mt-4 w-full px-4 py-2 bg-primary-500 text-black rounded-lg font-semibold hover:bg-primary-400 transition"

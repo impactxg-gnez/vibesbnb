@@ -13,7 +13,8 @@ export async function GET() {
       { retreats, source, displayCount },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          // Short CDN cache — admin edits show within ~2 minutes; keeps homepage TTFB low.
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
         },
       }
     );

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
+import { FEATURED_VIBES_HOME_LIMIT } from '@/lib/featuredRetreatsResolve';
 import { Sparkles, Save, ChevronUp, ChevronDown, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -21,7 +22,6 @@ type AdminProperty = {
 export default function FeaturedRetreatsAdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [displayCount, setDisplayCount] = useState(6);
   const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [allProperties, setAllProperties] = useState<AdminProperty[]>([]);
   const [pickerQuery, setPickerQuery] = useState('');
@@ -50,8 +50,9 @@ export default function FeaturedRetreatsAdminPage() {
     const res = await fetch('/api/admin/featured-retreats', { headers: { ...headers } });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to load featured config');
-    setDisplayCount(typeof data.displayCount === 'number' ? data.displayCount : 6);
-    setPropertyIds(Array.isArray(data.propertyIds) ? data.propertyIds : []);
+    setPropertyIds(
+      Array.isArray(data.propertyIds) ? data.propertyIds.slice(0, FEATURED_VIBES_HOME_LIMIT) : []
+    );
     setMigrationRequired(Boolean(data.migrationRequired));
   }, []);
 
@@ -102,8 +103,8 @@ export default function FeaturedRetreatsAdminPage() {
       toast.error('Already in the list');
       return;
     }
-    if (propertyIds.length >= 24) {
-      toast.error('Maximum 24 curated property IDs');
+    if (propertyIds.length >= FEATURED_VIBES_HOME_LIMIT) {
+      toast.error(`Maximum ${FEATURED_VIBES_HOME_LIMIT} featured properties`);
       return;
     }
     setPropertyIds((prev) => [...prev, t]);
@@ -130,7 +131,10 @@ export default function FeaturedRetreatsAdminPage() {
       const res = await fetch('/api/admin/featured-retreats', {
         method: 'PATCH',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayCount, propertyIds }),
+        body: JSON.stringify({
+          displayCount: FEATURED_VIBES_HOME_LIMIT,
+          propertyIds: propertyIds.slice(0, FEATURED_VIBES_HOME_LIMIT),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -138,7 +142,6 @@ export default function FeaturedRetreatsAdminPage() {
         return;
       }
       setPropertyIds(data.propertyIds || propertyIds);
-      setDisplayCount(data.displayCount ?? displayCount);
       setMigrationRequired(false);
       toast.success('Featured vibes saved');
     } catch (e) {
@@ -165,9 +168,9 @@ export default function FeaturedRetreatsAdminPage() {
             Featured vibes (home)
           </h1>
           <p className="text-gray-600 mt-2">
-            Choose which active listings appear in <strong>Featured Vibes</strong> on the home page and how many
-            cards to show (1–24). If the curated list is empty, the site fills slots with active properties that have the
-            most approved reviews (then rating as a tie-break).
+            Choose up to <strong>{FEATURED_VIBES_HOME_LIMIT}</strong> active listings for the home page{' '}
+            <strong>Featured Vibes</strong> section (order matters). If the list is empty, the site shows the{' '}
+            <strong>highest-rated</strong> {FEATURED_VIBES_HOME_LIMIT} active properties.
           </p>
         </div>
 
@@ -185,17 +188,12 @@ export default function FeaturedRetreatsAdminPage() {
         )}
 
         <div className="bg-white rounded-lg shadow p-6 space-y-8">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Number of featured cards on home</label>
-            <input
-              type="number"
-              min={1}
-              max={24}
-              value={displayCount}
-              onChange={(e) => setDisplayCount(Math.min(24, Math.max(1, parseInt(e.target.value, 10) || 1)))}
-              className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-            <p className="text-xs text-gray-500 mt-2">Only the first N properties in your ordered list are shown; empty list uses auto picks.</p>
+          <div className="rounded-lg border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-900">
+            Home shows up to <strong>{FEATURED_VIBES_HOME_LIMIT}</strong> cards
+            {propertyIds.length > 0
+              ? ` · ${propertyIds.length} curated (shown in this order)`
+              : ' · auto: highest-rated active listings'}
+            .
           </div>
 
           <div>
@@ -204,7 +202,8 @@ export default function FeaturedRetreatsAdminPage() {
               <p className="text-gray-500 text-sm">Loading…</p>
             ) : propertyIds.length === 0 ? (
               <p className="text-gray-500 text-sm border border-dashed border-gray-200 rounded-lg p-4">
-                No manual picks — home page uses up to {displayCount} active properties with the strongest review volume.
+                No manual picks — home page shows the {FEATURED_VIBES_HOME_LIMIT} highest-rated active
+                properties.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -255,18 +254,30 @@ export default function FeaturedRetreatsAdminPage() {
           </div>
 
           <div className="border-t border-gray-100 pt-6">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Add active property</h2>
+            <h2 className="text-sm font-bold text-gray-900 mb-3">
+              Add active property
+              {propertyIds.length >= FEATURED_VIBES_HOME_LIMIT ? (
+                <span className="ml-2 font-normal text-gray-500">
+                  (list full — remove one to add another)
+                </span>
+              ) : null}
+            </h2>
             <div className="flex flex-col sm:flex-row gap-2 mb-3">
               <input
                 type="text"
                 value={pickerQuery}
                 onChange={(e) => setPickerQuery(e.target.value)}
                 placeholder="Search by name, location, or ID…"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                disabled={propertyIds.length >= FEATURED_VIBES_HOME_LIMIT}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
             <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-              {pickerOptions.length === 0 ? (
+              {propertyIds.length >= FEATURED_VIBES_HOME_LIMIT ? (
+                <p className="p-3 text-sm text-gray-500">
+                  Already {FEATURED_VIBES_HOME_LIMIT} selected. Remove a property to add a different one.
+                </p>
+              ) : pickerOptions.length === 0 ? (
                 <p className="p-3 text-sm text-gray-500">No matches (or all already added).</p>
               ) : (
                 pickerOptions.map((p) => (
@@ -292,15 +303,17 @@ export default function FeaturedRetreatsAdminPage() {
                 value={manualIdInput}
                 onChange={(e) => setManualIdInput(e.target.value)}
                 placeholder="Or paste property ID"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
+                disabled={propertyIds.length >= FEATURED_VIBES_HOME_LIMIT}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm disabled:bg-gray-50"
               />
               <button
                 type="button"
+                disabled={propertyIds.length >= FEATURED_VIBES_HOME_LIMIT}
                 onClick={() => {
                   addPropertyId(manualIdInput);
                   setManualIdInput('');
                 }}
-                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-semibold"
+                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm font-semibold disabled:opacity-50"
               >
                 Add by ID
               </button>

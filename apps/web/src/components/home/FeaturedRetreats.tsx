@@ -55,7 +55,8 @@ export function FeaturedRetreats() {
           return;
         }
         const list = Array.isArray(data.retreats) ? data.retreats : [];
-        setRetreats(list as Retreat[]);
+        // Hard cap — homepage Featured Vibes always shows at most 6 cards
+        setRetreats((list as Retreat[]).slice(0, 6));
       } catch (error) {
         console.error('Error loading featured vibes:', error);
         setRetreats([]);

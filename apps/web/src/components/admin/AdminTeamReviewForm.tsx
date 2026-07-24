@@ -50,12 +50,12 @@ export function AdminTeamReviewForm({
         throw new Error(payload.error || 'Failed to add team review');
       }
 
-      toast.success('Team review published on listing');
+      toast.success('VibesBNB review published on listing');
       setComment('');
       setRating(5);
       onSubmitted?.();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add team review');
+      toast.error(err instanceof Error ? err.message : 'Failed to add VibesBNB review');
     } finally {
       setSubmitting(false);
     }
@@ -63,11 +63,11 @@ export function AdminTeamReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className={className}>
-      <h3 className="text-sm font-bold text-gray-900 mb-1">Add VibesBNB team review</h3>
+      <h3 className="text-sm font-bold text-gray-900 mb-1">Add VibesBNB review</h3>
       <p className="text-xs text-gray-500 mb-3">
         {propertyName
-          ? `Published immediately on ${propertyName}.`
-          : 'Published immediately on the listing.'}
+          ? `Shows on ${propertyName} under About → VibesBNB review.`
+          : 'Shows on the listing under About → VibesBNB review.'}
       </p>
 
       <div className="flex items-center gap-1 mb-3">
@@ -94,7 +94,7 @@ export function AdminTeamReviewForm({
         onChange={(e) => setComment(e.target.value)}
         rows={4}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-        placeholder="Write the VibesBNB team review…"
+        placeholder="Write the official VibesBNB review…"
         required
       />
 
@@ -109,7 +109,7 @@ export function AdminTeamReviewForm({
             Publishing…
           </>
         ) : (
-          'Publish team review'
+          'Publish VibesBNB review'
         )}
       </button>
     </form>

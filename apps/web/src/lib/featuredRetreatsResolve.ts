@@ -3,6 +3,9 @@ import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_FEATURED_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
+/** Hard cap for homepage Featured Vibes cards. */
+export const FEATURED_VIBES_HOME_LIMIT = 6;
+
 export type FeaturedRetreatPublic = {
   id: string;
   name: string;
@@ -30,8 +33,8 @@ export type FeaturedRetreatPublic = {
 
 export function clampDisplayCount(n: unknown): number {
   const x = Math.round(Number(n));
-  if (!Number.isFinite(x)) return 6;
-  return Math.min(24, Math.max(1, x));
+  if (!Number.isFinite(x)) return FEATURED_VIBES_HOME_LIMIT;
+  return Math.min(FEATURED_VIBES_HOME_LIMIT, Math.max(1, x));
 }
 
 export function uniqueOrderedIds(ids: unknown[]): string[] {
@@ -46,6 +49,7 @@ export function uniqueOrderedIds(ids: unknown[]): string[] {
   return out;
 }
 
+/** Highest-rated active listings (rating → review volume → newest). */
 async function pickFallbackIds(
   supabase: SupabaseClient,
   limit: number,
@@ -53,50 +57,24 @@ async function pickFallbackIds(
 ): Promise<string[]> {
   if (limit <= 0) return [];
 
-  try {
-    const cap = Math.min(400, limit * 40 + exclude.size + 40);
-    const { data: primary } = await supabase
-      .from('properties')
-      .select('id')
-      .eq('status', 'active')
-      .order('rating', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(cap);
+  const fetchCap = Math.min(80, limit + exclude.size + 24);
+  const { data, error } = await supabase
+    .from('properties')
+    .select('id')
+    .eq('status', 'active')
+    .order('rating', { ascending: false })
+    .order('reviews_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(fetchCap);
 
-    const out: string[] = [];
-    for (const row of primary || []) {
-      const id = String((row as { id: string }).id);
-      if (exclude.has(id)) continue;
-      out.push(id);
-      if (out.length >= limit) return out;
-    }
-
-    if (out.length >= limit) return out.slice(0, limit);
-
-    const { data: recent } = await supabase
-      .from('properties')
-      .select('id')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    const seen = new Set(out);
-    for (const row of recent || []) {
-      const id = String((row as { id: string }).id);
-      if (exclude.has(id) || seen.has(id)) continue;
-      out.push(id);
-      seen.add(id);
-      if (out.length >= limit) break;
-    }
-
-    return out.slice(0, limit);
-  } catch {
+  if (error) {
+    console.warn('[featuredRetreatsResolve] fallback query:', error.message);
     const { data: byRating } = await supabase
       .from('properties')
       .select('id')
       .eq('status', 'active')
       .order('rating', { ascending: false })
-      .limit(limit + exclude.size + 10);
+      .limit(fetchCap);
     const out: string[] = [];
     for (const row of byRating || []) {
       const id = String((row as { id: string }).id);
@@ -106,6 +84,15 @@ async function pickFallbackIds(
     }
     return out;
   }
+
+  const out: string[] = [];
+  for (const row of data || []) {
+    const id = String((row as { id: string }).id);
+    if (exclude.has(id)) continue;
+    out.push(id);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string[]) {
@@ -125,76 +112,9 @@ async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string
     });
 }
 
-async function loadReviewCountsForProperties(supabase: SupabaseClient, propertyIds: string[]) {
-  const map = new Map<string, { count: number; avg: number }>();
-  if (propertyIds.length === 0) return map;
-
-  const { data: rpcRows, error: rpcError } = await supabase.rpc('featured_retreat_review_stats', {
-    p_property_ids: propertyIds,
-  });
-
-  if (!rpcError && rpcRows && Array.isArray(rpcRows)) {
-    for (const row of rpcRows as {
-      property_id: string;
-      review_count: number | string;
-      rating_avg: number | string | null;
-    }[]) {
-      const pid = String(row.property_id);
-      const cnt = Number(row.review_count) || 0;
-      const rawAvg = row.rating_avg;
-      const avgNum =
-        typeof rawAvg === 'string' ? parseFloat(rawAvg) : rawAvg != null ? Number(rawAvg) : NaN;
-      map.set(pid, { count: cnt, avg: Number.isFinite(avgNum) ? avgNum : 0 });
-    }
-    return map;
-  }
-
-  /** Paginated fallback if the SQL function is not installed yet (avoids multi‑MB single responses). */
-  if (rpcError) {
-    console.warn(
-      '[featuredRetreatsResolve] featured_retreat_review_stats RPC unavailable, using paginated fallback:',
-      rpcError.message
-    );
-  }
-  const acc = new Map<string, { count: number; sum: number }>();
-  const pageSize = 6000;
-  let from = 0;
-  for (let guard = 0; guard < 500; guard++) {
-    const { data: page, error } = await supabase
-      .from('reviews')
-      .select('property_id, rating')
-      .eq('status', 'approved')
-      .in('property_id', propertyIds)
-      .order('id', { ascending: true })
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      console.warn('[featuredRetreatsResolve] review aggregation fallback error:', error.message);
-      break;
-    }
-    if (!page?.length) break;
-    for (const row of page) {
-      const pid = String((row as { property_id: string }).property_id);
-      const rating = Number((row as { rating: number }).rating) || 0;
-      const cur = acc.get(pid) || { count: 0, sum: 0 };
-      cur.count += 1;
-      cur.sum += rating;
-      acc.set(pid, cur);
-    }
-    if (page.length < pageSize) break;
-    from += pageSize;
-  }
-  for (const [pid, { count, sum }] of acc) {
-    map.set(pid, { count, avg: count ? sum / count : 0 });
-  }
-  return map;
-}
-
 function mapRowToRetreat(
   p: Record<string, unknown>,
-  profile: { avatar_url: string | null; full_name: string | null } | undefined,
-  reviewCount: number,
-  reviewAvg: number
+  profile: { avatar_url: string | null; full_name: string | null } | undefined
 ): FeaturedRetreatPublic {
   const hostId = String(p.host_id || '');
   const hostName = (profile?.full_name || 'Host').trim() || 'Host';
@@ -203,11 +123,11 @@ function mapRowToRetreat(
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostId || hostName)}`;
 
   const rawDesc = typeof p.description === 'string' ? p.description.trim() : '';
-  const description = rawDesc.length > 220 ? `${rawDesc.slice(0, 217).trimEnd()}…` : rawDesc;
+  const description = rawDesc.length > 180 ? `${rawDesc.slice(0, 177).trimEnd()}…` : rawDesc;
 
   const ratingCol = p.rating != null ? Number(p.rating) : NaN;
-  const displayRating =
-    reviewCount > 0 ? Math.round(reviewAvg * 10) / 10 : Number.isFinite(ratingCol) ? ratingCol : 4.5;
+  const reviewsCount = Number(p.reviews_count) || 0;
+  const displayRating = Number.isFinite(ratingCol) ? Math.round(ratingCol * 10) / 10 : 0;
 
   const smoking = resolveSmokingFlags(p);
   const consumption = resolveWellnessConsumptionFlags(p);
@@ -218,11 +138,10 @@ function mapRowToRetreat(
     location: String(p.location || ''),
     description,
     rating: displayRating,
-    reviews: reviewCount,
+    reviews: reviewsCount,
     price: p.price != null ? Number(p.price) : 0,
-    images: Array.isArray(p.images)
-      ? (p.images as string[]).filter(Boolean).slice(0, 15)
-      : [],
+    // Cap carousel payload — cards only need a few frames
+    images: Array.isArray(p.images) ? (p.images as string[]).filter(Boolean).slice(0, 6) : [],
     amenities: Array.isArray(p.amenities) ? (p.amenities as string[]).slice(0, 2) : [],
     badge: p.wellness_friendly ? 'Wellness-friendly' : 'Featured',
     bedrooms: Number(p.bedrooms) || 1,
@@ -243,45 +162,14 @@ function mapRowToRetreat(
   };
 }
 
-async function legacyWellnessRetreats(supabase: SupabaseClient, limit: number): Promise<FeaturedRetreatPublic[]> {
-  const { data: propertiesData, error } = await supabase
-    .from('properties')
-    .select(PROPERTY_FEATURED_LIST_COLUMNS)
-    .eq('status', 'active')
-    .eq('wellness_friendly', true)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error || !propertiesData?.length) return [];
-
-  const rows = (propertiesData ?? []) as unknown as Record<string, unknown>[];
-  const hostIds = [...new Set(rows.map((p) => p.host_id).filter(Boolean))] as string[];
-  const profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
-  if (hostIds.length > 0) {
-    const { data: profilesData } = await supabase.from('profiles').select('id, avatar_url, full_name').in('id', hostIds);
-    (profilesData || []).forEach((row: { id: string; avatar_url: string | null; full_name: string | null }) => {
-      profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
-    });
-  }
-
-  const ids = rows.map((r) => String(r.id));
-  const reviewMap = await loadReviewCountsForProperties(supabase, ids);
-
-  return rows.map((p) => {
-    const hostId = String(p.host_id || '');
-    const rev = reviewMap.get(String(p.id));
-    return mapRowToRetreat(p, hostId ? profileById[hostId] : undefined, rev?.count ?? 0, rev?.avg ?? 0);
-  });
-}
-
-export type FeaturedResolveSource = 'manual' | 'mixed' | 'auto' | 'legacy';
+export type FeaturedResolveSource = 'manual' | 'auto';
 
 export async function resolveFeaturedRetreatsForHome(supabase: SupabaseClient): Promise<{
   retreats: FeaturedRetreatPublic[];
   source: FeaturedResolveSource;
   displayCount: number;
 }> {
-  const defaultLimit = 6;
+  const displayCount = FEATURED_VIBES_HOME_LIMIT;
 
   const { data: cfgRow, error: cfgError } = await supabase
     .from('featured_retreats_config')
@@ -289,17 +177,14 @@ export async function resolveFeaturedRetreatsForHome(supabase: SupabaseClient): 
     .eq('id', 'default')
     .maybeSingle();
 
-  if (cfgError || !cfgRow) {
-    const retreats = await legacyWellnessRetreats(supabase, defaultLimit);
-    return { retreats, source: 'legacy', displayCount: defaultLimit };
-  }
-
-  const displayCount = clampDisplayCount((cfgRow as { display_count?: number }).display_count);
-  const manualIds = uniqueOrderedIds(
-    Array.isArray((cfgRow as { property_ids?: unknown[] }).property_ids)
-      ? ((cfgRow as { property_ids: unknown[] }).property_ids as unknown[])
-      : []
-  );
+  const manualIds =
+    !cfgError && cfgRow
+      ? uniqueOrderedIds(
+          Array.isArray((cfgRow as { property_ids?: unknown[] }).property_ids)
+            ? ((cfgRow as { property_ids: unknown[] }).property_ids as unknown[])
+            : []
+        ).slice(0, FEATURED_VIBES_HOME_LIMIT)
+      : [];
 
   let source: FeaturedResolveSource = 'auto';
   let finalRows: Record<string, unknown>[] = [];
@@ -309,55 +194,36 @@ export async function resolveFeaturedRetreatsForHome(supabase: SupabaseClient): 
     finalRows = await loadActivePropertiesInOrder(supabase, ids);
     source = 'auto';
   } else {
-    const target = manualIds.slice(0, displayCount);
-    let rows = await loadActivePropertiesInOrder(supabase, target);
-
+    const rows = await loadActivePropertiesInOrder(supabase, manualIds);
     if (rows.length === 0) {
+      // Curated IDs inactive/missing — fall back to highest rated
       const ids = await pickFallbackIds(supabase, displayCount, new Set());
       finalRows = await loadActivePropertiesInOrder(supabase, ids);
       source = 'auto';
     } else {
-      source = 'manual';
-      if (rows.length < displayCount) {
-        const exclude = new Set(rows.map((r) => String(r.id)));
-        const need = displayCount - rows.length;
-        const fillerIds = await pickFallbackIds(supabase, need, exclude);
-        if (fillerIds.length > 0) source = 'mixed';
-        const extra = await loadActivePropertiesInOrder(supabase, fillerIds);
-        const seen = new Set(rows.map((r) => String(r.id)));
-        for (const r of extra) {
-          const id = String(r.id);
-          if (seen.has(id)) continue;
-          rows.push(r);
-          seen.add(id);
-          if (rows.length >= displayCount) break;
-        }
-      }
       finalRows = rows.slice(0, displayCount);
+      source = 'manual';
     }
   }
 
-  const orderedIds = finalRows.map((r) => String(r.id));
-  const reviewMap = await loadReviewCountsForProperties(supabase, orderedIds);
+  finalRows = finalRows.slice(0, displayCount);
+
   const hostIds = [...new Set(finalRows.map((p) => p.host_id).filter(Boolean))] as string[];
   const profileById: Record<string, { avatar_url: string | null; full_name: string | null }> = {};
   if (hostIds.length > 0) {
-    const { data: profilesData } = await supabase.from('profiles').select('id, avatar_url, full_name').in('id', hostIds);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, avatar_url, full_name')
+      .in('id', hostIds);
     (profilesData || []).forEach((row: { id: string; avatar_url: string | null; full_name: string | null }) => {
       profileById[row.id] = { avatar_url: row.avatar_url, full_name: row.full_name };
     });
   }
 
-  const retreats = orderedIds
-    .map((id) => finalRows.find((r) => String(r.id) === id))
-    .filter(Boolean)
-    .map((p) => {
-      const row = p as Record<string, unknown>;
-      const id = String(row.id);
-      const hostId = String(row.host_id || '');
-      const rev = reviewMap.get(id);
-      return mapRowToRetreat(row, hostId ? profileById[hostId] : undefined, rev?.count ?? 0, rev?.avg ?? 0);
-    });
+  const retreats = finalRows.map((row) => {
+    const hostId = String(row.host_id || '');
+    return mapRowToRetreat(row, hostId ? profileById[hostId] : undefined);
+  });
 
   return { retreats, source, displayCount };
 }
