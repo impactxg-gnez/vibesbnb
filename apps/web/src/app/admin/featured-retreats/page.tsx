@@ -191,7 +191,7 @@ export default function FeaturedRetreatsAdminPage() {
           <div className="rounded-lg border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-900">
             Home shows up to <strong>{FEATURED_VIBES_HOME_LIMIT}</strong> cards
             {propertyIds.length > 0
-              ? ` · ${propertyIds.length} curated (shown in this order)`
+              ? ` · ${propertyIds.length} curated first, then highest-rated fillers if needed`
               : ' · auto: highest-rated active listings'}
             .
           </div>

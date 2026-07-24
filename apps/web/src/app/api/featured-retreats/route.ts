@@ -13,8 +13,8 @@ export async function GET() {
       { retreats, source, displayCount },
       {
         headers: {
-          // Short CDN cache — admin edits show within ~2 minutes; keeps homepage TTFB low.
-          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
+          // Brief CDN cache so Featured Vibes admin edits show quickly on home
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
         },
       }
     );

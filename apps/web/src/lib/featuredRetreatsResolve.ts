@@ -58,7 +58,19 @@ async function pickFallbackIds(
   if (limit <= 0) return [];
 
   const fetchCap = Math.min(80, limit + exclude.size + 24);
-  const { data, error } = await supabase
+  const collect = (rows: { id: string }[] | null | undefined) => {
+    const out: string[] = [];
+    for (const row of rows || []) {
+      const id = String(row.id);
+      if (exclude.has(id)) continue;
+      out.push(id);
+      if (out.length >= limit) break;
+    }
+    return out;
+  };
+
+  // Prefer rating + reviews_count; fall back if reviews_count is unavailable
+  const primary = await supabase
     .from('properties')
     .select('id')
     .eq('status', 'active')
@@ -67,32 +79,33 @@ async function pickFallbackIds(
     .order('created_at', { ascending: false })
     .limit(fetchCap);
 
-  if (error) {
-    console.warn('[featuredRetreatsResolve] fallback query:', error.message);
-    const { data: byRating } = await supabase
-      .from('properties')
-      .select('id')
-      .eq('status', 'active')
-      .order('rating', { ascending: false })
-      .limit(fetchCap);
-    const out: string[] = [];
-    for (const row of byRating || []) {
-      const id = String((row as { id: string }).id);
-      if (exclude.has(id)) continue;
-      out.push(id);
-      if (out.length >= limit) break;
-    }
-    return out;
+  if (!primary.error) {
+    const out = collect(primary.data as { id: string }[] | null);
+    if (out.length >= limit || out.length > 0) return out;
+  } else {
+    console.warn('[featuredRetreatsResolve] fallback query:', primary.error.message);
   }
 
-  const out: string[] = [];
-  for (const row of data || []) {
-    const id = String((row as { id: string }).id);
-    if (exclude.has(id)) continue;
-    out.push(id);
-    if (out.length >= limit) break;
+  const byRating = await supabase
+    .from('properties')
+    .select('id')
+    .eq('status', 'active')
+    .order('rating', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(fetchCap);
+
+  if (!byRating.error) {
+    return collect(byRating.data as { id: string }[] | null);
   }
-  return out;
+
+  const recent = await supabase
+    .from('properties')
+    .select('id')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(fetchCap);
+
+  return collect(recent.data as { id: string }[] | null);
 }
 
 async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string[]) {
@@ -162,7 +175,7 @@ function mapRowToRetreat(
   };
 }
 
-export type FeaturedResolveSource = 'manual' | 'auto';
+export type FeaturedResolveSource = 'manual' | 'mixed' | 'auto';
 
 export async function resolveFeaturedRetreatsForHome(supabase: SupabaseClient): Promise<{
   retreats: FeaturedRetreatPublic[];
@@ -194,15 +207,31 @@ export async function resolveFeaturedRetreatsForHome(supabase: SupabaseClient): 
     finalRows = await loadActivePropertiesInOrder(supabase, ids);
     source = 'auto';
   } else {
-    const rows = await loadActivePropertiesInOrder(supabase, manualIds);
+    let rows = await loadActivePropertiesInOrder(supabase, manualIds);
+
     if (rows.length === 0) {
-      // Curated IDs inactive/missing — fall back to highest rated
       const ids = await pickFallbackIds(supabase, displayCount, new Set());
       finalRows = await loadActivePropertiesInOrder(supabase, ids);
       source = 'auto';
     } else {
-      finalRows = rows.slice(0, displayCount);
       source = 'manual';
+      // Always fill remaining slots so home shows up to 6 cards
+      if (rows.length < displayCount) {
+        const exclude = new Set(rows.map((r) => String(r.id)));
+        const need = displayCount - rows.length;
+        const fillerIds = await pickFallbackIds(supabase, need, exclude);
+        if (fillerIds.length > 0) source = 'mixed';
+        const extra = await loadActivePropertiesInOrder(supabase, fillerIds);
+        const seen = new Set(rows.map((r) => String(r.id)));
+        for (const r of extra) {
+          const id = String(r.id);
+          if (seen.has(id)) continue;
+          rows.push(r);
+          seen.add(id);
+          if (rows.length >= displayCount) break;
+        }
+      }
+      finalRows = rows.slice(0, displayCount);
     }
   }
 
