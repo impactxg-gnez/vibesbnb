@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,7 +8,10 @@ import { Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
+import {
+  listingCardMainImageUrl,
+  normalizePropertyImages,
+} from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 
@@ -62,10 +65,21 @@ export function PropertyCardMedia({
   className = '',
   priority = false,
 }: PropertyCardMediaProps) {
-  const slides = images.length > 0 ? images : [PLACEHOLDER];
+  const [failedSrcs, setFailedSrcs] = useState<Set<string>>(() => new Set());
+  const slides = useMemo(() => {
+    const normalized = normalizePropertyImages(images, PLACEHOLDER).filter(
+      (url) => !failedSrcs.has(url)
+    );
+    return normalized.length > 0 ? normalized : [PLACEHOLDER];
+  }, [images, failedSrcs]);
   const [index, setIndex] = useState(0);
   const { user } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    setFailedSrcs(new Set());
+    setIndex(0);
+  }, [images]);
 
   const useBatchFavoriteQuery =
     favoriteBatchLoading ||
@@ -146,7 +160,7 @@ export function PropertyCardMedia({
 
   const multi = slides.length > 1;
   const safeIndex = Math.min(Math.max(0, index), slides.length - 1);
-  const mainSrc = slides[safeIndex];
+  const mainSrc = slides[safeIndex] ?? PLACEHOLDER;
   const [mainUseOriginal, setMainUseOriginal] = useState(false);
   const mainDisplaySrc =
     mainSrc.startsWith('data:') || mainUseOriginal ? mainSrc : listingCardMainImageUrl(mainSrc);
@@ -154,6 +168,28 @@ export function PropertyCardMedia({
   useEffect(() => {
     setMainUseOriginal(false);
   }, [mainSrc]);
+
+  useEffect(() => {
+    if (index > slides.length - 1) setIndex(Math.max(0, slides.length - 1));
+  }, [index, slides.length]);
+
+  const handleMainImageError = useCallback(() => {
+    // Prefer original object URL when a resized/transform URL fails.
+    if (!mainUseOriginal && mainDisplaySrc !== mainSrc && !mainSrc.startsWith('data:')) {
+      setMainUseOriginal(true);
+      return;
+    }
+    // Dead remote URLs (e.g. expired Airbnb CDN) — skip to next usable slide.
+    if (mainSrc !== PLACEHOLDER) {
+      setFailedSrcs((prev) => {
+        if (prev.has(mainSrc)) return prev;
+        const next = new Set(prev);
+        next.add(mainSrc);
+        return next;
+      });
+      setMainUseOriginal(false);
+    }
+  }, [mainDisplaySrc, mainSrc, mainUseOriginal]);
 
   const handlePrevious = useCallback(
     (e: React.MouseEvent) => {
@@ -187,9 +223,7 @@ export function PropertyCardMedia({
           unoptimized={mainSrc.startsWith('data:')}
           placeholder="blur"
           blurDataURL={MAIN_BLUR}
-          onError={() => {
-            if (!mainUseOriginal && mainDisplaySrc !== mainSrc) setMainUseOriginal(true);
-          }}
+          onError={handleMainImageError}
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />

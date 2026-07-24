@@ -6,12 +6,53 @@ import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
-import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
+import {
+  listingCardMainImageUrl,
+  primaryPropertyImageUrl,
+} from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 
+const FEATURED_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
+
+function FeaturedListingImage({ images, alt }: { images: string[]; alt: string }) {
+  const [src, setSrc] = useState(() => primaryPropertyImageUrl(images, FEATURED_PLACEHOLDER));
+  const [useOriginal, setUseOriginal] = useState(false);
+  const displaySrc =
+    src.startsWith('data:') || useOriginal ? src : listingCardMainImageUrl(src);
+
+  useEffect(() => {
+    setSrc(primaryPropertyImageUrl(images, FEATURED_PLACEHOLDER));
+    setUseOriginal(false);
+  }, [images]);
+
+  return (
+    <Image
+      src={displaySrc}
+      alt={alt}
+      fill
+      unoptimized={src.startsWith('data:')}
+      className="object-cover group-hover:scale-110 transition-transform duration-500"
+      onError={() => {
+        if (!useOriginal && displaySrc !== src && !src.startsWith('data:')) {
+          setUseOriginal(true);
+          return;
+        }
+        const next = images.find((url) => url && url !== src) || FEATURED_PLACEHOLDER;
+        if (next !== src) {
+          setSrc(next);
+          setUseOriginal(false);
+        } else if (src !== FEATURED_PLACEHOLDER) {
+          setSrc(FEATURED_PLACEHOLDER);
+          setUseOriginal(false);
+        }
+      }}
+    />
+  );
+}
 interface Listing {
   id: string;
   title: string;
@@ -122,12 +163,10 @@ export function FeaturedListings() {
                 href={`/listings/${listing.id}`}
                 className="group block bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
               >
-                <div className="relative h-72 overflow-hidden">
-                  <Image
-                    src={listingCardMainImageUrl(listing.images[0] || '')}
+                <div className="relative h-72 overflow-hidden bg-gray-200">
+                  <FeaturedListingImage
+                    images={listing.images}
                     alt={listing.title}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                   {listing.verified && (
                     <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2">

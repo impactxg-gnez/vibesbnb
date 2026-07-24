@@ -7,8 +7,32 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
-import { listingCardMainImageUrl } from '@/lib/propertyImageUrls';
+import {
+  listingCardMainImageUrl,
+  primaryPropertyImageUrl,
+} from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
+
+const FEATURED_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
+
+function SafeFeaturedImage({ src, alt }: { src: string; alt: string }) {
+  const [current, setCurrent] = useState(src || FEATURED_PLACEHOLDER);
+  useEffect(() => {
+    setCurrent(src || FEATURED_PLACEHOLDER);
+  }, [src]);
+  return (
+    <Image
+      src={current}
+      alt={alt}
+      fill
+      className="object-cover group-hover:scale-110 transition duration-700"
+      onError={() => {
+        if (current !== FEATURED_PLACEHOLDER) setCurrent(FEATURED_PLACEHOLDER);
+      }}
+    />
+  );
+}
 
 interface FeaturedProperty {
     id: string;
@@ -68,7 +92,9 @@ export function FeaturedProperties() {
                     rating: p.rating ? Number(p.rating) : 4.8,
                     reviews: Math.floor(Math.random() * 50) + 10, // Mock reviews for now
                     price: p.price ? Number(p.price) : 0,
-                    image: p.images && p.images.length > 0 ? listingCardMainImageUrl(p.images[0]) : 'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop',
+                    image: listingCardMainImageUrl(
+                      primaryPropertyImageUrl(p.images, FEATURED_PLACEHOLDER)
+                    ),
                     bookingCount: bookingCounts[p.id] || 0,
                     amenities: (p.amenities || []).slice(0, 3),
                     type: p.type ? String(p.type) : undefined,
@@ -154,13 +180,8 @@ export function FeaturedProperties() {
                                     </div>
                                 )}
 
-                                <div className="relative h-72 overflow-hidden">
-                                    <Image
-                                        src={property.image}
-                                        alt={property.name}
-                                        fill
-                                        className="object-cover group-hover:scale-110 transition duration-700"
-                                    />
+                                <div className="relative h-72 overflow-hidden bg-black/30">
+                                    <SafeFeaturedImage src={property.image} alt={property.name} />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 transition-opacity duration-500" />
                                 </div>
 

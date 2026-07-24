@@ -50,7 +50,10 @@ import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
-import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
+import {
+  listingGalleryImageUrl,
+  normalizePropertyImages,
+} from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
@@ -322,7 +325,7 @@ export default function ListingDetailPage() {
                 : null,
             bathrooms: propertyData.bathrooms || 0,
             guests: propertyData.guests || 0,
-            images: propertyData.images || [],
+            images: normalizePropertyImages(propertyData.images || [], PDP_IMAGE_PLACEHOLDER),
             amenities: propertyData.amenities || [],
             wellnessFriendly:
               propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
@@ -678,9 +681,27 @@ export default function ListingDetailPage() {
               blurDataURL={GALLERY_HERO_BLUR}
               unoptimized={heroRaw.startsWith('data:')}
               onError={() => {
-                if (!galleryUseOriginal && heroDisplaySrc !== heroRaw) {
+                if (
+                  !galleryUseOriginal &&
+                  heroDisplaySrc !== heroRaw &&
+                  !heroRaw.startsWith('data:')
+                ) {
                   setGalleryUseOriginal(true);
+                  return;
                 }
+                // Skip dead remote URLs (e.g. expired Airbnb CDN) for the next slide / placeholder.
+                if (heroRaw === PDP_IMAGE_PLACEHOLDER) return;
+                setProperty((prev) => {
+                  if (!prev) return prev;
+                  const remaining = prev.images.filter((url) => url !== heroRaw);
+                  const nextImages =
+                    remaining.length > 0
+                      ? remaining
+                      : [PDP_IMAGE_PLACEHOLDER];
+                  return { ...prev, images: nextImages };
+                });
+                setGalleryUseOriginal(false);
+                setCurrentImageIndex(0);
               }}
             />
 
