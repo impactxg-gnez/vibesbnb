@@ -21,8 +21,16 @@ import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import { SearchSection } from '@/components/home/SearchSection';
 import type { HostBadge } from '@/lib/hostBadge';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { nightsBetweenYmd } from '@/lib/dateUtils';
+import {
+  buildListingHref,
+  readStaySearch,
+  STAY_SEARCH_CHANGE_EVENT,
+  type StaySearchParams,
+} from '@/lib/staySearchParams';
 
 interface HostProfile {
   id: string;
@@ -61,6 +69,21 @@ export default function UserProfilePage() {
   const [reviewsCount, setReviewsCount] = useState(0);
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
   const [hostAvgRating, setHostAvgRating] = useState<number | null>(null);
+  const [stay, setStay] = useState<StaySearchParams>({});
+
+  useEffect(() => {
+    const sync = () => setStay(readStaySearch());
+    sync();
+    window.addEventListener(STAY_SEARCH_CHANGE_EVENT, sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener(STAY_SEARCH_CHANGE_EVENT, sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, []);
+
+  const stayNights =
+    stay.checkIn && stay.checkOut ? nightsBetweenYmd(stay.checkIn, stay.checkOut) : 0;
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -283,13 +306,24 @@ export default function UserProfilePage() {
             {/* Properties Section */}
             <section>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <h2 className="text-3xl font-bold">{profile.full_name.split(' ')[0]}'s Listings</h2>
+                <h2 className="text-3xl font-bold">{profile.full_name.split(' ')[0]}&apos;s Listings</h2>
                 <span className="text-gray-500 font-bold shrink-0">
                   {activeCategory
                     ? `${filteredProperties.length} of ${properties.length} listing${properties.length !== 1 ? 's' : ''}`
                     : `${properties.length} listing${properties.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
+
+              {properties.length > 0 && (
+                <div className="mb-8">
+                  <SearchSection
+                    enableNegativeMargin={false}
+                    hostId={userId}
+                    heading={`Search ${profile.full_name.split(' ')[0]}'s stays`}
+                    className="!px-0 !pb-0"
+                  />
+                </div>
+              )}
 
               {properties.length > 0 && (
                 <PropertyCategoryChips
@@ -300,10 +334,13 @@ export default function UserProfilePage() {
               )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {filteredProperties.map((property) => (
+                {filteredProperties.map((property) => {
+                  const nightly = toTravelerPrice(property.price);
+                  const stayTotal = stayNights > 0 ? nightly * stayNights : 0;
+                  return (
                   <Link 
                     key={property.id} 
-                    href={`/listings/${property.id}`}
+                    href={buildListingHref(property.id, stay)}
                     className="group bg-gray-900 border border-white/10 rounded-3xl overflow-hidden hover:border-primary-500/40 transition-all shadow-xl"
                   >
                     <div className="relative h-56 overflow-hidden">
@@ -312,8 +349,13 @@ export default function UserProfilePage() {
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         alt={property.name}
                       />
-                      <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/10">
-                        ${toTravelerPrice(property.price)} / night
+                      <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/10 text-right">
+                        <div>${nightly} / night</div>
+                        {stayNights > 0 ? (
+                          <div className="font-semibold mt-0.5">
+                            ${stayTotal} for {stayNights} {stayNights === 1 ? 'night' : 'nights'}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                     <div className="p-6">
@@ -335,7 +377,8 @@ export default function UserProfilePage() {
                       </div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
               
               {properties.length === 0 && (

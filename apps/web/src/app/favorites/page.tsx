@@ -18,6 +18,7 @@ import {
   todayLocalYmd,
 } from '@/lib/dateUtils';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { buildListingHref } from '@/lib/staySearchParams';
 
 interface Favorite {
   id: string;
@@ -477,10 +478,12 @@ export default function FavoritesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayedFavorites.map((favorite) => {
-                const listingUrl = `/listings/${favorite.id}${
-                  hasDateFilter ? `?checkIn=${checkIn}&checkOut=${checkOut}` : ''
-                }`;
-                const totalPrice = nights > 0 ? favorite.price * nights : 0;
+                const listingUrl = buildListingHref(favorite.id, {
+                  checkIn: checkIn || undefined,
+                  checkOut: checkOut || undefined,
+                });
+                const guestNightly = toTravelerPrice(favorite.price);
+                const totalPrice = nights > 0 ? guestNightly * nights : 0;
 
                 return (
                 <div
@@ -541,15 +544,20 @@ export default function FavoritesPage() {
                           </span>
                         ))}
                       </div>
-                      <p className="text-white font-bold text-lg">
-                        ${toTravelerPrice(favorite.price)}{' '}
-                        <span className="font-normal text-gray-400 text-sm">/ night</span>
-                      </p>
-                      {hasDateFilter && nights > 0 ? (
-                        <p className="text-emerald-400 text-sm mt-1 font-medium">
-                          ${totalPrice} total for {nights} {nights === 1 ? 'night' : 'nights'}
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <p className="text-white font-bold text-lg">
+                          ${guestNightly}{' '}
+                          <span className="font-normal text-gray-400 text-sm">/ night</span>
                         </p>
-                      ) : null}
+                        {hasDateFilter && nights > 0 ? (
+                          <p className="text-white font-semibold text-sm">
+                            ${totalPrice}{' '}
+                            <span className="text-gray-400 font-normal text-xs">
+                              for {nights} {nights === 1 ? 'night' : 'nights'}
+                            </span>
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </Link>
                 </div>

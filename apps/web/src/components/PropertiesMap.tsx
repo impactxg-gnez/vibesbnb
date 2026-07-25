@@ -22,13 +22,16 @@ interface PropertiesMapProps {
   className?: string;
   height?: string;
   hoveredListingId?: string | null;
+  /** Query string (without ?) appended to listing links, e.g. checkIn=...&checkOut=... */
+  listingQuery?: string;
 }
 
 export default function PropertiesMap({
   properties,
   className = '',
   height = '600px',
-  hoveredListingId
+  hoveredListingId,
+  listingQuery = '',
 }: PropertiesMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -142,7 +145,7 @@ export default function PropertiesMap({
         infoWindowsRef.current.clear();
       }
     }
-  }, [properties, mapLoaded]); // Depend on properties array, not just propertiesWithCoords
+  }, [properties, mapLoaded, listingQuery]); // Depend on properties array, not just propertiesWithCoords
 
   // Handle hovered property highlighting
   useEffect(() => {
@@ -319,12 +322,15 @@ export default function PropertiesMap({
           },
         });
 
+        const listingPath = (id: string) =>
+          listingQuery ? `/listings/${id}?${listingQuery}` : `/listings/${id}`;
+
         // Create clickable info content
         let infoContent = '';
         if (propertiesAtLocation.length === 1) {
           // Single property - make entire info window clickable
           infoContent = `
-            <div style="color: #000; min-width: 200px; cursor: pointer;" onclick="window.location.href='/listings/${property.id}'">
+            <div style="color: #000; min-width: 200px; cursor: pointer;" onclick="window.location.href='${listingPath(property.id)}'">
               <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 16px;">${property.name}</h3>
               <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${property.location}</p>
               <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 16px;">$${toTravelerPrice(property.price)}/night</p>
@@ -339,8 +345,8 @@ export default function PropertiesMap({
             <div style="color: #000; min-width: 250px; max-width: 300px;">
               <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 14px; color: #666;">${propertiesAtLocation.length} Properties at this location</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${propertiesAtLocation.map((p, idx) => `
-                  <div style="padding: 8px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="window.location.href='/listings/${p.id}'">
+                ${propertiesAtLocation.map((p) => `
+                  <div style="padding: 8px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="window.location.href='${listingPath(p.id)}'">
                     <h4 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${p.name}</h4>
                     <p style="margin: 0 0 2px 0; color: #666; font-size: 12px;">${p.location}</p>
                     <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 14px;">$${toTravelerPrice(p.price)}/night</p>

@@ -8,6 +8,7 @@ import { Bed, Home, Building, Sparkles, Building2, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
 import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
+import { writeStaySearch } from '@/lib/staySearchParams';
 
 interface PropertyRow {
   id: string;
@@ -30,9 +31,19 @@ interface SearchSectionProps {
     categories?: string[];
   };
   enableNegativeMargin?: boolean;
+  /** When set, location/property suggestions and search results are limited to this host. */
+  hostId?: string;
+  /** Optional override for the search panel heading (e.g. host first name). */
+  heading?: string;
 }
 
-export function SearchSection({ className = '', initialValues, enableNegativeMargin = true }: SearchSectionProps) {
+export function SearchSection({
+  className = '',
+  initialValues,
+  enableNegativeMargin = true,
+  hostId,
+  heading,
+}: SearchSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialValues?.categories || []);
@@ -85,6 +96,11 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     ivCategoriesKey,
   ]);
 
+  // Persist stay selection so property cards / listing booking widget can reuse dates
+  useEffect(() => {
+    writeStaySearch({ checkIn, checkOut, guests, kids, pets });
+  }, [checkIn, checkOut, guests, kids, pets]);
+
   const categories = [
     { id: 'Entire House', label: 'House', icon: <Home className="w-5 h-5" /> },
     { id: 'Apartment', label: 'Apartment', icon: <Building className="w-5 h-5" /> },
@@ -93,17 +109,21 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     { id: 'Room inside property', label: 'Shared Room', icon: <Bed className="w-5 h-5" /> },
   ];
 
-  // Fetch available locations from Supabase properties
+  // Fetch available locations from Supabase properties (optionally scoped to one host)
   useEffect(() => {
     const loadLocations = async () => {
       const allLocations = new Set<string>();
 
       try {
         const supabase = createClient();
-        const { data: propertiesData, error } = await supabase
+        let query = supabase
           .from('properties')
           .select('id, name, title, location')
           .eq('status', 'active');
+        if (hostId) {
+          query = query.eq('host_id', hostId);
+        }
+        const { data: propertiesData, error } = await query;
 
         if (error) {
           console.error('[SearchSection] Supabase error loading locations:', error);
@@ -174,7 +194,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     };
 
     loadLocations();
-  }, []);
+  }, [hostId]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -209,6 +229,7 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
     else params.delete('pets');
     if (categories.length > 0) params.set('categories', categories.join(','));
     else params.delete('categories');
+    if (hostId) params.set('host', hostId);
   };
 
   const toggleCategory = (id: string) => {
@@ -277,9 +298,14 @@ export function SearchSection({ className = '', initialValues, enableNegativeMar
 
   const locationHeadingPart = selectedLocation.trim();
   const searchHeading =
-    locationHeadingPart.length > 0
-      ? `Find your ${locationHeadingPart} vibe`
-      : 'Find Your Perfect Stay';
+    heading ||
+    (hostId
+      ? locationHeadingPart.length > 0
+        ? `Search this host · ${locationHeadingPart}`
+        : 'Search this host’s stays'
+      : locationHeadingPart.length > 0
+        ? `Find your ${locationHeadingPart} vibe`
+        : 'Find Your Perfect Stay');
 
   return (
     <div className={`container mx-auto px-3 md:px-6 ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-30 pb-12 md:pb-20 ${className}`}>

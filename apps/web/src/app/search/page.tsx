@@ -31,6 +31,18 @@ import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import {
+  PREFER_WELLNESS_DEFAULT,
+  PREFER_WELLNESS_META_KEY,
+  PREFER_WELLNESS_STORAGE_KEY,
+  compareWellnessPreference,
+  resolvePreferWellnessFriendly,
+} from '@/lib/preferWellnessFriendly';
+import {
+  buildListingHref,
+  staySearchToQuery,
+  writeStaySearch,
+} from '@/lib/staySearchParams';
 
 interface Listing {
   id: string;
@@ -163,35 +175,36 @@ function sortSearchListings(
   listings: Listing[],
   sortParam: string,
   checkIn: string,
-  checkOut: string
+  checkOut: string,
+  preferWellnessFriendly: boolean = PREFER_WELLNESS_DEFAULT
 ): Listing[] {
   const copy = [...listings];
   const dateSortActive = !!(checkIn && checkOut);
 
+  const availabilityThen = (a: Listing, b: Listing, next: number) => {
+    if (dateSortActive) {
+      if (a.isAvailable && !b.isAvailable) return -1;
+      if (!a.isAvailable && b.isAvailable) return 1;
+    }
+    const wellness = compareWellnessPreference(
+      a.wellnessFriendly,
+      b.wellnessFriendly,
+      preferWellnessFriendly
+    );
+    if (wellness !== 0) return wellness;
+    return next;
+  };
+
   if (sortParam === 'low-high') {
-    copy.sort((a, b) => {
-      if (dateSortActive) {
-        if (a.isAvailable && !b.isAvailable) return -1;
-        if (!a.isAvailable && b.isAvailable) return 1;
-      }
-      return toTravelerPrice(a.price) - toTravelerPrice(b.price);
-    });
+    copy.sort((a, b) =>
+      availabilityThen(a, b, toTravelerPrice(a.price) - toTravelerPrice(b.price))
+    );
   } else if (sortParam === 'recent') {
-    copy.sort((a, b) => {
-      if (dateSortActive) {
-        if (a.isAvailable && !b.isAvailable) return -1;
-        if (!a.isAvailable && b.isAvailable) return 1;
-      }
-      return b.id.localeCompare(a.id);
-    });
+    copy.sort((a, b) => availabilityThen(a, b, b.id.localeCompare(a.id)));
   } else {
-    copy.sort((a, b) => {
-      if (dateSortActive) {
-        if (a.isAvailable && !b.isAvailable) return -1;
-        if (!a.isAvailable && b.isAvailable) return 1;
-      }
-      return toTravelerPrice(b.price) - toTravelerPrice(a.price);
-    });
+    copy.sort((a, b) =>
+      availabilityThen(a, b, toTravelerPrice(b.price) - toTravelerPrice(a.price))
+    );
   }
   return copy;
 }
@@ -428,6 +441,9 @@ function ListingCard({
   onHover,
   checkIn,
   checkOut,
+  guests,
+  kids,
+  pets,
   priorityImage = false,
   favoritesBatchLoading,
   favoritedFromBatch,
@@ -438,6 +454,9 @@ function ListingCard({
   onHover: (id: string | null) => void;
   checkIn?: string;
   checkOut?: string;
+  guests?: number;
+  kids?: number;
+  pets?: number;
   /** Eager-load first visible card images (above-the-fold). */
   priorityImage?: boolean;
   favoritesBatchLoading?: boolean;
@@ -447,13 +466,19 @@ function ListingCard({
 }) {
   const images = listing.images && listing.images.length > 0 ? listing.images : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
   
-  // Build the listing URL with date params if available
-  const listingUrl = `/listings/${listing.id}${checkIn || checkOut ? `?${checkIn ? `checkIn=${checkIn}` : ''}${checkIn && checkOut ? '&' : ''}${checkOut ? `checkOut=${checkOut}` : ''}` : ''}`;
-  
+  // Build the listing URL with stay params so the booking widget is prefilled
+  const listingUrl = buildListingHref(listing.id, {
+    checkIn,
+    checkOut,
+    guests,
+    kids,
+    pets,
+  });
+
   // Calculate stay info
   const nights = checkIn && checkOut ? calculateNights(checkIn, checkOut) : 0;
   const guestNightly = toTravelerPrice(listing.price);
-  const totalPrice = nights > 0 ? guestNightly * nights : guestNightly;
+  const stayTotal = nights > 0 ? guestNightly * nights : 0;
 
   const availabilitySlot =
     checkIn && checkOut && listing.isAvailable !== undefined ? (
@@ -578,19 +603,19 @@ function ListingCard({
           </div>
         )}
         
-        <div className="flex items-end justify-between mt-4">
+        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 mt-4">
+          <p className="text-white font-bold text-xl">
+            ${guestNightly}{' '}
+            <span className="font-normal text-muted text-xs">/ night</span>
+          </p>
           {nights > 0 ? (
-            <div>
-              <p className="text-white font-bold text-xl">
-                ${totalPrice} <span className="font-normal text-muted text-xs">total</span>
-              </p>
-              <p className="text-muted text-xs">${guestNightly} × {nights} nights</p>
-            </div>
-          ) : (
-            <p className="text-white font-bold text-xl">
-              ${guestNightly} <span className="font-normal text-muted text-xs">/ night</span>
+            <p className="text-right">
+              <span className="text-white font-bold text-lg">${stayTotal}</span>
+              <span className="text-muted text-xs ml-1.5">
+                for {nights} {nights === 1 ? 'night' : 'nights'}
+              </span>
             </p>
-          )}
+          ) : null}
         </div>
       </Link>
     </div>
@@ -610,6 +635,7 @@ export default function SearchPage() {
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [reviewsModalListing, setReviewsModalListing] = useState<Listing | null>(null);
   const [hideUnavailable, setHideUnavailable] = useState(false);
+  const [preferWellnessFriendly, setPreferWellnessFriendly] = useState(PREFER_WELLNESS_DEFAULT);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState<SearchModalFilters>({
     priceRange: [0, PRICE_FILTER_CAP],
@@ -640,6 +666,18 @@ export default function SearchPage() {
   const urlLocation = searchParams.get('location') || '';
   const urlGuests = parseInt(searchParams.get('guests') || '0', 10);
   const urlKids = parseInt(searchParams.get('kids') || '0', 10);
+  const urlPets = parseInt(searchParams.get('pets') || '0', 10);
+  const urlHostId = searchParams.get('host') || '';
+
+  useEffect(() => {
+    writeStaySearch({
+      checkIn: checkIn || undefined,
+      checkOut: checkOut || undefined,
+      guests: urlGuests > 0 ? urlGuests : undefined,
+      kids: urlKids > 0 ? urlKids : undefined,
+      pets: urlPets > 0 ? urlPets : undefined,
+    });
+  }, [checkIn, checkOut, urlGuests, urlKids, urlPets]);
 
   // Sync URL categories to activeFilters
   useEffect(() => {
@@ -688,7 +726,10 @@ export default function SearchPage() {
 
     const totalOcc = urlGuests + urlKids;
     const canonical = listingsFromInventory(inventory);
-    const filteredListings = applyLocationGuestFilters(canonical, urlLocation, totalOcc);
+    const hostScoped = urlHostId
+      ? canonical.filter((listing) => listing.host_id === urlHostId)
+      : canonical;
+    const filteredListings = applyLocationGuestFilters(hostScoped, urlLocation, totalOcc);
 
     let cancelled = false;
 
@@ -759,7 +800,7 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [inventory, urlLocation, urlGuests, urlKids, debouncedCheckIn, debouncedCheckOut]);
+  }, [inventory, urlLocation, urlGuests, urlKids, urlHostId, debouncedCheckIn, debouncedCheckOut]);
 
   const nonPriceFiltered = useMemo(
     () => applyNonPriceListingFilters(baseListings, activeFilters),
@@ -793,6 +834,40 @@ export default function SearchPage() {
     });
   }, [priceDistribution.min, priceDistribution.max]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fromMeta = resolvePreferWellnessFriendly({
+      metadataValue: user?.user_metadata?.[PREFER_WELLNESS_META_KEY],
+      localValue:
+        typeof window !== 'undefined' ? localStorage.getItem(PREFER_WELLNESS_STORAGE_KEY) : null,
+    });
+    setPreferWellnessFriendly(fromMeta);
+
+    if (!user?.id) return;
+
+    void (async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('prefer_wellness_friendly')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (cancelled || error) return;
+        if (typeof data?.prefer_wellness_friendly === 'boolean') {
+          setPreferWellnessFriendly(data.prefer_wellness_friendly);
+        }
+      } catch {
+        /* column may be missing until migration */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.user_metadata?.[PREFER_WELLNESS_META_KEY]]);
+
   const sortParam = searchParams.get('sort') || 'high-low';
   const headerCategory = searchParams.get('category');
 
@@ -812,8 +887,16 @@ export default function SearchPage() {
         )
       );
     }
-    return sortSearchListings(priced, sortParam, checkIn, checkOut);
-  }, [nonPriceFiltered, activeFilters.priceRange, sortParam, checkIn, checkOut, headerCategory]);
+    return sortSearchListings(priced, sortParam, checkIn, checkOut, preferWellnessFriendly);
+  }, [
+    nonPriceFiltered,
+    activeFilters.priceRange,
+    sortParam,
+    checkIn,
+    checkOut,
+    headerCategory,
+    preferWellnessFriendly,
+  ]);
 
   useEffect(() => {
     if (sortParam === 'low-high') setSortBy('Price: Low to High');
@@ -928,6 +1011,8 @@ export default function SearchPage() {
         <div className="container mx-auto px-3 md:px-4">
           <SearchSection
             enableNegativeMargin={false}
+            hostId={urlHostId || undefined}
+            heading={urlHostId ? 'Search this host’s stays' : undefined}
             initialValues={{
               location: searchParams.get('location') || '',
               checkIn: searchParams.get('checkIn') || '',
@@ -948,7 +1033,13 @@ export default function SearchPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
               <div>
                 <h2 className="text-lg md:text-2xl font-bold text-white">
-                  {loading ? 'Searching...' : `${displayedListings.length} stays in ${searchParams.get('location') || 'all locations'}`}
+                  {loading
+                    ? 'Searching...'
+                    : urlHostId
+                      ? `${displayedListings.length} stay${displayedListings.length === 1 ? '' : 's'} from this host${
+                          searchParams.get('location') ? ` · ${searchParams.get('location')}` : ''
+                        }`
+                      : `${displayedListings.length} stays in ${searchParams.get('location') || 'all locations'}`}
                 </h2>
                 {/* Show selected dates summary */}
                 {hasDateFilter && !loading && (
@@ -1184,6 +1275,9 @@ export default function SearchPage() {
                     onHover={setHoveredListingId}
                     checkIn={checkIn || undefined}
                     checkOut={checkOut || undefined}
+                    guests={urlGuests > 0 ? urlGuests : undefined}
+                    kids={urlKids > 0 ? urlKids : undefined}
+                    pets={urlPets > 0 ? urlPets : undefined}
                     priorityImage={index < 4}
                     favoritesBatchLoading={user?.id ? favoritesBatchBusy : undefined}
                     favoritedFromBatch={user?.id ? batchedFavoriteIds.has(listing.id) : undefined}
@@ -1201,6 +1295,13 @@ export default function SearchPage() {
               properties={displayedListings} 
               className="w-full h-full rounded-3xl border border-white/10 shadow-2xl" 
               hoveredListingId={hoveredListingId}
+              listingQuery={staySearchToQuery({
+                checkIn: checkIn || undefined,
+                checkOut: checkOut || undefined,
+                guests: urlGuests > 0 ? urlGuests : undefined,
+                kids: urlKids > 0 ? urlKids : undefined,
+                pets: urlPets > 0 ? urlPets : undefined,
+              }).toString()}
             />
           </div>
         </div>

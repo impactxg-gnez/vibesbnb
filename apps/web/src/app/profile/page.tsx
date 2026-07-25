@@ -3,9 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle, Camera, Loader2, Clock } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle, Camera, Loader2, Clock, Leaf } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import {
+  PREFER_WELLNESS_DEFAULT,
+  PREFER_WELLNESS_META_KEY,
+  PREFER_WELLNESS_STORAGE_KEY,
+  readLocalPreferWellnessFriendly,
+  resolvePreferWellnessFriendly,
+  writeLocalPreferWellnessFriendly,
+} from '@/lib/preferWellnessFriendly';
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
@@ -59,6 +67,8 @@ export default function ProfilePage() {
   });
 
   const [loadingStats, setLoadingStats] = useState(false);
+  const [preferWellnessFriendly, setPreferWellnessFriendly] = useState(PREFER_WELLNESS_DEFAULT);
+  const [savingWellnessPref, setSavingWellnessPref] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -78,6 +88,16 @@ export default function ProfilePage() {
         hostEmail: user.user_metadata?.host_email || '',
       });
 
+      setPreferWellnessFriendly(
+        resolvePreferWellnessFriendly({
+          metadataValue: user.user_metadata?.[PREFER_WELLNESS_META_KEY],
+          localValue:
+            typeof window !== 'undefined'
+              ? localStorage.getItem(PREFER_WELLNESS_STORAGE_KEY)
+              : null,
+        })
+      );
+
       // Load payout data if it exists
       const payoutInfo = user.user_metadata?.payout_info;
       if (payoutInfo) {
@@ -96,6 +116,8 @@ export default function ProfilePage() {
 
       loadAvatarStatus();
       loadProfileContact();
+    } else {
+      setPreferWellnessFriendly(readLocalPreferWellnessFriendly());
     }
   }, [user]);
 
@@ -103,11 +125,31 @@ export default function ProfilePage() {
     if (!user?.id) return;
     try {
       const supabase = createClient();
-      const { data: profile } = await supabase
+      let profile: {
+        phone?: string | null;
+        whatsapp?: string | null;
+        location?: string | null;
+        bio?: string | null;
+        host_email?: string | null;
+        prefer_wellness_friendly?: boolean | null;
+      } | null = null;
+
+      const withPref = await supabase
         .from('profiles')
-        .select('phone, whatsapp, location, bio, host_email')
+        .select('phone, whatsapp, location, bio, host_email, prefer_wellness_friendly')
         .eq('id', user.id)
         .maybeSingle();
+
+      if (withPref.error?.message?.includes('prefer_wellness_friendly')) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('phone, whatsapp, location, bio, host_email')
+          .eq('id', user.id)
+          .maybeSingle();
+        profile = fallback.data;
+      } else {
+        profile = withPref.data;
+      }
 
       if (profile) {
         setFormData((prev) => ({
@@ -118,9 +160,65 @@ export default function ProfilePage() {
           whatsapp: profile.whatsapp || prev.whatsapp,
           hostEmail: profile.host_email || prev.hostEmail,
         }));
+        const prefer = resolvePreferWellnessFriendly({
+          profileValue:
+            typeof profile.prefer_wellness_friendly === 'boolean'
+              ? profile.prefer_wellness_friendly
+              : null,
+          metadataValue: user.user_metadata?.[PREFER_WELLNESS_META_KEY],
+        });
+        setPreferWellnessFriendly(prefer);
+        writeLocalPreferWellnessFriendly(prefer);
       }
     } catch {
       /* profiles row may not exist yet */
+    }
+  };
+
+  const handlePreferWellnessToggle = async (next: boolean) => {
+    setPreferWellnessFriendly(next);
+    writeLocalPreferWellnessFriendly(next);
+    if (!user?.id) return;
+
+    setSavingWellnessPref(true);
+    try {
+      const supabase = createClient();
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: {
+          ...user.user_metadata,
+          [PREFER_WELLNESS_META_KEY]: next,
+        },
+      });
+      if (metaError) throw metaError;
+
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: user.id,
+        prefer_wellness_friendly: next,
+        updated_at: new Date().toISOString(),
+      });
+      if (profileError?.message?.includes('prefer_wellness_friendly')) {
+        toast.success(
+          next
+            ? '420-friendly stays preferred (saved on this device)'
+            : 'Standard stays preferred (saved on this device)'
+        );
+        return;
+      }
+      if (profileError) {
+        console.warn('prefer_wellness_friendly profile upsert:', profileError.message);
+      }
+      toast.success(
+        next
+          ? 'Showing 420-friendly accommodations first'
+          : 'Showing non-420-friendly accommodations first'
+      );
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save preference');
+      setPreferWellnessFriendly(!next);
+      writeLocalPreferWellnessFriendly(!next);
+    } finally {
+      setSavingWellnessPref(false);
     }
   };
 
@@ -421,29 +519,37 @@ export default function ProfilePage() {
             bio: formData.bio,
             whatsapp,
             host_email: formData.hostEmail,
+            [PREFER_WELLNESS_META_KEY]: preferWellnessFriendly,
           },
         });
         
         if (updateError) throw updateError;
         
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: supabaseUser.id,
-            full_name: formData.fullName,
-            email: supabaseUser.email?.toLowerCase() || null,
-            phone,
-            whatsapp,
-            bio: formData.bio,
-            location: formData.location || null,
-            host_email: formData.hostEmail.trim() || null,
-            updated_at: new Date().toISOString(),
-          });
+        const profilePayload: Record<string, unknown> = {
+          id: supabaseUser.id,
+          full_name: formData.fullName,
+          email: supabaseUser.email?.toLowerCase() || null,
+          phone,
+          whatsapp,
+          bio: formData.bio,
+          location: formData.location || null,
+          host_email: formData.hostEmail.trim() || null,
+          prefer_wellness_friendly: preferWellnessFriendly,
+          updated_at: new Date().toISOString(),
+        };
+
+        let { error: profileError } = await supabase.from('profiles').upsert(profilePayload);
+
+        if (profileError?.message?.includes('prefer_wellness_friendly')) {
+          delete profilePayload.prefer_wellness_friendly;
+          ({ error: profileError } = await supabase.from('profiles').upsert(profilePayload));
+        }
           
         if (profileError) {
           console.warn('Error updating profiles table:', profileError.message);
           // Don't throw here as the auth metadata update succeeded
         }
+        writeLocalPreferWellnessFriendly(preferWellnessFriendly);
         
         toast.success('Profile updated successfully!');
         setEditing(false);
@@ -845,6 +951,43 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
+
+              {/* 420-friendly accommodation preference (travellers + anyone browsing) */}
+              {(userRole === 'traveller' || userRole === 'host' || !userRole) && (
+                <div className="pt-6 border-t border-gray-800">
+                  <div className="flex items-start justify-between gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                    <div className="flex gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                        <Leaf className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold">420-friendly accommodations</p>
+                        <p className="text-sm text-gray-400 mt-1 leading-relaxed">
+                          When on, wellness / 420-friendly stays appear first in search. When off, other
+                          properties appear first. Default is on.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={preferWellnessFriendly}
+                      aria-label="Prefer 420-friendly accommodations"
+                      disabled={savingWellnessPref}
+                      onClick={() => handlePreferWellnessToggle(!preferWellnessFriendly)}
+                      className={`relative shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50 ${
+                        preferWellnessFriendly ? 'bg-emerald-500' : 'bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                          preferWellnessFriendly ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Host Contact Information (only for hosts) */}
               {userRole === 'host' && (

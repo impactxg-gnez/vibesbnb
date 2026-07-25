@@ -45,6 +45,8 @@ import {
   nightsBetweenYmd,
   todayLocalYmd,
 } from '@/lib/dateUtils';
+import { toTravelerPrice } from '@/lib/platformPricing';
+import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
@@ -197,19 +199,72 @@ export default function ListingDetailPage() {
     }, 200);
   };
   
-  // Date selection state - initialized from URL params
-  const [checkInDate, setCheckInDate] = useState<string>(searchParams.get('checkIn') || '');
+  // Date selection — URL from search, with sessionStorage fallback from home stay picker
+  const urlCheckIn = searchParams.get('checkIn') || '';
+  const urlCheckOut = searchParams.get('checkOut') || '';
+  const urlGuests = searchParams.get('guests');
+  const urlKids = searchParams.get('kids');
+  const urlPets = searchParams.get('pets');
+
+  const [checkInDate, setCheckInDate] = useState<string>(urlCheckIn);
   const [partyAdults, setPartyAdults] = useState(
-    Math.max(1, parseInt(searchParams.get('guests') || '1', 10) || 1)
+    Math.max(1, parseInt(urlGuests || '1', 10) || 1)
   );
   const [partyKids, setPartyKids] = useState(
-    Math.max(0, parseInt(searchParams.get('kids') || '0', 10) || 0)
+    Math.max(0, parseInt(urlKids || '0', 10) || 0)
   );
   const [partyPets, setPartyPets] = useState(
-    Math.max(0, parseInt(searchParams.get('pets') || '0', 10) || 0)
+    Math.max(0, parseInt(urlPets || '0', 10) || 0)
   );
-  const [checkOutDate, setCheckOutDate] = useState<string>(searchParams.get('checkOut') || '');
+  const [checkOutDate, setCheckOutDate] = useState<string>(urlCheckOut);
   const [openBookingChat, setOpenBookingChat] = useState(false);
+  const [stayHydrated, setStayHydrated] = useState(false);
+
+  // Prefill from URL (or last stay selection) once on the client
+  useEffect(() => {
+    const stay = resolveStaySearch({
+      checkIn: urlCheckIn || undefined,
+      checkOut: urlCheckOut || undefined,
+      guests: urlGuests ? parseInt(urlGuests, 10) : undefined,
+      kids: urlKids ? parseInt(urlKids, 10) : undefined,
+      pets: urlPets ? parseInt(urlPets, 10) : undefined,
+    });
+    if (stay.checkIn) setCheckInDate(stay.checkIn);
+    if (stay.checkOut) setCheckOutDate(stay.checkOut);
+    if (stay.guests) setPartyAdults(stay.guests);
+    if (stay.kids != null) setPartyKids(stay.kids);
+    if (stay.pets != null) setPartyPets(stay.pets);
+    setStayHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once from arrival URL/storage
+  }, []);
+
+  // Keep in sync when URL stay params change (e.g. client nav from search)
+  useEffect(() => {
+    if (!stayHydrated) return;
+    if (urlCheckIn) setCheckInDate(urlCheckIn);
+    if (urlCheckOut) setCheckOutDate(urlCheckOut);
+    if (urlGuests != null && urlGuests !== '') {
+      setPartyAdults(Math.max(1, parseInt(urlGuests, 10) || 1));
+    }
+    if (urlKids != null && urlKids !== '') {
+      setPartyKids(Math.max(0, parseInt(urlKids, 10) || 0));
+    }
+    if (urlPets != null && urlPets !== '') {
+      setPartyPets(Math.max(0, parseInt(urlPets, 10) || 0));
+    }
+  }, [stayHydrated, urlCheckIn, urlCheckOut, urlGuests, urlKids, urlPets]);
+
+  // Persist edits on the listing so other cards keep the same stay
+  useEffect(() => {
+    if (!stayHydrated) return;
+    writeStaySearch({
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      guests: partyAdults,
+      kids: partyKids,
+      pets: partyPets,
+    });
+  }, [stayHydrated, checkInDate, checkOutDate, partyAdults, partyKids, partyPets]);
   
   // Calculate number of nights
   const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
@@ -621,7 +676,8 @@ export default function ListingDetailPage() {
   };
 
   const hostNightlyRate = calculateTotalPrice();
-  const displayNightlyRate = hostNightlyRate;
+  const displayNightlyRate = toTravelerPrice(hostNightlyRate);
+  const stayLodgingTotal = stayDuration > 0 ? displayNightlyRate * stayDuration : 0;
   const selectedRoomsForQuote =
     property?.rooms?.filter((room) => selectedRoomIds.includes(room.id)) ?? [];
   const listingQuote =
@@ -1299,9 +1355,20 @@ export default function ListingDetailPage() {
           <div className="lg:col-span-1">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <div className="mb-6">
-                <div className="flex items-baseline gap-2 mb-4">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
                   <span className="text-3xl font-bold text-white">${displayNightlyRate}</span>
                   <span className="text-gray-400">/ night</span>
+                  {stayDuration > 0 ? (
+                    <>
+                      <span className="text-gray-600" aria-hidden>
+                        ·
+                      </span>
+                      <span className="text-2xl font-bold text-white">${stayLodgingTotal}</span>
+                      <span className="text-gray-400 text-sm">
+                        for {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}
+                      </span>
+                    </>
+                  ) : null}
                 </div>
                 <PropertyListingRating
                   rating={displayRating}

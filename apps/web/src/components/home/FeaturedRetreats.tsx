@@ -9,6 +9,13 @@ import { FeaturedVibesLoading } from '@/components/home/FeaturedVibesLoading';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { nightsBetweenYmd } from '@/lib/dateUtils';
+import {
+  buildListingHref,
+  readStaySearch,
+  STAY_SEARCH_CHANGE_EVENT,
+  type StaySearchParams,
+} from '@/lib/staySearchParams';
 
 interface Retreat {
   id: string;
@@ -43,6 +50,21 @@ export function FeaturedRetreats() {
   const [batchedFavoriteIds, setBatchedFavoriteIds] = useState(() => new Set<string>());
   const [favoritesLoading, setFavoritesLoading] = useState(false);
   const [reviewsModalRetreat, setReviewsModalRetreat] = useState<Retreat | null>(null);
+  const [stay, setStay] = useState<StaySearchParams>({});
+
+  useEffect(() => {
+    const sync = () => setStay(readStaySearch());
+    sync();
+    window.addEventListener(STAY_SEARCH_CHANGE_EVENT, sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      window.removeEventListener(STAY_SEARCH_CHANGE_EVENT, sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, []);
+
+  const stayNights =
+    stay.checkIn && stay.checkOut ? nightsBetweenYmd(stay.checkIn, stay.checkOut) : 0;
 
   useEffect(() => {
     const loadFeaturedRetreats = async () => {
@@ -164,7 +186,7 @@ export function FeaturedRetreats() {
                   <PropertyCardMedia
                     images={retreat.images}
                     alt={retreat.name}
-                    listingHref={`/listings/${retreat.id}`}
+                    listingHref={buildListingHref(retreat.id, stay)}
                     propertyId={retreat.id}
                     favoriteBatchLoading={user?.id ? favoritesBatchBusy : undefined}
                     favoriteFromBatch={user?.id ? batchedFavoriteIds.has(retreat.id) : undefined}
@@ -193,7 +215,7 @@ export function FeaturedRetreats() {
                       className="h-14 w-14 shrink-0 rounded-full object-cover border border-white/10 bg-white/5"
                     />
                     <div className="flex-1 min-w-0">
-                      <Link href={`/listings/${retreat.id}`} className="block text-left">
+                      <Link href={buildListingHref(retreat.id, stay)} className="block text-left">
                         <h3 className="text-white font-bold text-xl sm:text-2xl mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
                           {retreat.name}
                         </h3>
@@ -239,9 +261,19 @@ export function FeaturedRetreats() {
                         </button>
                       ) : null}
                     </div>
-                    <div>
-                      <span className="text-white font-black text-xl">${retreat.price}</span>
-                      <span className="text-muted text-sm ml-1">/ night</span>
+                    <div className="text-right">
+                      <div>
+                        <span className="text-white font-black text-xl">${retreat.price}</span>
+                        <span className="text-muted text-sm ml-1">/ night</span>
+                      </div>
+                      {stayNights > 0 ? (
+                        <p className="text-white font-semibold text-sm mt-0.5">
+                          ${retreat.price * stayNights}{' '}
+                          <span className="text-muted font-normal text-xs">
+                            for {stayNights} {stayNights === 1 ? 'night' : 'nights'}
+                          </span>
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
