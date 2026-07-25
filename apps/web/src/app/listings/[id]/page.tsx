@@ -601,7 +601,9 @@ export default function ListingDetailPage() {
       toast.error('Host profile unavailable');
       return;
     }
-    router.push(`/users/${property.hostId}`);
+    // Ensure we land at the top of the host profile (listing page is usually scrolled mid-page)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    router.push(`/users/${property.hostId}`, { scroll: true });
   };
 
   const buildBookingPath = () => {
@@ -1331,13 +1333,23 @@ export default function ListingDetailPage() {
                   </p>
                   
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4">
-                    <button
-                      type="button"
-                      onClick={handleViewHostProfile}
-                      className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
-                    >
-                      Check Profile
-                    </button>
+                    {property.hostId ? (
+                      <Link
+                        href={`/users/${property.hostId}`}
+                        scroll
+                        className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
+                      >
+                        Check Profile
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleViewHostProfile}
+                        className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
+                      >
+                        Check Profile
+                      </button>
+                    )}
                   <Link 
                     href="/messages"
                     className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all"

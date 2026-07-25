@@ -88,6 +88,16 @@ export default function UserProfilePage() {
   const stayNights =
     stay.checkIn && stay.checkOut ? nightsBetweenYmd(stay.checkIn, stay.checkOut) : 0;
 
+  // Always open host profiles at the top (soft nav from a scrolled listing often keeps mid-page scroll)
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [userId]);
+
+  useEffect(() => {
+    if (loading) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [loading, userId]);
+
   useEffect(() => {
     const loadProfileData = async () => {
       setLoading(true);
