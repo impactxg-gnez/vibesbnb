@@ -17,7 +17,7 @@ export default function HostPage() {
     if (loading) return;
     const role = user?.user_metadata?.role || 'traveller';
     if (user && (role === 'host' || role === 'host_pending')) {
-      router.replace('/host/properties');
+      router.replace('/host/dashboard');
     }
   }, [user, loading, router]);
 

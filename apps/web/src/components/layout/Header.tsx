@@ -468,6 +468,15 @@ export function Header() {
                             )}
                             {hasHostOrSupportAccess && isInHostingMode && (
                               <Link
+                                href="/host/dashboard"
+                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                Host Dashboard
+                              </Link>
+                            )}
+                            {hasHostOrSupportAccess && isInHostingMode && (
+                              <Link
                                 href="/host/properties"
                                 className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                                 onClick={() => setShowUserMenu(false)}

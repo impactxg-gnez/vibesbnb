@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { releaseBookingAvailability } from '@/lib/bookingAvailability';
 import { dispatchHostCancelledBooking } from '@/lib/notifications/dispatchHostCancelledBooking';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { cancelHostPayoutForBooking } from '@/lib/hostPayouts';
 
 const HOST_CANCELLABLE = new Set([
   'pending_approval',
@@ -87,8 +88,19 @@ export async function POST(request: NextRequest) {
       throw updateError;
     }
 
+    const service = createServiceClient();
+    if (booking.payment_status === 'paid' || newPaymentStatus === 'refunded') {
+      void cancelHostPayoutForBooking(service, bookingId, reason || undefined).then(
+        (result) => {
+          if (!result.ok) {
+            console.warn('[bookings/cancel] host payout ledger:', result.error);
+          }
+        }
+      );
+    }
+
     try {
-      await releaseBookingAvailability(createServiceClient(), bookingId);
+      await releaseBookingAvailability(service, bookingId);
     } catch (availabilityError) {
       console.warn('Failed to release availability:', availabilityError);
     }

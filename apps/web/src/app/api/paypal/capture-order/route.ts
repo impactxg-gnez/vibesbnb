@@ -7,6 +7,7 @@ import {
 } from '@/lib/paypal';
 import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
+import { ensurePendingHostPayout } from '@/lib/hostPayouts';
 
 function extractCaptureMeta(result: Awaited<ReturnType<typeof capturePayPalOrder>>): {
   captureId: string;
@@ -141,11 +142,16 @@ export async function POST(request: NextRequest) {
       const appUrl =
         process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
         request.nextUrl.origin;
-      void dispatchBookingConfirmedEmails(
-        createServiceClient(),
-        bookingId,
-        appUrl
-      );
+      const service = createServiceClient();
+      void dispatchBookingConfirmedEmails(service, bookingId, appUrl);
+      void ensurePendingHostPayout(service, bookingId).then((result) => {
+        if (!result.ok) {
+          console.warn('[paypal/capture-order] host payout ledger:', result.error);
+        }
+      });
+    } else {
+      // Already paid (idempotent retry) — still ensure ledger row exists
+      void ensurePendingHostPayout(createServiceClient(), bookingId);
     }
 
     return NextResponse.json({ success: true, captureId });

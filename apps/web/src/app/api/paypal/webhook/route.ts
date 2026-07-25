@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { formatPayPalAmount, verifyPayPalWebhookSignature } from '@/lib/paypal';
 import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
+import { ensurePendingHostPayout } from '@/lib/hostPayouts';
 
 /**
  * PayPal webhooks: register LIVE URL in Developer Dashboard → Live app → Webhooks:
@@ -46,6 +47,7 @@ async function markBookingPaid(bookingId: string, captureId: string, amountValue
   }
 
   if (booking.payment_status === 'paid') {
+    void ensurePendingHostPayout(supabase, bookingId);
     return;
   }
 
@@ -101,6 +103,11 @@ async function markBookingPaid(bookingId: string, captureId: string, amountValue
     if (appUrl) {
       void dispatchBookingConfirmedEmails(supabase, bookingId, appUrl);
     }
+    void ensurePendingHostPayout(supabase, bookingId).then((result) => {
+      if (!result.ok) {
+        console.warn('[paypal/webhook] host payout ledger:', result.error);
+      }
+    });
   }
 }
 

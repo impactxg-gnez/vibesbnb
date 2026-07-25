@@ -7,6 +7,7 @@ export const VERIFIED_EMAIL_REQUIRED_PREFIXES = [
   '/itinerary',
   '/admin',
   '/dispensary',
+  '/host/dashboard',
   '/host/properties',
   '/host/bookings',
   '/host/payouts',
