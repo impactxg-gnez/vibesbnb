@@ -1,11 +1,23 @@
 -- Host payout ledger: pending / paid / cancelled per booking.
--- Run in Supabase SQL Editor after deploy.
+-- Run in Supabase SQL Editor on the SAME project as production
+-- (Table Editor should list public.bookings and public.properties).
 
-CREATE TABLE IF NOT EXISTS host_payouts (
+SET search_path TO public;
+
+DO $$
+BEGIN
+  IF to_regclass('public.bookings') IS NULL THEN
+    RAISE EXCEPTION
+      'public.bookings not found. Open SQL Editor on the VibesBNB production Supabase project (confirm Table Editor lists bookings), then re-run this script.';
+  END IF;
+END $$;
+
+-- property_id is text (no FK) to match bookings.property_id across UUID/text property id history
+CREATE TABLE IF NOT EXISTS public.host_payouts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  booking_id UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   host_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+  property_id TEXT,
   guest_total NUMERIC(12, 2) NOT NULL DEFAULT 0,
   platform_fee NUMERIC(12, 2) NOT NULL DEFAULT 0,
   host_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
@@ -27,25 +39,25 @@ CREATE TABLE IF NOT EXISTS host_payouts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_host_payouts_host_status
-  ON host_payouts (host_id, status);
+  ON public.host_payouts (host_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_host_payouts_status
-  ON host_payouts (status);
+  ON public.host_payouts (status);
 
 CREATE INDEX IF NOT EXISTS idx_host_payouts_host_id
-  ON host_payouts (host_id);
+  ON public.host_payouts (host_id);
 
-ALTER TABLE host_payouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.host_payouts ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Hosts can view own payouts" ON host_payouts;
+DROP POLICY IF EXISTS "Hosts can view own payouts" ON public.host_payouts;
 CREATE POLICY "Hosts can view own payouts"
-  ON host_payouts
+  ON public.host_payouts
   FOR SELECT
   USING (auth.uid() = host_id);
 
-DROP POLICY IF EXISTS "Admins can view all host payouts" ON host_payouts;
+DROP POLICY IF EXISTS "Admins can view all host payouts" ON public.host_payouts;
 CREATE POLICY "Admins can view all host payouts"
-  ON host_payouts
+  ON public.host_payouts
   FOR SELECT
   USING (
     EXISTS (
@@ -58,7 +70,7 @@ CREATE POLICY "Admins can view all host payouts"
     )
   );
 
-CREATE OR REPLACE FUNCTION update_host_payouts_updated_at()
+CREATE OR REPLACE FUNCTION public.update_host_payouts_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -66,15 +78,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_host_payouts_updated_at ON host_payouts;
+DROP TRIGGER IF EXISTS trg_host_payouts_updated_at ON public.host_payouts;
 CREATE TRIGGER trg_host_payouts_updated_at
-  BEFORE UPDATE ON host_payouts
+  BEFORE UPDATE ON public.host_payouts
   FOR EACH ROW
-  EXECUTE FUNCTION update_host_payouts_updated_at();
+  EXECUTE FUNCTION public.update_host_payouts_updated_at();
 
 -- Backfill pending rows for paid, non-cancelled bookings (approx fee split at 10%).
 -- Refine amounts via app ensurePendingHostPayout on next payment / admin tools.
-INSERT INTO host_payouts (
+INSERT INTO public.host_payouts (
   booking_id,
   host_id,
   property_id,
@@ -90,7 +102,7 @@ INSERT INTO host_payouts (
 SELECT
   b.id,
   b.host_id,
-  b.property_id,
+  b.property_id::text,
   COALESCE(b.total_price, 0),
   ROUND(COALESCE(b.total_price, 0) * 10.0 / 110.0, 2),
   ROUND(COALESCE(b.total_price, 0) - (COALESCE(b.total_price, 0) * 10.0 / 110.0), 2),
@@ -99,16 +111,16 @@ SELECT
   b.check_in::date,
   b.check_out::date,
   b.property_name
-FROM bookings b
+FROM public.bookings b
 WHERE b.payment_status = 'paid'
   AND b.status IN ('confirmed', 'completed', 'accepted')
   AND b.host_id IS NOT NULL
   AND NOT EXISTS (
-    SELECT 1 FROM host_payouts hp WHERE hp.booking_id = b.id
+    SELECT 1 FROM public.host_payouts hp WHERE hp.booking_id = b.id
   );
 
 -- Paid-then-cancelled bookings → cancelled ledger rows
-INSERT INTO host_payouts (
+INSERT INTO public.host_payouts (
   booking_id,
   host_id,
   property_id,
@@ -126,7 +138,7 @@ INSERT INTO host_payouts (
 SELECT
   b.id,
   b.host_id,
-  b.property_id,
+  b.property_id::text,
   COALESCE(b.total_price, 0),
   ROUND(COALESCE(b.total_price, 0) * 10.0 / 110.0, 2),
   ROUND(COALESCE(b.total_price, 0) - (COALESCE(b.total_price, 0) * 10.0 / 110.0), 2),
@@ -135,12 +147,12 @@ SELECT
   b.check_in::date,
   b.check_out::date,
   b.property_name,
-  COALESCE(b.cancelled_at, NOW()),
-  COALESCE(b.cancellation_reason, 'Booking cancelled')
-FROM bookings b
+  NOW(),
+  'Booking cancelled'
+FROM public.bookings b
 WHERE b.status = 'cancelled'
   AND b.payment_status IN ('paid', 'refunded')
   AND b.host_id IS NOT NULL
   AND NOT EXISTS (
-    SELECT 1 FROM host_payouts hp WHERE hp.booking_id = b.id
+    SELECT 1 FROM public.host_payouts hp WHERE hp.booking_id = b.id
   );
