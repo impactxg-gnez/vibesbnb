@@ -35,6 +35,11 @@ import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
+import {
+  cannabisShortLabel,
+  cigarettesShortLabel,
+} from '@/lib/consumptionPolicy';
 
 interface Room {
   id: string;
@@ -328,7 +333,10 @@ export default function NewPropertyPage() {
         status: 'active',
         type: propertyTypeLabel,
         guest_access_type: accessTypeLabel,
-        wellness_friendly: formData.wellnessFriendly,
+        wellness_friendly:
+          formData.wellnessFriendly ||
+          formData.wellnessConsumptionIndoorAllowed ||
+          formData.wellnessConsumptionOutdoorAllowed,
         wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
         wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
         smoking_inside_allowed: formData.smokingInsideAllowed,
@@ -772,19 +780,10 @@ export default function NewPropertyPage() {
           <button
             type="button"
             onClick={() =>
-              setFormData((prev) => {
-                const next = !prev.wellnessFriendly;
-                return {
-                  ...prev,
-                  wellnessFriendly: next,
-                  ...(next
-                    ? {}
-                    : {
-                        wellnessConsumptionIndoorAllowed: false,
-                        wellnessConsumptionOutdoorAllowed: false,
-                      }),
-                };
-              })
+              setFormData((prev) => ({
+                ...prev,
+                wellnessFriendly: !prev.wellnessFriendly,
+              }))
             }
             className={`w-full px-6 py-4 rounded-xl border transition-all duration-300 flex items-center justify-center gap-3 font-bold ${
               formData.wellnessFriendly
@@ -793,87 +792,27 @@ export default function NewPropertyPage() {
             }`}
           >
             <span className="text-2xl">🧘</span>
-            <span>Wellness-Friendly</span>
+            <span>Wellness-Friendly listing badge</span>
           </button>
-          {formData.wellnessFriendly && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    wellnessConsumptionIndoorAllowed: !formData.wellnessConsumptionIndoorAllowed,
-                  })
-                }
-                className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
-                  formData.wellnessConsumptionIndoorAllowed
-                    ? 'bg-emerald-800/40 border-emerald-500 text-white'
-                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                <span className="font-bold">Indoor allowance</span>
-                <span className="text-xs text-gray-500 font-normal">
-                  Shows 🌿 INDOOR on your listing photos when enabled
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    wellnessConsumptionOutdoorAllowed: !formData.wellnessConsumptionOutdoorAllowed,
-                  })
-                }
-                className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
-                  formData.wellnessConsumptionOutdoorAllowed
-                    ? 'bg-emerald-900/50 border-emerald-500/70 text-white'
-                    : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                <span className="font-bold">Outdoor allowance</span>
-                <span className="text-xs text-gray-500 font-normal">
-                  Shows 🌿 OUTDOOR on your listing photos when enabled
-                </span>
-              </button>
-            </div>
-          )}
-          <p className="text-sm text-gray-400">Smoking policy (shown on your listing)</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() =>
-                setFormData({
-                  ...formData,
-                  smokingInsideAllowed: !formData.smokingInsideAllowed,
-                })
-              }
-              className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
-                formData.smokingInsideAllowed
-                  ? 'bg-amber-600/20 border-amber-500 text-white'
-                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
-              }`}
-            >
-              <span className="font-bold">Inside OK</span>
-              <span className="text-xs text-gray-500 font-normal">Indoor smoking allowed</span>
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setFormData({
-                  ...formData,
-                  smokingOutsideAllowed: !formData.smokingOutsideAllowed,
-                })
-              }
-              className={`px-4 py-4 rounded-xl border text-left transition flex flex-col gap-1 ${
-                formData.smokingOutsideAllowed
-                  ? 'bg-slate-700 border-white/20 text-white'
-                  : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
-              }`}
-            >
-              <span className="font-bold">Outside OK</span>
-              <span className="text-xs text-gray-500 font-normal">Patio, balcony, yard</span>
-            </button>
-          </div>
+          <ConsumptionPolicyEditor
+            value={{
+              cannabisInside: formData.wellnessConsumptionIndoorAllowed,
+              cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
+              cigarettesInside: formData.smokingInsideAllowed,
+              cigarettesOutside: formData.smokingOutsideAllowed,
+            }}
+            onChange={(next) => {
+              const cannabisOn = next.cannabisInside || next.cannabisOutside;
+              setFormData((prev) => ({
+                ...prev,
+                wellnessConsumptionIndoorAllowed: next.cannabisInside,
+                wellnessConsumptionOutdoorAllowed: next.cannabisOutside,
+                smokingInsideAllowed: next.cigarettesInside,
+                smokingOutsideAllowed: next.cigarettesOutside,
+                wellnessFriendly: cannabisOn ? true : prev.wellnessFriendly,
+              }));
+            }}
+          />
         </div>
       </div>
     </div>
@@ -1183,20 +1122,20 @@ export default function NewPropertyPage() {
               )}
             </div>
 
-            {(formData.smokingInsideAllowed || formData.smokingOutsideAllowed) && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {formData.smokingInsideAllowed && (
-                  <span className="px-3 py-1 bg-amber-600/20 text-amber-200 border border-amber-500/30 rounded-full text-sm">
-                    Smoking inside OK
-                  </span>
-                )}
-                {formData.smokingOutsideAllowed && (
-                  <span className="px-3 py-1 bg-white/10 text-gray-200 border border-white/15 rounded-full text-sm">
-                    Smoking outside OK
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="px-3 py-1 bg-emerald-600/15 text-emerald-200 border border-emerald-500/30 rounded-full text-sm">
+                {cannabisShortLabel({
+                  inside: formData.wellnessConsumptionIndoorAllowed,
+                  outside: formData.wellnessConsumptionOutdoorAllowed,
+                })}
+              </span>
+              <span className="px-3 py-1 bg-amber-600/15 text-amber-100 border border-amber-500/30 rounded-full text-sm">
+                {cigarettesShortLabel({
+                  inside: formData.smokingInsideAllowed,
+                  outside: formData.smokingOutsideAllowed,
+                })}
+              </span>
+            </div>
 
             {formData.amenities.length > 0 && (
               <div className="flex flex-wrap gap-2">

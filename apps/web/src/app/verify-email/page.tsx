@@ -40,6 +40,26 @@ function VerifyEmailContent() {
     setMessage('');
 
     try {
+      // Prefer Resend delivery (same path as booking mail). Fall back to Supabase Auth resend.
+      const viaResend = await fetch('/api/auth/send-verification-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          origin: window.location.origin,
+        }),
+      });
+      const payload = await viaResend.json().catch(() => ({}));
+
+      if (viaResend.ok) {
+        setMessage(
+          payload?.sent === false
+            ? 'If this email can receive mail, a verification link is on its way. Check Spam too.'
+            : 'Verification link resent successfully'
+        );
+        return;
+      }
+
       const supabase = createClient();
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',

@@ -489,7 +489,7 @@ export default function NewBookingPage() {
   const agreementNotice = property
     ? buildGuestAgreementNotice({
         propertyName: property.name,
-        smokingInsideAllowed: property.smoking_inside_allowed === true,
+        propertyRow: property as Record<string, unknown>,
         hostAgreementUrl: property.guest_agreement_url || null,
       })
     : null;

@@ -468,9 +468,10 @@ export default function BulkImportPage() {
           status: 'active',
           type: property.type,
           guest_access_type: property.guestAccessType,
-          wellness_friendly: property.wellnessFriendly,
+          // CSV only has coarse wellnessFriendly / smokeFriendly — map to outside-only defaults.
+          wellness_friendly: property.wellnessFriendly || false,
           wellness_consumption_indoor_allowed: false,
-          wellness_consumption_outdoor_allowed: false,
+          wellness_consumption_outdoor_allowed: property.wellnessFriendly || false,
           smoking_inside_allowed: false,
           smoking_outside_allowed: property.smokeFriendly || false,
           smoke_friendly: property.smokeFriendly || false,
@@ -771,7 +772,7 @@ export default function BulkImportPage() {
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
                 <p className="text-gray-500 text-sm">
-                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly, smokeFriendly
+                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly (420 outside), smokeFriendly (cigarettes outside)
                 </p>
                 <p className="text-emerald-400/80 text-sm mt-2">
                   <strong>image_urls</strong> - Pipe-separated image URLs (e.g., https://url1.jpg|https://url2.jpg)

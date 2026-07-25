@@ -49,6 +49,7 @@ import { toTravelerPrice } from '@/lib/platformPricing';
 import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
 import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import { resolveConsumptionPolicy } from '@/lib/consumptionPolicy';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
@@ -57,6 +58,8 @@ import {
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
+import { ConsumptionPolicyPanel } from '@/components/properties/ConsumptionPolicyPanel';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { PropertyReviewForm } from '@/components/properties/PropertyReviewForm';
@@ -842,17 +845,14 @@ export default function ListingDetailPage() {
                   🧘 Wellness-Friendly
                 </div>
               )}
-              <WellnessConsumptionPill indoor={property.wellnessConsumptionIndoorAllowed} outdoor={property.wellnessConsumptionOutdoorAllowed} />
-              {property.smokingInsideAllowed && (
-                <div className="flex items-center gap-2 bg-amber-600/95 text-white px-3 py-2 rounded-full text-sm font-semibold shadow-lg border border-amber-400/30">
-                  Smoking allowed inside
-                </div>
-              )}
-              {property.smokingOutsideAllowed && (
-                <div className="flex items-center gap-2 bg-slate-700/95 text-white px-3 py-2 rounded-full text-sm font-semibold shadow-lg border border-white/15">
-                  Smoking allowed outside
-                </div>
-              )}
+              <WellnessConsumptionPill
+                indoor={property.wellnessConsumptionIndoorAllowed}
+                outdoor={property.wellnessConsumptionOutdoorAllowed}
+              />
+              <SmokingPolicyPill
+                inside={property.smokingInsideAllowed}
+                outside={property.smokingOutsideAllowed}
+              />
             </div>
 
             {property.images.length > 1 && (
@@ -958,24 +958,16 @@ export default function ListingDetailPage() {
                   </div>
                 </div>
               </div>
-              {(property.smokingInsideAllowed || property.smokingOutsideAllowed) && (
-                <div className="flex flex-wrap items-center gap-2 mt-5 pt-5 border-t border-white/10">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 mr-1">
-                    Smoking
-                  </span>
-                  {property.smokingInsideAllowed && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-600/20 text-amber-300 px-3 py-1 text-sm font-medium border border-amber-500/30">
-                      Inside OK
-                    </span>
-                  )}
-                  {property.smokingOutsideAllowed && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 text-gray-200 px-3 py-1 text-sm font-medium border border-white/15">
-                      Outside OK
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
+
+            <ConsumptionPolicyPanel
+              policy={resolveConsumptionPolicy({
+                wellness_consumption_indoor_allowed: property.wellnessConsumptionIndoorAllowed,
+                wellness_consumption_outdoor_allowed: property.wellnessConsumptionOutdoorAllowed,
+                smoking_inside_allowed: property.smokingInsideAllowed,
+                smoking_outside_allowed: property.smokingOutsideAllowed,
+              })}
+            />
 
             {/* Amenities - Moved to top */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">

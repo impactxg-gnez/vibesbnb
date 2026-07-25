@@ -23,7 +23,11 @@ export function SmokingPolicyPill({ inside, outside, className = '' }: SmokingPo
   return (
     <div
       className={`bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-amber-500/25 ${className}`}
-      title={allowed ? 'Smoking policy: where allowed' : 'No smoking'}
+      title={
+        allowed
+          ? 'Cigarette smoking: where allowed'
+          : 'Cigarette smoking not allowed'
+      }
     >
       {allowed ? (
         <CigaretteAllowedIcon className="w-4 h-4 shrink-0 text-amber-200" />
@@ -45,7 +49,7 @@ export function SmokingPolicyPill({ inside, outside, className = '' }: SmokingPo
             )}
           </>
         ) : (
-          <span className="tracking-wide">NO SMOKING</span>
+          <span className="tracking-wide">NO CIGARETTES</span>
         )}
       </div>
     </div>

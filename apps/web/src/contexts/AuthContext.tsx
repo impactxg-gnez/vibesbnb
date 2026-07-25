@@ -591,9 +591,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       : null;
 
     if (!error && data.user) {
+      // Supabase often returns a user with empty identities when the email is already registered
+      // (and does not send a confirmation email). Surface that clearly instead of "check your inbox".
+      const identities = data.user.identities ?? [];
+      if (identities.length === 0) {
+        return {
+          error: {
+            message:
+              'An account with this email already exists. Sign in, or use Forgot password if you need access.',
+          },
+          data,
+        };
+      }
+
       // Do not keep a session until the inbox link is confirmed (when Supabase returns one).
       if (data.session && requiresEmailVerification(data.user)) {
         await supabase.auth.signOut({ scope: 'local' });
+      }
+
+      // Deliver confirm link via Resend (reliable). Supabase built-in Auth mailer is a backup only.
+      if (requiresEmailVerification(data.user)) {
+        try {
+          await fetch('/api/auth/send-verification-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: normalizedEmail,
+              origin: getAuthRedirectOrigin(),
+              fullName: name,
+              role: normalizedRole,
+            }),
+          });
+        } catch (sendErr) {
+          console.warn('[signUp] Resend verification email failed:', sendErr);
+        }
       }
 
       const rolesStr = localStorage.getItem('userRoles');

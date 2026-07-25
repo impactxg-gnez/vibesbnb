@@ -11,6 +11,7 @@ import {
   getHostScopeUserIdFromAuthOnly,
 } from '@/lib/adminHostImpersonation';
 import LocationPicker from '@/components/LocationPicker';
+import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 
 interface Room {
   id: string;
@@ -465,7 +466,10 @@ export default function ImportReviewPage() {
             bathrooms: formData.bathrooms,
             beds: formData.beds,
             status: status,
-            wellness_friendly: formData.wellnessFriendly,
+            wellness_friendly:
+              formData.wellnessFriendly ||
+              wellnessConsumptionIndoorAllowed ||
+              wellnessConsumptionOutdoorAllowed,
             wellness_consumption_indoor_allowed: wellnessConsumptionIndoorAllowed,
             wellness_consumption_outdoor_allowed: wellnessConsumptionOutdoorAllowed,
             smoking_inside_allowed: smokingInsideAllowed,
@@ -822,84 +826,43 @@ export default function ImportReviewPage() {
           </div>
 
           {/* Property Features */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Property Features</h2>
-            <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData((prev) => {
-                    const next = !prev.wellnessFriendly;
-                    if (!next) {
-                      setWellnessConsumptionIndoorAllowed(false);
-                      setWellnessConsumptionOutdoorAllowed(false);
-                    }
-                    return { ...prev, wellnessFriendly: next };
-                  });
-                }}
-                className={`w-full px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
-                  formData.wellnessFriendly
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                }`}
-              >
-                <span className="text-lg">🧘</span>
-                <span>Wellness-Friendly</span>
-              </button>
-              {formData.wellnessFriendly && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setWellnessConsumptionIndoorAllowed(!wellnessConsumptionIndoorAllowed)}
-                    className={`px-4 py-3 rounded-lg border text-left transition flex flex-col gap-1 ${
-                      wellnessConsumptionIndoorAllowed
-                        ? 'bg-emerald-800/40 border-emerald-500 text-white'
-                        : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                    }`}
-                  >
-                    <span className="font-semibold">Indoor allowance</span>
-                    <span className="text-xs text-gray-400">Shows 🌿 INDOOR on listing photos</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWellnessConsumptionOutdoorAllowed(!wellnessConsumptionOutdoorAllowed)}
-                    className={`px-4 py-3 rounded-lg border text-left transition flex flex-col gap-1 ${
-                      wellnessConsumptionOutdoorAllowed
-                        ? 'bg-emerald-900/50 border-emerald-500/70 text-white'
-                        : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                    }`}
-                  >
-                    <span className="font-semibold">Outdoor allowance</span>
-                    <span className="text-xs text-gray-400">Shows 🌿 OUTDOOR on listing photos</span>
-                  </button>
-                </div>
-              )}
-              <p className="text-sm text-gray-400 pt-2">Smoking policy (guest-facing)</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSmokingInsideAllowed(!smokingInsideAllowed)}
-                  className={`px-4 py-3 rounded-lg border transition flex flex-col items-stretch text-left gap-0.5 ${smokingInsideAllowed
-                    ? 'bg-amber-600/20 border-amber-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                    }`}
-                >
-                  <span className="text-sm font-semibold">Smoking inside</span>
-                  <span className="text-[11px] text-gray-400 font-normal">Indoor allowed</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSmokingOutsideAllowed(!smokingOutsideAllowed)}
-                  className={`px-4 py-3 rounded-lg border transition flex flex-col items-stretch text-left gap-0.5 ${smokingOutsideAllowed
-                    ? 'bg-slate-700 border-white/20 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                    }`}
-                >
-                  <span className="text-sm font-semibold">Smoking outside</span>
-                  <span className="text-[11px] text-gray-400 font-normal">Patio, balcony, yard</span>
-                </button>
-              </div>
-            </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Property Features</h2>
+            <button
+              type="button"
+              onClick={() =>
+                setFormData((prev) => ({
+                  ...prev,
+                  wellnessFriendly: !prev.wellnessFriendly,
+                }))
+              }
+              className={`w-full px-4 py-3 rounded-lg border transition flex items-center justify-center gap-2 ${
+                formData.wellnessFriendly
+                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+              }`}
+            >
+              <span className="text-lg">🧘</span>
+              <span>Wellness-Friendly listing badge</span>
+            </button>
+            <ConsumptionPolicyEditor
+              value={{
+                cannabisInside: wellnessConsumptionIndoorAllowed,
+                cannabisOutside: wellnessConsumptionOutdoorAllowed,
+                cigarettesInside: smokingInsideAllowed,
+                cigarettesOutside: smokingOutsideAllowed,
+              }}
+              onChange={(next) => {
+                const cannabisOn = next.cannabisInside || next.cannabisOutside;
+                setWellnessConsumptionIndoorAllowed(next.cannabisInside);
+                setWellnessConsumptionOutdoorAllowed(next.cannabisOutside);
+                setSmokingInsideAllowed(next.cigarettesInside);
+                setSmokingOutsideAllowed(next.cigarettesOutside);
+                if (cannabisOn) {
+                  setFormData((prev) => ({ ...prev, wellnessFriendly: true }));
+                }
+              }}
+            />
           </div>
 
           {/* Guest Policy */}
