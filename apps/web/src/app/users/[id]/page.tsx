@@ -12,7 +12,9 @@ import {
   User,
   ChevronRight,
   Sparkles,
-  Award
+  Award,
+  Search,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
@@ -70,6 +72,7 @@ export default function UserProfilePage() {
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
   const [hostAvgRating, setHostAvgRating] = useState<number | null>(null);
   const [stay, setStay] = useState<StaySearchParams>({});
+  const [listingNameQuery, setListingNameQuery] = useState('');
 
   useEffect(() => {
     const sync = () => setStay(readStaySearch());
@@ -178,10 +181,11 @@ export default function UserProfilePage() {
     if (userId) loadProfileData();
   }, [userId]);
 
-  const filteredProperties = useMemo(
-    () =>
-      properties.filter((property) =>
-        listingMatchesHeaderCategory(
+  const filteredProperties = useMemo(() => {
+    const q = listingNameQuery.trim().toLowerCase();
+    return properties.filter((property) => {
+      if (
+        !listingMatchesHeaderCategory(
           {
             type: property.type,
             title: property.title,
@@ -191,9 +195,15 @@ export default function UserProfilePage() {
           },
           activeCategory
         )
-      ),
-    [properties, activeCategory]
-  );
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      const name = (property.name || '').toLowerCase();
+      const title = (property.title || '').toLowerCase();
+      return name.includes(q) || title.includes(q);
+    });
+  }, [properties, activeCategory, listingNameQuery]);
 
   if (loading) {
     return (
@@ -326,6 +336,38 @@ export default function UserProfilePage() {
               )}
 
               {properties.length > 0 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1">
+                    Search by property name
+                  </label>
+                  <div className="relative">
+                    <Search
+                      className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary-500"
+                      aria-hidden
+                    />
+                    <input
+                      type="search"
+                      value={listingNameQuery}
+                      onChange={(e) => setListingNameQuery(e.target.value)}
+                      placeholder="Type a property name…"
+                      className="w-full h-14 rounded-2xl border border-white/10 bg-white/5 pl-12 pr-12 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/60 focus:border-primary-500/40"
+                      aria-label="Search this host's properties by name"
+                    />
+                    {listingNameQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setListingNameQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
+                        aria-label="Clear property name search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+
+              {properties.length > 0 && (
                 <PropertyCategoryChips
                   hrefBase={`/users/${userId}`}
                   activeCategory={activeCategory}
@@ -391,12 +433,22 @@ export default function UserProfilePage() {
               {properties.length > 0 && filteredProperties.length === 0 && (
                 <div className="bg-white/5 border border-dashed border-white/10 rounded-3xl p-12 text-center mt-8">
                   <p className="text-gray-500 font-medium">No listings match this filter.</p>
+                  {listingNameQuery.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setListingNameQuery('')}
+                      className="inline-block mt-4 text-primary-400 font-bold hover:text-primary-300"
+                    >
+                      Clear name search
+                    </button>
+                  ) : (
                   <Link
                     href={`/users/${userId}`}
                     className="inline-block mt-4 text-primary-400 font-bold hover:text-primary-300"
                   >
                     Clear filter
                   </Link>
+                  )}
                 </div>
               )}
             </section>

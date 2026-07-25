@@ -439,13 +439,13 @@ export function SearchSection({
                           setShowDatePicker(false);
                           setShowGuestPicker(false);
                         }}
-                        className="w-full flex items-center gap-4 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                        className="w-full h-14 flex items-center gap-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
                       >
-                        <svg className="w-5 h-5 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="text-white font-medium truncate">
+                        <span className="text-white font-medium truncate min-w-0">
                           {selectedLocation || 'City, area, or property name'}
                         </span>
                       </button>
@@ -529,12 +529,12 @@ export function SearchSection({
                           setShowLocationDropdown(false);
                           setShowGuestPicker(false);
                         }}
-                        className="w-full flex items-center gap-4 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                        className="w-full h-14 flex items-center gap-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
                       >
-                        <svg className="w-5 h-5 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-white font-medium">
+                        <span className="text-white font-medium truncate min-w-0">
                           {checkIn && checkOut
                             ? `${formatCalendarDate(checkIn, { month: 'short', day: 'numeric' })} - ${formatCalendarDate(checkOut, { month: 'short', day: 'numeric' })}`
                             : 'Choose when to wander'
@@ -576,12 +576,12 @@ export function SearchSection({
                           setShowLocationDropdown(false);
                           setShowDatePicker(false);
                         }}
-                        className="w-full flex items-center gap-4 px-6 py-4 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                        className="w-full h-14 flex items-center gap-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
                       >
-                        <svg className="w-5 h-5 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        <span className="text-white font-medium">
+                        <span className="text-white font-medium truncate min-w-0">
                           {guests + kids} {guests + kids === 1 ? 'Guest' : 'Guests'}
                           {pets > 0 && `, ${pets} ${pets === 1 ? 'Pet' : 'Pets'}`}
                         </span>
