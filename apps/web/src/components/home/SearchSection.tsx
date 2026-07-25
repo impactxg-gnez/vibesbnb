@@ -308,12 +308,12 @@ export function SearchSection({
         : 'Find Your Perfect Stay');
 
   return (
-    <div className={`container mx-auto px-3 md:px-6 ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-30 pb-12 md:pb-20 ${className}`}>
+    <div className={`container mx-auto px-3 md:px-6 max-w-full ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-30 pb-12 md:pb-20 ${className}`}>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative"
+        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative min-w-0 w-full max-w-full"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 md:mb-6">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -401,7 +401,7 @@ export function SearchSection({
             <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
 
             {/* Search Inputs */}
-            <div className="relative space-y-8">
+            <div className="relative space-y-8 min-w-0 w-full">
               {isAiMode ? (
                 <div className="relative overflow-hidden rounded-2xl border border-purple-500/25 bg-gradient-to-b from-purple-950/40 to-gray-950/80 p-8 md:p-12 text-center">
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(147,51,234,0.2),_transparent_55%)]" aria-hidden />
@@ -427,9 +427,9 @@ export function SearchSection({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto] gap-6 items-end">
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 lg:gap-5 items-end w-full min-w-0">
                   {/* Where to? - Location Input */}
-                  <div className="space-y-3" ref={locationDropdownRef}>
+                  <div className="space-y-3 min-w-0" ref={locationDropdownRef}>
                     <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Location or property name</label>
                     <div className="relative">
                       <button
@@ -519,7 +519,7 @@ export function SearchSection({
                   </div>
 
                   {/* Dates - Date Picker */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 min-w-0">
                     <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Journey Dates</label>
                     <div className="relative">
                       <button
@@ -566,7 +566,7 @@ export function SearchSection({
                   </div>
 
                   {/* Guests - Guest Picker */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 min-w-0">
                     <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Travellers</label>
                     <div className="relative">
                       <button
@@ -685,10 +685,10 @@ export function SearchSection({
                   <button
                     type="button"
                     onClick={handleSearch}
-                    className="btn-primary !px-12 !py-[1.125rem] shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
+                    className="btn-primary h-14 w-full lg:w-auto lg:shrink-0 !px-6 xl:!px-10 shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
                   >
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                       <span className="font-bold">Search</span>
