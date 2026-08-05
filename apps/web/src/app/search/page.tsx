@@ -350,10 +350,11 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
         .eq('status', 'active')
         .order('created_at', { ascending: false });
       if (!error && data?.length) {
+        const propertyRows = data as Array<Record<string, unknown>>;
         const hostIds = [
           ...new Set(
-            data
-              .map((r: { host_id?: string }) => r.host_id)
+            propertyRows
+              .map((r) => r.host_id)
               .filter((id): id is string => typeof id === 'string' && id.length > 0)
           ),
         ];
@@ -373,7 +374,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
             }
           }
         }
-        const inv: SearchInventory = { properties: data, profileById };
+        const inv: SearchInventory = { properties: propertyRows, profileById };
         try {
           sessionStorage.setItem(
             SEARCH_CATALOG_STORAGE_KEY,
