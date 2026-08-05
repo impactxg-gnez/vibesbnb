@@ -1,222 +1,173 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { motion } from 'framer-motion';
+import {
+  Package,
+  Plane,
+  Map,
+  PartyPopper,
+  Car,
+  Gamepad2,
+  Compass,
+  ArrowRight,
+} from 'lucide-react';
 
-type UserCategory = 'host' | 'traveller' | 'service_host' | 'dispensary';
-
-interface TimeLeft {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-}
-
-const categories = [
+const upcoming = [
   {
-    id: 'host' as UserCategory,
-    title: 'Host',
-    description: 'List your wellness-friendly property',
-    icon: '🏠',
-    color: 'from-green-500 to-green-600',
-    hoverColor: 'hover:shadow-green-500/30',
+    icon: Package,
+    title: 'Essentials',
+    headline: 'Your holiday stash, delivered',
+    body: 'Kick back the moment you arrive. We bring 420 essentials straight to your VibesBNB property — so the only thing on your itinerary is settling into the vibe.',
   },
   {
-    id: 'traveller' as UserCategory,
-    title: 'Traveller',
-    description: 'Find wellness-friendly stays',
-    icon: '✈️',
-    color: 'from-blue-500 to-blue-600',
-    hoverColor: 'hover:shadow-blue-500/30',
+    icon: Plane,
+    title: 'Pickup & Drop',
+    headline: 'Door-to-door holiday flow',
+    body: 'Land, leave the logistics to us. Schedule pickups and drops to and from bus stops and airports — arrive soft, depart easy, stay in vacation mode the whole way.',
   },
   {
-    id: 'service_host' as UserCategory,
-    title: 'Service Host',
-    description: 'Offer wellness services',
-    icon: '🧘',
-    color: 'from-purple-500 to-purple-600',
-    hoverColor: 'hover:shadow-purple-500/30',
+    icon: Map,
+    title: 'Guides',
+    headline: 'A city that feels like yours',
+    body: 'Local guides walk you through the places you\'re visiting with a complete itinerary planned — the spots worth lingering, the corners worth discovering, zero guesswork.',
   },
   {
-    id: 'dispensary' as UserCategory,
-    title: 'Dispensary',
-    description: 'Partner with travelers',
-    icon: '🌿',
-    color: 'from-yellow-500 to-yellow-600',
-    hoverColor: 'hover:shadow-yellow-500/30',
+    icon: PartyPopper,
+    title: 'Houseparties',
+    headline: 'The night, fully hosted',
+    body: 'Bring the celebration home. We match houseparty hosts to what travellers want — you enjoy the party, they handle the rest. Holiday energy, zero stress.',
+  },
+  {
+    icon: Car,
+    title: 'Chauffeurs & Butlers',
+    headline: 'White-glove holiday ease',
+    body: 'A dedicated chauffeur and butler for VibesBNB guests — rides when you want them, details handled when you don’t. Travel that feels looked after.',
+  },
+  {
+    icon: Gamepad2,
+    title: 'Gaming',
+    headline: 'Level up your staycation',
+    body: 'Consoles and PCs delivered into your VibesBNB home for gaming enthusiasts — rainy afternoons, late-night sessions, and holiday downtime done right.',
+  },
+  {
+    icon: Compass,
+    title: 'Trip planner',
+    headline: 'Your escape, mapped out',
+    body: 'Trips planned for solo travellers, families, and couples — so the holiday shape fits how you actually travel, not a one-size-fits-all checklist.',
   },
 ];
 
 export default function ComingSoonPage() {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    
-    const calculateTimeLeft = () => {
-      // April 20, 2026 at 12:00 PM PST (UTC-8)
-      // Converting to UTC: 12 PM PST = 8 PM UTC
-      const launchDate = new Date('2026-04-20T20:00:00Z');
-      const now = new Date();
-      const difference = launchDate.getTime() - now.getTime();
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-          seconds: Math.floor((difference / 1000) % 60),
-        });
-      }
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-48 w-96 h-96 bg-green-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+    <div className="min-h-screen bg-surface-dark text-white overflow-hidden">
+      <div className="relative pt-16 pb-14 md:pt-24 md:pb-20">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] bg-primary-500/5 rounded-full blur-[140px] translate-x-1/4" />
+        </div>
+
+        <div className="container mx-auto px-4 sm:px-6 relative z-10 max-w-5xl">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            className="max-w-3xl"
+          >
+            <div className="inline-flex items-center gap-2 bg-primary-500/10 border border-primary-500/40 px-5 py-2 rounded-full mb-8">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
+              <span className="text-primary-400 font-bold text-xs uppercase tracking-widest">
+                Coming soon
+              </span>
+            </div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.08] mb-6">
+              The holiday vibe{' '}
+              <span className="text-primary-500">is just getting started</span>
+            </h1>
+            <p className="text-lg sm:text-xl text-muted leading-relaxed max-w-2xl">
+              Stays are only the beginning. We&apos;re building the extras that turn a booking into a full
+              escape — delivered, planned, and ready when you are. Same wellness-friendly spirit.
+              More ways to catch the vibe.
+            </p>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Logo */}
-        <div className="mb-8 animate-fade-in">
-          <div className="flex items-center space-x-3">
-            <div className="w-24 h-24 flex items-center justify-center drop-shadow-[0_0_15px_rgba(0,230,118,0.5)]">
-              <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-green-400 to-green-600 bg-clip-text text-transparent">
-              VibesBNB
-            </h1>
-          </div>
-        </div>
-
-        {/* Coming Soon Badge */}
-        <div className="mb-8 animate-fade-in-up">
-          <div className="inline-block px-6 py-2 bg-green-500/20 border border-green-500/50 rounded-full">
-            <span className="text-green-400 font-semibold text-sm uppercase tracking-wider">
-              Coming Soon
-            </span>
-          </div>
-        </div>
-
-        {/* Main Heading */}
-        <div className="text-center mb-12 max-w-4xl animate-fade-in-up delay-200">
-          <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
-            The Future of{' '}
-            <span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Wellness-Friendly Travel
-            </span>
-            {' '}Is Almost Here
-          </h2>
-          <p className="text-lg md:text-xl text-gray-300 mb-4">
-            Sign up for early access and be the first to experience a new way to travel
-          </p>
-        </div>
-
-        {/* Countdown Timer */}
-        <div className="mb-16 animate-fade-in-up delay-300">
-          <div className="flex gap-4 md:gap-8">
-            {[
-              { label: 'Days', value: timeLeft.days },
-              { label: 'Hours', value: timeLeft.hours },
-              { label: 'Minutes', value: timeLeft.minutes },
-              { label: 'Seconds', value: timeLeft.seconds },
-            ].map((item, index) => (
-              <div key={item.label} className="flex flex-col items-center">
-                <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-4 md:p-6 min-w-[80px] md:min-w-[120px] shadow-xl">
-                  <div className="text-4xl md:text-6xl font-bold bg-gradient-to-br from-green-400 to-green-600 bg-clip-text text-transparent">
-                    {String(item.value).padStart(2, '0')}
+      <section className="container mx-auto px-4 sm:px-6 pb-20 max-w-5xl">
+        <div className="space-y-5">
+          {upcoming.map((feature, index) => {
+            const Icon = feature.icon;
+            return (
+              <motion.article
+                key={feature.title}
+                initial={{ opacity: 0, y: 28 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.55, delay: Math.min(index * 0.05, 0.3) }}
+                className="group relative overflow-hidden rounded-[2rem] border border-white/5 bg-surface p-6 sm:p-8 md:p-10 hover:border-primary-500/30 transition-colors duration-500"
+              >
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[radial-gradient(ellipse_at_0%_0%,rgba(0,230,118,0.07),transparent_55%)] pointer-events-none" />
+                <div className="relative z-10 flex flex-col sm:flex-row gap-6 sm:gap-8">
+                  <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                    <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-primary-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-primary-500 text-xs font-bold uppercase tracking-widest mb-2">
+                      {feature.title}
+                    </p>
+                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-3 group-hover:text-primary-400 transition-colors">
+                      {feature.headline}
+                    </h2>
+                    <p className="text-muted leading-relaxed max-w-2xl">{feature.body}</p>
                   </div>
                 </div>
-                <div className="text-gray-400 text-sm md:text-base mt-2 uppercase tracking-wider">
-                  {item.label}
-                </div>
-              </div>
-            ))}
-          </div>
+              </motion.article>
+            );
+          })}
         </div>
+      </section>
 
-        {/* Launch Date */}
-        <div className="mb-12 text-center animate-fade-in-up delay-400">
-          <p className="text-gray-400 text-lg">
-            Launching on{' '}
-            <span className="text-green-400 font-semibold">
-              April 20, 2026 at 12:00 PM PST
-            </span>
-          </p>
-        </div>
-
-        {/* Category Cards */}
-        <div className="mb-12 max-w-5xl w-full animate-fade-in-up delay-500">
-          <h3 className="text-2xl md:text-3xl font-bold text-center mb-8">
-            Get Early Access
-          </h3>
-          <p className="text-center text-gray-400 mb-8">
-            Choose your category and be among the first to join when we launch
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {categories.map((category) => (
+      <section className="container mx-auto px-4 sm:px-6 pb-28 sm:pb-32 max-w-5xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-surface p-8 sm:p-12 text-center"
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-80 bg-primary-500/10 blur-[100px] rounded-full -translate-y-1/2 pointer-events-none" />
+          <div className="relative z-10">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-4">
+              Want first dibs on the vibe?
+            </h2>
+            <p className="text-muted max-w-xl mx-auto mb-8 leading-relaxed">
+              Join early access as a traveller, host, service host, or dispensary partner — and be ready
+              when these holiday extras roll out.
+            </p>
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 justify-center">
               <Link
-                key={category.id}
-                href={`/early-access?category=${category.id}`}
-                className={`group bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-white/30 transition-all duration-300 hover:scale-105 hover:shadow-2xl ${category.hoverColor}`}
+                href="/early-access"
+                className="inline-flex items-center justify-center gap-2 btn-primary !py-4 px-8 font-bold rounded-2xl shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
               >
-                <div className="text-5xl mb-4">{category.icon}</div>
-                <h4 className="text-xl font-semibold mb-2">{category.title}</h4>
-                <p className="text-gray-400 text-sm mb-4">{category.description}</p>
-                <div className={`inline-flex items-center text-sm font-semibold bg-gradient-to-r ${category.color} bg-clip-text text-transparent group-hover:gap-2 transition-all`}>
-                  <span>Sign up</span>
-                  <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
+                Get early access
+                <ArrowRight className="w-4 h-4" />
               </Link>
-            ))}
+              <Link
+                href="/search"
+                className="text-center !py-4 px-8 font-bold rounded-2xl border border-white/15 text-white hover:bg-white/5 transition"
+              >
+                Browse stays now
+              </Link>
+              <Link
+                href="/about"
+                className="text-center !py-4 px-8 font-bold rounded-2xl text-primary-400 hover:text-primary-300 transition"
+              >
+                About VibesBNB →
+              </Link>
+            </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-gray-500 text-sm animate-fade-in-up delay-600">
-          <p>© 2025 VibesBNB. All rights reserved.</p>
-        </div>
-      </div>
-
-      {/* CSS animations */}
-      <style jsx>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fade-in 1s ease-out; }
-        .animate-fade-in-up { animation: fade-in-up 1s ease-out; }
-        .delay-200 { animation-delay: 200ms; }
-        .delay-300 { animation-delay: 300ms; }
-        .delay-400 { animation-delay: 400ms; }
-        .delay-500 { animation-delay: 500ms; }
-        .delay-600 { animation-delay: 600ms; }
-        .delay-1000 { animation-delay: 1000ms; }
-      `}</style>
+        </motion.div>
+      </section>
     </div>
   );
 }
-

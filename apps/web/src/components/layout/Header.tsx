@@ -252,7 +252,25 @@ export function Header() {
           </Link>
 
           {/* Centered Navigation */}
-          <nav className="hidden lg:flex items-center space-x-6">
+          <nav className="hidden lg:flex items-center gap-5 xl:gap-6 min-w-0">
+            <div className="hidden xl:flex items-center gap-4 shrink-0 text-sm font-semibold">
+              <Link
+                href="/about"
+                className={`transition-colors ${
+                  pathname === '/about' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'
+                }`}
+              >
+                About
+              </Link>
+              <Link
+                href="/coming-soon"
+                className={`transition-colors ${
+                  pathname === '/coming-soon' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'
+                }`}
+              >
+                Coming Soon
+              </Link>
+            </div>
             <PropertyCategoryChips
               hrefBase="/search"
               activeCategory={headerCategoryChip}
@@ -443,6 +461,20 @@ export function Header() {
                           
                           <div className="py-2">
                             <Link
+                              href="/about"
+                              className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors xl:hidden"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              About
+                            </Link>
+                            <Link
+                              href="/coming-soon"
+                              className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors xl:hidden"
+                              onClick={() => setShowUserMenu(false)}
+                            >
+                              Coming Soon
+                            </Link>
+                            <Link
                               href="/profile"
                               className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
@@ -628,6 +660,18 @@ export function Header() {
                   </>
                 ) : (
                   <div className="flex items-center space-x-2 sm:space-x-4">
+                    <Link
+                      href="/about"
+                      className="text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap xl:hidden"
+                    >
+                      About
+                    </Link>
+                    <Link
+                      href="/coming-soon"
+                      className="hidden sm:inline text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap xl:hidden"
+                    >
+                      Coming Soon
+                    </Link>
                     <Link
                       href="/login"
                       className="text-gray-300 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
