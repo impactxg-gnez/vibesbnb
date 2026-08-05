@@ -13,6 +13,8 @@ type Props = {
   className?: string;
   /** When true, Full Vibe + balcony becomes Balcony Vibe (golden glow). */
   hasBalcony?: boolean;
+  /** When provided, shows a Balcony available toggle next to the 420 policy. */
+  onBalconyChange?: (hasBalcony: boolean) => void;
 };
 
 /**
@@ -25,6 +27,7 @@ export function ConsumptionPolicyEditor({
   onChange,
   className = '',
   hasBalcony = false,
+  onBalconyChange,
 }: Props) {
   const set = (patch: Partial<ConsumptionPolicyEditorValue>) => {
     onChange({ ...value, ...patch });
@@ -121,6 +124,31 @@ export function ConsumptionPolicyEditor({
           </div>
         )}
       </div>
+
+      {onBalconyChange ? (
+        <div className="rounded-xl border border-gray-700/80 bg-gray-800/40 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="font-bold text-white">Balcony available</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Guests see a balcony tag. With 420 inside + outside, this becomes {BALCONY_VIBE_NAME}{' '}
+                (golden glow).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onBalconyChange(!hasBalcony)}
+              className={`shrink-0 px-4 py-2 rounded-lg border text-sm font-semibold transition ${
+                hasBalcony
+                  ? 'bg-amber-500 border-amber-400 text-black'
+                  : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-amber-500/40'
+              }`}
+            >
+              {hasBalcony ? 'Yes — balcony' : 'No balcony'}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {fullyFriendly ? (
         <div

@@ -36,6 +36,7 @@ import { applyWatermark } from '@/lib/image-utils';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
+import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import {
   cannabisShortLabel,
 } from '@/lib/consumptionPolicy';
@@ -80,6 +81,7 @@ const GUEST_ACCESS_TYPES = [
 ];
 
 const availableAmenities = [
+  'Balcony',
   'WiFi',
   'Kitchen',
   'Parking',
@@ -97,7 +99,6 @@ const availableAmenities = [
   'Mountain View',
   'Garden',
   'BBQ',
-  'Balcony',
 ];
 
 export default function NewPropertyPage() {
@@ -794,9 +795,13 @@ export default function NewPropertyPage() {
               cannabisInside: formData.wellnessConsumptionIndoorAllowed,
               cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
             }}
-            hasBalcony={formData.amenities.some((a) =>
-              String(a).trim().toLowerCase().includes('balcony')
-            )}
+            hasBalcony={propertyHasBalcony(formData.amenities)}
+            onBalconyChange={(nextHasBalcony) => {
+              setFormData((prev) => ({
+                ...prev,
+                amenities: setBalconyAmenity(prev.amenities, nextHasBalcony),
+              }));
+            }}
             onChange={(next) => {
               const cannabisOn = next.cannabisInside || next.cannabisOutside;
               setFormData((prev) => ({

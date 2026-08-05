@@ -6,3 +6,12 @@ export function propertyHasBalcony(amenities: unknown): boolean {
     return s === 'balcony' || s.includes('balcony');
   });
 }
+
+/** Add or remove the canonical `Balcony` amenity while preserving other amenities. */
+export function setBalconyAmenity(amenities: string[] | unknown, hasBalcony: boolean): string[] {
+  const list = Array.isArray(amenities)
+    ? amenities.map((a) => String(a ?? '').trim()).filter(Boolean)
+    : [];
+  const without = list.filter((a) => !a.toLowerCase().includes('balcony'));
+  return hasBalcony ? [...without, 'Balcony'] : without;
+}

@@ -12,6 +12,7 @@ import {
 } from '@/lib/adminHostImpersonation';
 import LocationPicker from '@/components/LocationPicker';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
+import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 
 interface Room {
   id: string;
@@ -74,6 +75,7 @@ export default function ImportReviewPage() {
   ]);
 
   const availableAmenities = [
+    'Balcony',
     'WiFi',
     'Kitchen',
     'Parking',
@@ -91,7 +93,6 @@ export default function ImportReviewPage() {
     'Mountain View',
     'Garden',
     'BBQ',
-    'Balcony',
   ];
 
   useEffect(() => {
@@ -848,9 +849,13 @@ export default function ImportReviewPage() {
                 cannabisInside: wellnessConsumptionIndoorAllowed,
                 cannabisOutside: wellnessConsumptionOutdoorAllowed,
               }}
-              hasBalcony={formData.amenities.some((a) =>
-                String(a).trim().toLowerCase().includes('balcony')
-              )}
+              hasBalcony={propertyHasBalcony(formData.amenities)}
+              onBalconyChange={(nextHasBalcony) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  amenities: setBalconyAmenity(prev.amenities, nextHasBalcony),
+                }));
+              }}
               onChange={(next) => {
                 const cannabisOn = next.cannabisInside || next.cannabisOutside;
                 setWellnessConsumptionIndoorAllowed(next.cannabisInside);

@@ -16,6 +16,7 @@ import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
+import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 
 interface Room {
   id: string;
@@ -103,6 +104,7 @@ export default function EditPropertyPage() {
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
 
   const availableAmenities = [
+    'Balcony',
     'WiFi',
     'Kitchen',
     'Parking',
@@ -120,7 +122,6 @@ export default function EditPropertyPage() {
     'Mountain View',
     'Garden',
     'BBQ',
-    'Balcony',
   ];
 
   useEffect(() => {
@@ -982,9 +983,13 @@ export default function EditPropertyPage() {
                 cannabisInside: formData.wellnessConsumptionIndoorAllowed,
                 cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
               }}
-              hasBalcony={formData.amenities.some(
-                (a) => String(a).trim().toLowerCase().includes('balcony')
-              )}
+              hasBalcony={propertyHasBalcony(formData.amenities)}
+              onBalconyChange={(nextHasBalcony) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  amenities: setBalconyAmenity(prev.amenities, nextHasBalcony),
+                }));
+              }}
               onChange={(next) => {
                 const cannabisOn = next.cannabisInside || next.cannabisOutside;
                 setFormData((prev) => ({
