@@ -9,6 +9,12 @@ import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
 import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 import { writeStaySearch } from '@/lib/staySearchParams';
+import {
+  PREFER_WELLNESS_DEFAULT,
+  VIBE_FIRST_QUERY_KEY,
+  readLocalPreferWellnessFriendly,
+  writeLocalPreferWellnessFriendly,
+} from '@/lib/preferWellnessFriendly';
 
 interface PropertyRow {
   id: string;
@@ -60,8 +66,27 @@ export function SearchSection({
   const [pets, setPets] = useState(initialValues?.pets || 0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAiMode, setIsAiMode] = useState(false);
+  const [vibeFirst, setVibeFirst] = useState(PREFER_WELLNESS_DEFAULT);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get(VIBE_FIRST_QUERY_KEY);
+      if (fromUrl === '1' || fromUrl === 'true') {
+        setVibeFirst(true);
+        return;
+      }
+      if (fromUrl === '0' || fromUrl === 'false') {
+        setVibeFirst(false);
+        return;
+      }
+      setVibeFirst(readLocalPreferWellnessFriendly());
+    } catch {
+      setVibeFirst(PREFER_WELLNESS_DEFAULT);
+    }
+  }, [pathname]);
 
   // Sync from URL/search props when those *values* change — not when the parent passes a new
   // `initialValues` object reference each render (that was resetting location/dates on every re-render).
@@ -230,6 +255,7 @@ export function SearchSection({
     if (categories.length > 0) params.set('categories', categories.join(','));
     else params.delete('categories');
     if (hostId) params.set('host', hostId);
+    params.set(VIBE_FIRST_QUERY_KEY, vibeFirst ? '1' : '0');
   };
 
   const toggleCategory = (id: string) => {
@@ -318,7 +344,7 @@ export function SearchSection({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 md:mb-6">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white break-words">{searchHeading}</h2>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <button
                 onClick={() => setIsAiMode(false)}
                 className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full transition-all ${!isAiMode ? 'bg-primary-500 text-black' : 'text-muted hover:text-white'}`}
@@ -341,6 +367,42 @@ export function SearchSection({
                 >
                   Soon
                 </span>
+              </button>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={vibeFirst}
+                aria-label="Show Full Vibe and Balcony Vibe stays first"
+                title="Prioritize Full Vibe (green) and Balcony Vibe (gold) listings"
+                onClick={() => {
+                  const next = !vibeFirst;
+                  setVibeFirst(next);
+                  writeLocalPreferWellnessFriendly(next);
+                  if (pathname === '/search') {
+                    const params = new URLSearchParams(window.location.search);
+                    applySearchFormToParams(params, selectedCategories);
+                    params.set(VIBE_FIRST_QUERY_KEY, next ? '1' : '0');
+                    router.replace(`/search?${params.toString()}`, { scroll: false });
+                  }
+                }}
+                className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-2 transition-all border ${
+                  vibeFirst
+                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.3)]'
+                    : 'border-white/10 text-muted hover:text-white'
+                }`}
+              >
+                <span
+                  className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                    vibeFirst ? 'bg-emerald-500' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                      vibeFirst ? 'translate-x-3.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </span>
+                Wellness first
               </button>
             </div>
           </div>

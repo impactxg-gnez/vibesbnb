@@ -38,8 +38,11 @@ import {
   PREFER_WELLNESS_DEFAULT,
   PREFER_WELLNESS_META_KEY,
   PREFER_WELLNESS_STORAGE_KEY,
+  VIBE_FIRST_QUERY_KEY,
   compareWellnessPreference,
+  listingHasVibeGlow,
   resolvePreferWellnessFriendly,
+  writeLocalPreferWellnessFriendly,
 } from '@/lib/preferWellnessFriendly';
 import {
   buildListingHref,
@@ -187,9 +190,16 @@ function sortSearchListings(
       if (a.isAvailable && !b.isAvailable) return -1;
       if (!a.isAvailable && b.isAvailable) return 1;
     }
+    // Green (Full Vibe) + gold (Balcony Vibe) first when toggle is on
     const wellness = compareWellnessPreference(
-      a.wellnessFriendly,
-      b.wellnessFriendly,
+      listingHasVibeGlow(
+        a.wellnessConsumptionIndoorAllowed,
+        a.wellnessConsumptionOutdoorAllowed
+      ),
+      listingHasVibeGlow(
+        b.wellnessConsumptionIndoorAllowed,
+        b.wellnessConsumptionOutdoorAllowed
+      ),
       preferWellnessFriendly
     );
     if (wellness !== 0) return wellness;
@@ -849,15 +859,23 @@ export default function SearchPage() {
     });
   }, [priceDistribution.min, priceDistribution.max]);
 
+  const vibeFirstParam = searchParams.get(VIBE_FIRST_QUERY_KEY);
+
   useEffect(() => {
     let cancelled = false;
 
     const fromMeta = resolvePreferWellnessFriendly({
+      urlValue: vibeFirstParam,
       metadataValue: user?.user_metadata?.[PREFER_WELLNESS_META_KEY],
       localValue:
         typeof window !== 'undefined' ? localStorage.getItem(PREFER_WELLNESS_STORAGE_KEY) : null,
     });
     setPreferWellnessFriendly(fromMeta);
+
+    // URL wins when present; otherwise hydrate from profile
+    if (vibeFirstParam === '1' || vibeFirstParam === '0' || vibeFirstParam === 'true' || vibeFirstParam === 'false') {
+      return;
+    }
 
     if (!user?.id) return;
 
@@ -881,7 +899,18 @@ export default function SearchPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.user_metadata?.[PREFER_WELLNESS_META_KEY]]);
+  }, [user?.id, user?.user_metadata?.[PREFER_WELLNESS_META_KEY], vibeFirstParam]);
+
+  const setVibeFirstPreference = useCallback(
+    (next: boolean) => {
+      setPreferWellnessFriendly(next);
+      writeLocalPreferWellnessFriendly(next);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set(VIBE_FIRST_QUERY_KEY, next ? '1' : '0');
+      router.replace(`/search?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const sortParam = searchParams.get('sort') || 'high-low';
   const headerCategory = searchParams.get('category');
@@ -1168,6 +1197,32 @@ export default function SearchPage() {
                     </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={preferWellnessFriendly}
+                  aria-label="Show Full Vibe and Balcony Vibe stays first"
+                  title="Full Vibe (green) and Balcony Vibe (gold) stays first"
+                  onClick={() => setVibeFirstPreference(!preferWellnessFriendly)}
+                  className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition-all ${
+                    preferWellnessFriendly
+                      ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.25)]'
+                      : 'bg-surface border border-white/10 text-muted hover:text-white'
+                  }`}
+                >
+                  <span
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                      preferWellnessFriendly ? 'bg-emerald-500' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        preferWellnessFriendly ? 'translate-x-4' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </span>
+                  Wellness first
+                </button>
                 <select
                   value={sortBy}
                   onChange={(e) => {

@@ -1,14 +1,21 @@
-/** Default: travellers prefer 420 / wellness-friendly stays first. */
+/** Default: travellers prefer Full Vibe / Balcony Vibe (green & gold) stays first. */
 export const PREFER_WELLNESS_DEFAULT = true;
 
 export const PREFER_WELLNESS_META_KEY = 'prefer_wellness_friendly';
 export const PREFER_WELLNESS_STORAGE_KEY = 'vbnb_prefer_wellness_friendly';
 
+/** URL query key for search “Wellness first” toggle (green / gold vibe markers). */
+export const VIBE_FIRST_QUERY_KEY = 'vibeFirst';
+
 export function resolvePreferWellnessFriendly(opts: {
   profileValue?: boolean | null;
   metadataValue?: unknown;
   localValue?: string | null;
+  /** `1` / `0` / `true` / `false` from `?vibeFirst=` */
+  urlValue?: string | null;
 }): boolean {
+  if (opts.urlValue === '1' || opts.urlValue === 'true') return true;
+  if (opts.urlValue === '0' || opts.urlValue === 'false') return false;
   if (typeof opts.profileValue === 'boolean') return opts.profileValue;
   if (typeof opts.metadataValue === 'boolean') return opts.metadataValue;
   if (opts.metadataValue === 'true' || opts.metadataValue === 1) return true;
@@ -18,7 +25,7 @@ export function resolvePreferWellnessFriendly(opts: {
   return PREFER_WELLNESS_DEFAULT;
 }
 
-/** Negative → a before b. Prefer wellness first when preferWellness is true. */
+/** Negative → a before b. Prefer vibe-glow stays first when preferWellness is true. */
 export function compareWellnessPreference(
   aFriendly: boolean | undefined,
   bFriendly: boolean | undefined,
@@ -27,6 +34,14 @@ export function compareWellnessPreference(
   const a = aFriendly === true ? 1 : 0;
   const b = bFriendly === true ? 1 : 0;
   return preferWellness ? b - a : a - b;
+}
+
+/** Full Vibe / Balcony Vibe — 420 allowed inside and outside (green or gold glow). */
+export function listingHasVibeGlow(
+  indoorAllowed: boolean | undefined,
+  outdoorAllowed: boolean | undefined
+): boolean {
+  return indoorAllowed === true && outdoorAllowed === true;
 }
 
 export function readLocalPreferWellnessFriendly(): boolean {
