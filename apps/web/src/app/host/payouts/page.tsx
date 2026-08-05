@@ -16,7 +16,6 @@ import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import {
   getHostScopeUserId,
-  getImpersonatedHostId,
   onImpersonationChanged,
 } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
@@ -24,6 +23,7 @@ import {
   HostPayoutSetupModal,
   type HostPayoutInfo,
 } from '@/components/host/HostPayoutSetupModal';
+import { useHostAccess } from '@/hooks/useHostAccess';
 import { formatCalendarDate } from '@/lib/dateUtils';
 
 type PayoutRow = {
@@ -69,7 +69,6 @@ export default function HostPayoutsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [hostScopeRevision, setHostScopeRevision] = useState(0);
-  const [storedRoles, setStoredRoles] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>('pending');
   const [loadingRows, setLoadingRows] = useState(true);
   const [migrationRequired, setMigrationRequired] = useState(false);
@@ -84,19 +83,9 @@ export default function HostPayoutsPage() {
   const [cancelled, setCancelled] = useState<PayoutRow[]>([]);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
   const [payoutInfo, setPayoutInfo] = useState<HostPayoutInfo | null>(null);
+  const { canAccess, checking: accessChecking } = useHostAccess(user, loading);
 
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
-
-  useEffect(() => {
-    const rolesStr = localStorage.getItem('userRoles');
-    if (rolesStr) {
-      try {
-        setStoredRoles(JSON.parse(rolesStr));
-      } catch {
-        setStoredRoles([]);
-      }
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -106,16 +95,11 @@ export default function HostPayoutsPage() {
     setPayoutInfo(resolvePayoutInfo(user?.user_metadata?.payout_info));
   }, [user]);
 
-  const userRole = user?.user_metadata?.role || 'traveller';
-  const hasHostRole = userRole === 'host' || storedRoles.includes('host');
-  const adminImpersonating = Boolean(user && isAdminUser(user) && getImpersonatedHostId());
-  const canAccess = hasHostRole || adminImpersonating;
-
   useEffect(() => {
-    if (!loading && user && !canAccess) {
+    if (!loading && user && !accessChecking && !canAccess) {
       router.replace('/profile');
     }
-  }, [loading, user, canAccess, router]);
+  }, [loading, user, accessChecking, canAccess, router]);
 
   const loadPayouts = useCallback(async () => {
     if (!user || !canAccess) return;
@@ -163,7 +147,7 @@ export default function HostPayoutsPage() {
     if (!loading && user && canAccess) void loadPayouts();
   }, [loading, user, canAccess, hostScopeRevision, loadPayouts]);
 
-  if (loading || !user) {
+  if (loading || !user || accessChecking) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400 text-sm">Loading…</div>

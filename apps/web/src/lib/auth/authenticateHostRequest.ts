@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, type User } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 
 export type HostAuthResult =
@@ -63,12 +64,30 @@ export async function authenticateHostRequest(
       };
     }
     hostId = requestedHost;
-  } else {
-    const role = user.user_metadata?.role;
-    if (role !== 'host' && !isAdminUser(user)) {
-      return {
-        response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
-      };
+  } else if (!isAdminUser(user)) {
+    const metaRole = user.user_metadata?.role;
+    const metaOk = metaRole === 'host' || metaRole === 'host_pending';
+    if (!metaOk) {
+      // Fallback: profiles.role (some hosts were promoted in profiles only).
+      try {
+        const service = createServiceClient();
+        const { data: profile } = await service
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+        const profileOk =
+          profile?.role === 'host' || profile?.role === 'host_pending';
+        if (!profileOk) {
+          return {
+            response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+          };
+        }
+      } catch {
+        return {
+          response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+        };
+      }
     }
   }
 

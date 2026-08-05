@@ -16,11 +16,11 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import {
-  getImpersonatedHostId,
   getHostScopeUserId,
   onImpersonationChanged,
 } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
+import { useHostAccess } from '@/hooks/useHostAccess';
 import { createClient } from '@/lib/supabase/client';
 import { formatCalendarDate } from '@/lib/dateUtils';
 
@@ -74,35 +74,19 @@ export default function HostDashboardPage() {
   const [hostScopeRevision, setHostScopeRevision] = useState(0);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loadingData, setLoadingData] = useState(true);
-  const [storedRoles, setStoredRoles] = useState<string[]>([]);
+  const { canAccess, checking: accessChecking } = useHostAccess(user, loading);
 
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
-
-  useEffect(() => {
-    const rolesStr = localStorage.getItem('userRoles');
-    if (rolesStr) {
-      try {
-        setStoredRoles(JSON.parse(rolesStr));
-      } catch {
-        setStoredRoles([]);
-      }
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [loading, user, router]);
 
-  const userRole = user?.user_metadata?.role || 'traveller';
-  const hasHostRole = userRole === 'host' || storedRoles.includes('host');
-  const adminImpersonating = Boolean(user && isAdminUser(user) && getImpersonatedHostId());
-  const canAccess = hasHostRole || adminImpersonating;
-
   useEffect(() => {
-    if (!loading && user && !canAccess) {
+    if (!loading && user && !accessChecking && !canAccess) {
       router.replace('/profile');
     }
-  }, [loading, user, canAccess, router]);
+  }, [loading, user, accessChecking, canAccess, router]);
 
   const loadDashboard = useCallback(async () => {
     if (!user || !canAccess) return;
@@ -136,7 +120,7 @@ export default function HostDashboardPage() {
     if (!loading && user && canAccess) void loadDashboard();
   }, [loading, user, canAccess, hostScopeRevision, loadDashboard]);
 
-  if (loading || !user) {
+  if (loading || !user || accessChecking) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400 text-sm">Loading…</div>
