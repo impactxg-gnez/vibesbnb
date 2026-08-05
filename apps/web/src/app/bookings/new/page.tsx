@@ -47,7 +47,8 @@ interface Property {
   allowDirectBooking?: boolean;
   /** Host-uploaded PDF URL (optional); snapshot stored on booking */
   guest_agreement_url?: string | null;
-  smoking_inside_allowed?: boolean;
+  wellness_consumption_indoor_allowed?: boolean;
+  wellness_consumption_outdoor_allowed?: boolean;
   rooms?: Array<{
     id: string;
     name: string;
@@ -198,7 +199,10 @@ export default function NewBookingPage() {
           typeof propertyRow.guest_agreement_url === 'string'
             ? propertyRow.guest_agreement_url
             : null,
-        smoking_inside_allowed: propertyRow.smoking_inside_allowed === true,
+        wellness_consumption_indoor_allowed:
+          propertyRow.wellness_consumption_indoor_allowed === true,
+        wellness_consumption_outdoor_allowed:
+          propertyRow.wellness_consumption_outdoor_allowed === true,
         cleaningFee:
           propertyRow.cleaning_fee != null
             ? Number(propertyRow.cleaning_fee)
@@ -489,7 +493,7 @@ export default function NewBookingPage() {
   const agreementNotice = property
     ? buildGuestAgreementNotice({
         propertyName: property.name,
-        propertyRow: property as Record<string, unknown>,
+        propertyRow: property as unknown as Record<string, unknown>,
         hostAgreementUrl: property.guest_agreement_url || null,
       })
     : null;

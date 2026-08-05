@@ -13,7 +13,6 @@ import {
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
-import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
 
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
@@ -36,9 +35,6 @@ export type PropertyCardMediaProps = {
   /** Guest-facing wellness consumption areas — 🌿 INDOOR / OUTDOOR pill when host opted in */
   wellnessConsumptionIndoorAllowed?: boolean;
   wellnessConsumptionOutdoorAllowed?: boolean;
-  /** Guest-facing smoking policy (from listing fields) */
-  smokingInsideAllowed?: boolean;
-  smokingOutsideAllowed?: boolean;
   /** Extra badges top-right (e.g. availability), rendered before listing pills */
   topRightSlot?: React.ReactNode;
   /** Main image area height */
@@ -58,8 +54,6 @@ export function PropertyCardMedia({
   onFavoriteChange,
   wellnessConsumptionIndoorAllowed = false,
   wellnessConsumptionOutdoorAllowed = false,
-  smokingInsideAllowed = false,
-  smokingOutsideAllowed = false,
   topRightSlot,
   mainHeightClass = 'h-64',
   className = '',
@@ -256,7 +250,6 @@ export function PropertyCardMedia({
             indoor={wellnessConsumptionIndoorAllowed}
             outdoor={wellnessConsumptionOutdoorAllowed}
           />
-          <SmokingPolicyPill inside={smokingInsideAllowed} outside={smokingOutsideAllowed} />
         </div>
 
         {/* Carousel Navigation */}

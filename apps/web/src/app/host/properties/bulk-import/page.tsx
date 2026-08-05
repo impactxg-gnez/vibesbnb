@@ -40,7 +40,7 @@ interface BulkProperty {
   description?: string;
   amenities?: string;
   wellnessFriendly?: boolean;
-  smokeFriendly?: boolean;
+  smokeFriendly?: boolean; // ignored — cigarette smoking removed from product
   imageUrls?: string[];
   sourceUrl?: string;
 }
@@ -258,7 +258,7 @@ export default function BulkImportPage() {
         description: row.description || '',
         amenities: row.amenities || '',
         wellnessFriendly: row.wellnessfriendly?.toLowerCase() === 'true' || row.wellnessfriendly === '1',
-        smokeFriendly: row.smokefriendly?.toLowerCase() === 'true' || row.smokefriendly === '1',
+        // smokeFriendly CSV column ignored (cigarette smoking removed)
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         sourceUrl,
       });
@@ -468,13 +468,13 @@ export default function BulkImportPage() {
           status: 'active',
           type: property.type,
           guest_access_type: property.guestAccessType,
-          // CSV only has coarse wellnessFriendly / smokeFriendly — map to outside-only defaults.
+          // CSV only has coarse wellnessFriendly — map to outside-only defaults.
           wellness_friendly: property.wellnessFriendly || false,
           wellness_consumption_indoor_allowed: false,
           wellness_consumption_outdoor_allowed: property.wellnessFriendly || false,
           smoking_inside_allowed: false,
-          smoking_outside_allowed: property.smokeFriendly || false,
-          smoke_friendly: property.smokeFriendly || false,
+          smoking_outside_allowed: false,
+          smoke_friendly: false,
           cleaning_fee: property.cleaningFee ?? 0,
         };
 
@@ -506,7 +506,7 @@ export default function BulkImportPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'cleaningFee', 'description', 'amenities', 'wellnessFriendly', 'smokeFriendly', 'image_urls'];
+    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'cleaningFee', 'description', 'amenities', 'wellnessFriendly', 'image_urls'];
     const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', '75', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false', 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800'];
     
     const csvContent = [headers.join(','), exampleRow.join(',')].join('\n');
@@ -772,7 +772,7 @@ export default function BulkImportPage() {
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
                 <p className="text-gray-500 text-sm">
-                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly (420 outside), smokeFriendly (cigarettes outside)
+                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly (420 outside)
                 </p>
                 <p className="text-emerald-400/80 text-sm mt-2">
                   <strong>image_urls</strong> - Pipe-separated image URLs (e.g., https://url1.jpg|https://url2.jpg)

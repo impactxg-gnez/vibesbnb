@@ -7,11 +7,18 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Star, MapPin, TrendingUp } from 'lucide-react';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
+import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import {
   listingCardMainImageUrl,
   primaryPropertyImageUrl,
 } from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import {
+  FULLY_420_GLOW_CLASS,
+  isFully420Friendly,
+} from '@/lib/consumptionPolicy';
+import { propertyHasBalcony } from '@/lib/propertyAmenities';
+import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 
 const FEATURED_PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
@@ -44,10 +51,13 @@ interface FeaturedProperty {
     image: string;
     bookingCount: number;
     amenities: string[];
+    hasBalcony?: boolean;
     type?: string;
     guests: number;
     bedrooms: number;
     bathrooms: number;
+    wellnessConsumptionIndoorAllowed?: boolean;
+    wellnessConsumptionOutdoorAllowed?: boolean;
 }
 
 export function FeaturedProperties() {
@@ -85,7 +95,10 @@ export function FeaturedProperties() {
                 });
 
                 // Combine and sort
-                const featured = (propertiesData || []).map((p: any) => ({
+                const featured = (propertiesData || []).map((p: any) => {
+                    const amenitiesFull = Array.isArray(p.amenities) ? p.amenities : [];
+                    const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
+                    return {
                     id: p.id,
                     name: p.name || p.title || 'Property',
                     location: p.location || '',
@@ -96,7 +109,8 @@ export function FeaturedProperties() {
                       primaryPropertyImageUrl(p.images, FEATURED_PLACEHOLDER)
                     ),
                     bookingCount: bookingCounts[p.id] || 0,
-                    amenities: (p.amenities || []).slice(0, 3),
+                    amenities: amenitiesFull.slice(0, 3),
+                    hasBalcony: propertyHasBalcony(amenitiesFull),
                     type: p.type ? String(p.type) : undefined,
                     guests: Number(p.guests) || 2,
                     bedrooms: Number(p.bedrooms) || 1,
@@ -104,7 +118,9 @@ export function FeaturedProperties() {
                         const b = Number(p.bathrooms);
                         return Number.isFinite(b) && b >= 0 ? b : 1;
                     })(),
-                }));
+                    wellnessConsumptionIndoorAllowed: consumption.indoor,
+                    wellnessConsumptionOutdoorAllowed: consumption.outdoor,
+                }});
 
                 // Sort by booking count descending
                 featured.sort((a, b) => b.bookingCount - a.bookingCount);
@@ -168,7 +184,16 @@ export function FeaturedProperties() {
                         transition={{ duration: 0.8, delay: index * 0.1 }}
                     >
                         <Link href={`/listings/${property.id}`} className="group block h-full">
-                            <div className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col relative">
+                            <div
+                              className={`bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col relative ${
+                                isFully420Friendly(
+                                  !!property.wellnessConsumptionIndoorAllowed,
+                                  !!property.wellnessConsumptionOutdoorAllowed
+                                )
+                                  ? FULLY_420_GLOW_CLASS
+                                  : ''
+                              }`}
+                            >
 
                                 {/* Popularity Badge */}
                                 {property.bookingCount > 0 && (
@@ -188,9 +213,12 @@ export function FeaturedProperties() {
                                 <div className="p-8 flex-1 flex flex-col -mt-12 relative z-10 bg-gradient-to-t from-surface via-surface to-transparent">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex-1">
-                                            <h3 className="text-white font-bold text-2xl mb-2 group-hover:text-primary-500 transition-colors line-clamp-1">
-                                                {property.name}
-                                            </h3>
+                                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                <h3 className="text-white font-bold text-2xl group-hover:text-primary-500 transition-colors line-clamp-1">
+                                                    {property.name}
+                                                </h3>
+                                                {property.hasBalcony ? <BalconyAvailableTag /> : null}
+                                            </div>
                                             <div className="flex items-center gap-2 text-muted text-sm font-medium">
                                                 <MapPin className="w-4 h-4 text-primary-500" />
                                                 <span>{property.location}</span>

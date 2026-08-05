@@ -5,11 +5,16 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
+import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import { FeaturedVibesLoading } from '@/components/home/FeaturedVibesLoading';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
+import {
+  FULLY_420_GLOW_CLASS,
+  isFully420Friendly,
+} from '@/lib/consumptionPolicy';
 import {
   buildListingHref,
   readStaySearch,
@@ -27,6 +32,7 @@ interface Retreat {
   price: number;
   images: string[];
   amenities: string[];
+  hasBalcony?: boolean;
   badge: string;
   bedrooms: number;
   bathrooms: number;
@@ -38,8 +44,6 @@ interface Retreat {
   wellnessFriendly?: boolean;
   wellnessConsumptionIndoorAllowed?: boolean;
   wellnessConsumptionOutdoorAllowed?: boolean;
-  smokingInsideAllowed?: boolean;
-  smokingOutsideAllowed?: boolean;
 }
 
 export function FeaturedRetreats() {
@@ -181,7 +185,16 @@ export function FeaturedRetreats() {
             transition={{ duration: 0.8, delay: index * 0.1 }}
           >
             <div className="group block h-full">
-              <div className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col">
+            <div
+              className={`bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col ${
+                isFully420Friendly(
+                  !!retreat.wellnessConsumptionIndoorAllowed,
+                  !!retreat.wellnessConsumptionOutdoorAllowed
+                )
+                  ? FULLY_420_GLOW_CLASS
+                  : ''
+              }`}
+            >
                 <div className="relative overflow-hidden group/media">
                   <PropertyCardMedia
                     images={retreat.images}
@@ -193,8 +206,6 @@ export function FeaturedRetreats() {
                     onFavoriteChange={user?.id ? syncFavoriteToggle : undefined}
                     wellnessConsumptionIndoorAllowed={!!retreat.wellnessConsumptionIndoorAllowed}
                     wellnessConsumptionOutdoorAllowed={!!retreat.wellnessConsumptionOutdoorAllowed}
-                    smokingInsideAllowed={!!retreat.smokingInsideAllowed}
-                    smokingOutsideAllowed={!!retreat.smokingOutsideAllowed}
                     mainHeightClass="h-56 md:h-64"
                     priority={index < 3}
                   />
@@ -216,9 +227,12 @@ export function FeaturedRetreats() {
                     />
                     <div className="flex-1 min-w-0">
                       <Link href={buildListingHref(retreat.id, stay)} className="block text-left">
-                        <h3 className="text-white font-bold text-xl sm:text-2xl mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
-                          {retreat.name}
-                        </h3>
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="text-white font-bold text-xl sm:text-2xl group-hover:text-primary-500 transition-colors line-clamp-2">
+                            {retreat.name}
+                          </h3>
+                          {retreat.hasBalcony ? <BalconyAvailableTag /> : null}
+                        </div>
                       </Link>
                       {retreat.description ? (
                         <p className="text-muted text-sm leading-relaxed line-clamp-3 mb-2">{retreat.description}</p>

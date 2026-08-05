@@ -47,9 +47,13 @@ import {
 } from '@/lib/dateUtils';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
-import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
-import { resolveConsumptionPolicy } from '@/lib/consumptionPolicy';
+import {
+  FULLY_420_GLOW_CLASS,
+  isFully420Friendly,
+  resolveConsumptionPolicy,
+} from '@/lib/consumptionPolicy';
+import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
@@ -58,7 +62,7 @@ import {
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
-import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
+import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import { ConsumptionPolicyPanel } from '@/components/properties/ConsumptionPolicyPanel';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
@@ -96,8 +100,6 @@ interface Property {
   wellnessFriendly: boolean;
   wellnessConsumptionIndoorAllowed: boolean;
   wellnessConsumptionOutdoorAllowed: boolean;
-  smokingInsideAllowed: boolean;
-  smokingOutsideAllowed: boolean;
   rating: number;
   reviews: number;
   createdAt?: string | null;
@@ -136,6 +138,7 @@ const amenityIcons: { [key: string]: any } = {
   'TV': Tv,
   'Kitchen': Coffee,
   'Gym': Dumbbell,
+  'Balcony': Building2,
 };
 
 export default function ListingDetailPage() {
@@ -363,7 +366,6 @@ export default function ListingDetailPage() {
 
         const defaultHostName = 'Property Host';
         const defaultHostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id || 'host'}`;
-        const smoking = resolveSmokingFlags(propertyData);
         const consumption = resolveWellnessConsumptionFlags(propertyData as Record<string, unknown>);
 
         const buildProperty = (
@@ -402,8 +404,6 @@ export default function ListingDetailPage() {
               propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
             wellnessConsumptionIndoorAllowed: consumption.indoor,
             wellnessConsumptionOutdoorAllowed: consumption.outdoor,
-            smokingInsideAllowed: smoking.inside,
-            smokingOutsideAllowed: smoking.outside,
             rating: avgRating || Number(propertyData.rating || 0),
             reviews: reviews.length,
             createdAt:
@@ -761,7 +761,10 @@ export default function ListingDetailPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">{property.name}</h1>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <h1 className="text-4xl font-bold text-white">{property.name}</h1>
+              {propertyHasBalcony(property.amenities) ? <BalconyAvailableTag /> : null}
+            </div>
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
               <p className="text-emerald-400 font-semibold tracking-wide">
                 {property.type ? `${property.type} in ` : ''}{getGeneralLocation(property.location)}
@@ -800,7 +803,16 @@ export default function ListingDetailPage() {
         {/* Image Gallery and Map Side by Side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Image Gallery */}
-          <div className="relative z-0 h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900">
+          <div
+            className={`relative z-0 h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900 ${
+              isFully420Friendly(
+                property.wellnessConsumptionIndoorAllowed,
+                property.wellnessConsumptionOutdoorAllowed
+              )
+                ? FULLY_420_GLOW_CLASS
+                : ''
+            }`}
+          >
             <Image
               key={`${property.id}-${currentImageIndex}`}
               src={heroDisplaySrc}
@@ -848,10 +860,6 @@ export default function ListingDetailPage() {
               <WellnessConsumptionPill
                 indoor={property.wellnessConsumptionIndoorAllowed}
                 outdoor={property.wellnessConsumptionOutdoorAllowed}
-              />
-              <SmokingPolicyPill
-                inside={property.smokingInsideAllowed}
-                outside={property.smokingOutsideAllowed}
               />
             </div>
 
@@ -964,8 +972,6 @@ export default function ListingDetailPage() {
               policy={resolveConsumptionPolicy({
                 wellness_consumption_indoor_allowed: property.wellnessConsumptionIndoorAllowed,
                 wellness_consumption_outdoor_allowed: property.wellnessConsumptionOutdoorAllowed,
-                smoking_inside_allowed: property.smokingInsideAllowed,
-                smoking_outside_allowed: property.smokingOutsideAllowed,
               })}
             />
 

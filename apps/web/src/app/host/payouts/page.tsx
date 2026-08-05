@@ -20,6 +20,10 @@ import {
   onImpersonationChanged,
 } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
+import {
+  HostPayoutSetupModal,
+  type HostPayoutInfo,
+} from '@/components/host/HostPayoutSetupModal';
 import { formatCalendarDate } from '@/lib/dateUtils';
 
 type PayoutRow = {
@@ -48,6 +52,19 @@ function money(n: number) {
   })}`;
 }
 
+function resolvePayoutInfo(raw: unknown): HostPayoutInfo | null {
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as HostPayoutInfo;
+}
+
+function isPayoutConfigured(info: HostPayoutInfo | null): boolean {
+  if (!info) return false;
+  if (info.method === 'paypal' || info.paypal_email || info.paypal_email_masked) {
+    return Boolean(info.paypal_email || info.paypal_email_masked);
+  }
+  return Boolean(info.account_number_masked);
+}
+
 export default function HostPayoutsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -65,6 +82,8 @@ export default function HostPayoutsPage() {
   const [pending, setPending] = useState<PayoutRow[]>([]);
   const [paid, setPaid] = useState<PayoutRow[]>([]);
   const [cancelled, setCancelled] = useState<PayoutRow[]>([]);
+  const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  const [payoutInfo, setPayoutInfo] = useState<HostPayoutInfo | null>(null);
 
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
 
@@ -82,6 +101,10 @@ export default function HostPayoutsPage() {
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [loading, user, router]);
+
+  useEffect(() => {
+    setPayoutInfo(resolvePayoutInfo(user?.user_metadata?.payout_info));
+  }, [user]);
 
   const userRole = user?.user_metadata?.role || 'traveller';
   const hasHostRole = userRole === 'host' || storedRoles.includes('host');
@@ -150,14 +173,10 @@ export default function HostPayoutsPage() {
 
   if (!canAccess) return null;
 
-  const payoutInfo = user.user_metadata?.payout_info as
-    | {
-        account_holder_name?: string;
-        bank_name?: string;
-        account_number_masked?: string;
-      }
-    | undefined;
-  const payoutConfigured = !!payoutInfo?.account_number_masked;
+  const payoutConfigured = isPayoutConfigured(payoutInfo);
+  const isPaypal =
+    payoutInfo?.method === 'paypal' ||
+    Boolean(payoutInfo?.paypal_email || payoutInfo?.paypal_email_masked);
 
   const rows =
     tab === 'pending' ? pending : tab === 'paid' ? paid : cancelled;
@@ -224,41 +243,56 @@ export default function HostPayoutsPage() {
               <h2 className="text-lg font-semibold text-white">Payout account</h2>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Bank account where VibesBNB sends your host payouts.
+              US bank account or PayPal where VibesBNB sends your host payouts.
             </p>
           </div>
           <div className="p-5 sm:p-6">
             {payoutConfigured ? (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <p className="text-emerald-400 font-medium">Account on file</p>
-                  {payoutInfo?.bank_name ? (
-                    <p className="text-gray-300 text-sm mt-1">{payoutInfo.bank_name}</p>
+                  <p className="text-emerald-400 font-medium">
+                    {isPaypal ? 'PayPal on file' : 'Bank account on file'}
+                  </p>
+                  {payoutInfo?.account_holder_name ? (
+                    <p className="text-gray-300 text-sm mt-1">{payoutInfo.account_holder_name}</p>
                   ) : null}
-                  {payoutInfo?.account_number_masked ? (
-                    <p className="text-gray-500 text-sm font-mono mt-0.5">
-                      {payoutInfo.account_number_masked}
+                  {isPaypal ? (
+                    <p className="text-gray-500 text-sm mt-0.5">
+                      {payoutInfo?.paypal_email_masked || payoutInfo?.paypal_email}
                     </p>
-                  ) : null}
+                  ) : (
+                    <>
+                      {payoutInfo?.bank_name ? (
+                        <p className="text-gray-300 text-sm mt-1">{payoutInfo.bank_name}</p>
+                      ) : null}
+                      {payoutInfo?.account_number_masked ? (
+                        <p className="text-gray-500 text-sm font-mono mt-0.5">
+                          {payoutInfo.account_number_masked}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
-                <Link
-                  href="/profile#host-payout-settings"
+                <button
+                  type="button"
+                  onClick={() => setPayoutModalOpen(true)}
                   className="inline-flex justify-center px-5 py-2.5 rounded-xl bg-primary-500 text-black font-bold text-sm hover:bg-primary-400 transition-colors"
                 >
                   Manage payout details
-                </Link>
+                </button>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <p className="text-amber-400/90 text-sm">
                   You haven&apos;t added a payout account yet. Set one up to get paid.
                 </p>
-                <Link
-                  href="/profile#host-payout-settings"
+                <button
+                  type="button"
+                  onClick={() => setPayoutModalOpen(true)}
                   className="inline-flex justify-center px-5 py-2.5 rounded-xl bg-primary-500 text-black font-bold text-sm hover:bg-primary-400 transition-colors whitespace-nowrap"
                 >
                   Set up payouts
-                </Link>
+                </button>
               </div>
             )}
           </div>
@@ -358,6 +392,13 @@ export default function HostPayoutsPage() {
           and paid.
         </p>
       </div>
+
+      <HostPayoutSetupModal
+        open={payoutModalOpen}
+        onClose={() => setPayoutModalOpen(false)}
+        initial={payoutInfo}
+        onSaved={(info) => setPayoutInfo(info)}
+      />
     </div>
   );
 }

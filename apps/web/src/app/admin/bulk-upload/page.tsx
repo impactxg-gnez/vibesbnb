@@ -13,7 +13,7 @@ interface Property {
   name: string;
   bedrooms: number;
   amenities: string[];
-  smokeFriendly: boolean;
+  wellnessFriendly: boolean;
   images: File[];
   imagePreviewUrls: string[];
 }
@@ -27,7 +27,7 @@ export default function BulkUploadPage() {
       name: '',
       bedrooms: 1,
       amenities: [],
-      smokeFriendly: false,
+      wellnessFriendly: false,
       images: [],
       imagePreviewUrls: [],
     },
@@ -53,7 +53,7 @@ export default function BulkUploadPage() {
         name: '',
         bedrooms: 1,
         amenities: [],
-        smokeFriendly: false,
+        wellnessFriendly: false,
         images: [],
         imagePreviewUrls: [],
       },
@@ -138,7 +138,7 @@ export default function BulkUploadPage() {
       const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
       const bedroomsIndex = headers.findIndex(h => h.toLowerCase() === 'bedrooms');
       const amenitiesIndex = headers.findIndex(h => h.toLowerCase() === 'amenities');
-      const smokeFriendlyIndex = headers.findIndex(h => h.toLowerCase() === 'wellness_friendly');
+      const wellnessFriendlyIndex = headers.findIndex(h => h.toLowerCase() === 'wellness_friendly');
       const imageUrlsIndex = headers.findIndex(h => h.toLowerCase() === 'image_urls');
       const imageFilesIndex = headers.findIndex(h => h.toLowerCase() === 'image_files');
 
@@ -182,8 +182,8 @@ export default function BulkUploadPage() {
         name: values[nameIndex] || '',
         bedrooms: parseInt(values[bedroomsIndex]) || 1,
         amenities: amenitiesList,
-        smokeFriendly: values[smokeFriendlyIndex]?.toLowerCase() === 'yes' || 
-                      values[smokeFriendlyIndex]?.toLowerCase() === 'true',
+        wellnessFriendly: values[wellnessFriendlyIndex]?.toLowerCase() === 'yes' || 
+                      values[wellnessFriendlyIndex]?.toLowerCase() === 'true',
         images,
         imagePreviewUrls,
       });
@@ -322,7 +322,7 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
           name: '',
           bedrooms: 1,
           amenities: [],
-          smokeFriendly: false,
+          wellnessFriendly: false,
           images: [],
           imagePreviewUrls: [],
         },
@@ -569,15 +569,15 @@ my-properties.zip
                 <div className="flex items-center space-x-3">
                   <input
                     type="checkbox"
-                    id={`smoke-${property.id}`}
-                    checked={property.smokeFriendly}
+                    id={`wellness-${property.id}`}
+                    checked={property.wellnessFriendly}
                     onChange={(e) =>
-                      updateProperty(property.id, 'smokeFriendly', e.target.checked)
+                      updateProperty(property.id, 'wellnessFriendly', e.target.checked)
                     }
                     className="w-5 h-5 text-emerald-600 bg-gray-800 border-gray-700 rounded focus:ring-emerald-500"
                   />
                   <label
-                    htmlFor={`smoke-${property.id}`}
+                    htmlFor={`wellness-${property.id}`}
                     className="text-gray-300 font-medium"
                   >
                     🧘 Wellness-Friendly Property

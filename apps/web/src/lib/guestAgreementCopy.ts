@@ -1,8 +1,7 @@
 import {
   type ConsumptionPolicy,
   cannabisShortLabel,
-  cigarettesShortLabel,
-  isSmokeFreeProperty,
+  is420FreeProperty,
   resolveConsumptionPolicy,
 } from '@/lib/consumptionPolicy';
 
@@ -23,8 +22,6 @@ export function buildGuestAgreementNotice(opts: {
   policy?: ConsumptionPolicy;
   /** Raw property row — used when `policy` is omitted. */
   propertyRow?: Record<string, unknown>;
-  /** @deprecated Prefer `policy` or `propertyRow`. */
-  smokingInsideAllowed?: boolean;
   hostAgreementUrl: string | null;
 }) {
   const { propertyName, hostAgreementUrl } = opts;
@@ -35,22 +32,17 @@ export function buildGuestAgreementNotice(opts: {
   } else if (opts.propertyRow) {
     policy = resolveConsumptionPolicy(opts.propertyRow);
   } else {
-    policy = {
-      cannabis: { inside: false, outside: false },
-      cigarettes: {
-        inside: opts.smokingInsideAllowed === true,
-        outside: false,
-      },
-    };
+    policy = { cannabis: { inside: false, outside: false } };
   }
 
-  const consumptionBullets = isSmokeFreeProperty(policy)
-    ? [
-        `This stay is smoke-free: ${cannabisShortLabel(policy.cannabis).toLowerCase()} and ${cigarettesShortLabel(policy.cigarettes).toLowerCase()}.`,
-      ]
+  const consumptionBullets = is420FreeProperty(policy)
+    ? [`This stay does not allow 420 / cannabis: ${cannabisShortLabel(policy.cannabis).toLowerCase()}.`]
     : [
-        policyLine('420 / cannabis consumption', policy.cannabis.inside, policy.cannabis.outside),
-        policyLine('Cigarette smoking', policy.cigarettes.inside, policy.cigarettes.outside),
+        policyLine(
+          '420 / cannabis consumption',
+          policy.cannabis.inside,
+          policy.cannabis.outside
+        ),
       ];
 
   return {

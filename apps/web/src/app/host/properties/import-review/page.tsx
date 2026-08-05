@@ -67,8 +67,6 @@ export default function ImportReviewPage() {
     cleaningFee: 0,
     type: 'Entire House',
   });
-  const [smokingInsideAllowed, setSmokingInsideAllowed] = useState(false);
-  const [smokingOutsideAllowed, setSmokingOutsideAllowed] = useState(false);
   const [wellnessConsumptionIndoorAllowed, setWellnessConsumptionIndoorAllowed] = useState(false);
   const [wellnessConsumptionOutdoorAllowed, setWellnessConsumptionOutdoorAllowed] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([
@@ -89,6 +87,11 @@ export default function ImportReviewPage() {
     'Pet Friendly',
     'Workspace',
     'Fireplace',
+    'Beach Access',
+    'Mountain View',
+    'Garden',
+    'BBQ',
+    'Balcony',
   ];
 
   useEffect(() => {
@@ -177,11 +180,6 @@ export default function ImportReviewPage() {
           cleaningFee: data.cleaningFee ?? data.cleaning_fee ?? 0,
         });
 
-        let inside = data.smokingInsideAllowed === true;
-        let outside = data.smokingOutsideAllowed === true;
-        if (!inside && !outside && data.smokeFriendly) outside = true;
-        setSmokingInsideAllowed(inside);
-        setSmokingOutsideAllowed(outside);
         setWellnessConsumptionIndoorAllowed(
           data.wellnessConsumptionIndoorAllowed === true ||
             data.wellness_consumption_indoor_allowed === true
@@ -472,9 +470,9 @@ export default function ImportReviewPage() {
               wellnessConsumptionOutdoorAllowed,
             wellness_consumption_indoor_allowed: wellnessConsumptionIndoorAllowed,
             wellness_consumption_outdoor_allowed: wellnessConsumptionOutdoorAllowed,
-            smoking_inside_allowed: smokingInsideAllowed,
-            smoking_outside_allowed: smokingOutsideAllowed,
-            smoke_friendly: smokingInsideAllowed || smokingOutsideAllowed,
+            smoking_inside_allowed: false,
+            smoking_outside_allowed: false,
+            smoke_friendly: false,
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             cleaning_fee: formData.cleaningFee,
@@ -518,9 +516,9 @@ export default function ImportReviewPage() {
             wellnessFriendly: formData.wellnessFriendly,
             wellnessConsumptionIndoorAllowed,
             wellnessConsumptionOutdoorAllowed,
-            smokingInsideAllowed,
-            smokingOutsideAllowed,
-            smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
+            smokingInsideAllowed: false,
+            smokingOutsideAllowed: false,
+            smokeFriendly: false,
             cleaning_fee: formData.cleaningFee,
             cleaningFee: formData.cleaningFee,
             amenities: formData.amenities,
@@ -560,9 +558,9 @@ export default function ImportReviewPage() {
           wellnessFriendly: formData.wellnessFriendly,
           wellnessConsumptionIndoorAllowed,
           wellnessConsumptionOutdoorAllowed,
-          smokingInsideAllowed,
-          smokingOutsideAllowed,
-          smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
+          smokingInsideAllowed: false,
+          smokingOutsideAllowed: false,
+          smokeFriendly: false,
           cleaning_fee: formData.cleaningFee,
           cleaningFee: formData.cleaningFee,
           amenities: formData.amenities,
@@ -595,9 +593,9 @@ export default function ImportReviewPage() {
           wellnessFriendly: formData.wellnessFriendly,
           wellnessConsumptionIndoorAllowed,
           wellnessConsumptionOutdoorAllowed,
-          smokingInsideAllowed,
-          smokingOutsideAllowed,
-          smokeFriendly: smokingInsideAllowed || smokingOutsideAllowed,
+          smokingInsideAllowed: false,
+          smokingOutsideAllowed: false,
+          smokeFriendly: false,
           cleaning_fee: formData.cleaningFee,
           cleaningFee: formData.cleaningFee,
           amenities: formData.amenities,
@@ -849,15 +847,11 @@ export default function ImportReviewPage() {
               value={{
                 cannabisInside: wellnessConsumptionIndoorAllowed,
                 cannabisOutside: wellnessConsumptionOutdoorAllowed,
-                cigarettesInside: smokingInsideAllowed,
-                cigarettesOutside: smokingOutsideAllowed,
               }}
               onChange={(next) => {
                 const cannabisOn = next.cannabisInside || next.cannabisOutside;
                 setWellnessConsumptionIndoorAllowed(next.cannabisInside);
                 setWellnessConsumptionOutdoorAllowed(next.cannabisOutside);
-                setSmokingInsideAllowed(next.cigarettesInside);
-                setSmokingOutsideAllowed(next.cigarettesOutside);
                 if (cannabisOn) {
                   setFormData((prev) => ({ ...prev, wellnessFriendly: true }));
                 }

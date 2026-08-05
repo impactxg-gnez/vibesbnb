@@ -40,8 +40,6 @@ interface Property {
   wellnessFriendly: boolean;
   wellnessConsumptionIndoorAllowed: boolean;
   wellnessConsumptionOutdoorAllowed: boolean;
-  smokingInsideAllowed: boolean;
-  smokingOutsideAllowed: boolean;
   allowExtraGuests: boolean;
   extraGuestPrice: number;
   cleaningFee: number;
@@ -81,8 +79,6 @@ export default function EditPropertyPage() {
     wellnessFriendly: false,
     wellnessConsumptionIndoorAllowed: false,
     wellnessConsumptionOutdoorAllowed: false,
-    smokingInsideAllowed: false,
-    smokingOutsideAllowed: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
     cleaningFee: 0,
@@ -120,6 +116,11 @@ export default function EditPropertyPage() {
     'Pet Friendly',
     'Workspace',
     'Fireplace',
+    'Beach Access',
+    'Mountain View',
+    'Garden',
+    'BBQ',
+    'Balcony',
   ];
 
   useEffect(() => {
@@ -180,11 +181,6 @@ export default function EditPropertyPage() {
           }
 
           if (propertyData) {
-            let smokingInside = propertyData.smoking_inside_allowed === true;
-            let smokingOutside = propertyData.smoking_outside_allowed === true;
-            if (!smokingInside && !smokingOutside && propertyData.smoke_friendly) {
-              smokingOutside = true;
-            }
             const loadedProperty: Property = {
               id: propertyData.id,
               name: propertyData.name || propertyData.title || '',
@@ -203,8 +199,6 @@ export default function EditPropertyPage() {
                 propertyData.wellness_consumption_indoor_allowed === true,
               wellnessConsumptionOutdoorAllowed:
                 propertyData.wellness_consumption_outdoor_allowed === true,
-              smokingInsideAllowed: smokingInside,
-              smokingOutsideAllowed: smokingOutside,
               allowExtraGuests: propertyData.allow_extra_guests || false,
               extraGuestPrice: propertyData.extra_guest_price ? Number(propertyData.extra_guest_price) : 50,
               cleaningFee: propertyData.cleaning_fee != null ? Number(propertyData.cleaning_fee) : 0,
@@ -266,11 +260,6 @@ export default function EditPropertyPage() {
             const property = parsedProperties.find((p: any) => p.id === params.id);
             
             if (property) {
-              let smokingInside = property.smokingInsideAllowed === true;
-              let smokingOutside = property.smokingOutsideAllowed === true;
-              if (!smokingInside && !smokingOutside && property.smokeFriendly) {
-                smokingOutside = true;
-              }
               const loadedProperty: Property = {
                 id: property.id,
                 name: property.name || '',
@@ -289,8 +278,6 @@ export default function EditPropertyPage() {
                   property.wellnessConsumptionIndoorAllowed === true,
                 wellnessConsumptionOutdoorAllowed:
                   property.wellnessConsumptionOutdoorAllowed === true,
-                smokingInsideAllowed: smokingInside,
-                smokingOutsideAllowed: smokingOutside,
                 allowExtraGuests: property.allowExtraGuests || false,
                 extraGuestPrice: property.extraGuestPrice || 50,
                 cleaningFee:
@@ -624,10 +611,9 @@ export default function EditPropertyPage() {
               formData.wellnessConsumptionOutdoorAllowed,
             wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
             wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
-            smoking_inside_allowed: formData.smokingInsideAllowed,
-            smoking_outside_allowed: formData.smokingOutsideAllowed,
-            smoke_friendly:
-              formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+            smoking_inside_allowed: false,
+            smoking_outside_allowed: false,
+            smoke_friendly: false,
             allow_extra_guests: formData.allowExtraGuests,
             extra_guest_price: formData.extraGuestPrice,
             cleaning_fee: formData.cleaningFee,
@@ -673,10 +659,9 @@ export default function EditPropertyPage() {
                 wellnessFriendly: formData.wellnessFriendly,
                 wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
                 wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
-                smokingInsideAllowed: formData.smokingInsideAllowed,
-                smokingOutsideAllowed: formData.smokingOutsideAllowed,
-                smokeFriendly:
-                  formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+                smokingInsideAllowed: false,
+                smokingOutsideAllowed: false,
+                smokeFriendly: false,
                 cleaning_fee: formData.cleaningFee,
                 cleaningFee: formData.cleaningFee,
                 refundable_deposit: formData.refundableDeposit,
@@ -719,10 +704,9 @@ export default function EditPropertyPage() {
                 wellnessFriendly: formData.wellnessFriendly,
                 wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
                 wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
-                smokingInsideAllowed: formData.smokingInsideAllowed,
-                smokingOutsideAllowed: formData.smokingOutsideAllowed,
-                smokeFriendly:
-                  formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+                smokingInsideAllowed: false,
+                smokingOutsideAllowed: false,
+                smokeFriendly: false,
                 cleaning_fee: formData.cleaningFee,
                 cleaningFee: formData.cleaningFee,
                 refundable_deposit: formData.refundableDeposit,
@@ -997,8 +981,6 @@ export default function EditPropertyPage() {
               value={{
                 cannabisInside: formData.wellnessConsumptionIndoorAllowed,
                 cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
-                cigarettesInside: formData.smokingInsideAllowed,
-                cigarettesOutside: formData.smokingOutsideAllowed,
               }}
               onChange={(next) => {
                 const cannabisOn = next.cannabisInside || next.cannabisOutside;
@@ -1006,8 +988,6 @@ export default function EditPropertyPage() {
                   ...prev,
                   wellnessConsumptionIndoorAllowed: next.cannabisInside,
                   wellnessConsumptionOutdoorAllowed: next.cannabisOutside,
-                  smokingInsideAllowed: next.cigarettesInside,
-                  smokingOutsideAllowed: next.cigarettesOutside,
                   wellnessFriendly: cannabisOn ? true : prev.wellnessFriendly,
                 }));
               }}
@@ -1373,7 +1353,7 @@ export default function EditPropertyPage() {
               Guest rules agreement (PDF)
             </h2>
             <p className="text-sm text-gray-400 mb-4">
-              Optional but recommended: upload your building or house rules (e.g. no smoking inside, quiet hours).
+              Optional but recommended: upload your building or house rules (e.g. quiet hours, guest limits).
               Every guest must read and electronically sign—along with VibesBNB standard rules—before requesting a
               booking. This helps reduce liability and compliance risk.
             </p>

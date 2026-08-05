@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { PROPERTY_FEATURED_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 
 /** Hard cap for homepage Featured Vibes cards. */
@@ -16,6 +16,7 @@ export type FeaturedRetreatPublic = {
   price: number;
   images: string[];
   amenities: string[];
+  hasBalcony?: boolean;
   badge: string;
   bedrooms: number;
   bathrooms: number;
@@ -27,8 +28,6 @@ export type FeaturedRetreatPublic = {
   wellnessFriendly?: boolean;
   wellnessConsumptionIndoorAllowed?: boolean;
   wellnessConsumptionOutdoorAllowed?: boolean;
-  smokingInsideAllowed?: boolean;
-  smokingOutsideAllowed?: boolean;
 };
 
 export function clampDisplayCount(n: unknown): number {
@@ -142,8 +141,8 @@ function mapRowToRetreat(
   const reviewsCount = Number(p.reviews_count) || 0;
   const displayRating = Number.isFinite(ratingCol) ? Math.round(ratingCol * 10) / 10 : 0;
 
-  const smoking = resolveSmokingFlags(p);
   const consumption = resolveWellnessConsumptionFlags(p);
+  const amenitiesFull = Array.isArray(p.amenities) ? (p.amenities as string[]) : [];
 
   return {
     id: String(p.id),
@@ -155,7 +154,8 @@ function mapRowToRetreat(
     price: p.price != null ? Number(p.price) : 0,
     // Cap carousel payload — cards only need a few frames
     images: Array.isArray(p.images) ? (p.images as string[]).filter(Boolean).slice(0, 6) : [],
-    amenities: Array.isArray(p.amenities) ? (p.amenities as string[]).slice(0, 2) : [],
+    amenities: amenitiesFull.slice(0, 2),
+    hasBalcony: propertyHasBalcony(amenitiesFull),
     badge: p.wellness_friendly ? 'Wellness-friendly' : 'Featured',
     bedrooms: Number(p.bedrooms) || 1,
     bathrooms: (() => {
@@ -170,8 +170,6 @@ function mapRowToRetreat(
     wellnessFriendly: p.wellness_friendly === true,
     wellnessConsumptionIndoorAllowed: consumption.indoor,
     wellnessConsumptionOutdoorAllowed: consumption.outdoor,
-    smokingInsideAllowed: smoking.inside,
-    smokingOutsideAllowed: smoking.outside,
   };
 }
 

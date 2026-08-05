@@ -123,6 +123,7 @@ export default function Filters({
     { id: 'Pet Friendly', label: 'Pet Friendly', icon: <Footprints size={18} /> },
     { id: 'Workspace', label: 'Workspace', icon: <Briefcase size={18} /> },
     { id: 'Fireplace', label: 'Fireplace', icon: <Flame size={18} /> },
+    { id: 'Balcony', label: 'Balcony', icon: <Home size={18} /> },
   ];
 
   const togglePropertyType = (type: string) => {

@@ -38,7 +38,6 @@ import { toTravelerPrice } from '@/lib/platformPricing';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import {
   cannabisShortLabel,
-  cigarettesShortLabel,
 } from '@/lib/consumptionPolicy';
 
 interface Room {
@@ -122,8 +121,6 @@ export default function NewPropertyPage() {
     wellnessFriendly: false,
     wellnessConsumptionIndoorAllowed: false,
     wellnessConsumptionOutdoorAllowed: false,
-    smokingInsideAllowed: false,
-    smokingOutsideAllowed: false,
     allowExtraGuests: false,
     extraGuestPrice: 50,
     cleaningFee: 0,
@@ -339,10 +336,9 @@ export default function NewPropertyPage() {
           formData.wellnessConsumptionOutdoorAllowed,
         wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
         wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
-        smoking_inside_allowed: formData.smokingInsideAllowed,
-        smoking_outside_allowed: formData.smokingOutsideAllowed,
-        smoke_friendly:
-          formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+        smoking_inside_allowed: false,
+        smoking_outside_allowed: false,
+        smoke_friendly: false,
         allow_extra_guests: formData.allowExtraGuests,
         extra_guest_price: formData.extraGuestPrice,
         cleaning_fee: formData.cleaningFee,
@@ -366,10 +362,9 @@ export default function NewPropertyPage() {
           wellnessFriendly: formData.wellnessFriendly,
           wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
           wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
-          smokingInsideAllowed: formData.smokingInsideAllowed,
-          smokingOutsideAllowed: formData.smokingOutsideAllowed,
-          smokeFriendly:
-            formData.smokingInsideAllowed || formData.smokingOutsideAllowed,
+          smokingInsideAllowed: false,
+          smokingOutsideAllowed: false,
+          smokeFriendly: false,
         });
         localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
 
@@ -798,8 +793,6 @@ export default function NewPropertyPage() {
             value={{
               cannabisInside: formData.wellnessConsumptionIndoorAllowed,
               cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
-              cigarettesInside: formData.smokingInsideAllowed,
-              cigarettesOutside: formData.smokingOutsideAllowed,
             }}
             onChange={(next) => {
               const cannabisOn = next.cannabisInside || next.cannabisOutside;
@@ -807,8 +800,6 @@ export default function NewPropertyPage() {
                 ...prev,
                 wellnessConsumptionIndoorAllowed: next.cannabisInside,
                 wellnessConsumptionOutdoorAllowed: next.cannabisOutside,
-                smokingInsideAllowed: next.cigarettesInside,
-                smokingOutsideAllowed: next.cigarettesOutside,
                 wellnessFriendly: cannabisOn ? true : prev.wellnessFriendly,
               }));
             }}
@@ -1127,12 +1118,6 @@ export default function NewPropertyPage() {
                 {cannabisShortLabel({
                   inside: formData.wellnessConsumptionIndoorAllowed,
                   outside: formData.wellnessConsumptionOutdoorAllowed,
-                })}
-              </span>
-              <span className="px-3 py-1 bg-amber-600/15 text-amber-100 border border-amber-500/30 rounded-full text-sm">
-                {cigarettesShortLabel({
-                  inside: formData.smokingInsideAllowed,
-                  outside: formData.smokingOutsideAllowed,
                 })}
               </span>
             </div>

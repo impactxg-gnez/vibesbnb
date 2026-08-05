@@ -1,4 +1,3 @@
-import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 
 export type LocationPolicy = {
@@ -8,7 +7,6 @@ export type LocationPolicy = {
 
 export type ConsumptionPolicy = {
   cannabis: LocationPolicy;
-  cigarettes: LocationPolicy;
 };
 
 export type LocationPolicyLabel =
@@ -17,12 +15,14 @@ export type LocationPolicyLabel =
   | 'Inside only'
   | 'Inside & outside';
 
+/** Green glow for listings that allow 420 both inside and outside. */
+export const FULLY_420_GLOW_CLASS =
+  'ring-2 ring-emerald-400/70 border-emerald-400/50 shadow-[0_0_28px_rgba(16,185,129,0.55),0_0_64px_rgba(52,211,153,0.28)]';
+
 export function resolveConsumptionPolicy(row: Record<string, unknown>): ConsumptionPolicy {
   const cannabis = resolveWellnessConsumptionFlags(row);
-  const cigarettes = resolveSmokingFlags(row);
   return {
     cannabis: { inside: cannabis.indoor, outside: cannabis.outdoor },
-    cigarettes: { inside: cigarettes.inside, outside: cigarettes.outside },
   };
 }
 
@@ -42,45 +42,38 @@ export function cannabisShortLabel(policy: LocationPolicy): string {
   return '420: inside & outside';
 }
 
-export function cigarettesShortLabel(policy: LocationPolicy): string {
-  const label = locationPolicyLabel(policy);
-  if (label === 'Not allowed') return 'No cigarettes';
-  if (label === 'Outside only') return 'Cigarettes: outside only';
-  if (label === 'Inside only') return 'Cigarettes: inside only';
-  return 'Cigarettes: inside & outside';
+/** Completely 420-friendly: cannabis allowed inside and outside. */
+export function isFully420Friendly(inside: boolean, outside: boolean): boolean {
+  return inside === true && outside === true;
 }
 
-/** True when neither 420 nor cigarettes are allowed anywhere. */
-export function isSmokeFreeProperty(policy: ConsumptionPolicy): boolean {
+export function isFully420FromPolicy(policy: ConsumptionPolicy): boolean {
+  return isFully420Friendly(policy.cannabis.inside, policy.cannabis.outside);
+}
+
+/** True when 420 is not allowed anywhere. */
+export function is420FreeProperty(policy: ConsumptionPolicy): boolean {
   const c = policy.cannabis;
-  const s = policy.cigarettes;
-  return !c.inside && !c.outside && !s.inside && !s.outside;
+  return !c.inside && !c.outside;
 }
 
-export function smokeFreeSummaryLabel(policy: ConsumptionPolicy): string | null {
-  if (!isSmokeFreeProperty(policy)) return null;
-  return 'Smoke-free (no 420, no cigarettes)';
+export function no420SummaryLabel(policy: ConsumptionPolicy): string | null {
+  if (!is420FreeProperty(policy)) return null;
+  return 'No 420 on this property';
 }
 
 export type ConsumptionPolicyFormState = {
   cannabisAllowed: boolean;
   cannabisInside: boolean;
   cannabisOutside: boolean;
-  cigarettesAllowed: boolean;
-  cigarettesInside: boolean;
-  cigarettesOutside: boolean;
 };
 
 export function consumptionPolicyToForm(policy: ConsumptionPolicy): ConsumptionPolicyFormState {
   const cannabisAllowed = policy.cannabis.inside || policy.cannabis.outside;
-  const cigarettesAllowed = policy.cigarettes.inside || policy.cigarettes.outside;
   return {
     cannabisAllowed,
     cannabisInside: policy.cannabis.inside,
     cannabisOutside: policy.cannabis.outside,
-    cigarettesAllowed,
-    cigarettesInside: policy.cigarettes.inside,
-    cigarettesOutside: policy.cigarettes.outside,
   };
 }
 
@@ -99,18 +92,13 @@ export function formToConsumptionFlags(form: ConsumptionPolicyFormState): {
     cannabisOutside = true;
   }
 
-  let cigarettesInside = form.cigarettesAllowed && form.cigarettesInside;
-  let cigarettesOutside = form.cigarettesAllowed && form.cigarettesOutside;
-  if (form.cigarettesAllowed && !cigarettesInside && !cigarettesOutside) {
-    cigarettesOutside = true;
-  }
-
   return {
     wellness_consumption_indoor_allowed: cannabisInside,
     wellness_consumption_outdoor_allowed: cannabisOutside,
-    smoking_inside_allowed: cigarettesInside,
-    smoking_outside_allowed: cigarettesOutside,
-    smoke_friendly: cigarettesInside || cigarettesOutside,
+    // Cigarette smoking removed from product — always clear on write.
+    smoking_inside_allowed: false,
+    smoking_outside_allowed: false,
+    smoke_friendly: false,
     wellness_friendly_from_cannabis: cannabisInside || cannabisOutside,
   };
 }

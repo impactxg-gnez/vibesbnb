@@ -4,15 +4,19 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
-import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import {
+  FULLY_420_GLOW_CLASS,
+  isFully420Friendly,
+} from '@/lib/consumptionPolicy';
+import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import {
   listingCardMainImageUrl,
   primaryPropertyImageUrl,
 } from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
-import { SmokingPolicyPill } from '@/components/properties/SmokingPolicyPill';
+import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 
 const FEATURED_PLACEHOLDER =
@@ -60,6 +64,7 @@ interface Listing {
   price: number;
   rating: number;
   images: string[];
+  amenities: string[];
   type: string;
   guests: number;
   bedrooms: number;
@@ -68,8 +73,6 @@ interface Listing {
   wellnessFriendly?: boolean;
   wellnessConsumptionIndoor?: boolean;
   wellnessConsumptionOutdoor?: boolean;
-  smokingInsideAllowed?: boolean;
-  smokingOutsideAllowed?: boolean;
 }
 
 export function FeaturedListings() {
@@ -89,7 +92,6 @@ export function FeaturedListings() {
         const payload = await res.json();
         const propertiesData = (payload.properties ?? []) as Record<string, unknown>[];
         const featuredListings: Listing[] = propertiesData.map((p) => {
-          const smoking = resolveSmokingFlags(p);
           const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
           return {
             id: String(p.id),
@@ -98,6 +100,7 @@ export function FeaturedListings() {
             price: p.price != null ? Number(p.price) : 0,
             rating: p.rating != null ? Number(p.rating) : 4.5,
             images: (Array.isArray(p.images) ? p.images : []) as string[],
+            amenities: (Array.isArray(p.amenities) ? p.amenities : []) as string[],
             type: (p.type ?? 'Property') as string,
             guests: Number(p.guests) || 2,
             bedrooms: Number(p.bedrooms) || 1,
@@ -109,8 +112,6 @@ export function FeaturedListings() {
             wellnessFriendly: p.wellness_friendly === true,
             wellnessConsumptionIndoor: consumption.indoor,
             wellnessConsumptionOutdoor: consumption.outdoor,
-            smokingInsideAllowed: smoking.inside,
-            smokingOutsideAllowed: smoking.outside,
           };
         });
         
@@ -127,32 +128,35 @@ export function FeaturedListings() {
   }, []);
 
   if (loading) {
-    return null;
-  }
-
-  if (listings.length === 0) {
-    return null; // Don't show section if no listings
+    return (
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4 text-center text-gray-500">Loading featured stays…</div>
+      </section>
+    );
   }
 
   return (
-    <div className="py-20" ref={ref}>
+    <section ref={ref} className="py-20 bg-gray-50">
       <div className="container mx-auto px-4">
         <motion.div
           className="text-center mb-12"
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Hand-picked <span className="text-green-600">Favorites</span>
-          </h2>
-          <p className="text-xl text-gray-600">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Featured Stays</h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Premium wellness-friendly stays loved by our community
           </p>
         </motion.div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {listings.map((listing, index) => (
+          {listings.map((listing, index) => {
+            const fully420 = isFully420Friendly(
+              !!listing.wellnessConsumptionIndoor,
+              !!listing.wellnessConsumptionOutdoor
+            );
+            return (
             <motion.div
               key={listing.id}
               initial={{ opacity: 0, y: 50 }}
@@ -161,7 +165,9 @@ export function FeaturedListings() {
             >
               <Link
                 href={`/listings/${listing.id}`}
-                className="group block bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
+                className={`group block bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 ${
+                  fully420 ? FULLY_420_GLOW_CLASS : ''
+                }`}
               >
                 <div className="relative h-72 overflow-hidden bg-gray-200">
                   <FeaturedListingImage
@@ -178,19 +184,20 @@ export function FeaturedListings() {
                   )}
                   <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
                     <WellnessConsumptionPill indoor={!!listing.wellnessConsumptionIndoor} outdoor={!!listing.wellnessConsumptionOutdoor} />
-                    <SmokingPolicyPill
-                      inside={!!listing.smokingInsideAllowed}
-                      outside={!!listing.smokingOutsideAllowed}
-                    />
                   </div>
                 </div>
                 
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition-colors mb-1">
-                        {listing.title}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">
+                          {listing.title}
+                        </h3>
+                        {propertyHasBalcony(listing.amenities) ? (
+                          <BalconyAvailableTag className="border-sky-500/40 bg-sky-500/10 text-sky-800" />
+                        ) : null}
+                      </div>
                       <p className="text-gray-600">{listing.location}</p>
                     </div>
                     <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg">
@@ -216,7 +223,8 @@ export function FeaturedListings() {
                 </div>
               </Link>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
         
         <motion.div 
@@ -227,15 +235,15 @@ export function FeaturedListings() {
         >
           <Link
             href="/search"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 px-8 py-3 bg-green-600 text-white font-semibold rounded-full hover:bg-green-700 transition-colors"
           >
-            View All Properties
+            View all stays
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
           </Link>
         </motion.div>
       </div>
-    </div>
+    </section>
   );
 }

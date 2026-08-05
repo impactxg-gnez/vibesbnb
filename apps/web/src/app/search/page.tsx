@@ -14,8 +14,13 @@ import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRat
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import { resolveHostBadge, type HostBadge } from '@/lib/hostBadge';
-import { resolveSmokingFlags } from '@/lib/propertySmoking';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import {
+  FULLY_420_GLOW_CLASS,
+  isFully420Friendly,
+} from '@/lib/consumptionPolicy';
+import { propertyHasBalcony } from '@/lib/propertyAmenities';
+import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import {
   enumerateStayNightsYmd,
   formatCalendarDate,
@@ -69,8 +74,6 @@ interface Listing {
   wellnessFriendly?: boolean;
   wellnessConsumptionIndoorAllowed?: boolean;
   wellnessConsumptionOutdoorAllowed?: boolean;
-  smokingInsideAllowed?: boolean;
-  smokingOutsideAllowed?: boolean;
   minBookingNights?: number | null;
   createdAt?: string | null;
   [key: string]: any;
@@ -338,7 +341,6 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
 
 function listingsFromInventory(inv: SearchInventory): Listing[] {
   return inv.properties.map((p: any) => {
-    const smoking = resolveSmokingFlags(p as Record<string, unknown>);
     const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
     const rawImages = p.images || [];
     const normalizedImages = rawImages
@@ -375,8 +377,6 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
       wellnessFriendly: p.wellness_friendly === true,
       wellnessConsumptionIndoorAllowed: consumption.indoor,
       wellnessConsumptionOutdoorAllowed: consumption.outdoor,
-      smokingInsideAllowed: smoking.inside,
-      smokingOutsideAllowed: smoking.outside,
       host_id: hostId,
       hostName,
       hostAvatarUrl,
@@ -513,11 +513,19 @@ function ListingCard({
     return Number.isFinite(b) && b >= 0 ? b : 1;
   })();
 
+  const fully420 = isFully420Friendly(
+    !!listing.wellnessConsumptionIndoorAllowed,
+    !!listing.wellnessConsumptionOutdoorAllowed
+  );
+  const hasBalcony = propertyHasBalcony(listing.amenities);
+
   return (
     <div
       onMouseEnter={() => onHover(listing.id)}
       onMouseLeave={() => onHover(null)}
-      className="group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors"
+      className={`group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors ${
+        fully420 ? FULLY_420_GLOW_CLASS : ''
+      }`}
     >
       <PropertyCardMedia
         images={images}
@@ -529,8 +537,6 @@ function ListingCard({
         onFavoriteChange={onFavoriteChange}
         wellnessConsumptionIndoorAllowed={!!listing.wellnessConsumptionIndoorAllowed}
         wellnessConsumptionOutdoorAllowed={!!listing.wellnessConsumptionOutdoorAllowed}
-        smokingInsideAllowed={!!listing.smokingInsideAllowed}
-        smokingOutsideAllowed={!!listing.smokingOutsideAllowed}
         topRightSlot={availabilitySlot}
         mainHeightClass="h-64"
         priority={priorityImage}
@@ -552,9 +558,12 @@ function ListingCard({
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-start gap-2">
               <div className="min-w-0">
-                <h3 className="font-bold text-white text-lg mb-1 group-hover:text-primary-500 transition-colors line-clamp-2">
-                  {listing.title}
-                </h3>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h3 className="font-bold text-white text-lg group-hover:text-primary-500 transition-colors line-clamp-2">
+                    {listing.title}
+                  </h3>
+                  {hasBalcony ? <BalconyAvailableTag /> : null}
+                </div>
                 {listing.hostBadge ? (
                   <div className="mb-1">
                     <HostStatusBadge badge={listing.hostBadge} size="sm" />
