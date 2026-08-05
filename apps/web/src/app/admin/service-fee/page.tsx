@@ -7,12 +7,16 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { DollarSign, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
+import { PLATFORM_FEE_PERCENT } from '@vibesbnb/shared';
 
 export default function ManageServiceFeePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [serviceFee, setServiceFee] = useState(10); // Default 10%
+  const [serviceFee, setServiceFee] = useState(PLATFORM_FEE_PERCENT);
   const [saving, setSaving] = useState(false);
+  const [loadingFee, setLoadingFee] = useState(true);
+  const [migrationRequired, setMigrationRequired] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -24,27 +28,62 @@ export default function ManageServiceFeePage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    // Load current service fee from storage/API
-    const savedFee = localStorage.getItem('serviceFee');
-    if (savedFee) {
-      setServiceFee(Number(savedFee));
-    }
-  }, []);
+    if (!user || !isAdminUser(user)) return;
+    let cancelled = false;
+    void (async () => {
+      setLoadingFee(true);
+      try {
+        const headers = await getHeadersForAdminFetch();
+        const res = await fetch('/api/admin/service-fee', { headers: { ...headers } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load service fee');
+        if (cancelled) return;
+        setServiceFee(Number(data.serviceFeePercent) || PLATFORM_FEE_PERCENT);
+        setMigrationRequired(Boolean(data.migrationRequired));
+        // Keep local cache in sync for client-side quote previews
+        localStorage.setItem('serviceFee', String(data.serviceFeePercent));
+      } catch (e) {
+        console.error(e);
+        const saved = localStorage.getItem('serviceFee');
+        if (saved != null) setServiceFee(Number(saved) || PLATFORM_FEE_PERCENT);
+      } finally {
+        if (!cancelled) setLoadingFee(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // In a real app, you'd save to database
-      localStorage.setItem('serviceFee', serviceFee.toString());
-      toast.success('Service fee updated successfully');
+      const headers = await getHeadersForAdminFetch();
+      const res = await fetch('/api/admin/service-fee', {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceFeePercent: serviceFee }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.migrationRequired) {
+          setMigrationRequired(true);
+          toast.error('Run SUPABASE_PLATFORM_SETTINGS.sql in Supabase first');
+          return;
+        }
+        throw new Error(data.error || 'Failed to update service fee');
+      }
+      localStorage.setItem('serviceFee', String(data.serviceFeePercent));
+      setMigrationRequired(false);
+      toast.success('Service fee saved for the platform');
     } catch (error) {
-      toast.error('Failed to update service fee');
+      toast.error(error instanceof Error ? error.message : 'Failed to update service fee');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (loading || loadingFee) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
@@ -64,9 +103,17 @@ export default function ManageServiceFeePage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Manage Service Fee</h1>
           <p className="text-gray-500 mt-1">
-            Set the platform fee baked into guest-facing prices. Hosts enter their payout rate; guests see the marked-up total.
+            Set the platform fee baked into guest-facing prices. Hosts enter their payout rate;
+            guests see the marked-up total. This % is used in sales reports as VibesBNB&apos;s keep.
           </p>
         </div>
+
+        {migrationRequired ? (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Run <code className="font-mono">SUPABASE_PLATFORM_SETTINGS.sql</code> in the Supabase
+            SQL editor so the fee persists server-side (not only in this browser).
+          </div>
+        ) : null}
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl">
           <div className="space-y-6">
@@ -90,11 +137,11 @@ export default function ManageServiceFeePage() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-2">
-                This percentage is included in prices shown to travelers. It is not shown as a separate line at checkout.
+                Included in traveler lodging prices. Shown as VibesBNB service fee in admin sales
+                reports.
               </p>
             </div>
 
-            {/* Example Calculation */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-2">Example Calculation</h3>
               <div className="space-y-1 text-sm text-gray-600">
@@ -104,7 +151,9 @@ export default function ManageServiceFeePage() {
                 </div>
                 <div className="flex justify-between">
                   <span>Traveler sees:</span>
-                  <span>${(100 + Math.round((100 * serviceFee) / 100)).toFixed(2)} / night</span>
+                  <span>
+                    ${(100 + Math.round((100 * serviceFee) / 100)).toFixed(2)} / night
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Platform keeps ({serviceFee}%):</span>
@@ -131,4 +180,3 @@ export default function ManageServiceFeePage() {
     </AdminLayout>
   );
 }
-

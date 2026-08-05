@@ -145,7 +145,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { label: 'Manage Service Fee', href: '/admin/service-fee', icon: <Settings className="w-5 h-5" /> },
     { label: 'Document Verification', href: '/admin/verification', icon: <FileText className="w-5 h-5" /> },
     { label: 'Messages', href: '/admin/messages', icon: <MessageSquare className="w-5 h-5" /> },
-    { label: 'Report Management', href: '/admin/reports', icon: <FileText className="w-5 h-5" /> },
+    { label: 'Sales reports', href: '/admin/reports', icon: <FileText className="w-5 h-5" /> },
     { label: 'Manage Payout', href: '/admin/payouts', icon: <Settings className="w-5 h-5" /> },
     { label: 'Search Settings', href: '/admin/search-settings', icon: <Search className="w-5 h-5" /> },
     { label: 'Upload Hero Image', href: '/admin/upload-hero-image', icon: <Upload className="w-5 h-5" /> },

@@ -1,80 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
+import { buildSalesReport, type ReportPeriod } from '@/lib/salesReport';
+import { buildSalesReportWorkbook } from '@/lib/salesReportExcel';
 
 export const dynamic = 'force-dynamic';
-
-function startDateForPeriod(period: string, now: Date): Date {
-  if (period === 'day') {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }
-  if (period === 'week') {
-    const d = new Date(now);
-    d.setDate(now.getDate() - 7);
-    return d;
-  }
-  return new Date(now.getFullYear(), now.getMonth(), 1);
-}
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateAdminRequest(request);
     if ('response' in auth) return auth.response;
 
-    const period =
-      request.nextUrl.searchParams.get('period') || 'month';
-    if (!['day', 'week', 'month'].includes(period)) {
+    const periodParam = request.nextUrl.searchParams.get('period') || 'month';
+    if (!['day', 'week', 'month'].includes(periodParam)) {
       return NextResponse.json({ error: 'Invalid period' }, { status: 400 });
     }
+    const period = periodParam as ReportPeriod;
+    const format = (request.nextUrl.searchParams.get('format') || 'json').toLowerCase();
 
     const service = createServiceClient();
-    const now = new Date();
-    const startDate = startDateForPeriod(period, now);
+    const report = await buildSalesReport(service, period);
 
-    const { data: bookingsData, error } = await service
-      .from('bookings')
-      .select('*')
-      .gte('created_at', startDate.toISOString())
-      .order('created_at', { ascending: true });
+    if (format === 'xlsx' || format === 'excel') {
+      const buffer = await buildSalesReportWorkbook(report);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const filename = `vibesbnb-sales-report-${period}-${stamp}.xlsx`;
+      return new NextResponse(new Uint8Array(buffer), {
+        status: 200,
+        headers: {
+          'Content-Type':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
 
-    if (error) throw error;
-
-    const breakdown: Record<
-      string,
-      { income: number; refunds: number; bookings: number }
-    > = {};
-
-    let totalIncome = 0;
-    let totalRefunds = 0;
-
-    (bookingsData || []).forEach((booking) => {
-      const date = new Date(booking.created_at).toLocaleDateString();
-      if (!breakdown[date]) {
-        breakdown[date] = { income: 0, refunds: 0, bookings: 0 };
-      }
-
-      if (booking.status === 'cancelled') {
-        breakdown[date].refunds += Number(booking.total_price || 0);
-        totalRefunds += Number(booking.total_price || 0);
-      } else {
-        breakdown[date].income += Number(booking.total_price || 0);
-        totalIncome += Number(booking.total_price || 0);
-      }
-      breakdown[date].bookings += 1;
-    });
-
-    const breakdownArray = Object.entries(breakdown).map(([date, data]) => ({
-      date,
-      ...data,
-    }));
-
+    // Backward-compatible aliases for the existing UI fields
     return NextResponse.json({
-      period,
-      total_income: totalIncome,
-      total_refunds: totalRefunds,
-      net_income: totalIncome - totalRefunds,
-      bookings_count: bookingsData?.length || 0,
-      breakdown: breakdownArray,
+      ...report,
+      total_income: report.summary.guest_sales,
+      total_refunds: report.summary.refunds,
+      net_income: report.summary.net_guest_sales,
+      bookings_count: report.summary.bookings_count,
     });
   } catch (e: unknown) {
     console.error('[admin/reports]', e);
