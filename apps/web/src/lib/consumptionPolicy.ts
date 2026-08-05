@@ -23,15 +23,17 @@ export const BALCONY_VIBE_NAME = 'Balcony Vibe';
 
 /** Green treatment — Full Vibe (420 inside + outside). Strong fill so cards read clearly in grids. */
 export const FULL_VIBE_GLOW_CLASS =
-  'ring-2 ring-emerald-400 border-emerald-400/80 bg-emerald-950/70 shadow-[0_0_28px_rgba(16,185,129,0.75),0_0_72px_rgba(0,230,118,0.35)]';
+  'ring-2 ring-emerald-400 border-emerald-400 shadow-[0_0_32px_rgba(16,185,129,0.85),0_0_80px_rgba(0,230,118,0.45)]';
 
 /** Golden treatment — Balcony Vibe (balcony + 420 inside + outside). */
 export const BALCONY_VIBE_GLOW_CLASS =
-  'ring-2 ring-amber-400 border-amber-400/80 bg-amber-950/65 shadow-[0_0_28px_rgba(251,191,36,0.8),0_0_72px_rgba(245,158,11,0.4)]';
+  'ring-2 ring-amber-400 border-amber-400 shadow-[0_0_32px_rgba(251,191,36,0.9),0_0_80px_rgba(245,158,11,0.5)]';
 
 /** Card surface tint when a vibe marker applies (search / featured tiles). */
-export const FULL_VIBE_CARD_SURFACE_CLASS = 'bg-emerald-950/90 border-emerald-400/40';
-export const BALCONY_VIBE_CARD_SURFACE_CLASS = 'bg-amber-950/85 border-amber-400/45';
+export const FULL_VIBE_CARD_SURFACE_CLASS =
+  '!bg-gradient-to-b from-emerald-700/95 via-emerald-950 to-[#0a0a0a] !border !border-emerald-400/60';
+export const BALCONY_VIBE_CARD_SURFACE_CLASS =
+  '!bg-gradient-to-b from-amber-600/90 via-amber-950 to-[#0a0a0a] !border !border-amber-400/65';
 
 /** @deprecated Use FULL_VIBE_GLOW_CLASS */
 export const FULLY_420_GLOW_CLASS = FULL_VIBE_GLOW_CLASS;

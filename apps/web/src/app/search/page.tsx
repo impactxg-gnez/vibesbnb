@@ -584,10 +584,10 @@ function ListingCard({
       className={`rounded-3xl p-[2px] ${vibeMarker ? vibeMarker.glowClass : ''}`}
     >
     <div
-      className={`group card flex flex-col h-full rounded-3xl overflow-hidden transition-colors ${
+      className={`group flex flex-col h-full rounded-3xl overflow-hidden transition-all duration-300 ${
         vibeMarker
           ? `${vibeMarker.cardSurfaceClass} hover:brightness-110`
-          : 'bg-surface border border-white/5 hover:border-white/10'
+          : 'card bg-surface border border-white/5 hover:border-white/10'
       }`}
     >
       <PropertyCardMedia

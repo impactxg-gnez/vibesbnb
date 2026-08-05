@@ -72,28 +72,37 @@ export async function GET(request: NextRequest) {
   const started = Date.now();
 
   try {
-    const redis = getRedis();
+    let redis: ReturnType<typeof getRedis> = null;
+    try {
+      redis = getRedis();
+    } catch (redisInitErr) {
+      console.warn('[properties/browse] redis init failed', redisInitErr);
+    }
     const bKey = browseCacheKey(browseLimitKey);
     if (redis) {
-      const parsed = await redisGetJson<{
-        properties: unknown[];
-        profiles: unknown[];
-        usedFallback?: boolean;
-      }>(redis, bKey);
-      if (parsed?.properties) {
-        await bumpCacheStat('hit');
-        logApiPerf('GET /api/properties/browse', Date.now() - started, { cache: 'hit', limit: browseLimitKey });
-        return NextResponse.json(parsed, {
-          headers: {
-            'Cache-Control':
-              limitParam !== undefined
-                ? 'public, s-maxage=120, stale-while-revalidate=600'
-                : 'public, s-maxage=60, stale-while-revalidate=300',
-            'X-Cache': 'redis-hit',
-          },
-        });
+      try {
+        const parsed = await redisGetJson<{
+          properties: unknown[];
+          profiles: unknown[];
+          usedFallback?: boolean;
+        }>(redis, bKey);
+        if (parsed?.properties) {
+          await bumpCacheStat('hit');
+          logApiPerf('GET /api/properties/browse', Date.now() - started, { cache: 'hit', limit: browseLimitKey });
+          return NextResponse.json(parsed, {
+            headers: {
+              'Cache-Control':
+                limitParam !== undefined
+                  ? 'public, s-maxage=120, stale-while-revalidate=600'
+                  : 'public, s-maxage=60, stale-while-revalidate=300',
+              'X-Cache': 'redis-hit',
+            },
+          });
+        }
+        await bumpCacheStat('miss');
+      } catch (redisReadErr) {
+        console.warn('[properties/browse] redis read failed', redisReadErr);
       }
-      await bumpCacheStat('miss');
     }
 
     const supabase = createBrowserClient(url, anonKey, {
@@ -197,7 +206,11 @@ export async function GET(request: NextRequest) {
     const payload = { properties: rows, profiles, usedFallback };
 
     if (redis) {
-      await redisSetJson(redis, bKey, payload, { ex: 45 });
+      try {
+        await redisSetJson(redis, bKey, payload, { ex: 45 });
+      } catch (redisWriteErr) {
+        console.warn('[properties/browse] redis write failed', redisWriteErr);
+      }
     }
 
     logApiPerf('GET /api/properties/browse', Date.now() - started, {
@@ -221,6 +234,10 @@ export async function GET(request: NextRequest) {
     );
   } catch (e: unknown) {
     console.error('[properties/browse]', e);
-    return NextResponse.json({ error: 'Browse failed' }, { status: 500 });
+    const message = e instanceof Error ? e.message : 'Browse failed';
+    return NextResponse.json(
+      { error: 'Browse failed', detail: message },
+      { status: 500 }
+    );
   }
 }
