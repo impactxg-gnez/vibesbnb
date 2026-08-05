@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Leaf, ShieldCheck, Trees, Users, Home, Sparkles } from 'lucide-react';
@@ -159,20 +160,66 @@ export default function AboutPage() {
 
       <section className="container mx-auto px-4 sm:px-6 pb-20 max-w-5xl">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="rounded-[2.5rem] border border-dashed border-white/15 bg-white/[0.02] p-8 sm:p-12 text-center"
+          transition={{ duration: 0.65 }}
         >
           <p className="text-primary-500 text-xs font-bold uppercase tracking-widest mb-4">
             Meet the founders
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-4">Coming soon</h2>
-          <p className="text-muted max-w-xl mx-auto leading-relaxed">
-            We&apos;re saving space for the people behind VibesBNB. Their story — and the why that started
-            it all — will land here soon.
-          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-10">
+            The vision behind VibesBNB
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,280px)_1fr] gap-8 md:gap-12 items-start">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.55, delay: 0.1 }}
+              className="relative aspect-[3/4] w-full max-w-[280px] mx-auto md:mx-0 overflow-hidden rounded-3xl ring-1 ring-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+            >
+              <Image
+                src="/about/deontae-rodney-mack.png"
+                alt="Deontae Rodney Mack, founder of VibesBNB"
+                fill
+                className="object-cover object-top"
+                sizes="280px"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 16 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.55, delay: 0.15 }}
+              className="space-y-5"
+            >
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  Deontae Rodney Mack
+                </h3>
+                <p className="text-primary-400 font-semibold mt-1">Founder, VibesBNB</p>
+              </div>
+              <div className="space-y-4 text-muted text-base sm:text-lg leading-relaxed">
+                <p>
+                  Deontae Rodney Mack is a pioneering entrepreneur at the forefront of cannabis tourism.
+                  As the founder of Vibesbnb, he&apos;s revolutionizing the way people experience travel in
+                  the age of cannabis legalization.
+                </p>
+                <p>
+                  With over 8 years of experience as an Airbnb Superhost specializing in cannabis-friendly
+                  accommodations in Miami, Deontae identified a crucial gap in the market left by vacation
+                  rentals.
+                </p>
+                <p>
+                  He envisioned a platform that could seamlessly connect cannabis enthusiasts with
+                  welcoming, legal, and safe travel experiences. This vision gave birth to Vibesbnb.
+                </p>
+              </div>
+            </motion.div>
+          </div>
         </motion.div>
       </section>
 
