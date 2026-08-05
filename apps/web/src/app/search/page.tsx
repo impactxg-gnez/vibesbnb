@@ -220,7 +220,8 @@ function sortSearchListings(
   return copy;
 }
 
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v1';
+/** Bump when browse payload fields change so stale tabs pick up vibe flags. */
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v2';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 
 type ProfileBrief = {
@@ -335,9 +336,56 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
         return inv;
       }
     } catch {
-      /* aborted or network — fall through to local fallback below */
+      /* aborted or network — fall through */
     } finally {
       if (timeoutId) window.clearTimeout(timeoutId);
+    }
+
+    // Browse down — load directly from Supabase so vibe flags still reach cards
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('properties')
+        .select(PROPERTY_BROWSE_LIST_COLUMNS)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      if (!error && data?.length) {
+        const hostIds = [
+          ...new Set(
+            data
+              .map((r: { host_id?: string }) => r.host_id)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0)
+          ),
+        ];
+        const profileById: Record<string, ProfileBrief> = {};
+        if (hostIds.length) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, avatar_url, full_name, host_badge')
+            .in('id', hostIds);
+          for (const row of profiles ?? []) {
+            if (row?.id) {
+              profileById[row.id] = {
+                avatar_url: row.avatar_url ?? null,
+                full_name: row.full_name ?? null,
+                host_badge: row.host_badge ?? null,
+              };
+            }
+          }
+        }
+        const inv: SearchInventory = { properties: data, profileById };
+        try {
+          sessionStorage.setItem(
+            SEARCH_CATALOG_STORAGE_KEY,
+            JSON.stringify({ at: Date.now(), inv })
+          );
+        } catch {
+          /* ignore */
+        }
+        return inv;
+      }
+    } catch {
+      /* fall through to localStorage */
     }
   } catch {
     /* fall through */
@@ -532,10 +580,14 @@ function ListingCard({
     <div
       onMouseEnter={() => onHover(listing.id)}
       onMouseLeave={() => onHover(null)}
-      className={`rounded-3xl ${vibeMarker ? vibeMarker.glowClass : ''}`}
+      className={`rounded-3xl p-[2px] ${vibeMarker ? vibeMarker.glowClass : ''}`}
     >
     <div
-      className="group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors"
+      className={`group card flex flex-col h-full rounded-3xl overflow-hidden transition-colors ${
+        vibeMarker
+          ? `${vibeMarker.cardSurfaceClass} hover:brightness-110`
+          : 'bg-surface border border-white/5 hover:border-white/10'
+      }`}
     >
       <PropertyCardMedia
         images={images}

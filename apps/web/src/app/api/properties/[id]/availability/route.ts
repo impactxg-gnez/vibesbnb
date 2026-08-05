@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getRedis } from '@/lib/cache/redis';
+import { redisGetJson, redisSetJson } from '@/lib/cache/redisJson';
 import { availabilityCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
@@ -19,14 +20,14 @@ export async function GET(
     const redis = getRedis();
     const cacheKey = availabilityCacheKey(params.id, roomKey);
     if (redis) {
-      const cached = await redis.get<string>(cacheKey);
-      if (cached) {
+      const cached = await redisGetJson<{ availability: unknown[] }>(redis, cacheKey);
+      if (cached?.availability) {
         await bumpCacheStat('hit');
         logApiPerf('GET /api/properties/[id]/availability', Date.now() - started, {
           cache: 'hit',
           propertyId: params.id,
         });
-        return NextResponse.json(JSON.parse(cached) as { availability: unknown[] });
+        return NextResponse.json(cached);
       }
       await bumpCacheStat('miss');
     }
@@ -52,7 +53,7 @@ export async function GET(
     const payload = { availability: data ?? [] };
 
     if (redis) {
-      await redis.set(cacheKey, JSON.stringify(payload), { ex: CACHE_TTL_SEC });
+      await redisSetJson(redis, cacheKey, payload, { ex: CACHE_TTL_SEC });
     }
 
     logApiPerf('GET /api/properties/[id]/availability', Date.now() - started, {

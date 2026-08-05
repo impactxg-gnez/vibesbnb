@@ -21,13 +21,17 @@ export const FULL_VIBE_NAME = 'Full Vibe';
 /** Guest-facing name: balcony amenity + 420 inside and outside. */
 export const BALCONY_VIBE_NAME = 'Balcony Vibe';
 
-/** Green glow — Full Vibe (420 inside + outside). */
+/** Green treatment — Full Vibe (420 inside + outside). Strong fill so cards read clearly in grids. */
 export const FULL_VIBE_GLOW_CLASS =
-  'ring-2 ring-emerald-400/80 border-emerald-400/60 shadow-[0_0_24px_rgba(16,185,129,0.65),0_0_56px_rgba(52,211,153,0.35)]';
+  'ring-2 ring-emerald-400 border-emerald-400/80 bg-emerald-950/70 shadow-[0_0_28px_rgba(16,185,129,0.75),0_0_72px_rgba(0,230,118,0.35)]';
 
-/** Golden glow — Balcony Vibe (balcony + 420 inside + outside). */
+/** Golden treatment — Balcony Vibe (balcony + 420 inside + outside). */
 export const BALCONY_VIBE_GLOW_CLASS =
-  'ring-2 ring-amber-400/85 border-amber-400/55 shadow-[0_0_24px_rgba(251,191,36,0.7),0_0_56px_rgba(245,158,11,0.4)]';
+  'ring-2 ring-amber-400 border-amber-400/80 bg-amber-950/65 shadow-[0_0_28px_rgba(251,191,36,0.8),0_0_72px_rgba(245,158,11,0.4)]';
+
+/** Card surface tint when a vibe marker applies (search / featured tiles). */
+export const FULL_VIBE_CARD_SURFACE_CLASS = 'bg-emerald-950/90 border-emerald-400/40';
+export const BALCONY_VIBE_CARD_SURFACE_CLASS = 'bg-amber-950/85 border-amber-400/45';
 
 /** @deprecated Use FULL_VIBE_GLOW_CLASS */
 export const FULLY_420_GLOW_CLASS = FULL_VIBE_GLOW_CLASS;
@@ -38,6 +42,8 @@ export type VibeMarker = {
   kind: VibeMarkerKind;
   name: typeof FULL_VIBE_NAME | typeof BALCONY_VIBE_NAME;
   glowClass: string;
+  /** Inner card surface (fills the tile so vibe reads even if ring is subtle). */
+  cardSurfaceClass: string;
 };
 
 /**
@@ -56,12 +62,14 @@ export function resolveVibeMarker(opts: {
       kind: 'balcony_vibe',
       name: BALCONY_VIBE_NAME,
       glowClass: BALCONY_VIBE_GLOW_CLASS,
+      cardSurfaceClass: BALCONY_VIBE_CARD_SURFACE_CLASS,
     };
   }
   return {
     kind: 'full_vibe',
     name: FULL_VIBE_NAME,
     glowClass: FULL_VIBE_GLOW_CLASS,
+    cardSurfaceClass: FULL_VIBE_CARD_SURFACE_CLASS,
   };
 }
 

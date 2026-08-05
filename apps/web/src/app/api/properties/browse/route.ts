@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createBrowserClient } from '@supabase/supabase-js';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { getRedis } from '@/lib/cache/redis';
+import { redisGetJson, redisSetJson } from '@/lib/cache/redisJson';
 import { browseCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
@@ -74,15 +75,14 @@ export async function GET(request: NextRequest) {
     const redis = getRedis();
     const bKey = browseCacheKey(browseLimitKey);
     if (redis) {
-      const cached = await redis.get<string>(bKey);
-      if (cached) {
+      const parsed = await redisGetJson<{
+        properties: unknown[];
+        profiles: unknown[];
+        usedFallback?: boolean;
+      }>(redis, bKey);
+      if (parsed?.properties) {
         await bumpCacheStat('hit');
         logApiPerf('GET /api/properties/browse', Date.now() - started, { cache: 'hit', limit: browseLimitKey });
-        const parsed = JSON.parse(cached) as {
-          properties: unknown[];
-          profiles: unknown[];
-          usedFallback?: boolean;
-        };
         return NextResponse.json(parsed, {
           headers: {
             'Cache-Control':
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
     const payload = { properties: rows, profiles, usedFallback };
 
     if (redis) {
-      await redis.set(bKey, JSON.stringify(payload), { ex: 45 });
+      await redisSetJson(redis, bKey, payload, { ex: 45 });
     }
 
     logApiPerf('GET /api/properties/browse', Date.now() - started, {

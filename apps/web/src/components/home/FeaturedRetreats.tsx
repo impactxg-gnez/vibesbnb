@@ -190,9 +190,13 @@ export function FeaturedRetreats() {
                 hasBalcony: !!retreat.hasBalcony,
               });
               return (
-            <div className={`rounded-[2.5rem] h-full ${vibeMarker ? vibeMarker.glowClass : ''}`}>
+            <div className={`rounded-[2.5rem] h-full p-[2px] ${vibeMarker ? vibeMarker.glowClass : ''}`}>
             <div
-              className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col"
+              className={`rounded-[2.5rem] overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col ${
+                vibeMarker
+                  ? `${vibeMarker.cardSurfaceClass} hover:brightness-110`
+                  : 'bg-surface border border-white/5 hover:border-primary-500/30'
+              }`}
             >
                 <div className="relative overflow-hidden group/media">
                   <PropertyCardMedia

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getRedis } from '@/lib/cache/redis';
+import { redisGetJson, redisSetJson } from '@/lib/cache/redisJson';
 import { availabilityBatchCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
@@ -37,15 +38,15 @@ export async function POST(request: NextRequest) {
     const cacheKey = availabilityBatchCacheKey(propertyIds, nights);
     const redis = getRedis();
     if (redis) {
-      const cached = await redis.get<string>(cacheKey);
-      if (cached) {
+      const cached = await redisGetJson<{ blocked: BlockRow[] }>(redis, cacheKey);
+      if (cached?.blocked) {
         await bumpCacheStat('hit');
         logApiPerf('POST /api/properties/availability-batch', Date.now() - started, {
           cache: 'hit',
           ids: propertyIds.length,
           nights: nights.length,
         });
-        return NextResponse.json(JSON.parse(cached) as { blocked: BlockRow[] });
+        return NextResponse.json(cached);
       }
       await bumpCacheStat('miss');
     }
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     const payload = { blocked };
 
     if (redis) {
-      await redis.set(cacheKey, JSON.stringify(payload), { ex: CACHE_TTL_SEC });
+      await redisSetJson(redis, cacheKey, payload, { ex: CACHE_TTL_SEC });
     }
 
     logApiPerf('POST /api/properties/availability-batch', Date.now() - started, {
