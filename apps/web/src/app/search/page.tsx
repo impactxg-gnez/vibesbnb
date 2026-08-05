@@ -349,8 +349,8 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
         .select(PROPERTY_BROWSE_LIST_COLUMNS)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
-      if (!error && data?.length) {
-        const propertyRows = data as Array<Record<string, unknown>>;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const propertyRows = data as unknown as Array<Record<string, unknown>>;
         const hostIds = [
           ...new Set(
             propertyRows
