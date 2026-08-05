@@ -47,6 +47,8 @@ type DetailRow = {
 
 type ReportData = {
   period: string;
+  period_start?: string;
+  period_end?: string;
   service_fee_percent: number;
   sales_tax_percent: number;
   tourist_tax_percent: number;
@@ -67,6 +69,8 @@ type ReportData = {
   rows: DetailRow[];
 };
 
+type ReportPeriod = 'day' | 'week' | 'month' | 'custom' | 'all';
+
 function money(n: number) {
   return `$${(Number(n) || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -74,13 +78,53 @@ function money(n: number) {
   })}`;
 }
 
+function todayYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Earliest selectable start — day 0 for all-time / custom from beginning. */
+const DAY_ZERO_YMD = '2000-01-01';
+
 export default function ReportManagementPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
+  const [period, setPeriod] = useState<ReportPeriod>('month');
+  const [customStart, setCustomStart] = useState(DAY_ZERO_YMD);
+  const [customEnd, setCustomEnd] = useState(todayYmd);
+  /** Applied custom range (what the API uses). */
+  const [appliedStart, setAppliedStart] = useState(DAY_ZERO_YMD);
+  const [appliedEnd, setAppliedEnd] = useState(todayYmd);
   const [loadingReports, setLoadingReports] = useState(true);
   const [exporting, setExporting] = useState(false);
+
+  const reportQuery = useCallback(() => {
+    const params = new URLSearchParams({ period });
+    if (period === 'custom') {
+      params.set('start', appliedStart || DAY_ZERO_YMD);
+      params.set('end', appliedEnd || todayYmd());
+    }
+    return params.toString();
+  }, [period, appliedStart, appliedEnd]);
+
+  const applyCustomRange = () => {
+    const start = customStart || DAY_ZERO_YMD;
+    const end = customEnd || todayYmd();
+    if (start > end) {
+      toast.error('Start date must be on or before end date');
+      return;
+    }
+    if (end > todayYmd()) {
+      toast.error('End date cannot be after today');
+      return;
+    }
+    setAppliedStart(start);
+    setAppliedEnd(end);
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -98,10 +142,9 @@ export default function ReportManagementPage() {
       if (!headers.Authorization)
         throw new Error('No valid session — please sign in again.');
 
-      const response = await fetch(
-        `/api/admin/reports?period=${encodeURIComponent(period)}`,
-        { headers: { ...headers } }
-      );
+      const response = await fetch(`/api/admin/reports?${reportQuery()}`, {
+        headers: { ...headers },
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load reports');
@@ -109,6 +152,8 @@ export default function ReportManagementPage() {
 
       setReportData({
         period: data.period,
+        period_start: data.period_start,
+        period_end: data.period_end,
         service_fee_percent: data.service_fee_percent,
         sales_tax_percent: data.sales_tax_percent,
         tourist_tax_percent: data.tourist_tax_percent,
@@ -124,7 +169,7 @@ export default function ReportManagementPage() {
     } finally {
       setLoadingReports(false);
     }
-  }, [period]);
+  }, [reportQuery]);
 
   useEffect(() => {
     if (user && isAdminUser(user)) {
@@ -161,7 +206,7 @@ export default function ReportManagementPage() {
         throw new Error('No valid session — please sign in again.');
 
       const response = await fetch(
-        `/api/admin/reports?period=${encodeURIComponent(period)}&format=xlsx`,
+        `/api/admin/reports?${reportQuery()}&format=xlsx`,
         { headers: { ...headers } }
       );
       if (!response.ok) {
@@ -172,7 +217,12 @@ export default function ReportManagementPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `vibesbnb-sales-report-${period}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const stamp = new Date().toISOString().slice(0, 10);
+      const nameSuffix =
+        period === 'custom'
+          ? `${appliedStart || DAY_ZERO_YMD}_to_${appliedEnd || todayYmd()}`
+          : period;
+      a.download = `vibesbnb-sales-report-${nameSuffix}-${stamp}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -213,25 +263,78 @@ export default function ReportManagementPage() {
                 ? ` Service fee ${reportData.service_fee_percent}% · sales tax ${reportData.sales_tax_percent}% · tourist tax ${reportData.tourist_tax_percent}%.`
                 : null}
             </p>
+            {reportData?.period_start && reportData?.period_end ? (
+              <p className="text-xs text-gray-400 mt-1">
+                Range:{' '}
+                {new Date(reportData.period_start).toLocaleDateString()} –{' '}
+                {new Date(reportData.period_end).toLocaleDateString()}
+              </p>
+            ) : null}
           </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as 'day' | 'week' | 'month')}
-              className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="day">Today</option>
-              <option value="week">Last 7 days</option>
-              <option value="month">This month</option>
-            </select>
-            <button
-              onClick={handleExport}
-              disabled={exporting || !reportData}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2 disabled:opacity-50"
-            >
-              <Download className="w-5 h-5" />
-              {exporting ? 'Exporting…' : 'Download Excel'}
-            </button>
+          <div className="flex flex-col items-stretch sm:items-end gap-3">
+            <div className="flex flex-wrap items-center gap-3 justify-end">
+              <select
+                value={period}
+                onChange={(e) => {
+                  const next = e.target.value as ReportPeriod;
+                  setPeriod(next);
+                  if (next === 'custom') {
+                    setCustomStart(DAY_ZERO_YMD);
+                    setCustomEnd(todayYmd());
+                    setAppliedStart(DAY_ZERO_YMD);
+                    setAppliedEnd(todayYmd());
+                  }
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="day">Today</option>
+                <option value="week">Last 7 days</option>
+                <option value="month">This month</option>
+                <option value="all">All time (day 0 → today)</option>
+                <option value="custom">Custom dates</option>
+              </select>
+              <button
+                onClick={handleExport}
+                disabled={exporting || !reportData}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2 disabled:opacity-50"
+              >
+                <Download className="w-5 h-5" />
+                {exporting ? 'Exporting…' : 'Download Excel'}
+              </button>
+            </div>
+            {period === 'custom' ? (
+              <div className="flex flex-wrap items-end gap-3 justify-end">
+                <label className="flex flex-col gap-1 text-xs text-gray-600">
+                  From
+                  <input
+                    type="date"
+                    value={customStart}
+                    min={DAY_ZERO_YMD}
+                    max={customEnd || todayYmd()}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-gray-600">
+                  To
+                  <input
+                    type="date"
+                    value={customEnd}
+                    min={customStart || DAY_ZERO_YMD}
+                    max={todayYmd()}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={applyCustomRange}
+                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm hover:bg-gray-50"
+                >
+                  Apply range
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 

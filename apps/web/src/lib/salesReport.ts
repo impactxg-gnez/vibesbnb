@@ -7,7 +7,12 @@ import { computeBookingQuote } from '@/lib/bookingQuote';
 import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
 import { getServiceFeePercent } from '@/lib/platformSettings';
 
-export type ReportPeriod = 'day' | 'week' | 'month';
+export type ReportPeriod = 'day' | 'week' | 'month' | 'custom' | 'all';
+
+export type SalesReportRange = {
+  start: Date;
+  end: Date;
+};
 
 export type SalesReportDetailRow = {
   booking_id: string;
@@ -78,6 +83,10 @@ function datePart(value: unknown): string | null {
 }
 
 export function startDateForPeriod(period: ReportPeriod, now: Date): Date {
+  if (period === 'all') {
+    // Day 0 — far enough back to include every booking
+    return new Date(2000, 0, 1, 0, 0, 0, 0);
+  }
   if (period === 'day') {
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
@@ -87,7 +96,58 @@ export function startDateForPeriod(period: ReportPeriod, now: Date): Date {
     d.setHours(0, 0, 0, 0);
     return d;
   }
+  // month (and fallback for custom — callers should pass an explicit range)
   return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
+/** Parse YYYY-MM-DD as local calendar start/end of day. */
+export function parseReportDateYmd(
+  ymd: string | null | undefined,
+  bound: 'start' | 'end'
+): Date | null {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  if (bound === 'start') return new Date(y, m - 1, d, 0, 0, 0, 0);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
+export function resolveReportRange(opts: {
+  period: ReportPeriod;
+  startYmd?: string | null;
+  endYmd?: string | null;
+  now?: Date;
+}): SalesReportRange {
+  const now = opts.now ?? new Date();
+  const endOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+
+  if (opts.period === 'custom') {
+    const start =
+      parseReportDateYmd(opts.startYmd, 'start') || startDateForPeriod('all', now);
+    let end = parseReportDateYmd(opts.endYmd, 'end') || endOfToday;
+    if (end > endOfToday) end = endOfToday;
+    if (start > end) {
+      return { start: end, end: start };
+    }
+    return { start, end };
+  }
+
+  if (opts.period === 'all') {
+    return { start: startDateForPeriod('all', now), end: endOfToday };
+  }
+
+  return {
+    start: startDateForPeriod(opts.period, now),
+    end: endOfToday,
+  };
 }
 
 function bucketKey(iso: string): string {
@@ -252,13 +312,23 @@ function splitForBooking(params: {
   };
 }
 
-/** Build daily/weekly/monthly sales report with host / fee / tax splits. */
+/** Build sales report with host / fee / tax splits for a period or custom range. */
 export async function buildSalesReport(
   service: SupabaseClient,
   period: ReportPeriod,
-  now: Date = new Date()
+  options?: {
+    now?: Date;
+    startYmd?: string | null;
+    endYmd?: string | null;
+  }
 ): Promise<SalesReport> {
-  const start = startDateForPeriod(period, now);
+  const now = options?.now ?? new Date();
+  const { start, end } = resolveReportRange({
+    period,
+    startYmd: options?.startYmd,
+    endYmd: options?.endYmd,
+    now,
+  });
   const feePercent = await getServiceFeePercent(service);
 
   const { data: bookingsData, error } = await service
@@ -267,7 +337,7 @@ export async function buildSalesReport(
       'id, created_at, check_in, check_out, property_id, property_name, host_id, total_price, status, payment_status, guests, kids, pets, wellness_line_items'
     )
     .gte('created_at', start.toISOString())
-    .lte('created_at', now.toISOString())
+    .lte('created_at', end.toISOString())
     .order('created_at', { ascending: true });
 
   if (error) throw error;
@@ -406,7 +476,7 @@ export async function buildSalesReport(
   return {
     period,
     period_start: start.toISOString(),
-    period_end: now.toISOString(),
+    period_end: end.toISOString(),
     service_fee_percent: feePercent,
     sales_tax_percent: SALES_TAX_PERCENT,
     tourist_tax_percent: TOURIST_DEVELOPMENT_TAX_PERCENT,
