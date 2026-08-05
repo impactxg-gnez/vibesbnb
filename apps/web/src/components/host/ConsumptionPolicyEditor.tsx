@@ -1,6 +1,6 @@
 'use client';
 
-import { isFully420Friendly } from '@/lib/consumptionPolicy';
+import { FULL_VIBE_NAME, BALCONY_VIBE_NAME, isFully420Friendly } from '@/lib/consumptionPolicy';
 
 export type ConsumptionPolicyEditorValue = {
   cannabisInside: boolean;
@@ -11,14 +11,21 @@ type Props = {
   value: ConsumptionPolicyEditorValue;
   onChange: (next: ConsumptionPolicyEditorValue) => void;
   className?: string;
+  /** When true, Full Vibe + balcony becomes Balcony Vibe (golden glow). */
+  hasBalcony?: boolean;
 };
 
 /**
  * Host control: where 420 / cannabis is allowed (inside / outside).
  * Outside includes balcony, patio, and yard.
- * Selecting both marks the listing as fully 420-friendly (green glow for guests).
+ * Selecting both marks the listing as Full Vibe (green) or Balcony Vibe (gold) for guests.
  */
-export function ConsumptionPolicyEditor({ value, onChange, className = '' }: Props) {
+export function ConsumptionPolicyEditor({
+  value,
+  onChange,
+  className = '',
+  hasBalcony = false,
+}: Props) {
   const set = (patch: Partial<ConsumptionPolicyEditorValue>) => {
     onChange({ ...value, ...patch });
   };
@@ -60,7 +67,8 @@ export function ConsumptionPolicyEditor({ value, onChange, className = '' }: Pro
         <h3 className="text-white font-medium">420 / cannabis policy</h3>
         <p className="text-sm text-gray-400 mt-1">
           Pick where guests may consume. Outside includes balcony, patio, and yard. Enable both
-          inside and outside for a fully 420-friendly listing (green glow for travellers).
+          inside and outside for {FULL_VIBE_NAME} (green glow)
+          {hasBalcony ? `, or ${BALCONY_VIBE_NAME} with a balcony amenity (golden glow)` : ''}.
         </p>
       </div>
 
@@ -116,26 +124,45 @@ export function ConsumptionPolicyEditor({ value, onChange, className = '' }: Pro
 
       {fullyFriendly ? (
         <div
-          className="rounded-xl border border-emerald-500/50 bg-emerald-950/50 px-4 py-3 flex items-start gap-3"
+          className={`rounded-xl px-4 py-3 flex items-start gap-3 border ${
+            hasBalcony
+              ? 'border-amber-500/50 bg-amber-950/40'
+              : 'border-emerald-500/50 bg-emerald-950/50'
+          }`}
           role="status"
         >
           <span
-            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-black"
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-black ${
+              hasBalcony ? 'bg-amber-400' : 'bg-emerald-500'
+            }`}
             aria-hidden
           >
             ✓
           </span>
           <div>
-            <p className="text-sm font-semibold text-emerald-200">Fully 420-friendly</p>
-            <p className="text-xs text-emerald-300/80 mt-0.5">
-              Cannabis is allowed inside and outside. Guests will see a green glow on this
-              property card and listing.
+            <p
+              className={`text-sm font-semibold ${
+                hasBalcony ? 'text-amber-200' : 'text-emerald-200'
+              }`}
+            >
+              {hasBalcony ? BALCONY_VIBE_NAME : FULL_VIBE_NAME}
+            </p>
+            <p
+              className={`text-xs mt-0.5 ${
+                hasBalcony ? 'text-amber-300/80' : 'text-emerald-300/80'
+              }`}
+            >
+              Cannabis is allowed inside and outside
+              {hasBalcony ? ' and this stay has a balcony' : ''}. Guests will see a{' '}
+              {hasBalcony ? 'golden' : 'green'} glow and the {hasBalcony ? BALCONY_VIBE_NAME : FULL_VIBE_NAME}{' '}
+              marker on tiles and the listing page.
             </p>
           </div>
         </div>
       ) : (
         <p className="text-xs text-gray-500">
-          Tip: turn on both Inside and Outside to mark this stay as fully 420-friendly.
+          Tip: turn on both Inside and Outside for {FULL_VIBE_NAME}
+          {hasBalcony ? ` (or ${BALCONY_VIBE_NAME} with your balcony amenity)` : ''}.
         </p>
       )}
     </div>

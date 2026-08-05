@@ -13,6 +13,8 @@ import {
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
+import { resolveVibeMarker } from '@/lib/consumptionPolicy';
 
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
@@ -35,6 +37,8 @@ export type PropertyCardMediaProps = {
   /** Guest-facing wellness consumption areas — 🌿 INDOOR / OUTDOOR pill when host opted in */
   wellnessConsumptionIndoorAllowed?: boolean;
   wellnessConsumptionOutdoorAllowed?: boolean;
+  /** Used with consumption flags for Full Vibe / Balcony Vibe markers */
+  hasBalcony?: boolean;
   /** Extra badges top-right (e.g. availability), rendered before listing pills */
   topRightSlot?: React.ReactNode;
   /** Main image area height */
@@ -54,6 +58,7 @@ export function PropertyCardMedia({
   onFavoriteChange,
   wellnessConsumptionIndoorAllowed = false,
   wellnessConsumptionOutdoorAllowed = false,
+  hasBalcony = false,
   topRightSlot,
   mainHeightClass = 'h-64',
   className = '',
@@ -69,6 +74,11 @@ export function PropertyCardMedia({
   const [index, setIndex] = useState(0);
   const { user } = useAuth();
   const router = useRouter();
+  const vibeMarker = resolveVibeMarker({
+    cannabisInside: wellnessConsumptionIndoorAllowed,
+    cannabisOutside: wellnessConsumptionOutdoorAllowed,
+    hasBalcony,
+  });
 
   useEffect(() => {
     setFailedSrcs(new Set());
@@ -246,6 +256,7 @@ export function PropertyCardMedia({
 
         <div className="absolute right-3 top-3 z-[5] flex flex-col items-end gap-2">
           {topRightSlot}
+          {vibeMarker ? <VibeMarkerBadge marker={vibeMarker} size="sm" /> : null}
           <WellnessConsumptionPill
             indoor={wellnessConsumptionIndoorAllowed}
             outdoor={wellnessConsumptionOutdoorAllowed}

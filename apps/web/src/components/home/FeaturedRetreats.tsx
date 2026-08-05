@@ -6,15 +6,13 @@ import Link from 'next/link';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 import { FeaturedVibesLoading } from '@/components/home/FeaturedVibesLoading';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
-import {
-  FULLY_420_GLOW_CLASS,
-  isFully420Friendly,
-} from '@/lib/consumptionPolicy';
+import { resolveVibeMarker } from '@/lib/consumptionPolicy';
 import {
   buildListingHref,
   readStaySearch,
@@ -185,15 +183,16 @@ export function FeaturedRetreats() {
             transition={{ duration: 0.8, delay: index * 0.1 }}
           >
             <div className="group block h-full">
+            {(() => {
+              const vibeMarker = resolveVibeMarker({
+                cannabisInside: !!retreat.wellnessConsumptionIndoorAllowed,
+                cannabisOutside: !!retreat.wellnessConsumptionOutdoorAllowed,
+                hasBalcony: !!retreat.hasBalcony,
+              });
+              return (
+            <div className={`rounded-[2.5rem] h-full ${vibeMarker ? vibeMarker.glowClass : ''}`}>
             <div
-              className={`bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col ${
-                isFully420Friendly(
-                  !!retreat.wellnessConsumptionIndoorAllowed,
-                  !!retreat.wellnessConsumptionOutdoorAllowed
-                )
-                  ? FULLY_420_GLOW_CLASS
-                  : ''
-              }`}
+              className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col"
             >
                 <div className="relative overflow-hidden group/media">
                   <PropertyCardMedia
@@ -206,6 +205,7 @@ export function FeaturedRetreats() {
                     onFavoriteChange={user?.id ? syncFavoriteToggle : undefined}
                     wellnessConsumptionIndoorAllowed={!!retreat.wellnessConsumptionIndoorAllowed}
                     wellnessConsumptionOutdoorAllowed={!!retreat.wellnessConsumptionOutdoorAllowed}
+                    hasBalcony={!!retreat.hasBalcony}
                     mainHeightClass="h-56 md:h-64"
                     priority={index < 3}
                   />
@@ -231,7 +231,11 @@ export function FeaturedRetreats() {
                           <h3 className="text-white font-bold text-xl sm:text-2xl group-hover:text-primary-500 transition-colors line-clamp-2">
                             {retreat.name}
                           </h3>
-                          {retreat.hasBalcony ? <BalconyAvailableTag /> : null}
+                          {vibeMarker ? (
+                            <VibeMarkerBadge marker={vibeMarker} size="sm" />
+                          ) : retreat.hasBalcony ? (
+                            <BalconyAvailableTag />
+                          ) : null}
                         </div>
                       </Link>
                       {retreat.description ? (
@@ -306,6 +310,9 @@ export function FeaturedRetreats() {
                   </div>
                 </div>
               </div>
+            </div>
+              );
+            })()}
             </div>
           </motion.div>
         ))}

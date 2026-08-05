@@ -848,6 +848,9 @@ export default function ImportReviewPage() {
                 cannabisInside: wellnessConsumptionIndoorAllowed,
                 cannabisOutside: wellnessConsumptionOutdoorAllowed,
               }}
+              hasBalcony={formData.amenities.some((a) =>
+                String(a).trim().toLowerCase().includes('balcony')
+              )}
               onChange={(next) => {
                 const cannabisOn = next.cannabisInside || next.cannabisOutside;
                 setWellnessConsumptionIndoorAllowed(next.cannabisInside);

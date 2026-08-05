@@ -15,12 +15,10 @@ import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsMod
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import { resolveHostBadge, type HostBadge } from '@/lib/hostBadge';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
-import {
-  FULLY_420_GLOW_CLASS,
-  isFully420Friendly,
-} from '@/lib/consumptionPolicy';
+import { resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 import {
   enumerateStayNightsYmd,
   formatCalendarDate,
@@ -513,19 +511,21 @@ function ListingCard({
     return Number.isFinite(b) && b >= 0 ? b : 1;
   })();
 
-  const fully420 = isFully420Friendly(
-    !!listing.wellnessConsumptionIndoorAllowed,
-    !!listing.wellnessConsumptionOutdoorAllowed
-  );
   const hasBalcony = propertyHasBalcony(listing.amenities);
+  const vibeMarker = resolveVibeMarker({
+    cannabisInside: !!listing.wellnessConsumptionIndoorAllowed,
+    cannabisOutside: !!listing.wellnessConsumptionOutdoorAllowed,
+    hasBalcony,
+  });
 
   return (
     <div
       onMouseEnter={() => onHover(listing.id)}
       onMouseLeave={() => onHover(null)}
-      className={`group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors ${
-        fully420 ? FULLY_420_GLOW_CLASS : ''
-      }`}
+      className={`rounded-3xl ${vibeMarker ? vibeMarker.glowClass : ''}`}
+    >
+    <div
+      className="group card flex flex-col h-full bg-surface border border-white/5 rounded-3xl overflow-hidden hover:border-white/10 transition-colors"
     >
       <PropertyCardMedia
         images={images}
@@ -537,6 +537,7 @@ function ListingCard({
         onFavoriteChange={onFavoriteChange}
         wellnessConsumptionIndoorAllowed={!!listing.wellnessConsumptionIndoorAllowed}
         wellnessConsumptionOutdoorAllowed={!!listing.wellnessConsumptionOutdoorAllowed}
+        hasBalcony={hasBalcony}
         topRightSlot={availabilitySlot}
         mainHeightClass="h-64"
         priority={priorityImage}
@@ -562,7 +563,11 @@ function ListingCard({
                   <h3 className="font-bold text-white text-lg group-hover:text-primary-500 transition-colors line-clamp-2">
                     {listing.title}
                   </h3>
-                  {hasBalcony ? <BalconyAvailableTag /> : null}
+                  {vibeMarker ? (
+                    <VibeMarkerBadge marker={vibeMarker} size="sm" />
+                  ) : hasBalcony ? (
+                    <BalconyAvailableTag />
+                  ) : null}
                 </div>
                 {listing.hostBadge ? (
                   <div className="mb-1">
@@ -627,6 +632,7 @@ function ListingCard({
           ) : null}
         </div>
       </Link>
+    </div>
     </div>
   );
 }

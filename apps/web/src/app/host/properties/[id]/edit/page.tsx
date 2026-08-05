@@ -982,6 +982,9 @@ export default function EditPropertyPage() {
                 cannabisInside: formData.wellnessConsumptionIndoorAllowed,
                 cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
               }}
+              hasBalcony={formData.amenities.some(
+                (a) => String(a).trim().toLowerCase().includes('balcony')
+              )}
               onChange={(next) => {
                 const cannabisOn = next.cannabisInside || next.cannabisOutside;
                 setFormData((prev) => ({

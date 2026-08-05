@@ -48,11 +48,7 @@ import {
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
-import {
-  FULLY_420_GLOW_CLASS,
-  isFully420Friendly,
-  resolveConsumptionPolicy,
-} from '@/lib/consumptionPolicy';
+import { resolveConsumptionPolicy, resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
@@ -63,6 +59,7 @@ import {
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 import { ConsumptionPolicyPanel } from '@/components/properties/ConsumptionPolicyPanel';
 import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
@@ -746,6 +743,13 @@ export default function ListingDetailPage() {
   const heroDisplaySrc =
     galleryUseOriginal || heroRaw.startsWith('data:') ? heroRaw : listingGalleryImageUrl(heroRaw);
 
+  const hasBalcony = propertyHasBalcony(property.amenities);
+  const vibeMarker = resolveVibeMarker({
+    cannabisInside: property.wellnessConsumptionIndoorAllowed,
+    cannabisOutside: property.wellnessConsumptionOutdoorAllowed,
+    hasBalcony,
+  });
+
   return (
     <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4">
@@ -763,7 +767,11 @@ export default function ListingDetailPage() {
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <h1 className="text-4xl font-bold text-white">{property.name}</h1>
-              {propertyHasBalcony(property.amenities) ? <BalconyAvailableTag /> : null}
+              {vibeMarker ? (
+                <VibeMarkerBadge marker={vibeMarker} />
+              ) : hasBalcony ? (
+                <BalconyAvailableTag />
+              ) : null}
             </div>
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
               <p className="text-emerald-400 font-semibold tracking-wide">
@@ -802,17 +810,9 @@ export default function ListingDetailPage() {
 
         {/* Image Gallery and Map Side by Side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Image Gallery */}
-          <div
-            className={`relative z-0 h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900 ${
-              isFully420Friendly(
-                property.wellnessConsumptionIndoorAllowed,
-                property.wellnessConsumptionOutdoorAllowed
-              )
-                ? FULLY_420_GLOW_CLASS
-                : ''
-            }`}
-          >
+          {/* Image Gallery — glow on outer shell so overflow-hidden does not clip it */}
+          <div className={`rounded-xl ${vibeMarker ? vibeMarker.glowClass : ''}`}>
+          <div className="relative z-0 h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900">
             <Image
               key={`${property.id}-${currentImageIndex}`}
               src={heroDisplaySrc}
@@ -852,6 +852,7 @@ export default function ListingDetailPage() {
             />
 
             <div className="absolute top-4 left-4 z-[15] flex flex-col gap-2 items-start max-w-[min(100%,18rem)]">
+              {vibeMarker ? <VibeMarkerBadge marker={vibeMarker} /> : null}
               {property.wellnessFriendly && (
                 <div className="bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
                   🧘 Wellness-Friendly
@@ -889,6 +890,7 @@ export default function ListingDetailPage() {
                 </div>
               </>
             )}
+          </div>
           </div>
 
           {/* Map — 20m radius at host-entered coordinates (no exact pin) */}
@@ -973,6 +975,7 @@ export default function ListingDetailPage() {
                 wellness_consumption_indoor_allowed: property.wellnessConsumptionIndoorAllowed,
                 wellness_consumption_outdoor_allowed: property.wellnessConsumptionOutdoorAllowed,
               })}
+              hasBalcony={hasBalcony}
             />
 
             {/* Amenities - Moved to top */}

@@ -6,34 +6,49 @@ import {
   isFully420FromPolicy,
   locationPolicyLabel,
   no420SummaryLabel,
-  FULLY_420_GLOW_CLASS,
+  resolveVibeMarker,
+  FULL_VIBE_NAME,
+  BALCONY_VIBE_NAME,
 } from '@/lib/consumptionPolicy';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 
 type Props = {
   policy: ConsumptionPolicy;
+  hasBalcony?: boolean;
   className?: string;
 };
 
 /** Traveller-facing 420 / cannabis house rules. */
-export function ConsumptionPolicyPanel({ policy, className = '' }: Props) {
+export function ConsumptionPolicyPanel({
+  policy,
+  hasBalcony = false,
+  className = '',
+}: Props) {
   const summary = no420SummaryLabel(policy);
   const fullyFriendly = isFully420FromPolicy(policy);
   const { inside, outside } = policy.cannabis;
   const status = locationPolicyLabel({ inside, outside });
   const allowed = inside || outside;
+  const vibeMarker = resolveVibeMarker({
+    cannabisInside: inside,
+    cannabisOutside: outside,
+    hasBalcony,
+  });
 
   return (
     <div
       className={`rounded-2xl border border-white/10 bg-white/5 px-4 py-2 ${
-        fullyFriendly ? FULLY_420_GLOW_CLASS : ''
+        vibeMarker ? vibeMarker.glowClass : ''
       } ${className}`}
     >
       <div className="flex items-center justify-between gap-3 pt-2 pb-1">
         <h3 className="text-sm font-bold text-white tracking-wide uppercase">420 policy</h3>
-        {fullyFriendly ? (
-          <span className="text-[11px] font-semibold text-emerald-300">Fully 420-friendly</span>
+        {vibeMarker ? (
+          <VibeMarkerBadge marker={vibeMarker} size="sm" />
         ) : is420FreeProperty(policy) && summary ? (
           <span className="text-[11px] font-semibold text-zinc-400">{summary}</span>
+        ) : fullyFriendly ? (
+          <span className="text-[11px] font-semibold text-emerald-300">{FULL_VIBE_NAME}</span>
         ) : null}
       </div>
       <div className="flex items-start justify-between gap-4 py-3">
@@ -44,6 +59,11 @@ export function ConsumptionPolicyPanel({ policy, className = '' }: Props) {
               {[inside ? 'Inside' : null, outside ? 'Outside (balcony / patio / yard)' : null]
                 .filter(Boolean)
                 .join(' · ')}
+              {hasBalcony && fullyFriendly
+                ? ` · ${BALCONY_VIBE_NAME} listing`
+                : fullyFriendly
+                  ? ` · ${FULL_VIBE_NAME} listing`
+                  : ''}
             </p>
           )}
         </div>

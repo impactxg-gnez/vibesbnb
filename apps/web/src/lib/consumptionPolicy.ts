@@ -15,9 +15,55 @@ export type LocationPolicyLabel =
   | 'Inside only'
   | 'Inside & outside';
 
-/** Green glow for listings that allow 420 both inside and outside. */
-export const FULLY_420_GLOW_CLASS =
-  'ring-2 ring-emerald-400/70 border-emerald-400/50 shadow-[0_0_28px_rgba(16,185,129,0.55),0_0_64px_rgba(52,211,153,0.28)]';
+/** Guest-facing name: 420 allowed inside and outside. */
+export const FULL_VIBE_NAME = 'Full Vibe';
+
+/** Guest-facing name: balcony amenity + 420 inside and outside. */
+export const BALCONY_VIBE_NAME = 'Balcony Vibe';
+
+/** Green glow — Full Vibe (420 inside + outside). */
+export const FULL_VIBE_GLOW_CLASS =
+  'ring-2 ring-emerald-400/80 border-emerald-400/60 shadow-[0_0_24px_rgba(16,185,129,0.65),0_0_56px_rgba(52,211,153,0.35)]';
+
+/** Golden glow — Balcony Vibe (balcony + 420 inside + outside). */
+export const BALCONY_VIBE_GLOW_CLASS =
+  'ring-2 ring-amber-400/85 border-amber-400/55 shadow-[0_0_24px_rgba(251,191,36,0.7),0_0_56px_rgba(245,158,11,0.4)]';
+
+/** @deprecated Use FULL_VIBE_GLOW_CLASS */
+export const FULLY_420_GLOW_CLASS = FULL_VIBE_GLOW_CLASS;
+
+export type VibeMarkerKind = 'full_vibe' | 'balcony_vibe';
+
+export type VibeMarker = {
+  kind: VibeMarkerKind;
+  name: typeof FULL_VIBE_NAME | typeof BALCONY_VIBE_NAME;
+  glowClass: string;
+};
+
+/**
+ * Resolve the guest-facing vibe marker.
+ * - Balcony Vibe (gold): balcony + 420 inside & outside
+ * - Full Vibe (green): 420 inside & outside (no balcony)
+ */
+export function resolveVibeMarker(opts: {
+  cannabisInside: boolean;
+  cannabisOutside: boolean;
+  hasBalcony: boolean;
+}): VibeMarker | null {
+  if (!isFully420Friendly(opts.cannabisInside, opts.cannabisOutside)) return null;
+  if (opts.hasBalcony) {
+    return {
+      kind: 'balcony_vibe',
+      name: BALCONY_VIBE_NAME,
+      glowClass: BALCONY_VIBE_GLOW_CLASS,
+    };
+  }
+  return {
+    kind: 'full_vibe',
+    name: FULL_VIBE_NAME,
+    glowClass: FULL_VIBE_GLOW_CLASS,
+  };
+}
 
 export function resolveConsumptionPolicy(row: Record<string, unknown>): ConsumptionPolicy {
   const cannabis = resolveWellnessConsumptionFlags(row);

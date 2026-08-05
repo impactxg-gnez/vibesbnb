@@ -13,12 +13,10 @@ import {
   primaryPropertyImageUrl,
 } from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
-import {
-  FULLY_420_GLOW_CLASS,
-  isFully420Friendly,
-} from '@/lib/consumptionPolicy';
+import { resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 
 const FEATURED_PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
@@ -184,15 +182,16 @@ export function FeaturedProperties() {
                         transition={{ duration: 0.8, delay: index * 0.1 }}
                     >
                         <Link href={`/listings/${property.id}`} className="group block h-full">
+                            {(() => {
+                              const vibeMarker = resolveVibeMarker({
+                                cannabisInside: !!property.wellnessConsumptionIndoorAllowed,
+                                cannabisOutside: !!property.wellnessConsumptionOutdoorAllowed,
+                                hasBalcony: !!property.hasBalcony,
+                              });
+                              return (
+                            <div className={`rounded-[2.5rem] h-full ${vibeMarker ? vibeMarker.glowClass : ''}`}>
                             <div
-                              className={`bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col relative ${
-                                isFully420Friendly(
-                                  !!property.wellnessConsumptionIndoorAllowed,
-                                  !!property.wellnessConsumptionOutdoorAllowed
-                                )
-                                  ? FULLY_420_GLOW_CLASS
-                                  : ''
-                              }`}
+                              className="bg-surface rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 h-full flex flex-col relative"
                             >
 
                                 {/* Popularity Badge */}
@@ -208,6 +207,11 @@ export function FeaturedProperties() {
                                 <div className="relative h-72 overflow-hidden bg-black/30">
                                     <SafeFeaturedImage src={property.image} alt={property.name} />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 transition-opacity duration-500" />
+                                    {vibeMarker ? (
+                                      <div className="absolute top-4 left-4 z-10">
+                                        <VibeMarkerBadge marker={vibeMarker} size="sm" />
+                                      </div>
+                                    ) : null}
                                 </div>
 
                                 <div className="p-8 flex-1 flex flex-col -mt-12 relative z-10 bg-gradient-to-t from-surface via-surface to-transparent">
@@ -217,7 +221,11 @@ export function FeaturedProperties() {
                                                 <h3 className="text-white font-bold text-2xl group-hover:text-primary-500 transition-colors line-clamp-1">
                                                     {property.name}
                                                 </h3>
-                                                {property.hasBalcony ? <BalconyAvailableTag /> : null}
+                                                {vibeMarker ? (
+                                                  <VibeMarkerBadge marker={vibeMarker} size="sm" />
+                                                ) : property.hasBalcony ? (
+                                                  <BalconyAvailableTag />
+                                                ) : null}
                                             </div>
                                             <div className="flex items-center gap-2 text-muted text-sm font-medium">
                                                 <MapPin className="w-4 h-4 text-primary-500" />
@@ -257,6 +265,9 @@ export function FeaturedProperties() {
                                     </div>
                                 </div>
                             </div>
+                            </div>
+                              );
+                            })()}
                         </Link>
                     </motion.div>
                 ))}

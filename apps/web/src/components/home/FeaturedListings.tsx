@@ -5,10 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useInView } from 'framer-motion';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
-import {
-  FULLY_420_GLOW_CLASS,
-  isFully420Friendly,
-} from '@/lib/consumptionPolicy';
+import { resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import {
   listingCardMainImageUrl,
@@ -17,6 +14,7 @@ import {
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
 
 const FEATURED_PLACEHOLDER =
@@ -152,22 +150,23 @@ export function FeaturedListings() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {listings.map((listing, index) => {
-            const fully420 = isFully420Friendly(
-              !!listing.wellnessConsumptionIndoor,
-              !!listing.wellnessConsumptionOutdoor
-            );
+            const hasBalcony = propertyHasBalcony(listing.amenities);
+            const vibeMarker = resolveVibeMarker({
+              cannabisInside: !!listing.wellnessConsumptionIndoor,
+              cannabisOutside: !!listing.wellnessConsumptionOutdoor,
+              hasBalcony,
+            });
             return (
             <motion.div
               key={listing.id}
               initial={{ opacity: 0, y: 50 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: index * 0.15 }}
+              className={vibeMarker ? vibeMarker.glowClass : ''}
             >
               <Link
                 href={`/listings/${listing.id}`}
-                className={`group block bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 ${
-                  fully420 ? FULLY_420_GLOW_CLASS : ''
-                }`}
+                className="group block bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
               >
                 <div className="relative h-72 overflow-hidden bg-gray-200">
                   <FeaturedListingImage
@@ -183,6 +182,7 @@ export function FeaturedListings() {
                     </div>
                   )}
                   <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                    {vibeMarker ? <VibeMarkerBadge marker={vibeMarker} size="sm" /> : null}
                     <WellnessConsumptionPill indoor={!!listing.wellnessConsumptionIndoor} outdoor={!!listing.wellnessConsumptionOutdoor} />
                   </div>
                 </div>
@@ -194,7 +194,9 @@ export function FeaturedListings() {
                         <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">
                           {listing.title}
                         </h3>
-                        {propertyHasBalcony(listing.amenities) ? (
+                        {vibeMarker ? (
+                          <VibeMarkerBadge marker={vibeMarker} size="sm" />
+                        ) : hasBalcony ? (
                           <BalconyAvailableTag className="border-sky-500/40 bg-sky-500/10 text-sky-800" />
                         ) : null}
                       </div>
