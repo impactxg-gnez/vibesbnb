@@ -114,7 +114,7 @@ export default function ManageListingsPage() {
       const headers = await getHeadersForAdminFetch();
       if (!headers.Authorization)
         throw new Error('No valid session — please sign in again.');
-      const response = await fetch('/api/admin/properties', {
+      const response = await fetch('/api/admin/properties?limit=500', {
         headers: { ...headers },
       });
       const payload = await response.json();
@@ -168,7 +168,7 @@ export default function ManageListingsPage() {
   const [savingQuickEdit, setSavingQuickEdit] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const openPropertyManagement = (property: Property) => {
+  const openPropertyManagement = async (property: Property) => {
     setSelectedProperty(property);
     setEditForm({
       name: (property.name || property.title || '').trim(),
@@ -180,6 +180,25 @@ export default function ManageListingsPage() {
       bathrooms: property.bathrooms != null ? String(property.bathrooms) : '',
       guests: property.guests != null ? String(property.guests) : '',
     });
+
+    try {
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) return;
+      const response = await fetch(
+        `/api/admin/properties?propertyId=${encodeURIComponent(property.id)}`,
+        { headers: { ...headers } }
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to load listing details');
+      const detail = payload.property as Property;
+      setSelectedProperty((prev) => (prev ? { ...prev, ...detail } : detail));
+      setEditForm((prev) => ({
+        ...prev,
+        description: (detail.description || prev.description || '').trim(),
+      }));
+    } catch (error) {
+      console.error('Error loading property detail:', error);
+    }
   };
 
   useEffect(() => {

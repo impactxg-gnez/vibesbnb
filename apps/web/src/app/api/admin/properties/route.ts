@@ -1,76 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseForAdminApi } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
+import {
+  ADMIN_PROPERTY_DETAIL_COLUMNS,
+  ADMIN_PROPERTY_LIST_COLUMNS,
+  ADMIN_PROPERTY_LIST_DEFAULT_LIMIT,
+  ADMIN_PROPERTY_LIST_MAX_LIMIT,
+} from '@/lib/adminPropertySelect';
 
 function accessTokenFromRequest(request: NextRequest): string {
   return request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
 }
-
-/**
- * List view only — do not use `select('*')` here: the `properties` table can include
- * a large `embedding vector(768)` column (and heavy JSONB). PostgREST then reads/serializes
- * megabytes and hits `statement timeout` (57014) on modest projects.
- *
- * Use only columns present in the base schema + common migrations. Optional columns
- * from later SQL files (e.g. guest_agreement_url, source_url) are omitted so production
- * DBs that have not run every migration do not 500.
- */
-const ADMIN_PROPERTY_LIST_COLUMNS = [
-  'id',
-  'name',
-  'title',
-  'location',
-  'price',
-  'rating',
-  'images',
-  'type',
-  'amenities',
-  'guests',
-  'status',
-  'created_at',
-  'updated_at',
-  'host_id',
-  'description',
-  'bedrooms',
-  'bathrooms',
-  'beds',
-  'wellness_friendly',
-  'rejection_reason',
-  'cleaning_fee',
-  'google_maps_url',
-  // `embedding` (vector) intentionally omitted — it makes SELECT list queries time out
-].join(',');
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateAdminRequest(request);
     if ('response' in auth) return auth.response;
 
-    const status = request.nextUrl.searchParams.get('status') || 'all';
     const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
+    const propertyId = request.nextUrl.searchParams.get('propertyId');
+
+    if (propertyId) {
+      const { data, error } = await serviceSupabase
+        .from('properties')
+        .select(ADMIN_PROPERTY_DETAIL_COLUMNS)
+        .eq('id', propertyId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+      }
+      return NextResponse.json({ property: data });
+    }
+
+    const status = request.nextUrl.searchParams.get('status') || 'all';
+    const limitParam = Number(request.nextUrl.searchParams.get('limit'));
+    const offsetParam = Number(request.nextUrl.searchParams.get('offset'));
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(Math.max(1, limitParam), ADMIN_PROPERTY_LIST_MAX_LIMIT)
+      : ADMIN_PROPERTY_LIST_DEFAULT_LIMIT;
+    const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
 
     let query = serviceSupabase
       .from('properties')
-      .select(ADMIN_PROPERTY_LIST_COLUMNS)
-      .order('created_at', { ascending: false });
+      .select(ADMIN_PROPERTY_LIST_COLUMNS, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (status !== 'all') {
       query = query.eq('status', status);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       throw error;
     }
 
-    return NextResponse.json({ properties: data || [] });
-  } catch (error: any) {
+    return NextResponse.json({
+      properties: data || [],
+      total: count ?? (data?.length ?? 0),
+      limit,
+      offset,
+    });
+  } catch (error: unknown) {
     console.error('Failed to load admin properties:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to load properties' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to load properties';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -169,12 +166,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to update property:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to update property' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to update property';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -196,11 +191,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to delete property:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete property' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to delete property';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

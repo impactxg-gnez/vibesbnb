@@ -85,9 +85,10 @@ async function listAllAuthUsers(): Promise<AuthUser[]> {
   const service = createServiceClient();
   const all: AuthUser[] = [];
   let page = 1;
-  const perPage = 1000;
+  const perPage = 200;
+  const maxPages = 10;
 
-  while (true) {
+  while (page <= maxPages) {
     const { data, error } = await service.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
     all.push(...data.users);
@@ -106,7 +107,11 @@ export async function GET(request: NextRequest) {
     const service = createServiceClient();
 
     const [{ data: profilesData, error: profilesError }, authUsers] = await Promise.all([
-      service.from('profiles').select('*').order('created_at', { ascending: false }),
+      service
+        .from('profiles')
+        .select('id, full_name, email, phone, whatsapp, role, created_at, enabled, avatar_url')
+        .order('created_at', { ascending: false })
+        .limit(1000),
       listAllAuthUsers().catch((e) => {
         console.warn('[admin/users] listUsers:', e);
         return [] as AuthUser[];

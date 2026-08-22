@@ -23,16 +23,16 @@ export async function GET(request: NextRequest) {
     // Registered users from profiles (not booking-derived)
     const { count: totalUsersCount, error: profilesTotalErr } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     const { count: users24h, error: profiles24Err } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', iso24);
 
     const { count: users30d, error: profiles30Err } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', iso30);
 
     if (profilesTotalErr) console.error('[admin/stats] profiles total:', profilesTotalErr);
@@ -41,16 +41,16 @@ export async function GET(request: NextRequest) {
 
     const { count: totalListings, error: listTotalErr } = await supabase
       .from('properties')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     const { count: listings24h, error: list24Err } = await supabase
       .from('properties')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', iso24);
 
     const { count: listings30d, error: list30Err } = await supabase
       .from('properties')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', iso30);
 
     if (listTotalErr || list24Err || list30Err) {
@@ -59,16 +59,16 @@ export async function GET(request: NextRequest) {
 
     const { count: totalReservations, error: resTotalErr } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     const { count: reservations24h, error: res24Err } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', iso24);
 
     const { count: reservations30d, error: res30Err } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .gte('created_at', iso30);
 
     if (resTotalErr || res24Err || res30Err) {
@@ -77,11 +77,11 @@ export async function GET(request: NextRequest) {
 
     const { count: totalDispensaries } = await supabase
       .from('dispensaries')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     const { count: pendingDispensaries } = await supabase
       .from('dispensaries')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'pending');
 
     let totalHostApplications = 0;
@@ -89,14 +89,14 @@ export async function GET(request: NextRequest) {
 
     const { count: totalHosts, error: hostTotalErr } = await supabase
       .from('pending_host_applications')
-      .select('*', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true });
 
     if (!hostTotalErr) totalHostApplications = totalHosts || 0;
     else console.warn('[admin/stats] pending_host_applications total:', hostTotalErr.message);
 
     const { count: pendingHosts, error: hostPendingErr } = await supabase
       .from('pending_host_applications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'pending');
 
     if (!hostPendingErr) pendingHostApplications = pendingHosts || 0;
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     let pendingPropertyApprovals = 0;
     const { count: pendingProps, error: propPendingErr } = await supabase
       .from('properties')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'pending_approval');
 
     if (!propPendingErr) pendingPropertyApprovals = pendingProps || 0;
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     let pendingProfilePictures = 0;
     const { count: pendingPics, error: picErr } = await supabase
       .from('pending_profile_pictures')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'pending');
 
     if (!picErr) pendingProfilePictures = pendingPics || 0;

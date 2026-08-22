@@ -2,22 +2,57 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 
+export const dynamic = 'force-dynamic';
+
+const ADMIN_BOOKING_COLUMNS = [
+  'id',
+  'user_id',
+  'property_id',
+  'guest_name',
+  'guest_email',
+  'property_name',
+  'property_image',
+  'location',
+  'check_in',
+  'check_out',
+  'guests',
+  'kids',
+  'pets',
+  'total_price',
+  'status',
+  'payment_status',
+  'rating',
+  'created_at',
+  'host_id',
+].join(',');
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateAdminRequest(request);
     if ('response' in auth) return auth.response;
 
+    const limitParam = Number(request.nextUrl.searchParams.get('limit'));
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(Math.max(1, limitParam), 500)
+      : 300;
+
     const serviceSupabase = createServiceClient();
     const { data, error } = await serviceSupabase
       .from('bookings')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select(ADMIN_BOOKING_COLUMNS)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) {
       throw error;
     }
 
-    const bookings = data || [];
+    type BookingRow = {
+      user_id: string;
+      [key: string]: unknown;
+    };
+
+    const bookings = (data ?? []) as unknown as BookingRow[];
     const userIds = [...new Set(bookings.map((b) => b.user_id).filter(Boolean))];
 
     const profileByUserId = new Map<
