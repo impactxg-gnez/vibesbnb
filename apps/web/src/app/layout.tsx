@@ -7,6 +7,7 @@ import { LayoutContent } from './LayoutContent';
 import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
+const GA_MEASUREMENT_ID = 'G-S7RJJXXRD9';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -64,6 +65,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         {imageOriginHints()}
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBMockKeyForDevelopment'}&libraries=places`}
