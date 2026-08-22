@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseForAdminApi } from '@/lib/supabase/service';
+import {
+  createServiceClient,
+  createSupabaseForAdminApi,
+  hasServiceRoleKey,
+} from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
+import { fetchAdminPropertyList } from '@/lib/adminPropertyList';
 import {
   ADMIN_PROPERTY_DETAIL_COLUMNS,
-  ADMIN_PROPERTY_LIST_COLUMNS,
   ADMIN_PROPERTY_LIST_DEFAULT_LIMIT,
   ADMIN_PROPERTY_LIST_MAX_LIMIT,
 } from '@/lib/adminPropertySelect';
@@ -17,7 +21,7 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateAdminRequest(request);
     if ('response' in auth) return auth.response;
 
-    const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
+    const serviceSupabase = createServiceClient();
     const propertyId = request.nextUrl.searchParams.get('propertyId');
 
     if (propertyId) {
@@ -42,23 +46,20 @@ export async function GET(request: NextRequest) {
       : ADMIN_PROPERTY_LIST_DEFAULT_LIMIT;
     const offset = Number.isFinite(offsetParam) && offsetParam >= 0 ? offsetParam : 0;
 
-    let query = serviceSupabase
-      .from('properties')
-      .select(ADMIN_PROPERTY_LIST_COLUMNS)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (status !== 'all') {
-      query = query.eq('status', status);
+    if (!hasServiceRoleKey()) {
+      console.error(
+        '[admin/properties] SUPABASE_SERVICE_ROLE_KEY is missing — admin list queries may time out.'
+      );
+      return NextResponse.json(
+        {
+          error:
+            'Server missing SUPABASE_SERVICE_ROLE_KEY. Add it in Vercel environment variables and redeploy.',
+        },
+        { status: 503 }
+      );
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    const rows = data || [];
+    const rows = await fetchAdminPropertyList(serviceSupabase, { status, limit, offset });
 
     return NextResponse.json({
       properties: rows,
@@ -69,7 +70,11 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Failed to load admin properties:', error);
     const message = error instanceof Error ? error.message : 'Failed to load properties';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const hint =
+      message.includes('statement timeout') || message.includes('57014')
+        ? ' Run SUPABASE_ADMIN_LIST_PROPERTIES_RPC.sql in the Supabase SQL editor, then redeploy.'
+        : '';
+    return NextResponse.json({ error: `${message}${hint}` }, { status: 500 });
   }
 }
 

@@ -34,5 +34,5 @@ export const ADMIN_PROPERTY_DETAIL_COLUMNS = [
   'images',
 ].join(',');
 
-export const ADMIN_PROPERTY_LIST_DEFAULT_LIMIT = 100;
-export const ADMIN_PROPERTY_LIST_MAX_LIMIT = 200;
+export const ADMIN_PROPERTY_LIST_DEFAULT_LIMIT = 50;
+export const ADMIN_PROPERTY_LIST_MAX_LIMIT = 100;

@@ -114,7 +114,7 @@ export default function ManageListingsPage() {
       const headers = await getHeadersForAdminFetch();
       if (!headers.Authorization)
         throw new Error('No valid session — please sign in again.');
-      const response = await fetch('/api/admin/properties?limit=200', {
+      const response = await fetch('/api/admin/properties?limit=100', {
         headers: { ...headers },
       });
       const payload = await response.json();
