@@ -135,23 +135,47 @@ export default function NewPropertyPage() {
     { id: 'review', title: 'Review' },
   ];
 
-  const canProceed = () => {
+  const getStepBlockers = (): string[] => {
     switch (currentStep) {
-      case 0: return true; // Welcome
-      case 1: return !!formData.propertyType; // Property type
-      case 2: return !!formData.guestAccessType; // Guest access
-      case 3: return !!formData.location && !!formData.coordinates; // Location
-      case 4: return !!formData.name && formData.guests > 0 && formData.bathrooms >= 1; // Basics
-      case 5: return true; // Amenities (optional)
-      case 6: return rooms.some(r => r.imagePreviewUrls.length > 0); // Photos
-      case 7: return formData.price > 0; // Pricing
-      case 8: return true; // Review
-      default: return true;
+      case 1:
+        return formData.propertyType ? [] : ['Select a property type'];
+      case 2:
+        return formData.guestAccessType ? [] : ['Select how guests will access your place'];
+      case 3:
+        if (!formData.location) return ['Enter a location'];
+        if (!formData.coordinates) return ['Pick a location on the map'];
+        return [];
+      case 4: {
+        const blockers: string[] = [];
+        if (!formData.name.trim()) blockers.push('Enter a property name');
+        if (formData.guests < 1) blockers.push('Set at least 1 guest');
+        if (formData.bathrooms < 1) blockers.push('Set at least 1 bathroom');
+        return blockers;
+      }
+      case 6:
+        return rooms.some((r) => r.imagePreviewUrls.length > 0)
+          ? []
+          : ['Upload at least one photo'];
+      case 7:
+        return formData.price > 0 ? [] : ['Set a nightly price greater than $0'];
+      default:
+        return [];
     }
   };
 
+  const canProceed = () => getStepBlockers().length === 0;
+
   const nextStep = () => {
-    if (canProceed() && currentStep < steps.length - 1) {
+    const blockers = getStepBlockers();
+    if (blockers.length > 0) {
+      toast.error(blockers[0]);
+      if (currentStep === 4 && !formData.name.trim()) {
+        document.getElementById('property-name')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('property-name')?.focus();
+      }
+      return;
+    }
+    if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -615,12 +639,20 @@ export default function NewPropertyPage() {
         <div>
           <label className="block text-white font-medium mb-2">Property Name *</label>
           <input
+            id="property-name"
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
+            className={`w-full px-4 py-3 bg-gray-800 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500 ${
+              currentStep === 4 && !formData.name.trim()
+                ? 'border-amber-500/60'
+                : 'border-gray-700'
+            }`}
             placeholder="Give your place a catchy name"
           />
+          {currentStep === 4 && !formData.name.trim() && (
+            <p className="text-amber-400 text-sm mt-1.5">Required to continue</p>
+          )}
         </div>
 
         <div>
@@ -742,9 +774,12 @@ export default function NewPropertyPage() {
           </div>
         </div>
 
-        {/* Property Features */}
+        {/* Property Features — optional */}
         <div className="pt-6 border-t border-gray-800 space-y-4">
-          <h3 className="text-white font-medium">Special Features</h3>
+          <div>
+            <h3 className="text-white font-medium">Special Features</h3>
+            <p className="text-sm text-gray-500 mt-1">Optional — adjust wellness settings or skip to continue.</p>
+          </div>
           <button
             type="button"
             onClick={() =>
@@ -1182,21 +1217,30 @@ export default function NewPropertyPage() {
 
       {/* Footer Navigation */}
       {currentStep > 0 && (
-        <footer className="fixed bottom-0 left-0 right-0 h-20 bg-gray-950 border-t border-gray-800 flex items-center justify-between px-6">
+        <footer className="fixed bottom-0 left-0 right-0 min-h-20 bg-gray-950 border-t border-gray-800 flex items-center justify-between gap-4 px-6 py-3 z-50">
           <button
             type="button"
             onClick={prevStep}
-            className="px-6 py-3 text-white font-semibold underline hover:text-gray-300 transition"
+            className="px-6 py-3 text-white font-semibold underline hover:text-gray-300 transition shrink-0"
           >
             Back
           </button>
+
+          {!canProceed() && getStepBlockers().length > 0 && (
+            <p className="text-amber-400/90 text-sm text-center flex-1 hidden sm:block">
+              {getStepBlockers().join(' · ')}
+            </p>
+          )}
 
           {currentStep < steps.length - 1 ? (
             <button
               type="button"
               onClick={nextStep}
-              disabled={!canProceed()}
-              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition"
+              className={`px-8 py-3 rounded-lg font-semibold transition shrink-0 ${
+                canProceed()
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 cursor-pointer'
+              }`}
             >
               Next
             </button>
