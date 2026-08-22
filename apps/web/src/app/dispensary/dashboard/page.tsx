@@ -179,7 +179,7 @@ export default function DispensaryDashboard() {
           <Store className="w-16 h-16 text-primary-500 mx-auto mb-6" />
           <h1 className="text-3xl font-bold mb-4">Complete Your Profile</h1>
           <p className="text-muted mb-8">
-            Tell us more about your dispensary to start reaching travellers.
+            Tell us more about your wellness partner business to start reaching travellers.
           </p>
           
           <form 
@@ -205,7 +205,7 @@ export default function DispensaryDashboard() {
                   
                 if (error) throw error;
                 setDispensary(data);
-                toast.success('Dispensary profile created! We will review it shortly.');
+                toast.success('Wellness partner profile created! We will review it shortly.');
               } catch (err: any) {
                 toast.error(err.message || 'Failed to create profile');
               }
@@ -213,7 +213,7 @@ export default function DispensaryDashboard() {
             className="space-y-6 text-left"
           >
             <div className="space-y-2">
-              <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Dispensary Name</label>
+              <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Business Name</label>
               <input required name="dispName" className="input !py-4" placeholder="e.g. Green Haven" />
             </div>
             <div className="space-y-2">
@@ -241,7 +241,7 @@ export default function DispensaryDashboard() {
           <div className="w-10 h-10 flex items-center justify-center drop-shadow-[0_0_8px_rgba(0,230,118,0.3)]">
             <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
           </div>
-          <span className="font-bold text-xl tracking-tight">Dispensary</span>
+          <span className="font-bold text-xl tracking-tight">Wellness Partner</span>
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -419,7 +419,7 @@ export default function DispensaryDashboard() {
              <h2 className="text-2xl font-bold mb-8">Business Settings</h2>
              <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Dispensary Name</label>
+                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Business Name</label>
                   <input type="text" value={dispensary.name} className="input !py-4" disabled />
                 </div>
                 <div className="space-y-2">

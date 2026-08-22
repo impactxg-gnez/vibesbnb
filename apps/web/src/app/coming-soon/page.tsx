@@ -18,7 +18,7 @@ const upcoming = [
     icon: Package,
     title: 'Essentials',
     headline: 'Your holiday stash, delivered',
-    body: 'Kick back the moment you arrive. We bring 420 essentials straight to your VibesBNB property — so the only thing on your itinerary is settling into the vibe.',
+    body: 'Kick back the moment you arrive. We bring wellness essentials straight to your VibesBNB property — so the only thing on your itinerary is settling into the vibe.',
   },
   {
     icon: Plane,

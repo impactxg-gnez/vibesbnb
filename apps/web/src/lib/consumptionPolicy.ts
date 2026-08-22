@@ -92,10 +92,10 @@ export function locationPolicyLabel(policy: LocationPolicy): LocationPolicyLabel
 
 export function cannabisShortLabel(policy: LocationPolicy): string {
   const label = locationPolicyLabel(policy);
-  if (label === 'Not allowed') return 'No 420';
-  if (label === 'Outside only') return '420: outside only';
-  if (label === 'Inside only') return '420: inside only';
-  return '420: inside & outside';
+  if (label === 'Not allowed') return 'Not wellness-friendly';
+  if (label === 'Outside only') return 'Wellness-friendly: outside only';
+  if (label === 'Inside only') return 'Wellness-friendly: inside only';
+  return 'Wellness-friendly: inside & outside';
 }
 
 /** Completely 420-friendly: cannabis allowed inside and outside. */
@@ -115,7 +115,7 @@ export function is420FreeProperty(policy: ConsumptionPolicy): boolean {
 
 export function no420SummaryLabel(policy: ConsumptionPolicy): string | null {
   if (!is420FreeProperty(policy)) return null;
-  return 'No 420 on this property';
+  return 'Not a wellness-friendly property';
 }
 
 export type ConsumptionPolicyFormState = {

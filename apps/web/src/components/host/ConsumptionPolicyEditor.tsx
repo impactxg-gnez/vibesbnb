@@ -67,7 +67,7 @@ export function ConsumptionPolicyEditor({
   return (
     <div className={`space-y-4 ${className}`}>
       <div>
-        <h3 className="text-white font-medium">420 / cannabis policy</h3>
+        <h3 className="text-white font-medium">Wellness-friendly policy</h3>
         <p className="text-sm text-gray-400 mt-1">
           Pick where guests may consume. Outside includes balcony, patio, and yard. Enable both
           inside and outside for {FULL_VIBE_NAME} (green glow)
@@ -78,7 +78,7 @@ export function ConsumptionPolicyEditor({
       <div className="rounded-xl border border-gray-700/80 bg-gray-800/40 p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <p className="font-bold text-white">420 / cannabis</p>
+            <p className="font-bold text-white">Wellness consumption</p>
             <p className="text-xs text-gray-400 mt-0.5">Wellness consumption for guests</p>
           </div>
           <button
@@ -131,7 +131,7 @@ export function ConsumptionPolicyEditor({
             <div>
               <p className="font-bold text-white">Balcony available</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Guests see a balcony tag. With 420 inside + outside, this becomes {BALCONY_VIBE_NAME}{' '}
+                Guests see a balcony tag. With wellness consumption inside + outside, this becomes {BALCONY_VIBE_NAME}{' '}
                 (golden glow).
               </p>
             </div>
@@ -180,7 +180,7 @@ export function ConsumptionPolicyEditor({
                 hasBalcony ? 'text-amber-300/80' : 'text-emerald-300/80'
               }`}
             >
-              Cannabis is allowed inside and outside
+              Wellness consumption is allowed inside and outside
               {hasBalcony ? ' and this stay has a balcony' : ''}. Guests will see a{' '}
               {hasBalcony ? 'golden' : 'green'} glow and the {hasBalcony ? BALCONY_VIBE_NAME : FULL_VIBE_NAME}{' '}
               marker on tiles and the listing page.

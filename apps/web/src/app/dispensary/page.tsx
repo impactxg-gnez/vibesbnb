@@ -99,7 +99,7 @@ export default function DispensarySignupPage() {
       if (dispError) {
         // Check if it's a duplicate
         if (dispError.code === '23505') {
-          toast.error('An application with this email or dispensary name already exists');
+          toast.error('An application with this email or business name already exists');
         } else {
           console.error('Error creating dispensary application:', dispError);
           console.error('Error details:', JSON.stringify(dispError, null, 2));
@@ -212,14 +212,14 @@ export default function DispensarySignupPage() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                   <Store className="text-primary-500" />
-                  Dispensary Profile
+                  Wellness Partner Profile
                 </h2>
                 <p className="text-muted">Tell us about your business</p>
               </div>
 
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Dispensary Name</label>
+                  <label className="text-sm font-bold text-muted uppercase tracking-wider ml-1">Business Name</label>
                   <input
                     type="text"
                     value={formData.dispensaryName}
@@ -304,7 +304,7 @@ export default function DispensarySignupPage() {
               <div className="space-y-4">
                 <h2 className="text-3xl font-bold">Application Submitted!</h2>
                 <div className="space-y-3">
-                  <p className="text-muted">Your dispensary application has been sent to our admin team for review.</p>
+                  <p className="text-muted">Your wellness partner application has been sent to our admin team for review.</p>
                   <div className="bg-primary-500/10 border border-primary-500/20 rounded-2xl p-4 inline-block">
                     <div className="flex items-center justify-center gap-2 text-primary-500 font-semibold">
                       <ShieldCheck className="w-5 h-5" />

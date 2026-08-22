@@ -160,7 +160,7 @@ export function ReservationQuote({
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-primary-400 uppercase tracking-wider">
               <Leaf size={14} />
-              Dispensary supplies
+              Wellness supplies
             </div>
             {quote.wellnessLineItems.map((line: WellnessQuoteLine, idx) => (
               <div key={`${line.name}-${idx}`} className="flex justify-between gap-2 pl-1">

@@ -2,7 +2,7 @@
   "name": "vibesbnb",
   "version": "1.0.0",
   "private": true,
-  "description": "VibesBNB - Complete 420-friendly travel marketplace connecting travelers with cannabis-welcoming accommodations",
+  "description": "VibesBNB - Complete wellness-friendly travel marketplace connecting travelers with mindful accommodations",
   "workspaces": [
     "apps/*",
     "packages/*"

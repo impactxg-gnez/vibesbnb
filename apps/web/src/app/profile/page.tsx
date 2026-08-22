@@ -199,7 +199,7 @@ export default function ProfilePage() {
       if (profileError?.message?.includes('prefer_wellness_friendly')) {
         toast.success(
           next
-            ? '420-friendly stays preferred (saved on this device)'
+            ? 'Wellness-friendly stays preferred (saved on this device)'
             : 'Standard stays preferred (saved on this device)'
         );
         return;
@@ -209,8 +209,8 @@ export default function ProfilePage() {
       }
       toast.success(
         next
-          ? 'Showing 420-friendly accommodations first'
-          : 'Showing non-420-friendly accommodations first'
+          ? 'Showing wellness-friendly accommodations first'
+          : 'Showing standard accommodations first'
       );
     } catch (err: unknown) {
       console.error(err);
@@ -952,7 +952,7 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* 420-friendly accommodation preference (travellers + anyone browsing) */}
+              {/* Wellness-friendly accommodation preference (travellers + anyone browsing) */}
               {(userRole === 'traveller' || userRole === 'host' || !userRole) && (
                 <div className="pt-6 border-t border-gray-800">
                   <div className="flex items-start justify-between gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -961,9 +961,9 @@ export default function ProfilePage() {
                         <Leaf className="w-5 h-5 text-emerald-400" />
                       </div>
                       <div>
-                        <p className="text-white font-semibold">420-friendly accommodations</p>
+                        <p className="text-white font-semibold">Wellness-friendly accommodations</p>
                         <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                          When on, wellness / 420-friendly stays appear first in search. When off, other
+                          When on, wellness-friendly stays appear first in search. When off, other
                           properties appear first. Default is on.
                         </p>
                       </div>
@@ -972,7 +972,7 @@ export default function ProfilePage() {
                       type="button"
                       role="switch"
                       aria-checked={preferWellnessFriendly}
-                      aria-label="Prefer 420-friendly accommodations"
+                      aria-label="Prefer wellness-friendly accommodations"
                       disabled={savingWellnessPref}
                       onClick={() => handlePreferWellnessToggle(!preferWellnessFriendly)}
                       className={`relative shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50 ${

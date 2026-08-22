@@ -24,8 +24,8 @@ export function VibeMarkerBadge({ marker, className = '', size = 'md' }: Props) 
       className={`inline-flex items-center gap-1.5 rounded-full border font-bold tracking-wide uppercase ${pad} ${colors} ${className}`}
       title={
         isBalcony
-          ? `${BALCONY_VIBE_NAME}: balcony + 420 allowed inside and outside`
-          : `${FULL_VIBE_NAME}: 420 allowed inside and outside`
+          ? `${BALCONY_VIBE_NAME}: balcony + wellness-friendly inside and outside`
+          : `${FULL_VIBE_NAME}: wellness-friendly inside and outside`
       }
     >
       <span aria-hidden>{isBalcony ? '✨' : '🌿'}</span>

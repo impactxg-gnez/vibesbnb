@@ -1,11 +1,11 @@
 # VibesBNB 🌿
 
-The complete 420-friendly travel marketplace connecting travelers with cannabis-welcoming accommodations and wellness experiences.
+The complete wellness-friendly travel marketplace connecting travelers with mindful accommodations and wellness experiences.
 
 ## 🌟 Features
 
 ### For Travelers
-- **Search & Browse** - Find perfect 420-friendly accommodations by location, dates, and preferences
+- **Search & Browse** - Find perfect wellness-friendly accommodations by location, dates, and preferences
 - **Detailed Listings** - View property details, amenities, photos, and reviews
 - **Category Exploration** - Browse by Wellness Retreats, Adventure, City, Beach, Mountain, and Unique Spaces
 - **Secure Booking** - Safe booking process with verified hosts
@@ -14,7 +14,7 @@ The complete 420-friendly travel marketplace connecting travelers with cannabis-
 ### For Hosts
 - **List Your Space** - Create and manage property listings
 - **Flexible Pricing** - Set your own rates and availability
-- **Cannabis-Friendly** - Connect with guests who appreciate 420-welcoming spaces
+- **Wellness-Friendly** - Connect with guests who appreciate mindful, wellness-welcoming spaces
 - **Host Protection** - Insurance and support included
 - **Earnings Dashboard** - Track bookings and income
 
@@ -102,7 +102,7 @@ vibesbnb/
 
 - **Mobile-First**: Responsive design optimized for all devices
 - **Modern UI**: Clean, intuitive interface with Tailwind CSS
-- **Cannabis-Friendly Branding**: Green color scheme (#16a34a)
+- **Wellness-Friendly Branding**: Green color scheme (#16a34a)
 - **Image Optimization**: Unsplash integration with Next.js Image
 - **Smooth Animations**: Hover effects and transitions
 

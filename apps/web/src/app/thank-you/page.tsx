@@ -23,7 +23,7 @@ const categoryInfo = {
     color: 'from-purple-500 to-purple-600',
   },
   dispensary: {
-    title: 'Dispensary',
+    title: 'Wellness Partner',
     icon: '🌿',
     color: 'from-yellow-500 to-yellow-600',
   },

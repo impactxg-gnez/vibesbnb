@@ -146,7 +146,7 @@ export default function NearbyDispensaries({
         });
 
       if (error) throw error;
-      toast.success('Interest registered! We will notify you when a dispensary is available.');
+      toast.success('Interest registered! We will notify you when a wellness partner is available.');
     } catch (error) {
       toast.error('Failed to register interest');
     } finally {
@@ -176,7 +176,7 @@ export default function NearbyDispensaries({
           </div>
           <div>
             <h2 className="text-2xl font-bold">Wellness Supplies</h2>
-            <p className="text-muted text-sm">Pre-order from local dispensaries</p>
+            <p className="text-muted text-sm">Pre-order from local wellness partners</p>
           </div>
         </div>
       </div>
@@ -218,7 +218,7 @@ export default function NearbyDispensaries({
                     onClick={() => setSelectedDispensary(null)}
                     className="text-primary-500 font-bold text-sm mb-2 flex items-center gap-1 hover:underline"
                   >
-                    Back to dispensaries
+                    Back to wellness partners
                   </button>
                   <h3 className="text-3xl font-bold">{selectedDispensary.name}</h3>
                   <p className="text-muted flex items-center gap-2 mt-2">
@@ -282,9 +282,9 @@ export default function NearbyDispensaries({
             <AlertCircle className="text-muted w-8 h-8" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-bold">No Dispensaries Available</h3>
+            <h3 className="text-xl font-bold">No wellness partners available</h3>
             <p className="text-muted max-w-sm mx-auto">
-              There are no dispensaries that deliver to this property as of now, but we will have one soon!
+              There are no wellness partners that deliver to this property as of now, but we will have one soon!
             </p>
           </div>
           <button 
@@ -292,7 +292,7 @@ export default function NearbyDispensaries({
             disabled={requesting}
             className="btn-secondary !bg-primary-500/10 !border-primary-500/20 !text-primary-500 hover:!bg-primary-500/20 transition-all"
           >
-            {requesting ? 'Requesting...' : 'Request a Dispensary Near Here'}
+            {requesting ? 'Requesting...' : 'Request a wellness partner near here'}
           </button>
         </div>
       )}

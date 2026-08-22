@@ -42,7 +42,7 @@ export function ConsumptionPolicyPanel({
       } ${className}`}
     >
       <div className="flex items-center justify-between gap-3 pt-2 pb-1">
-        <h3 className="text-sm font-bold text-white tracking-wide uppercase">420 policy</h3>
+        <h3 className="text-sm font-bold text-white tracking-wide uppercase">Wellness policy</h3>
         {vibeMarker ? (
           <VibeMarkerBadge marker={vibeMarker} size="sm" />
         ) : is420FreeProperty(policy) && summary ? (
@@ -53,7 +53,7 @@ export function ConsumptionPolicyPanel({
       </div>
       <div className="flex items-start justify-between gap-4 py-3">
         <div>
-          <p className="text-sm font-semibold text-white">420 / cannabis</p>
+          <p className="text-sm font-semibold text-white">Wellness consumption</p>
           {allowed && (
             <p className="text-xs text-gray-400 mt-1">
               {[inside ? 'Inside' : null, outside ? 'Outside (balcony / patio / yard)' : null]

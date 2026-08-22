@@ -61,7 +61,7 @@ const categoryInfo = {
     description: 'Sign up to offer your wellness services to travelers',
   },
   dispensary: {
-    title: 'Dispensary',
+    title: 'Wellness Partner',
     icon: '🌿',
     color: 'from-yellow-500 to-yellow-600',
     description: 'Sign up to partner with VibesBNB and reach more customers',

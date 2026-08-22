@@ -772,7 +772,7 @@ export default function BulkImportPage() {
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
                 <p className="text-gray-500 text-sm">
-                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly (420 outside)
+                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly (outdoor wellness allowed)
                 </p>
                 <p className="text-emerald-400/80 text-sm mt-2">
                   <strong>image_urls</strong> - Pipe-separated image URLs (e.g., https://url1.jpg|https://url2.jpg)

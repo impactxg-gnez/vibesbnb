@@ -126,7 +126,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
     { label: 'Host Registrations', href: '/admin/hosts', icon: <UserPlus className="w-5 h-5" /> },
-    { label: 'Dispensary Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
+    { label: 'Wellness Partner Applications', href: '/admin/dispensaries', icon: <Leaf className="w-5 h-5" /> },
     { label: 'Manage Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
     { label: 'Property Management', href: '/admin/listings', icon: <Building className="w-5 h-5" /> },
     { label: 'Featured Vibes', href: '/admin/featured-retreats', icon: <Sparkles className="w-5 h-5" /> },
@@ -157,7 +157,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     if (label === 'Property Management') return pendingPropertyCount;
     if (label === 'Host Registrations') return pendingHostCount;
     if (label === 'Profile Pictures') return pendingPictureCount;
-    if (label === 'Dispensary Applications') return pendingDispensaryCount;
+    if (label === 'Wellness Partner Applications') return pendingDispensaryCount;
     return 0;
   };
 

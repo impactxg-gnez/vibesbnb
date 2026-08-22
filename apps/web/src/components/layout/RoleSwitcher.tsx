@@ -18,7 +18,7 @@ const roleConfigs: RoleConfig[] = [
   { id: 'host', label: 'Host', icon: '🏠', route: '/host/dashboard' },
   { id: 'traveller', label: 'Traveller', icon: '✈️', route: '/dashboard' },
   { id: 'service_host', label: 'Service Host', icon: '💆', route: '/service/dashboard' },
-  { id: 'dispensary', label: 'Dispensary', icon: '🌿', route: '/dispensary/dashboard' },
+  { id: 'dispensary', label: 'Wellness Partner', icon: '🌿', route: '/dispensary/dashboard' },
 ];
 
 export function RoleSwitcher() {

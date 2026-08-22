@@ -9,7 +9,7 @@ const pillars = [
   {
     icon: ShieldCheck,
     title: 'Verified wellness-friendly policies',
-    body: 'Every listing is checked so you know where you stand — including clear 420-friendly guidance — before you book.',
+    body: 'Every listing is checked so you know where you stand — including clear wellness-friendly guidance — before you book.',
   },
   {
     icon: Leaf,
@@ -37,7 +37,7 @@ const audiences = [
   {
     icon: Users,
     title: 'Partners',
-    body: 'Service hosts and dispensaries connect with travellers who are already in the mood for a mindful, elevated escape.',
+    body: 'Wellness partners connect with travellers who are already in the mood for a mindful, elevated escape.',
   },
 ];
 
@@ -204,17 +204,17 @@ export default function AboutPage() {
               </div>
               <div className="space-y-4 text-muted text-base sm:text-lg leading-relaxed">
                 <p>
-                  Deontae Rodney Mack is a pioneering entrepreneur at the forefront of cannabis tourism.
-                  As the founder of Vibesbnb, he&apos;s revolutionizing the way people experience travel in
-                  the age of cannabis legalization.
+                  Deontae Rodney Mack is a pioneering entrepreneur at the forefront of wellness tourism.
+                  As the founder of Vibesbnb, he&apos;s revolutionizing the way people experience travel with
+                  mindful, wellness-first stays.
                 </p>
                 <p>
-                  With over 8 years of experience as an Airbnb Superhost specializing in cannabis-friendly
+                  With over 8 years of experience as an Airbnb Superhost specializing in wellness-friendly
                   accommodations in Miami, Deontae identified a crucial gap in the market left by vacation
                   rentals.
                 </p>
                 <p>
-                  He envisioned a platform that could seamlessly connect cannabis enthusiasts with
+                  He envisioned a platform that could seamlessly connect wellness-minded travellers with
                   welcoming, legal, and safe travel experiences. This vision gave birth to Vibesbnb.
                 </p>
               </div>

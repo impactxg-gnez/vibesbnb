@@ -112,10 +112,10 @@ export default function AdminDispensariesPage() {
       if (error) throw error;
       
       const statusMessages: Record<string, string> = {
-        active: 'Dispensary approved and activated',
-        paused: 'Dispensary paused',
-        inactive: 'Dispensary deactivated',
-        pending: 'Dispensary moved to pending',
+        active: 'Wellness partner approved and activated',
+        paused: 'Wellness partner paused',
+        inactive: 'Wellness partner deactivated',
+        pending: 'Wellness partner moved to pending',
       };
       
       toast.success(statusMessages[status] || `Status updated to ${status}`);
@@ -138,7 +138,7 @@ export default function AdminDispensariesPage() {
 
       if (error) throw error;
       
-      toast.success('Dispensary deleted');
+      toast.success('Wellness partner deleted');
       fetchDispensaries();
       setShowDetailModal(false);
     } catch (error: any) {
@@ -162,7 +162,7 @@ export default function AdminDispensariesPage() {
 
       if (error) throw error;
       
-      toast.success('Dispensary added successfully');
+      toast.success('Wellness partner added successfully');
       setShowAddModal(false);
       setNewDispensary({
         name: '',
@@ -213,7 +213,7 @@ export default function AdminDispensariesPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Leaf className="text-primary-500 w-7 h-7" />
-              Manage Dispensaries
+              Manage Wellness Partners
             </h1>
             <p className="text-gray-500">Review applications, manage partners, and track inventory</p>
           </div>
@@ -224,7 +224,7 @@ export default function AdminDispensariesPage() {
               className="px-4 py-2 bg-primary-500 text-black font-semibold rounded-lg hover:bg-primary-600 transition flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Add Dispensary
+              Add Wellness Partner
             </button>
           </div>
         </div>
@@ -306,7 +306,7 @@ export default function AdminDispensariesPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Dispensary</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Partner</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Radius</th>
@@ -448,12 +448,12 @@ export default function AdminDispensariesPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Add New Dispensary</h2>
+              <h2 className="text-xl font-bold text-gray-900">Add New Wellness Partner</h2>
               <p className="text-sm text-gray-500">Manually add a dispensary partner</p>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dispensary Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Business Name *</label>
                 <input
                   type="text"
                   value={newDispensary.name}
@@ -523,7 +523,7 @@ export default function AdminDispensariesPage() {
                 onClick={addDispensary}
                 className="px-6 py-2 bg-primary-500 text-black font-semibold rounded-lg hover:bg-primary-600 transition"
               >
-                Add Dispensary
+                Add Wellness Partner
               </button>
             </div>
           </div>

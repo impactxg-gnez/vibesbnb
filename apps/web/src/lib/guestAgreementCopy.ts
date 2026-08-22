@@ -36,10 +36,10 @@ export function buildGuestAgreementNotice(opts: {
   }
 
   const consumptionBullets = is420FreeProperty(policy)
-    ? [`This stay does not allow 420 / cannabis: ${cannabisShortLabel(policy.cannabis).toLowerCase()}.`]
+    ? [`This stay is not wellness-friendly: ${cannabisShortLabel(policy.cannabis).toLowerCase()}.`]
     : [
         policyLine(
-          '420 / cannabis consumption',
+          'Wellness consumption',
           policy.cannabis.inside,
           policy.cannabis.outside
         ),
