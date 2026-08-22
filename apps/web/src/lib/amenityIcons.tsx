@@ -17,8 +17,8 @@ import {
   Car,
   ChefHat,
   CircleDot,
-  CircleHelp,
-  CircleParking,
+  HelpCircle,
+  ParkingSquare,
   Coffee,
   CookingPot,
   Cross,
@@ -38,7 +38,7 @@ import {
   Grid2x2,
   HandMetal,
   HardHat,
-  Heater,
+  ThermometerSun,
   KeyRound,
   Landmark,
   Laptop,
@@ -61,6 +61,7 @@ import {
   ScanLine,
   Shield,
   ShieldCheck,
+  Lock,
   Shirt,
   ShowerHead,
   Snowflake,
@@ -78,7 +79,6 @@ import {
   Umbrella,
   Utensils,
   UtensilsCrossed,
-  Vault,
   Volume2,
   Waves,
   Wifi,
@@ -105,7 +105,7 @@ export const AMENITY_ICON_MAP: Record<string, LucideIcon> = {
   'Body soap': Droplet,
   Hangers: Shirt,
   'Extra pillows and blankets': BedDouble,
-  Safe: Vault,
+  Safe: Lock,
   'Luggage dropoff allowed': Luggage,
   'Long term stays allowed': CalendarRange,
   'Cleaning before checkout': Sparkles,
@@ -150,7 +150,7 @@ export const AMENITY_ICON_MAP: Record<string, LucideIcon> = {
   'Baby bath': Bath,
   'Baby monitor': Monitor,
   'Baby safety gates': Fence,
-  'Babysitter recommendations': CircleHelp,
+  'Babysitter recommendations': HelpCircle,
   'Board games': Palette,
   'Changing table': Table2,
   "Children's books and toys": Gift,
@@ -166,7 +166,7 @@ export const AMENITY_ICON_MAP: Record<string, LucideIcon> = {
   // Heating and cooling
   'Air conditioning': Snowflake,
   'Ceiling fan': Fan,
-  Heating: Heater,
+  Heating: ThermometerSun,
   'Indoor fireplace': Flame,
   'Indoor fireplace: electric': Zap,
   'Portable fans': Wind,
@@ -232,7 +232,7 @@ export const AMENITY_ICON_MAP: Record<string, LucideIcon> = {
 
   // Parking and facilities
   'Free parking on premises': Car,
-  'Free street parking': CircleParking,
+  'Free street parking': ParkingSquare,
   Pool: Droplets,
   'Hot tub': Waves,
   Sauna: Thermometer,
@@ -265,7 +265,7 @@ export function getAmenityIcon(label: string): LucideIcon {
   const canonical = canonicalizeAmenity(trimmed);
   if (canonical && AMENITY_ICON_MAP[canonical]) return AMENITY_ICON_MAP[canonical];
 
-  return CircleHelp;
+  return HelpCircle;
 }
 
 type AmenityIconProps = {

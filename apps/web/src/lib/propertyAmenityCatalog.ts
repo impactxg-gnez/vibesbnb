@@ -265,7 +265,7 @@ export const LEGACY_AMENITY_ALIASES: Record<string, string | string[]> = {
   'fitness center': 'Gym',
   'air conditioning': 'Air conditioning',
   ac: 'Air conditioning',
-  a/c: 'Air conditioning',
+  'a/c': 'Air conditioning',
   heating: 'Heating',
   tv: 'TV',
   television: 'TV',
