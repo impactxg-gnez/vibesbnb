@@ -18,6 +18,7 @@ export const CURRENCIES = {
   CAD: { code: 'CAD', symbol: 'CA$' },
 };
 
+/** @deprecated Use propertyAmenityCatalog in apps/web for host amenity labels. */
 export const AMENITIES = [
   'wifi',
   'kitchen',

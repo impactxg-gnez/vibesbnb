@@ -37,6 +37,7 @@ import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNight
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
+import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import {
   cannabisShortLabel,
 } from '@/lib/consumptionPolicy';
@@ -78,27 +79,6 @@ const GUEST_ACCESS_TYPES = [
     description: 'Guests sleep in a room or common area that may be shared with you or others.',
     icon: Users 
   },
-];
-
-const availableAmenities = [
-  'Balcony',
-  'WiFi',
-  'Kitchen',
-  'Parking',
-  'Pool',
-  'Hot Tub',
-  'Gym',
-  'Air Conditioning',
-  'Heating',
-  'TV',
-  'Washer/Dryer',
-  'Pet Friendly',
-  'Workspace',
-  'Fireplace',
-  'Beach Access',
-  'Mountain View',
-  'Garden',
-  'BBQ',
 ];
 
 export default function NewPropertyPage() {
@@ -240,15 +220,6 @@ export default function NewPropertyPage() {
         return r;
       })
     );
-  };
-
-  const toggleAmenity = (amenity: string) => {
-    setFormData({
-      ...formData,
-      amenities: formData.amenities.includes(amenity)
-        ? formData.amenities.filter((a) => a !== amenity)
-        : [...formData.amenities, amenity],
-    });
   };
 
   const handleSubmit = async () => {
@@ -829,25 +800,11 @@ export default function NewPropertyPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {availableAmenities.map((amenity) => {
-          const isSelected = formData.amenities.includes(amenity);
-          return (
-            <button
-              key={amenity}
-              type="button"
-              onClick={() => toggleAmenity(amenity)}
-              className={`px-4 py-4 rounded-xl border-2 transition text-left ${
-                isSelected
-                  ? 'bg-white/10 border-white text-white'
-                  : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:border-gray-500'
-              }`}
-            >
-              {amenity}
-            </button>
-          );
-        })}
-      </div>
+      <PropertyAmenitiesPicker
+        selected={formData.amenities}
+        onChange={(amenities) => setFormData({ ...formData, amenities })}
+        compact
+      />
     </div>
   );
 

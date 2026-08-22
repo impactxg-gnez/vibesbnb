@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import { scrapeWithPuppeteer } from '@/lib/scraper-puppeteer';
 import { extractCoordinatesFromGoogleMapsUrl, searchPlaceByNameAndLocation } from '@/lib/google-maps-utils';
+import { expandAmenityAliases } from '@/lib/propertyAmenityCatalog';
 
 // Force Node.js runtime (not Edge) to support cheerio and puppeteer
 export const runtime = 'nodejs';
@@ -590,7 +591,7 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
         items.forEach((amenity: any) => {
           const name = amenity?.title || amenity?.name || '';
           if (name) {
-            amenitiesSet.add(normalizeAmenity(name));
+            expandAmenityAliases(name).forEach((a) => amenitiesSet.add(a));
           }
         });
       });
@@ -992,10 +993,10 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
   $('li, .amenity, [class*="amenity"]').each((_, el) => {
     const text = $(el).text().trim();
     if (text && text.length < 50 && !text.includes('Personalize') && !text.includes('Conditions')) {
-      const normalized = normalizeAmenity(text);
-      if (normalized) {
-        amenitiesSet.add(normalized);
-      }
+      const normalized = expandAmenityAliases(text);
+      normalized.forEach((a) => {
+        if (a) amenitiesSet.add(a);
+      });
     }
   });
 
@@ -1009,7 +1010,7 @@ async function scrapeEscaManagement($: cheerio.CheerioAPI, html: string, url: st
 
   amenityKeywords.forEach(keyword => {
     if (bodyText.match(new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))) {
-      amenitiesSet.add(normalizeAmenity(keyword));
+      expandAmenityAliases(keyword).forEach((a) => amenitiesSet.add(a));
     }
   });
 
@@ -1224,41 +1225,6 @@ async function scrapeGeneric($: cheerio.CheerioAPI, url: string): Promise<Scrape
   if (bathroomMatch) propertyData.bathrooms = parseInt(bathroomMatch[1]);
 
   return propertyData;
-}
-
-function normalizeAmenity(amenity: string): string {
-  const normalized = amenity.trim();
-
-  // Map common variations to standard names
-  const amenityMap: { [key: string]: string } = {
-    'wifi': 'WiFi',
-    'wi-fi': 'WiFi',
-    'internet': 'WiFi',
-    'wireless internet': 'WiFi',
-    'kitchen': 'Kitchen',
-    'parking': 'Parking',
-    'free parking': 'Parking',
-    'pool': 'Pool',
-    'swimming pool': 'Pool',
-    'hot tub': 'Hot Tub',
-    'jacuzzi': 'Hot Tub',
-    'gym': 'Gym',
-    'fitness center': 'Gym',
-    'air conditioning': 'Air Conditioning',
-    'ac': 'Air Conditioning',
-    'heating': 'Heating',
-    'tv': 'TV',
-    'television': 'TV',
-    'washer': 'Washer/Dryer',
-    'dryer': 'Washer/Dryer',
-    'laundry': 'Washer/Dryer',
-    'workspace': 'Workspace',
-    'dedicated workspace': 'Workspace',
-    'fireplace': 'Fireplace',
-  };
-
-  const lowerNormalized = normalized.toLowerCase();
-  return amenityMap[lowerNormalized] || normalized;
 }
 
 function isValidImageUrl(url: string): boolean {

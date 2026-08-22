@@ -8,12 +8,6 @@ import {
   Users,
   Bed,
   Bath,
-  Wifi,
-  Car,
-  Wind,
-  Tv,
-  Coffee,
-  Dumbbell,
   Heart,
   Share2,
   Star,
@@ -67,6 +61,7 @@ import { PropertyReviewForm } from '@/components/properties/PropertyReviewForm';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import { AmenityIcon } from '@/lib/amenityIcons';
 
 const GALLERY_HERO_BLUR =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
@@ -126,16 +121,6 @@ const getGeneralLocation = (location: string): string => {
   if (parts.length <= 2) return location;
   // Return city, state/country (last 2 parts)
   return parts.slice(-2).join(', ');
-};
-
-const amenityIcons: { [key: string]: any } = {
-  'WiFi': Wifi,
-  'Parking': Car,
-  'Air Conditioning': Wind,
-  'TV': Tv,
-  'Kitchen': Coffee,
-  'Gym': Dumbbell,
-  'Balcony': Building2,
 };
 
 export default function ListingDetailPage() {
@@ -982,15 +967,12 @@ export default function ListingDetailPage() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h2 className="text-2xl font-bold text-white mb-6">Amenities</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {property.amenities.map((amenity) => {
-                  const Icon = amenityIcons[amenity] || Coffee;
-                  return (
-                    <div key={amenity} className="flex items-center gap-3 text-gray-300">
-                      <Icon size={20} className="text-emerald-500" />
-                      <span>{amenity}</span>
-                    </div>
-                  );
-                })}
+                {property.amenities.map((amenity) => (
+                  <div key={amenity} className="flex items-center gap-3 text-gray-300">
+                    <AmenityIcon label={amenity} size={20} className="text-emerald-500 shrink-0" />
+                    <span>{amenity}</span>
+                  </div>
+                ))}
               </div>
             </div>
 

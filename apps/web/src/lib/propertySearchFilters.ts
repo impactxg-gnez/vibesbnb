@@ -3,6 +3,8 @@
  * Matching uses listing `type` plus title/name for hosts who enter free text.
  */
 
+import { canonicalizeAmenity } from '@/lib/propertyAmenityCatalog';
+
 const ROOM_RENTAL_RE =
   /private\s*rooms?|shared\s*room|room\s*inside|room\s+in\s+(a\s+)?(property|house|apartment|home|condo)|\broom\s+only\b/i;
 
@@ -109,15 +111,34 @@ export function listingMatchesHeaderCategory(
   return true;
 }
 
-/** Host-provided amenity strings vs filter chips — case-insensitive, trimmed */
+/** Host-provided amenity strings vs filter chips — alias-aware for catalog labels */
 export function listingHasAllAmenityChips(
   listingAmenities: string[] | undefined,
   required: string[]
 ): boolean {
   if (!required.length) return true;
-  const normalized = (listingAmenities || []).map((a) => String(a).trim().toLowerCase());
+  const list = (listingAmenities || []).map((a) => String(a).trim()).filter(Boolean);
+  const listLower = list.map((a) => a.toLowerCase());
+
   return required.every((req) => {
-    const r = req.trim().toLowerCase();
-    return normalized.some((la) => la === r);
+    const chip = req.trim();
+    const chipLower = chip.toLowerCase();
+
+    if (chipLower === 'washer/dryer') {
+      return (
+        listLower.includes('washer/dryer') ||
+        (listLower.includes('washer') && listLower.includes('dryer'))
+      );
+    }
+
+    const chipCanonical = canonicalizeAmenity(chip)?.toLowerCase();
+    if (chipCanonical) {
+      return list.some((la) => {
+        const laCanonical = canonicalizeAmenity(la)?.toLowerCase();
+        return laCanonical === chipCanonical || la.toLowerCase() === chipCanonical;
+      });
+    }
+
+    return listLower.includes(chipLower);
   });
 }

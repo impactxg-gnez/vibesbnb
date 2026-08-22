@@ -13,6 +13,7 @@ import {
 import LocationPicker from '@/components/LocationPicker';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
+import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
 interface Room {
   id: string;
@@ -73,27 +74,6 @@ export default function ImportReviewPage() {
   const [rooms, setRooms] = useState<Room[]>([
     { id: Date.now().toString(), name: 'All Photos', images: [], imagePreviewUrls: [] },
   ]);
-
-  const availableAmenities = [
-    'Balcony',
-    'WiFi',
-    'Kitchen',
-    'Parking',
-    'Pool',
-    'Hot Tub',
-    'Gym',
-    'Air Conditioning',
-    'Heating',
-    'TV',
-    'Washer/Dryer',
-    'Pet Friendly',
-    'Workspace',
-    'Fireplace',
-    'Beach Access',
-    'Mountain View',
-    'Garden',
-    'BBQ',
-  ];
 
   useEffect(() => {
     if (!loading && !user) {
@@ -283,15 +263,6 @@ export default function ImportReviewPage() {
         return r;
       })
     );
-  };
-
-  const toggleAmenity = (amenity: string) => {
-    setFormData({
-      ...formData,
-      amenities: formData.amenities.includes(amenity)
-        ? formData.amenities.filter((a) => a !== amenity)
-        : [...formData.amenities, amenity],
-    });
   };
 
   const saveProperty = async (status: 'draft' | 'active') => {
@@ -920,21 +891,10 @@ export default function ImportReviewPage() {
           {/* Amenities */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-xl font-semibold text-white mb-6">Amenities</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {availableAmenities.map((amenity) => (
-                <button
-                  key={amenity}
-                  type="button"
-                  onClick={() => toggleAmenity(amenity)}
-                  className={`px-4 py-3 rounded-lg border transition ${formData.amenities.includes(amenity)
-                    ? 'bg-emerald-600 border-emerald-600 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                    }`}
-                >
-                  {amenity}
-                </button>
-              ))}
-            </div>
+            <PropertyAmenitiesPicker
+              selected={formData.amenities}
+              onChange={(amenities) => setFormData({ ...formData, amenities })}
+            />
           </div>
 
           {/* Photos */}

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
 interface Property {
   id: string;
@@ -101,17 +102,6 @@ export default function BulkUploadPage() {
 
     updateProperty(propertyId, 'images', newImages);
     updateProperty(propertyId, 'imagePreviewUrls', newPreviewUrls);
-  };
-
-  const toggleAmenity = (propertyId: string, amenity: string) => {
-    const property = properties.find((p) => p.id === propertyId);
-    if (!property) return;
-
-    const newAmenities = property.amenities.includes(amenity)
-      ? property.amenities.filter((a) => a !== amenity)
-      : [...property.amenities, amenity];
-
-    updateProperty(propertyId, 'amenities', newAmenities);
   };
 
   const parseCsvText = (text: string, imageFiles?: { [key: string]: File }) => {
@@ -349,23 +339,6 @@ Urban Loft,2,WiFi|Kitchen|Gym|Workspace,yes,https://images.unsplash.com/photo-15
     return null;
   }
 
-  const availableAmenities = [
-    'WiFi',
-    'Kitchen',
-    'Parking',
-    'Pool',
-    'Hot Tub',
-    'Gym',
-    'Air Conditioning',
-    'Heating',
-    'TV',
-    'Washer',
-    'Dryer',
-    'Pet Friendly',
-    'Workspace',
-    'Fireplace',
-  ];
-
   return (
     <AdminLayout>
       <div className="container mx-auto px-4">
@@ -589,22 +562,11 @@ my-properties.zip
                   <label className="block text-sm font-medium text-gray-300 mb-3">
                     Amenities
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {availableAmenities.map((amenity) => (
-                      <button
-                        key={amenity}
-                        type="button"
-                        onClick={() => toggleAmenity(property.id, amenity)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                          property.amenities.includes(amenity)
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        {amenity}
-                      </button>
-                    ))}
-                  </div>
+                  <PropertyAmenitiesPicker
+                    selected={property.amenities}
+                    onChange={(amenities) => updateProperty(property.id, 'amenities', amenities)}
+                    compact
+                  />
                 </div>
 
                 {/* Image Upload */}
