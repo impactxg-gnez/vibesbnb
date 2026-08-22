@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, User, Mail, Phone, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building } from 'lucide-react';
+import { Search, User, Mail, Phone, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building, Pencil, ShieldBan } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
@@ -53,6 +53,16 @@ export default function ManageUsersPage() {
   const [showBookings, setShowBookings] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'hosts' | 'travellers'>('all');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    userId: '',
+    name: '',
+    email: '',
+    phone: '',
+    role: 'traveller',
+    enabled: true,
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -156,23 +166,133 @@ export default function ManageUsersPage() {
     }
   };
 
-  const handleToggleUser = async (userId: string, currentStatus: boolean) => {
-    try {
-      const supabase = createClient();
-      await supabase
-        .from('profiles')
-        .update({ enabled: !currentStatus })
-        .eq('id', userId);
+  const patchUser = async (
+    userId: string,
+    patch: {
+      full_name?: string;
+      email?: string;
+      phone?: string | null;
+      role?: string;
+      enabled?: boolean;
+    }
+  ) => {
+    const headers = await getHeadersForAdminFetch();
+    if (!headers.Authorization) {
+      throw new Error('No valid session — please sign in again.');
+    }
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, ...patch }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || 'Failed to update user');
+    return payload.user as Partial<UserData> | undefined;
+  };
 
-      setUsers(users.map((u) => (u.id === userId ? { ...u, enabled: !currentStatus } : u)));
-      toast.success(`User ${!currentStatus ? 'enabled' : 'disabled'}`);
+  const handleToggleUser = async (userData: UserData) => {
+    if (userData.role === 'admin') {
+      toast.error('Cannot ban or disable admin accounts');
+      return;
+    }
+    if (user?.id === userData.id) {
+      toast.error('You cannot ban your own account');
+      return;
+    }
+
+    const nextEnabled = !userData.enabled;
+    const actionLabel = nextEnabled ? 'unban' : 'ban';
+    if (
+      !nextEnabled &&
+      !confirm(`Ban ${userData.name || userData.email}? They will not be able to sign in.`)
+    ) {
+      return;
+    }
+
+    try {
+      const updated = await patchUser(userData.id, { enabled: nextEnabled });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userData.id
+            ? {
+                ...u,
+                enabled: updated?.enabled ?? nextEnabled,
+              }
+            : u
+        )
+      );
+      toast.success(nextEnabled ? 'User unbanned' : 'User banned');
     } catch (error) {
-      toast.error('Failed to update user status');
+      toast.error(error instanceof Error ? error.message : `Failed to ${actionLabel} user`);
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+  const openEditModal = (userData: UserData) => {
+    if (userData.role === 'admin') {
+      toast.error('Admin accounts cannot be edited here');
+      return;
+    }
+    setEditForm({
+      userId: userData.id,
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone || '',
+      role: userData.role,
+      enabled: userData.enabled,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.userId) return;
+    if (!editForm.name.trim() || !editForm.email.trim()) {
+      toast.error('Name and email are required');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const updated = await patchUser(editForm.userId, {
+        full_name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        phone: editForm.phone.trim() || null,
+        role: editForm.role,
+        enabled: editForm.enabled,
+      });
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editForm.userId
+            ? {
+                ...u,
+                name: updated?.name ?? editForm.name.trim(),
+                email: updated?.email ?? editForm.email.trim(),
+                phone: updated?.phone ?? (editForm.phone.trim() || null),
+                role: updated?.role ?? editForm.role,
+                enabled: updated?.enabled ?? editForm.enabled,
+              }
+            : u
+        )
+      );
+      setShowEditModal(false);
+      toast.success('User updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save user');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteUser = async (userData: UserData) => {
+    if (userData.role === 'admin') {
+      toast.error('Cannot delete admin accounts');
+      return;
+    }
+    if (user?.id === userData.id) {
+      toast.error('You cannot delete your own account');
+      return;
+    }
+    if (!confirm(`Delete ${userData.name || userData.email}? This permanently removes their account and cannot be undone.`)) {
       return;
     }
 
@@ -181,14 +301,14 @@ export default function ManageUsersPage() {
       if (!headers.Authorization) {
         throw new Error('No valid session — please sign in again.');
       }
-      const res = await fetch(`/api/admin/users?userId=${encodeURIComponent(userId)}`, {
+      const res = await fetch(`/api/admin/users?userId=${encodeURIComponent(userData.id)}`, {
         method: 'DELETE',
         headers: { ...headers },
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || 'Failed to delete user');
 
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setUsers((prev) => prev.filter((u) => u.id !== userData.id));
       toast.success('User deleted');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete user');
@@ -459,19 +579,61 @@ export default function ManageUsersPage() {
                         </>
                       )}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleToggleUser(userData.id, userData.enabled)}
-                          className="flex items-center"
-                        >
-                          {userData.enabled ? (
-                            <ToggleRight className="w-6 h-6 text-green-500" />
-                          ) : (
-                            <ToggleLeft className="w-6 h-6 text-gray-400" />
-                          )}
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUser(userData)}
+                            disabled={userData.role === 'admin' || user?.id === userData.id}
+                            className="flex items-center disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={userData.enabled ? 'Ban user' : 'Unban user'}
+                          >
+                            {userData.enabled ? (
+                              <ToggleRight className="w-6 h-6 text-green-500" />
+                            ) : (
+                              <ToggleLeft className="w-6 h-6 text-red-500" />
+                            )}
+                          </button>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wide ${
+                              userData.enabled ? 'text-green-600' : 'text-red-600'
+                            }`}
+                          >
+                            {userData.enabled ? 'Active' : 'Banned'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(userData)}
+                            disabled={userData.role === 'admin'}
+                            className="text-purple-600 hover:text-purple-900 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Edit
+                          </button>
+                          {userData.enabled ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUser(userData)}
+                              disabled={userData.role === 'admin' || user?.id === userData.id}
+                              className="text-orange-600 hover:text-orange-900 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <ShieldBan className="w-4 h-4" />
+                              Ban
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUser(userData)}
+                              disabled={userData.role === 'admin' || user?.id === userData.id}
+                              className="text-emerald-600 hover:text-emerald-900 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <ShieldBan className="w-4 h-4" />
+                              Unban
+                            </button>
+                          )}
                           {(userData.role === 'host' || (userData.properties_count ?? 0) > 0) && (
                             <button
                               type="button"
@@ -500,8 +662,9 @@ export default function ManageUsersPage() {
                             Invoices
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(userData.id)}
-                            className="text-red-600 hover:text-red-900 flex items-center gap-1"
+                            onClick={() => handleDeleteUser(userData)}
+                            disabled={userData.role === 'admin' || user?.id === userData.id}
+                            className="text-red-600 hover:text-red-900 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Trash2 className="w-4 h-4" />
                             Delete
@@ -581,6 +744,94 @@ export default function ManageUsersPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit User Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Edit user</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full name</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="traveller">Traveller</option>
+                    <option value="host">Host</option>
+                    <option value="host_pending">Host pending</option>
+                    <option value="dispensary">Wellness partner</option>
+                    <option value="service_host">Service host</option>
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={editForm.enabled}
+                    onChange={(e) => setEditForm((f) => ({ ...f, enabled: e.target.checked }))}
+                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  Account active (uncheck to ban)
+                </label>
+              </div>
+              <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
+                  className="px-4 py-2 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {savingEdit ? 'Saving…' : 'Save changes'}
+                </button>
               </div>
             </div>
           </div>
