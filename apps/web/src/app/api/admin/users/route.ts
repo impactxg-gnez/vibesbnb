@@ -86,7 +86,7 @@ async function listAllAuthUsers(): Promise<AuthUser[]> {
   const all: AuthUser[] = [];
   let page = 1;
   const perPage = 200;
-  const maxPages = 10;
+  const maxPages = 5;
 
   while (page <= maxPages) {
     const { data, error } = await service.auth.admin.listUsers({ page, perPage });
@@ -111,11 +111,13 @@ export async function GET(request: NextRequest) {
         .from('profiles')
         .select('id, full_name, email, phone, whatsapp, role, created_at, enabled, avatar_url')
         .order('created_at', { ascending: false })
-        .limit(1000),
-      listAllAuthUsers().catch((e) => {
-        console.warn('[admin/users] listUsers:', e);
-        return [] as AuthUser[];
-      }),
+        .limit(500),
+      hasServiceRoleKey()
+        ? listAllAuthUsers().catch((e) => {
+            console.warn('[admin/users] listUsers:', e);
+            return [] as AuthUser[];
+          })
+        : Promise.resolve([] as AuthUser[]),
     ]);
 
     if (profilesError) throw profilesError;
@@ -183,8 +185,12 @@ export async function GET(request: NextRequest) {
     }
 
     const [{ data: bookingsData }, { data: propertiesData }] = await Promise.all([
-      service.from('bookings').select('user_id, total_price, host_id'),
-      service.from('properties').select('host_id, id'),
+      service
+        .from('bookings')
+        .select('user_id, total_price, host_id')
+        .order('created_at', { ascending: false })
+        .limit(2000),
+      service.from('properties').select('host_id').limit(3000),
     ]);
 
     const seenIds = new Set(users.map((u) => u.id));

@@ -114,7 +114,7 @@ export default function ManageListingsPage() {
       const headers = await getHeadersForAdminFetch();
       if (!headers.Authorization)
         throw new Error('No valid session — please sign in again.');
-      const response = await fetch('/api/admin/properties?limit=500', {
+      const response = await fetch('/api/admin/properties?limit=200', {
         headers: { ...headers },
       });
       const payload = await response.json();
@@ -784,15 +784,15 @@ export default function ManageListingsPage() {
                   onSubmitted={async () => {
                     await reloadProperties({ silent: true });
                     const headers = await getHeadersForAdminFetch();
-                    const res = await fetch('/api/admin/properties', { headers: { ...headers } });
+                    const res = await fetch(
+                      `/api/admin/properties?propertyId=${encodeURIComponent(selectedProperty.id)}`,
+                      { headers: { ...headers } }
+                    );
                     const payload = await res.json().catch(() => ({}));
-                    if (res.ok && payload.properties) {
-                      const updated = payload.properties.find(
-                        (p: Property) => p.id === selectedProperty.id
+                    if (res.ok && payload.property) {
+                      setSelectedProperty((prev) =>
+                        prev ? { ...prev, rating: payload.property.rating } : null
                       );
-                      if (updated) {
-                        setSelectedProperty((prev) => (prev ? { ...prev, rating: updated.rating } : null));
-                      }
                     }
                   }}
                 />

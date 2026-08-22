@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Registered users from profiles (not booking-derived)
     const { count: totalUsersCount, error: profilesTotalErr } = await supabase
       .from('profiles')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'estimated', head: true });
 
     const { count: users24h, error: profiles24Err } = await supabase
       .from('profiles')
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const { count: totalListings, error: listTotalErr } = await supabase
       .from('properties')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'estimated', head: true });
 
     const { count: listings24h, error: list24Err } = await supabase
       .from('properties')
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     const { count: totalReservations, error: resTotalErr } = await supabase
       .from('bookings')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'estimated', head: true });
 
     const { count: reservations24h, error: res24Err } = await supabase
       .from('bookings')

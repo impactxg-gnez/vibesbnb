@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     let query = serviceSupabase
       .from('properties')
-      .select(ADMIN_PROPERTY_LIST_COLUMNS, { count: 'exact' })
+      .select(ADMIN_PROPERTY_LIST_COLUMNS)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -52,17 +52,19 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
 
     if (error) {
       throw error;
     }
 
+    const rows = data || [];
+
     return NextResponse.json({
-      properties: data || [],
-      total: count ?? (data?.length ?? 0),
+      properties: rows,
       limit,
       offset,
+      hasMore: rows.length === limit,
     });
   } catch (error: unknown) {
     console.error('Failed to load admin properties:', error);

@@ -1,9 +1,9 @@
 /**
  * Column sets for admin property queries.
- * Never select `embedding` (vector) or full row (`*`) on list endpoints — causes statement timeouts.
+ * Never select `embedding` (vector), `images`, `description`, `rooms`, or `*` on list endpoints.
  */
 
-/** Lightweight list rows for admin grids (no images/description/embedding). */
+/** Minimal list rows for admin grids — only fields used in the table / filters. */
 export const ADMIN_PROPERTY_LIST_COLUMNS = [
   'id',
   'name',
@@ -11,28 +11,28 @@ export const ADMIN_PROPERTY_LIST_COLUMNS = [
   'location',
   'price',
   'rating',
-  'type',
-  'amenities',
-  'guests',
   'status',
   'created_at',
-  'updated_at',
   'host_id',
-  'bedrooms',
-  'bathrooms',
-  'beds',
   'wellness_friendly',
-  'rejection_reason',
-  'cleaning_fee',
-  'google_maps_url',
 ].join(',');
 
 /** Single-property admin edit — includes media/text but still omits embedding. */
 export const ADMIN_PROPERTY_DETAIL_COLUMNS = [
   ...ADMIN_PROPERTY_LIST_COLUMNS.split(','),
+  'type',
+  'amenities',
+  'guests',
+  'updated_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'rejection_reason',
+  'cleaning_fee',
+  'google_maps_url',
   'description',
   'images',
 ].join(',');
 
-export const ADMIN_PROPERTY_LIST_DEFAULT_LIMIT = 200;
-export const ADMIN_PROPERTY_LIST_MAX_LIMIT = 500;
+export const ADMIN_PROPERTY_LIST_DEFAULT_LIMIT = 100;
+export const ADMIN_PROPERTY_LIST_MAX_LIMIT = 200;

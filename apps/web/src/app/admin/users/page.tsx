@@ -154,9 +154,12 @@ export default function ManageUsersPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('bookings')
-        .select('*')
+        .select(
+          'id, property_name, property_image, location, check_in, check_out, guests, kids, pets, total_price, status, rating, created_at'
+        )
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (error) throw error;
       setUserBookings(data || []);

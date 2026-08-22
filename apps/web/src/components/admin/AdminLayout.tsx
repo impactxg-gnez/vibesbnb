@@ -66,7 +66,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       const headers = await getHeadersForAdminFetch();
       if (!headers.Authorization) return;
 
-      const response = await fetch('/api/admin/stats', {
+      const response = await fetch('/api/admin/pending-counts', {
         headers: { ...headers },
       });
 
@@ -75,10 +75,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         throw new Error(data.error || 'Failed to fetch pending counts');
       }
 
-      setPendingPropertyCount(data.listings?.pendingApproval || 0);
-      setPendingHostCount(data.hosts?.pending || 0);
-      setPendingPictureCount(data.profilePictures?.pending || 0);
-      setPendingDispensaryCount(data.dispensaries?.pending || 0);
+      setPendingPropertyCount(data.listings?.pendingApproval ?? 0);
+      setPendingHostCount(data.hosts?.pending ?? 0);
+      setPendingPictureCount(data.profilePictures?.pending ?? 0);
+      setPendingDispensaryCount(data.dispensaries?.pending ?? 0);
     } catch (error) {
       console.error('Error fetching pending counts:', error);
     }
