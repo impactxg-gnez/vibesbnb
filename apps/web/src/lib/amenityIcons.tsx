@@ -94,7 +94,6 @@ import {
   Globe,
   Wallet,
   Timer,
-  Lock,
 } from 'lucide-react';
 import { canonicalizeAmenity } from '@/lib/propertyAmenityCatalog';
 
