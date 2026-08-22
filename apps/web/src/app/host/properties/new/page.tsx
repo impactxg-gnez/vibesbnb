@@ -38,6 +38,7 @@ import { toTravelerPrice } from '@/lib/platformPricing';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
+import { ALL_CATALOG_AMENITIES } from '@/lib/propertyAmenityCatalog';
 import {
   cannabisShortLabel,
 } from '@/lib/consumptionPolicy';
@@ -790,13 +791,13 @@ export default function NewPropertyPage() {
 
   // Amenities (Step 5)
   const renderAmenities = () => (
-    <div className="max-w-3xl mx-auto px-4">
+    <div className="max-w-6xl mx-auto px-4 pb-24">
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
           Tell guests what your place has to offer
         </h1>
         <p className="text-gray-400">
-          You can add more amenities after you publish.
+          Choose from {ALL_CATALOG_AMENITIES.length} amenities across 12 categories — same options hosts use on Airbnb.
         </p>
       </div>
 

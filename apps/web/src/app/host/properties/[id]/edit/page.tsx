@@ -1232,7 +1232,10 @@ export default function EditPropertyPage() {
 
           {/* Amenities */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Amenities</h2>
+            <h2 className="text-xl font-semibold text-white mb-2">Amenities</h2>
+            <p className="text-sm text-gray-400 mb-6">
+              119 amenities across 12 categories — select everything your property offers.
+            </p>
             <PropertyAmenitiesPicker
               selected={formData.amenities}
               onChange={(amenities) => setFormData({ ...formData, amenities })}

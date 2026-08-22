@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { AmenityIcon } from '@/lib/amenityIcons';
 import {
+  ALL_CATALOG_AMENITIES,
   AMENITY_CATEGORIES,
   isCatalogAmenity,
   normalizeAmenityList,
@@ -14,7 +15,7 @@ type Props = {
   selected: string[];
   onChange: (amenities: string[]) => void;
   className?: string;
-  /** When true, show compact intro text (e.g. new listing wizard). */
+  /** When true, hide the long intro paragraph (e.g. listing wizard step). */
   compact?: boolean;
 };
 
@@ -25,7 +26,6 @@ export function PropertyAmenitiesPicker({
   compact = false,
 }: Props) {
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const normalizedRef = useRef<string>('');
 
   useEffect(() => {
@@ -51,6 +51,11 @@ export function PropertyAmenitiesPicker({
     })).filter((cat) => cat.amenities.length > 0);
   }, [query]);
 
+  const visibleAmenityCount = useMemo(
+    () => filteredCategories.reduce((sum, cat) => sum + cat.amenities.length, 0),
+    [filteredCategories],
+  );
+
   const { legacy } = useMemo(() => splitAmenities(selected), [selected]);
 
   const selectedSet = useMemo(
@@ -70,10 +75,6 @@ export function PropertyAmenitiesPicker({
   const removeLegacy = (amenity: string) => {
     const lower = amenity.toLowerCase();
     onChange(selected.filter((a) => a.toLowerCase() !== lower));
-  };
-
-  const toggleCategory = (id: string) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const countInCategory = (amenities: readonly string[]) =>
@@ -96,69 +97,66 @@ export function PropertyAmenitiesPicker({
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search amenities..."
+          placeholder="Search all amenities..."
           className="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-600"
         />
       </div>
 
-      <p className="text-xs text-gray-500 mb-3">
-        {selected.length} selected
-      </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 mb-4">
+        <span>
+          <span className="text-emerald-400 font-medium">{selected.length}</span> selected
+        </span>
+        <span>
+          Showing{' '}
+          <span className="text-white font-medium">{visibleAmenityCount}</span>
+          {query ? ' matching' : ` of ${ALL_CATALOG_AMENITIES.length}`} amenities
+        </span>
+        <span>{AMENITY_CATEGORIES.length} categories</span>
+      </div>
 
-      <div className="space-y-2">
+      <div className="space-y-8 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
         {filteredCategories.map((category) => {
           const selectedCount = countInCategory(category.amenities);
-          const isOpen = query ? true : expanded[category.id] ?? selectedCount > 0;
 
           return (
-            <div
-              key={category.id}
-              className="border border-gray-700 rounded-lg overflow-hidden bg-gray-800/30"
-            >
-              <button
-                type="button"
-                onClick={() => toggleCategory(category.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-800/50 transition"
-              >
-                <span className="font-medium text-white">{category.title}</span>
-                <span className="flex items-center gap-2 text-sm text-gray-400">
+            <section key={category.id}>
+              <div className="flex items-center justify-between mb-3 sticky top-0 z-10 bg-gray-950/95 py-2 backdrop-blur-sm">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
+                  {category.title}
+                </h3>
+                <span className="text-xs text-gray-500">
                   {selectedCount > 0 && (
-                    <span className="text-emerald-400">{selectedCount} selected</span>
+                    <span className="text-emerald-400 mr-2">{selectedCount} selected</span>
                   )}
-                  <ChevronDown
-                    size={18}
-                    className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                  />
+                  {category.amenities.length} options
                 </span>
-              </button>
+              </div>
 
-              {isOpen && (
-                <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {category.amenities.map((amenity) => {
-                    const isSelected = selectedSet.has(amenity.toLowerCase());
-                    return (
-                      <button
-                        key={amenity}
-                        type="button"
-                        onClick={() => toggle(amenity)}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm text-left transition ${
-                          isSelected
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-                        }`}
-                      >
-                        <AmenityIcon
-                          label={amenity}
-                          size={16}
-                          className={`shrink-0 ${isSelected ? 'text-white' : 'text-emerald-500'}`}
-                        />
-                        <span className="leading-snug">{amenity}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                {category.amenities.map((amenity) => {
+                  const isSelected = selectedSet.has(amenity.toLowerCase());
+                  return (
+                    <button
+                      key={amenity}
+                      type="button"
+                      onClick={() => toggle(amenity)}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm text-left transition ${
+                        isSelected
+                          ? 'bg-emerald-600 border-emerald-600 text-white'
+                          : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
+                      }`}
+                    >
+                      <AmenityIcon
+                        label={amenity}
+                        size={16}
+                        className={`shrink-0 ${isSelected ? 'text-white' : 'text-emerald-500'}`}
+                      />
+                      <span className="leading-snug">{amenity}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           );
         })}
       </div>

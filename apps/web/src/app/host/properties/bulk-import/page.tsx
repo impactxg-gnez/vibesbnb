@@ -25,6 +25,7 @@ import {
   getHostScopeUserId,
   getHostScopeUserIdFromAuthOnly,
 } from '@/lib/adminHostImpersonation';
+import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
 interface BulkProperty {
   name: string;
@@ -187,6 +188,27 @@ export default function BulkImportPage() {
   const [importMode, setImportMode] = useState<'csv' | 'url'>('csv');
   const [urlEntries, setUrlEntries] = useState<UrlEntry[]>([{ id: '1', url: '', status: 'pending' }]);
   const [fetchingUrls, setFetchingUrls] = useState(false);
+  const [expandedReviewIndex, setExpandedReviewIndex] = useState<number | null>(null);
+
+  const parseAmenitiesField = (value?: string): string[] =>
+    value
+      ? value
+          .split(/[;,|]/)
+          .map((a) => a.trim())
+          .filter(Boolean)
+      : [];
+
+  const updateReviewPropertyAmenities = (index: number, amenities: string[]) => {
+    setParsedData((prev) => {
+      if (!prev) return prev;
+      const properties = [...prev.properties];
+      properties[index] = {
+        ...properties[index],
+        amenities: amenities.join(';'),
+      };
+      return { ...prev, properties };
+    });
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -828,9 +850,13 @@ export default function BulkImportPage() {
                 </div>
               )}
 
-              <div className="space-y-3 max-h-96 overflow-auto">
-                {parsedData.properties.map((prop, index) => (
-                  <div key={index} className="p-4 bg-gray-800/50 rounded-lg">
+              <div className="space-y-4 max-h-[70vh] overflow-auto">
+                {parsedData.properties.map((prop, index) => {
+                  const amenityList = parseAmenitiesField(prop.amenities);
+                  const isExpanded = expandedReviewIndex === index;
+
+                  return (
+                  <div key={index} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
                     <div className="flex items-start justify-between">
                       <div>
                         <h4 className="text-white font-medium">{prop.name}</h4>
@@ -858,9 +884,30 @@ export default function BulkImportPage() {
                           <span className="text-emerald-400">{prop.imageUrls.length} images</span>
                         </>
                       )}
+                      <span>•</span>
+                      <span className="text-emerald-400/80">{amenityList.length} amenities</span>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setExpandedReviewIndex(isExpanded ? null : index)}
+                      className="mt-3 text-sm text-emerald-400 hover:text-emerald-300 font-medium"
+                    >
+                      {isExpanded ? 'Hide amenities' : 'Edit amenities (119 available)'}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-4 pt-4 border-t border-gray-700">
+                        <PropertyAmenitiesPicker
+                          selected={amenityList}
+                          onChange={(amenities) => updateReviewPropertyAmenities(index, amenities)}
+                          compact
+                        />
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
