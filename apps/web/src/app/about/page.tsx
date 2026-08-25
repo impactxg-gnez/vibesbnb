@@ -9,7 +9,7 @@ const pillars = [
   {
     icon: ShieldCheck,
     title: 'Verified wellness-friendly policies',
-    body: 'Every listing is checked so you know where you stand — including clear wellness-friendly guidance — before you book.',
+    body: 'Every listing is checked so you know where you stand, including clear wellness-friendly guidance, before you book.',
   },
   {
     icon: Leaf,
@@ -19,7 +19,7 @@ const pillars = [
   {
     icon: Trees,
     title: 'Nature-inspired & soulful',
-    body: 'From organic, sustainable standards to sanctuaries that feel grounded — we look for properties with soul, not just square footage.',
+    body: 'From organic, sustainable standards to sanctuaries that feel grounded. We look for properties with soul, not just square footage.',
   },
 ];
 
@@ -27,7 +27,7 @@ const audiences = [
   {
     icon: Sparkles,
     title: 'Travellers',
-    body: 'Find your wellness-friendly sanctuary — stays where you can be yourself and catch the vibe you came for.',
+    body: 'Find your wellness-friendly sanctuary. Stays where you can be yourself and catch the vibe you came for.',
   },
   {
     icon: Home,
@@ -66,7 +66,7 @@ export default function AboutPage() {
             </h1>
             <p className="text-lg sm:text-xl text-muted leading-relaxed max-w-2xl">
               VibesBNB is the wellness-friendly vacation rental marketplace for travellers who want more
-              than a place to sleep — a sanctuary that feels good, looks after your well-being, and leaves
+              than a place to sleep. A sanctuary that feels good, looks after your well-being, and leaves
               room to unwind your way.
             </p>
           </motion.div>
@@ -88,7 +88,7 @@ export default function AboutPage() {
             </h2>
             <p className="text-muted text-base sm:text-lg leading-relaxed max-w-3xl">
               We&apos;re redefining travel by putting your well-being first. Every property is personally
-              vetted to meet our organic, sustainable, and soulful standards — so when you book, you&apos;re
+              vetted to meet our organic, sustainable, and soulful standards. So when you book, you&apos;re
               choosing a stay that was chosen with intention.
             </p>
           </div>
@@ -101,7 +101,7 @@ export default function AboutPage() {
             What we stand for
           </h2>
           <p className="text-muted max-w-2xl leading-relaxed">
-            The same promises you&apos;ll find across our stays — made clear, so you know what vibes with us.
+            The same promises you&apos;ll find across our stays, made clear, so you know what vibes with us.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -133,7 +133,7 @@ export default function AboutPage() {
             Who it&apos;s for
           </h2>
           <p className="text-muted max-w-2xl leading-relaxed">
-            One community — travellers looking for the right sanctuary, hosts sharing wellness-friendly
+            One community: travellers looking for the right sanctuary, hosts sharing wellness-friendly
             spaces, and partners who help complete the trip.
           </p>
         </div>

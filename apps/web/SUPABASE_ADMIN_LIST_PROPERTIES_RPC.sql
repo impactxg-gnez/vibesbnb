@@ -8,6 +8,10 @@ CREATE INDEX IF NOT EXISTS idx_properties_admin_list_covering
   INCLUDE (id, name, title, location, price, rating, status, host_id, wellness_friendly);
 
 -- SECURITY DEFINER bypasses RLS; only callable via service_role from /api/admin/*
+-- Returns cover_image = first URL only (never the full images[] array over the wire).
+-- DROP required when changing RETURNS TABLE shape.
+DROP FUNCTION IF EXISTS public.admin_list_properties(text, int, int);
+
 CREATE OR REPLACE FUNCTION public.admin_list_properties(
   p_status text DEFAULT 'all',
   p_limit int DEFAULT 100,
@@ -23,7 +27,8 @@ RETURNS TABLE (
   status text,
   created_at timestamptz,
   host_id uuid,
-  wellness_friendly boolean
+  wellness_friendly boolean,
+  cover_image text
 )
 LANGUAGE sql
 STABLE
@@ -40,7 +45,8 @@ AS $$
     p.status,
     p.created_at,
     p.host_id,
-    p.wellness_friendly
+    p.wellness_friendly,
+    NULLIF(BTRIM(p.images[1]), '') AS cover_image
   FROM properties p
   WHERE p_status IS NULL OR p_status = 'all' OR p.status = p_status
   ORDER BY p.created_at DESC NULLS LAST

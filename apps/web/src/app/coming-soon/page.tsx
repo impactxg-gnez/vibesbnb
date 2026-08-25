@@ -18,43 +18,43 @@ const upcoming = [
     icon: Package,
     title: 'Essentials',
     headline: 'Your holiday stash, delivered',
-    body: 'Kick back the moment you arrive. We bring wellness essentials straight to your VibesBNB property — so the only thing on your itinerary is settling into the vibe.',
+    body: 'Kick back the moment you arrive. We bring wellness essentials straight to your VibesBNB property so the only thing on your itinerary is settling into the vibe.',
   },
   {
     icon: Plane,
     title: 'Pickup & Drop',
     headline: 'Door-to-door holiday flow',
-    body: 'Land, leave the logistics to us. Schedule pickups and drops to and from bus stops and airports — arrive soft, depart easy, stay in vacation mode the whole way.',
+    body: 'Land, leave the logistics to us. Schedule pickups and drops to and from bus stops and airports. Arrive soft, depart easy, stay in vacation mode the whole way.',
   },
   {
     icon: Map,
     title: 'Guides',
     headline: 'A city that feels like yours',
-    body: 'Local guides walk you through the places you\'re visiting with a complete itinerary planned — the spots worth lingering, the corners worth discovering, zero guesswork.',
+    body: 'Local guides walk you through the places you\'re visiting with a complete itinerary planned: the spots worth lingering, the corners worth discovering, zero guesswork.',
   },
   {
     icon: PartyPopper,
     title: 'Houseparties',
     headline: 'The night, fully hosted',
-    body: 'Bring the celebration home. We match houseparty hosts to what travellers want — you enjoy the party, they handle the rest. Holiday energy, zero stress.',
+    body: 'Bring the celebration home. We match houseparty hosts to what travellers want. You enjoy the party, they handle the rest. Holiday energy, zero stress.',
   },
   {
     icon: Car,
     title: 'Chauffeurs & Butlers',
     headline: 'White-glove holiday ease',
-    body: 'A dedicated chauffeur and butler for VibesBNB guests — rides when you want them, details handled when you don’t. Travel that feels looked after.',
+    body: 'A dedicated chauffeur and butler for VibesBNB guests. Rides when you want them, details handled when you don’t. Travel that feels looked after.',
   },
   {
     icon: Gamepad2,
     title: 'Gaming',
     headline: 'Level up your staycation',
-    body: 'Consoles and PCs delivered into your VibesBNB home for gaming enthusiasts — rainy afternoons, late-night sessions, and holiday downtime done right.',
+    body: 'Consoles and PCs delivered into your VibesBNB home for gaming enthusiasts. Rainy afternoons, late-night sessions, and holiday downtime done right.',
   },
   {
     icon: Compass,
     title: 'Trip planner',
     headline: 'Your escape, mapped out',
-    body: 'Trips planned for solo travellers, families, and couples — so the holiday shape fits how you actually travel, not a one-size-fits-all checklist.',
+    body: 'Trips planned for solo travellers, families, and couples so the holiday shape fits how you actually travel, not a one-size-fits-all checklist.',
   },
 ];
 
@@ -86,7 +86,7 @@ export default function ComingSoonPage() {
             </h1>
             <p className="text-lg sm:text-xl text-muted leading-relaxed max-w-2xl">
               Stays are only the beginning. We&apos;re building the extras that turn a booking into a full
-              escape — delivered, planned, and ready when you are. Same wellness-friendly spirit.
+              escape: delivered, planned, and ready when you are. Same wellness-friendly spirit.
               More ways to catch the vibe.
             </p>
           </motion.div>
@@ -141,7 +141,7 @@ export default function ComingSoonPage() {
               Want first dibs on the vibe?
             </h2>
             <p className="text-muted max-w-xl mx-auto mb-8 leading-relaxed">
-              Join early access as a traveller, host, service host, or dispensary partner — and be ready
+              Join early access as a traveller, host, service host, or dispensary partner and be ready
               when these holiday extras roll out.
             </p>
             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 justify-center">

@@ -36,6 +36,7 @@ interface Property {
   price: number;
   rating: number;
   images: string[];
+  cover_image?: string | null;
   amenities: string[];
   bedrooms?: number;
   bathrooms?: number;
@@ -48,6 +49,17 @@ interface Property {
   description?: string;
   wellness_friendly?: boolean;
   created_at: string;
+}
+
+function propertyCoverSrc(property: Pick<Property, 'cover_image' | 'images'>): string | null {
+  if (typeof property.cover_image === 'string' && property.cover_image.trim()) {
+    return property.cover_image.trim();
+  }
+  if (Array.isArray(property.images) && property.images.length > 0) {
+    const first = property.images[0];
+    return typeof first === 'string' && first.trim() ? first.trim() : null;
+  }
+  return null;
 }
 
 export default function ManageListingsPage() {
@@ -494,17 +506,20 @@ export default function ManageListingsPage() {
               >
                 {/* Image */}
                 <div className="relative h-48 bg-gray-200">
-                  {property.images && property.images.length > 0 ? (
-                    <img
-                      src={property.images[0]}
-                      alt={property.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Home className="w-12 h-12 text-gray-400" />
-                    </div>
-                  )}
+                  {(() => {
+                    const coverSrc = propertyCoverSrc(property);
+                    return coverSrc ? (
+                      <img
+                        src={coverSrc}
+                        alt={property.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Home className="w-12 h-12 text-gray-400" />
+                      </div>
+                    );
+                  })()}
                   <div className="absolute top-2 right-2">
                     <span
                       className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${property.status === 'active'
