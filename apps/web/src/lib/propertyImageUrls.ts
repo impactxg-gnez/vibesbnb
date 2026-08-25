@@ -24,6 +24,49 @@ const SUPABASE_OBJECT_PUBLIC =
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
 
+const NON_IMAGE_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'youtu.be',
+  'vimeo.com',
+  'www.vimeo.com',
+]);
+
+/**
+ * Bulk imports often store Next.js optimizer URLs from the source site, e.g.
+ * `https://ionica.world/_next/image?url=<encoded-supabase-url>&w=3840&q=75`.
+ * Those hosts are blocked by our next/image remotePatterns, so the gallery
+ * appears stuck on slide 1. Unwrap to the underlying asset URL.
+ */
+export function unwrapProxiedImageUrl(raw: string): string {
+  let current = raw.trim();
+  for (let i = 0; i < 3; i++) {
+    try {
+      const u = new URL(current);
+      if (!u.pathname.includes('/_next/image')) break;
+      const inner = u.searchParams.get('url');
+      if (!inner) break;
+      const decoded = decodeURIComponent(inner).trim();
+      if (!decoded || decoded === current) break;
+      current = decoded;
+    } catch {
+      break;
+    }
+  }
+  return current;
+}
+
+function isLikelyDisplayableImageUrl(url: string): boolean {
+  if (url.startsWith('data:image/')) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (NON_IMAGE_HOSTS.has(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function supabaseRenderUrl(
   url: string,
   opts: { width: number; height: number; quality: number; resize: 'cover' | 'contain' }
@@ -79,9 +122,10 @@ function applyKind(url: string, kind: 'thumb' | 'cardMain' | 'gallery'): string 
 
 /**
  * Clean property image arrays for display.
- * - Drops blanks
+ * - Unwraps Next.js `/_next/image?url=` proxies (bulk-import source sites)
+ * - Drops blanks / non-image hosts (e.g. YouTube)
  * - Prefers remote http(s) URLs before huge data: URLs (common after scrapes)
- * - Dedupes exact matches
+ * - Dedupes exact matches after unwrap
  */
 export function normalizePropertyImages(
   images: Array<string | null | undefined> | null | undefined,
@@ -95,8 +139,8 @@ export function normalizePropertyImages(
 
   for (const raw of images) {
     if (typeof raw !== 'string') continue;
-    const url = raw.trim();
-    if (!url || seen.has(url)) continue;
+    const url = unwrapProxiedImageUrl(raw);
+    if (!url || seen.has(url) || !isLikelyDisplayableImageUrl(url)) continue;
     seen.add(url);
 
     if (url.startsWith('data:image/')) {
@@ -121,15 +165,15 @@ export function primaryPropertyImageUrl(
 
 /** Thumbnail strip (~200px wide sources). */
 export function listingThumbImageUrl(url: string): string {
-  return applyKind(url, 'thumb');
+  return applyKind(unwrapProxiedImageUrl(url), 'thumb');
 }
 
 /** Main card photo: next/image still optimizes, but smaller origin bytes help cold loads. */
 export function listingCardMainImageUrl(url: string): string {
-  return applyKind(url, 'cardMain');
+  return applyKind(unwrapProxiedImageUrl(url), 'cardMain');
 }
 
 /** PDP main gallery photo — narrower than originals, wider than listing cards */
 export function listingGalleryImageUrl(url: string): string {
-  return applyKind(url, 'gallery');
+  return applyKind(unwrapProxiedImageUrl(url), 'gallery');
 }

@@ -31,6 +31,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'a0.muscache.com', pathname: '/**' },
       { protocol: 'https', hostname: 'a1.muscache.com', pathname: '/**' },
       { protocol: 'https', hostname: 'a2.muscache.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'ionica.world', pathname: '/**' },
+      { protocol: 'https', hostname: 'www.ionica.world', pathname: '/**' },
       { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
       { protocol: 'https', hostname: 'api.dicebear.com', pathname: '/**' },
     ],

@@ -25,6 +25,7 @@ import {
   getHostScopeUserId,
   getHostScopeUserIdFromAuthOnly,
 } from '@/lib/adminHostImpersonation';
+import { unwrapProxiedImageUrl } from '@/lib/propertyImageUrls';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
 interface BulkProperty {
@@ -173,7 +174,9 @@ function scrapedListingToBulkProperty(scraped: ScrapeApiProperty, sourceUrl: str
     amenities: amenitiesArr.join(';'),
     wellnessFriendly: Boolean(scraped.wellnessFriendly),
     smokeFriendly: false,
-    imageUrls: scraped.images?.filter((u) => typeof u === 'string' && u.startsWith('http')) || [],
+    imageUrls: (scraped.images || [])
+      .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
+      .map((u) => unwrapProxiedImageUrl(u)),
     sourceUrl,
   };
 }
@@ -263,8 +266,10 @@ export default function BulkImportPage() {
       const imageUrlsStr = row.image_urls || row.imageurls || row.images || '';
       const imageUrls = imageUrlsStr
         .split('|')
-        .map(url => url.trim())
-        .filter(url => url && (url.startsWith('http://') || url.startsWith('https://')));
+        .map((url) => url.trim())
+        .filter((url) => url && (url.startsWith('http://') || url.startsWith('https://')))
+        .map((url) => unwrapProxiedImageUrl(url))
+        .filter(Boolean);
 
       properties.push({
         name: row.name,
@@ -481,7 +486,7 @@ export default function BulkImportPage() {
           description: property.description,
           location: property.location,
           price: property.price,
-          images: property.imageUrls || [],
+          images: (property.imageUrls || []).map((u) => unwrapProxiedImageUrl(u)),
           amenities: amenitiesArray,
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,

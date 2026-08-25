@@ -132,6 +132,7 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [galleryUseOriginal, setGalleryUseOriginal] = useState(false);
+  const [failedGallerySrcs, setFailedGallerySrcs] = useState<Set<string>>(() => new Set());
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadingFavorite, setLoadingFavorite] = useState(false);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
@@ -278,6 +279,22 @@ export default function ListingDetailPage() {
     setGalleryUseOriginal(false);
   }, [currentImageIndex, property?.id]);
 
+  useEffect(() => {
+    setFailedGallerySrcs(new Set());
+    setCurrentImageIndex(0);
+  }, [property?.id]);
+
+  const galleryImages = useMemo(() => {
+    if (!property?.images?.length) return [PDP_IMAGE_PLACEHOLDER];
+    const usable = property.images.filter((url) => !failedGallerySrcs.has(url));
+    return usable.length > 0 ? usable : [PDP_IMAGE_PLACEHOLDER];
+  }, [property?.images, failedGallerySrcs]);
+
+  useEffect(() => {
+    if (currentImageIndex > galleryImages.length - 1) {
+      setCurrentImageIndex(Math.max(0, galleryImages.length - 1));
+    }
+  }, [currentImageIndex, galleryImages.length]);
   useEffect(() => {
     const loadProperty = async () => {
       setLoading(true);
@@ -500,14 +517,14 @@ export default function ListingDetailPage() {
   }, [params.id]);
 
   const nextImage = () => {
-    if (property) {
-      setCurrentImageIndex((prev) => (prev + 1) % property.images.length);
+    if (galleryImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
     }
   };
 
   const prevImage = () => {
-    if (property) {
-      setCurrentImageIndex((prev) => (prev - 1 + property.images.length) % property.images.length);
+    if (galleryImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
     }
   };
 
@@ -722,8 +739,8 @@ export default function ListingDetailPage() {
       : property.rating;
 
   const heroRaw =
-    property.images[currentImageIndex] ??
-    property.images[0] ??
+    galleryImages[currentImageIndex] ??
+    galleryImages[0] ??
     PDP_IMAGE_PLACEHOLDER;
   const heroDisplaySrc =
     galleryUseOriginal || heroRaw.startsWith('data:') ? heroRaw : listingGalleryImageUrl(heroRaw);
@@ -820,19 +837,15 @@ export default function ListingDetailPage() {
                   setGalleryUseOriginal(true);
                   return;
                 }
-                // Skip dead remote URLs (e.g. expired Airbnb CDN) for the next slide / placeholder.
+                // Skip dead remote URLs without collapsing the gallery back to slide 1.
                 if (heroRaw === PDP_IMAGE_PLACEHOLDER) return;
-                setProperty((prev) => {
-                  if (!prev) return prev;
-                  const remaining = prev.images.filter((url) => url !== heroRaw);
-                  const nextImages =
-                    remaining.length > 0
-                      ? remaining
-                      : [PDP_IMAGE_PLACEHOLDER];
-                  return { ...prev, images: nextImages };
+                setFailedGallerySrcs((prev) => {
+                  if (prev.has(heroRaw)) return prev;
+                  const next = new Set(prev);
+                  next.add(heroRaw);
+                  return next;
                 });
                 setGalleryUseOriginal(false);
-                setCurrentImageIndex(0);
               }}
             />
 
@@ -849,7 +862,7 @@ export default function ListingDetailPage() {
               />
             </div>
 
-            {property.images.length > 1 && (
+            {galleryImages.length > 1 && (
               <>
                 <button
                   onClick={prevImage}
@@ -863,15 +876,20 @@ export default function ListingDetailPage() {
                 >
                   <ChevronRight size={24} />
                 </button>
-                <div className="absolute bottom-4 left-1/2 z-[5] -translate-x-1/2 flex gap-2">
-                  {property.images.map((_, index) => (
+                <div className="absolute bottom-4 left-1/2 z-[5] -translate-x-1/2 flex gap-2 max-w-[90%] overflow-hidden">
+                  {galleryImages.slice(0, 20).map((_, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full transition ${index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
+                      className={`w-2 h-2 rounded-full transition shrink-0 ${index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
                         }`}
                     />
                   ))}
+                  {galleryImages.length > 20 ? (
+                    <span className="text-white/70 text-xs self-center ml-1">
+                      {currentImageIndex + 1}/{galleryImages.length}
+                    </span>
+                  ) : null}
                 </div>
               </>
             )}
