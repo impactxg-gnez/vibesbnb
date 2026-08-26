@@ -34,6 +34,7 @@ import {
 } from '@/lib/cancellationPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
+import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 
 async function bustListingCache(propertyId: string) {
   try {
@@ -674,49 +675,57 @@ export default function EditPropertyPage() {
         if (error) {
           throw error;
         }
-        
-        // Also update localStorage as backup
-        const savedProperties = localStorage.getItem(`properties_${cacheScope}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        const updatedProperties = parsedProperties.map((p: any) =>
-          p.id === formData.id
-            ? {
-                ...p,
-                name: formData.name,
-                description: formData.description,
-                location: formData.location,
-                bedrooms: formData.bedrooms,
-                beds: formData.beds,
-                bathrooms: formData.bathrooms,
-                guests: formData.guests,
-                price: formData.price,
-                wellnessFriendly: formData.wellnessFriendly,
-                wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
-                wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
-                smokingInsideAllowed: false,
-                smokingOutsideAllowed: false,
-                smokeFriendly: false,
-                cleaning_fee: formData.cleaningFee,
-                cleaningFee: formData.cleaningFee,
-                refundable_deposit: formData.refundableDeposit,
-                refundableDeposit: formData.refundableDeposit,
-                min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
-                minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
-                checkInOut: formData.checkInOut,
-                ...policyToDbColumns(formData.checkInOut),
-                amenities: formData.amenities,
-                images: allImageUrls,
-                rooms: roomsData,
-                coordinates: formData.coordinates,
-                googleMapsUrl: formData.googleMapsUrl,
-                guestAgreementUrl: formData.guestAgreementUrl,
-                guest_agreement_url: formData.guestAgreementUrl,
-                status: newStatus,
-              }
-            : p
-        );
-        localStorage.setItem(`properties_${cacheScope}`, JSON.stringify(updatedProperties));
-        console.log('[Edit Property] Property also updated in localStorage as backup');
+
+        // Optional local cache — never store data-URL images; never fail the save on quota
+        try {
+          const savedProperties = localStorage.getItem(`properties_${cacheScope}`);
+          const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
+          const updatedProperties = (Array.isArray(parsedProperties) ? parsedProperties : []).map(
+            (p: Record<string, unknown>) =>
+              p.id === formData.id
+                ? {
+                    ...p,
+                    name: formData.name,
+                    description: formData.description,
+                    location: formData.location,
+                    bedrooms: formData.bedrooms,
+                    beds: formData.beds,
+                    bathrooms: formData.bathrooms,
+                    guests: formData.guests,
+                    price: formData.price,
+                    wellnessFriendly: formData.wellnessFriendly,
+                    wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
+                    wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
+                    smokingInsideAllowed: false,
+                    smokingOutsideAllowed: false,
+                    smokeFriendly: false,
+                    cleaning_fee: formData.cleaningFee,
+                    cleaningFee: formData.cleaningFee,
+                    refundable_deposit: formData.refundableDeposit,
+                    refundableDeposit: formData.refundableDeposit,
+                    min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+                    minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
+                    checkInOut: formData.checkInOut,
+                    ...policyToDbColumns(formData.checkInOut),
+                    amenities: formData.amenities,
+                    // Prefer remote URLs only — data: previews blow localStorage quota
+                    images: allImageUrls.filter((u) => /^https?:\/\//i.test(u)),
+                    rooms: roomsData.map((r: { images?: string[] }) => ({
+                      ...r,
+                      images: (r.images || []).filter((u) => /^https?:\/\//i.test(u)),
+                    })),
+                    coordinates: formData.coordinates,
+                    googleMapsUrl: formData.googleMapsUrl,
+                    guestAgreementUrl: formData.guestAgreementUrl,
+                    guest_agreement_url: formData.guestAgreementUrl,
+                    status: newStatus,
+                  }
+                : p
+          );
+          writeHostPropertiesCache(cacheScope, updatedProperties);
+        } catch {
+          /* ignore cache errors */
+        }
 
         await bustListingCache(formData.id);
         toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
@@ -763,8 +772,13 @@ export default function EditPropertyPage() {
               }
             : p
         );
-        
-        localStorage.setItem(`properties_${cacheScope}`, JSON.stringify(updatedProperties));
+
+        if (!writeHostPropertiesCache(cacheScope, updatedProperties)) {
+          toast.error(
+            'Browser storage is full. Images may not persist offline — use an account with Supabase configured.'
+          );
+          return;
+        }
         toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
       }

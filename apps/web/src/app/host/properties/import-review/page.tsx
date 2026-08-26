@@ -13,6 +13,7 @@ import {
 import LocationPicker from '@/components/LocationPicker';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
+import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
 interface Room {
@@ -502,7 +503,7 @@ export default function ImportReviewPage() {
             coordinates: formData.coordinates,
           };
           parsedProperties.push(backupProperty);
-          localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+          writeHostPropertiesCache(userId, parsedProperties);
           console.log('[Import Review] Property saved to localStorage as backup due to Supabase error');
 
           setSaving(false);
@@ -543,7 +544,7 @@ export default function ImportReviewPage() {
           googleMapsUrl: formData.googleMapsUrl,
         };
         parsedProperties.push(backupProperty);
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+        writeHostPropertiesCache(userId, parsedProperties);
         console.log('[Import Review] Property also saved to localStorage as backup');
 
         toast.success(isPublishing ? 'Property published successfully!' : 'Property saved as draft!');
@@ -582,7 +583,7 @@ export default function ImportReviewPage() {
         const savedProperties = localStorage.getItem(`properties_${userId}`);
         const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
         parsedProperties.push(newProperty);
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+        writeHostPropertiesCache(userId, parsedProperties);
 
         toast.success(isPublishing ? 'Property published successfully!' : 'Property saved as draft!');
         sessionStorage.removeItem('importedPropertyData');

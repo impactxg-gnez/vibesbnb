@@ -53,6 +53,7 @@ import {
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { ALL_CATALOG_AMENITIES } from '@/lib/propertyAmenityCatalog';
+import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import {
   cannabisShortLabel,
 } from '@/lib/consumptionPolicy';
@@ -394,7 +395,7 @@ export default function NewPropertyPage() {
           smokingOutsideAllowed: false,
           smokeFriendly: false,
         });
-        localStorage.setItem(`properties_${userId}`, JSON.stringify(parsedProperties));
+        writeHostPropertiesCache(userId, parsedProperties);
 
         toast.success('Property published!');
         router.push('/host/application-submitted');

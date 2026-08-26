@@ -26,6 +26,7 @@ import {
   onImpersonationChanged,
 } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
+import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 
 interface Property {
   id: string;
@@ -387,8 +388,11 @@ export default function HostPropertiesPage() {
             }
 
             setProperties(finalProperties);
-            // Sync back to localStorage to ensure persistence (includes both Supabase and localStorage properties)
-            localStorage.setItem(`properties_${hostScopeId}`, JSON.stringify(finalProperties));
+            // Sync slim metadata only — never base64 images (quota)
+            writeHostPropertiesCache(
+              hostScopeId,
+              finalProperties as unknown as Record<string, unknown>[]
+            );
             console.log('[Properties] Synced', finalProperties.length, 'properties to localStorage');
             // Load stats after properties are loaded
             setTimeout(() => loadStats(), 100);
@@ -817,7 +821,10 @@ export default function HostPropertiesPage() {
         const scopeKey = supabaseUser
           ? getHostScopeUserId(user, supabaseUser.id)
           : getHostScopeUserIdFromAuthOnly(user) || user.id;
-        localStorage.setItem(`properties_${scopeKey}`, JSON.stringify(updatedProperties));
+        writeHostPropertiesCache(
+          scopeKey,
+          updatedProperties as unknown as Record<string, unknown>[]
+        );
       }
 
       setSelectedProperties([]);
@@ -1006,7 +1013,10 @@ export default function HostPropertiesPage() {
         const scopeKey = supabaseUser
           ? getHostScopeUserId(user, supabaseUser.id)
           : getHostScopeUserIdFromAuthOnly(user) || user.id;
-        localStorage.setItem(`properties_${scopeKey}`, JSON.stringify(updatedProperties));
+        writeHostPropertiesCache(
+          scopeKey,
+          updatedProperties as unknown as Record<string, unknown>[]
+        );
         console.log('[Toggle Publish] Property status synced to localStorage');
       }
 
@@ -1051,7 +1061,10 @@ export default function HostPropertiesPage() {
         const scopeKey = supabaseUser
           ? getHostScopeUserId(user, supabaseUser.id)
           : getHostScopeUserIdFromAuthOnly(user) || user.id;
-        localStorage.setItem(`properties_${scopeKey}`, JSON.stringify(updatedProperties));
+        writeHostPropertiesCache(
+          scopeKey,
+          updatedProperties as unknown as Record<string, unknown>[]
+        );
       }
 
       loadStats();
