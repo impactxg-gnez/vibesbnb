@@ -24,6 +24,8 @@ export type BookingQuoteInput = {
   /** When true, include PayPal card processing fee in grand total. */
   applyCardFee?: boolean;
   feePercent?: number;
+  earlyCheckInFee?: number;
+  lateCheckOutFee?: number;
 };
 
 export type BookingQuote = {
@@ -42,6 +44,8 @@ export type BookingQuote = {
   touristTax: number;
   touristTaxPercent: number;
   cleaningFee: number;
+  earlyCheckInFee: number;
+  lateCheckOutFee: number;
   cardFee: number;
   cardFeePercent: number;
   grandTotal: number;
@@ -108,9 +112,11 @@ export function computeBookingQuote(input: BookingQuoteInput): BookingQuote | nu
   const salesTax = roundMoney(taxableAmount * (SALES_TAX_PERCENT / 100));
   const touristTax = roundMoney(taxableAmount * (TOURIST_DEVELOPMENT_TAX_PERCENT / 100));
   const cleaningFee = roundMoney(Math.max(0, Number(input.hostCleaningFee) || 0));
+  const earlyCheckInFee = roundMoney(Math.max(0, Number(input.earlyCheckInFee) || 0));
+  const lateCheckOutFee = roundMoney(Math.max(0, Number(input.lateCheckOutFee) || 0));
 
   const subtotalBeforeCard = roundMoney(
-    taxableAmount + salesTax + touristTax + cleaningFee
+    taxableAmount + salesTax + touristTax + cleaningFee + earlyCheckInFee + lateCheckOutFee
   );
   const cardFee = input.applyCardFee
     ? roundMoney(subtotalBeforeCard * (PAYPAL_CARD_FEE_PERCENT / 100))
@@ -134,6 +140,8 @@ export function computeBookingQuote(input: BookingQuoteInput): BookingQuote | nu
     touristTax,
     touristTaxPercent: TOURIST_DEVELOPMENT_TAX_PERCENT,
     cleaningFee,
+    earlyCheckInFee,
+    lateCheckOutFee,
     cardFee,
     cardFeePercent: PAYPAL_CARD_FEE_PERCENT,
     grandTotal,
@@ -173,6 +181,8 @@ export function buildBookingQuoteFromProperty(params: {
   pets?: number;
   wellnessLineItems?: WellnessQuoteLine[];
   applyCardFee?: boolean;
+  earlyCheckInFee?: number;
+  lateCheckOutFee?: number;
 }): BookingQuote | null {
   const cleaning =
     params.property.cleaning_fee != null
@@ -201,5 +211,7 @@ export function buildBookingQuoteFromProperty(params: {
     pets: params.pets,
     wellnessLineItems: params.wellnessLineItems,
     applyCardFee: params.applyCardFee,
+    earlyCheckInFee: params.earlyCheckInFee,
+    lateCheckOutFee: params.lateCheckOutFee,
   });
 }

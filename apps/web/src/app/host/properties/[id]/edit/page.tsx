@@ -16,6 +16,14 @@ import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
+import { CheckInOutPolicyEditor } from '@/components/host/CheckInOutPolicyEditor';
+import {
+  EMPTY_CHECK_IN_OUT_POLICY,
+  policyFromDbRow,
+  policyToDbColumns,
+  type CheckInOutPolicy,
+  validateCheckInOutPolicy,
+} from '@/lib/checkInOutPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
@@ -50,6 +58,7 @@ interface Property {
   minBookingNights: number | null;
   /** When true, guests can pay immediately without messaging for approval first */
   allowDirectBooking: boolean;
+  checkInOut: CheckInOutPolicy;
   amenities: string[];
   images: File[];
   imagePreviewUrls: string[];
@@ -87,6 +96,7 @@ export default function EditPropertyPage() {
     refundableDeposit: 0,
     minBookingNights: null,
     allowDirectBooking: false,
+    checkInOut: { ...EMPTY_CHECK_IN_OUT_POLICY },
     amenities: [],
     images: [],
     imagePreviewUrls: [],
@@ -196,6 +206,7 @@ export default function EditPropertyPage() {
               guestAgreementUrl: propertyData.guest_agreement_url || '',
               minBookingNights: normalizeMinBookingNights(propertyData.min_booking_nights),
               allowDirectBooking: propertyData.allow_direct_booking === true,
+              checkInOut: policyFromDbRow(propertyData),
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
@@ -287,6 +298,7 @@ export default function EditPropertyPage() {
                   property.min_booking_nights ?? property.minBookingNights
                 ),
                 allowDirectBooking: property.allowDirectBooking === true || property.allow_direct_booking === true,
+                checkInOut: policyFromDbRow(property),
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -508,6 +520,12 @@ export default function EditPropertyPage() {
       return;
     }
 
+    const checkInOutError = validateCheckInOutPolicy(formData.checkInOut);
+    if (checkInOutError) {
+      toast.error(checkInOutError);
+      return;
+    }
+
     setSaving(true);
     
     const newStatus = publish ? 'active' : 'draft';
@@ -592,6 +610,7 @@ export default function EditPropertyPage() {
             refundable_deposit: formData.refundableDeposit,
             min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
             allow_direct_booking: formData.allowDirectBooking,
+            ...policyToDbColumns(formData.checkInOut),
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -640,6 +659,8 @@ export default function EditPropertyPage() {
                 refundableDeposit: formData.refundableDeposit,
                 min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
                 minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
+                checkInOut: formData.checkInOut,
+                ...policyToDbColumns(formData.checkInOut),
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -685,6 +706,8 @@ export default function EditPropertyPage() {
                 refundableDeposit: formData.refundableDeposit,
                 min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
                 minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
+                checkInOut: formData.checkInOut,
+                ...policyToDbColumns(formData.checkInOut),
                 amenities: formData.amenities,
                 images: allImageUrls,
                 rooms: roomsData,
@@ -1110,6 +1133,13 @@ export default function EditPropertyPage() {
                 />
               </div>
             )}
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <CheckInOutPolicyEditor
+              value={formData.checkInOut}
+              onChange={(checkInOut) => setFormData({ ...formData, checkInOut })}
+            />
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">

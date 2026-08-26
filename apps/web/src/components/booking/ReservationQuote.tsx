@@ -216,6 +216,20 @@ export function ReservationQuote({
           </div>
         )}
 
+        {quote.earlyCheckInFee > 0 && (
+          <div className="flex justify-between text-gray-400">
+            <span>Early check-in</span>
+            <span className="text-white">{money(quote.earlyCheckInFee)}</span>
+          </div>
+        )}
+
+        {quote.lateCheckOutFee > 0 && (
+          <div className="flex justify-between text-gray-400">
+            <span>Late check-out</span>
+            <span className="text-white">{money(quote.lateCheckOutFee)}</span>
+          </div>
+        )}
+
         {showCardFee && quote.cardFee > 0 && (
           <div className="flex justify-between text-gray-400">
             <span>Credit card fee ({quote.cardFeePercent}%)</span>

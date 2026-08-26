@@ -36,6 +36,13 @@ import { applyWatermark } from '@/lib/image-utils';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
+import { CheckInOutPolicyEditor } from '@/components/host/CheckInOutPolicyEditor';
+import {
+  EMPTY_CHECK_IN_OUT_POLICY,
+  policyToDbColumns,
+  validateCheckInOutPolicy,
+  type CheckInOutPolicy,
+} from '@/lib/checkInOutPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { ALL_CATALOG_AMENITIES } from '@/lib/propertyAmenityCatalog';
@@ -108,6 +115,7 @@ export default function NewPropertyPage() {
     cleaningFee: 0,
     refundableDeposit: 0,
     minBookingNights: null as number | null,
+    checkInOut: { ...EMPTY_CHECK_IN_OUT_POLICY } as CheckInOutPolicy,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
@@ -262,6 +270,13 @@ export default function NewPropertyPage() {
         return;
       }
 
+      const checkInOutError = validateCheckInOutPolicy(formData.checkInOut);
+      if (checkInOutError) {
+        toast.error(checkInOutError);
+        setSaving(false);
+        return;
+      }
+
       const supabase = createClient();
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -341,6 +356,7 @@ export default function NewPropertyPage() {
         cleaning_fee: formData.cleaningFee,
         refundable_deposit: formData.refundableDeposit,
         min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+        ...policyToDbColumns(formData.checkInOut),
         latitude: formData.coordinates?.lat,
         longitude: formData.coordinates?.lng,
         google_maps_url: formData.coordinates
@@ -1042,6 +1058,13 @@ export default function NewPropertyPage() {
             />
           </div>
         )}
+      </div>
+
+      <div className="mt-8 p-6 bg-gray-900 border border-gray-800 rounded-xl">
+        <CheckInOutPolicyEditor
+          value={formData.checkInOut}
+          onChange={(checkInOut) => setFormData({ ...formData, checkInOut })}
+        />
       </div>
     </div>
   );

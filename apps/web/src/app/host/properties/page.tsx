@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed, Clock } from 'lucide-react';
 import { validateProperty, getMissingFieldsSummary, canPublish, PropertyValidation } from '@/lib/property-validation';
+import { propertyMissingCheckInOutTimes } from '@/lib/checkInOutPolicy';
 
 interface BookingSummaryItem {
   id: string;
@@ -40,6 +41,8 @@ interface Property {
   amenities?: string[];
   status: 'active' | 'draft' | 'inactive' | 'pending_approval';
   wellnessFriendly: boolean;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
   googleMapsUrl?: string;
   sourceUrl?: string;
   coordinates?: {
@@ -278,6 +281,8 @@ export default function HostPropertiesPage() {
                 amenities: p.amenities || [],
                 status: (p.status || 'active') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                 wellnessFriendly: p.wellness_friendly || false,
+                check_in_time: p.check_in_time ?? null,
+                check_out_time: p.check_out_time ?? null,
                 googleMapsUrl: p.google_maps_url,
                 sourceUrl: p.source_url,
                 coordinates: p.latitude && p.longitude ? {
@@ -328,6 +333,8 @@ export default function HostPropertiesPage() {
                     amenities: localProp.amenities || [],
                     status: (localProp.status || 'draft') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                     wellnessFriendly: localProp.wellnessFriendly || false,
+                    check_in_time: localProp.check_in_time ?? localProp.checkInTime ?? null,
+                    check_out_time: localProp.check_out_time ?? localProp.checkOutTime ?? null,
                     googleMapsUrl: localProp.googleMapsUrl,
                     sourceUrl: localProp.sourceUrl,
                     coordinates: localProp.coordinates,
@@ -1282,6 +1289,48 @@ export default function HostPropertiesPage() {
           );
         })()}
 
+        {/* Check-in / check-out times — warning only; listing stays active */}
+        {(() => {
+          const missingTimes = properties.filter(
+            (p) => p.status !== 'inactive' && propertyMissingCheckInOutTimes(p)
+          );
+          if (missingTimes.length === 0) return null;
+          return (
+            <div className="mb-6 bg-amber-500/10 border border-amber-500/35 rounded-2xl p-5">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <Clock className="text-amber-300" size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-amber-200 font-bold text-lg mb-1">Add check-in &amp; check-out times</h3>
+                  <p className="text-amber-100/75 text-sm mb-3">
+                    Guests need to know when they can arrive and leave. Set standard times on each listing
+                    (and optionally allow early check-in or late check-out).
+                  </p>
+                  <ul className="space-y-2">
+                    {missingTimes.slice(0, 8).map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-white font-medium truncate max-w-[220px] sm:max-w-xs">{p.name}</span>
+                        <Link
+                          href={`/host/properties/${p.id}/edit`}
+                          className="text-amber-300 hover:text-amber-200 font-semibold underline underline-offset-2"
+                        >
+                          Edit listing
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  {missingTimes.length > 8 && (
+                    <p className="text-amber-200/60 text-xs mt-2">
+                      + {missingTimes.length - 8} more — open each listing to set times.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -1774,6 +1823,12 @@ export default function HostPropertiesPage() {
                         }
                         return null;
                       })()}
+                      {propertyMissingCheckInOutTimes(property) && (
+                        <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-amber-600 text-white flex items-center gap-1">
+                          <Clock size={10} />
+                          Missing times
+                        </span>
+                      )}
                     </div>
                     {property.wellnessFriendly && (
                       <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full">

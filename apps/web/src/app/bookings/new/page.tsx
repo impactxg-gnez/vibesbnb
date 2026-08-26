@@ -19,6 +19,15 @@ import { buildGuestAgreementNotice } from '@/lib/guestAgreementCopy';
 import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import {
+  computeEarlyLateFees,
+  earlyCheckInTimeOptions,
+  formatHhmmLabel,
+  lateCheckOutTimeOptions,
+  normalizeHhmm,
+  policyFromDbRow,
+  type CheckInOutPolicy,
+} from '@/lib/checkInOutPolicy';
+import {
   clearWellnessCartForBooking,
   loadWellnessCartForBooking,
   type WellnessBookingLineItem,
@@ -45,6 +54,7 @@ interface Property {
   extraGuestPrice?: number;
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
+  checkInOut?: CheckInOutPolicy;
   /** Host-uploaded PDF URL (optional); snapshot stored on booking */
   guest_agreement_url?: string | null;
   wellness_consumption_indoor_allowed?: boolean;
@@ -87,6 +97,10 @@ export default function NewBookingPage() {
     kids: initialKids,
     pets: initialPets,
     specialRequests: '',
+    earlyCheckInRequested: false,
+    requestedEarlyCheckInTime: '' as string,
+    lateCheckOutRequested: false,
+    requestedLateCheckOutTime: '' as string,
   });
   const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
@@ -217,6 +231,7 @@ export default function NewBookingPage() {
         rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
         minBookingNights: normalizeMinBookingNights(propertyRow.min_booking_nights),
         allowDirectBooking: propertyRow.allow_direct_booking === true,
+        checkInOut: policyFromDbRow(propertyRow),
       });
 
       // If units were selected, filter them
@@ -275,6 +290,28 @@ export default function NewBookingPage() {
     }
   };
 
+  const earlyLateFees =
+    property?.checkInOut != null
+      ? computeEarlyLateFees({
+          policy: property.checkInOut,
+          earlyRequested: formData.earlyCheckInRequested,
+          lateRequested: formData.lateCheckOutRequested,
+        })
+      : { earlyFee: 0, lateFee: 0, total: 0 };
+
+  const earlyTimeChoices = property?.checkInOut
+    ? earlyCheckInTimeOptions(
+        property.checkInOut.earliestEarlyCheckInTime,
+        property.checkInOut.checkInTime
+      )
+    : [];
+  const lateTimeChoices = property?.checkInOut
+    ? lateCheckOutTimeOptions(
+        property.checkInOut.checkOutTime,
+        property.checkInOut.latestLateCheckOutTime
+      )
+    : [];
+
   const bookingQuote =
     property && formData.checkIn && formData.checkOut
       ? buildBookingQuoteFromProperty({
@@ -294,6 +331,8 @@ export default function NewBookingPage() {
           pets: formData.pets,
           wellnessLineItems: wellnessLineItems,
           applyCardFee: property.allowDirectBooking === true,
+          earlyCheckInFee: earlyLateFees.earlyFee,
+          lateCheckOutFee: earlyLateFees.lateFee,
         })
       : null;
 
@@ -340,6 +379,30 @@ export default function NewBookingPage() {
     if (property.allowExtraGuests && formData.guests < 1) {
       toast.error('Please enter at least 1 adult');
       return false;
+    }
+
+    const policy = property.checkInOut;
+    if (formData.earlyCheckInRequested) {
+      if (!policy?.earlyCheckInAllowed) {
+        toast.error('Early check-in is not available for this property.');
+        return false;
+      }
+      const t = normalizeHhmm(formData.requestedEarlyCheckInTime);
+      if (!t || !earlyTimeChoices.includes(t)) {
+        toast.error('Please select a valid early check-in time.');
+        return false;
+      }
+    }
+    if (formData.lateCheckOutRequested) {
+      if (!policy?.lateCheckOutAllowed) {
+        toast.error('Late check-out is not available for this property.');
+        return false;
+      }
+      const t = normalizeHhmm(formData.requestedLateCheckOutTime);
+      if (!t || !lateTimeChoices.includes(t)) {
+        toast.error('Please select a valid late check-out time.');
+        return false;
+      }
     }
 
     const nightKeys = enumerateStayNightsYmd(formData.checkIn, formData.checkOut);
@@ -428,6 +491,14 @@ export default function NewBookingPage() {
           total_price: bookingQuote.grandTotal,
           special_requests: formData.specialRequests || '',
           wellness_line_items: wellnessLineItems,
+          early_check_in_requested: formData.earlyCheckInRequested,
+          requested_early_check_in_time: formData.earlyCheckInRequested
+            ? normalizeHhmm(formData.requestedEarlyCheckInTime)
+            : null,
+          late_check_out_requested: formData.lateCheckOutRequested,
+          requested_late_check_out_time: formData.lateCheckOutRequested
+            ? normalizeHhmm(formData.requestedLateCheckOutTime)
+            : null,
           guest_name: user.user_metadata?.full_name || user.email || 'Guest',
           guest_email: user.email || '',
           selected_units: selectedUnits.length > 0 ? selectedUnits : null,
@@ -562,6 +633,107 @@ export default function NewBookingPage() {
                   <Calendar size={14} className="shrink-0" aria-hidden />
                   {minNightsLabel(property.minBookingNights)}
                 </p>
+              )}
+              {(property.checkInOut?.checkInTime || property.checkInOut?.checkOutTime) && (
+                <div className="rounded-lg border border-gray-700 bg-gray-800/40 px-4 py-3 text-sm text-gray-300 space-y-1">
+                  {property.checkInOut.checkInTime && (
+                    <p>Standard check-in: {formatHhmmLabel(property.checkInOut.checkInTime)}</p>
+                  )}
+                  {property.checkInOut.checkOutTime && (
+                    <p>Standard check-out: {formatHhmmLabel(property.checkInOut.checkOutTime)}</p>
+                  )}
+                </div>
+              )}
+              {(property.checkInOut?.earlyCheckInAllowed ||
+                property.checkInOut?.lateCheckOutAllowed) && (
+                <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4 space-y-4">
+                  <p className="text-white font-medium text-sm">Flexible arrival &amp; departure</p>
+                  {property.checkInOut.earlyCheckInAllowed && earlyTimeChoices.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.earlyCheckInRequested}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setFormData({
+                              ...formData,
+                              earlyCheckInRequested: on,
+                              requestedEarlyCheckInTime: on
+                                ? formData.requestedEarlyCheckInTime || earlyTimeChoices[0]
+                                : '',
+                            });
+                          }}
+                          className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-800 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-sm text-gray-300">
+                          Request early check-in
+                          {property.checkInOut.earlyCheckInFee > 0
+                            ? ` (+$${property.checkInOut.earlyCheckInFee.toFixed(0)})`
+                            : ' (free)'}
+                        </span>
+                      </label>
+                      {formData.earlyCheckInRequested && (
+                        <select
+                          value={formData.requestedEarlyCheckInTime}
+                          onChange={(e) =>
+                            setFormData({ ...formData, requestedEarlyCheckInTime: e.target.value })
+                          }
+                          className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                        >
+                          {earlyTimeChoices.map((t) => (
+                            <option key={t} value={t}>
+                              {formatHhmmLabel(t)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                  {property.checkInOut.lateCheckOutAllowed && lateTimeChoices.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.lateCheckOutRequested}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setFormData({
+                              ...formData,
+                              lateCheckOutRequested: on,
+                              requestedLateCheckOutTime: on
+                                ? formData.requestedLateCheckOutTime ||
+                                  lateTimeChoices[lateTimeChoices.length - 1]
+                                : '',
+                            });
+                          }}
+                          className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-800 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-sm text-gray-300">
+                          Request late check-out
+                          {property.checkInOut.lateCheckOutFee > 0
+                            ? ` (+$${property.checkInOut.lateCheckOutFee.toFixed(0)})`
+                            : ' (free)'}
+                        </span>
+                      </label>
+                      {formData.lateCheckOutRequested && (
+                        <select
+                          value={formData.requestedLateCheckOutTime}
+                          onChange={(e) =>
+                            setFormData({ ...formData, requestedLateCheckOutTime: e.target.value })
+                          }
+                          className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                        >
+                          {lateTimeChoices.map((t) => (
+                            <option key={t} value={t}>
+                              {formatHhmmLabel(t)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               {Object.keys(availability).length > 0 && (
                 <p className="text-xs text-red-400">

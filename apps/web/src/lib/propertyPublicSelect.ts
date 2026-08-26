@@ -41,6 +41,15 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'vibesbnb_take',
   /** When true, guest may pay immediately without host pre-approval in messages. */
   'allow_direct_booking',
+  /** Standard arrival / departure clock times (HH:mm) and optional early/late opts. */
+  'check_in_time',
+  'check_out_time',
+  'early_check_in_allowed',
+  'earliest_early_check_in_time',
+  'early_check_in_fee',
+  'late_check_out_allowed',
+  'latest_late_check_out_time',
+  'late_check_out_fee',
 ] as const;
 
 /** Search, map, cards, APIs that list many properties */

@@ -24,6 +24,7 @@ import {
   ArrowRight,
   Leaf,
   Building2,
+  Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
@@ -61,6 +62,10 @@ import { PropertyReviewForm } from '@/components/properties/PropertyReviewForm';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import {
+  formatHhmmLabel,
+  policyFromDbRow,
+} from '@/lib/checkInOutPolicy';
 import { AmenityIcon } from '@/lib/amenityIcons';
 
 const GALLERY_HERO_BLUR =
@@ -82,6 +87,7 @@ interface Property {
   /** When set, stay must be at least this many nights */
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
+  checkInOut?: import('@/lib/checkInOutPolicy').CheckInOutPolicy;
   bedrooms: number;
   /** Total beds when set (may exceed bedroom count) */
   beds?: number | null;
@@ -423,6 +429,7 @@ export default function ListingDetailPage() {
               propertyData.min_booking_nights ?? propertyData.minBookingNights
             ),
             allowDirectBooking: propertyData.allow_direct_booking === true,
+            checkInOut: policyFromDbRow(propertyData),
             refundableDeposit:
               propertyData.refundable_deposit != null
                 ? Number(propertyData.refundable_deposit)
@@ -1396,6 +1403,38 @@ export default function ListingDetailPage() {
                     <Calendar size={14} className="shrink-0" aria-hidden />
                     {minNightsLabel(property.minBookingNights)}
                   </p>
+                )}
+                {(property.checkInOut?.checkInTime || property.checkInOut?.checkOutTime) && (
+                  <div className="mt-3 space-y-1.5 text-sm text-gray-300">
+                    {property.checkInOut.checkInTime && (
+                      <p className="flex items-center gap-2">
+                        <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
+                        Check-in after {formatHhmmLabel(property.checkInOut.checkInTime)}
+                      </p>
+                    )}
+                    {property.checkInOut.checkOutTime && (
+                      <p className="flex items-center gap-2">
+                        <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
+                        Check-out before {formatHhmmLabel(property.checkInOut.checkOutTime)}
+                      </p>
+                    )}
+                    {property.checkInOut.earlyCheckInAllowed && (
+                      <p className="text-xs text-gray-400 pl-6">
+                        Early check-in from {formatHhmmLabel(property.checkInOut.earliestEarlyCheckInTime)}
+                        {property.checkInOut.earlyCheckInFee > 0
+                          ? ` · $${property.checkInOut.earlyCheckInFee.toFixed(0)}`
+                          : ' · free'}
+                      </p>
+                    )}
+                    {property.checkInOut.lateCheckOutAllowed && (
+                      <p className="text-xs text-gray-400 pl-6">
+                        Late check-out until {formatHhmmLabel(property.checkInOut.latestLateCheckOutTime)}
+                        {property.checkInOut.lateCheckOutFee > 0
+                          ? ` · $${property.checkInOut.lateCheckOutFee.toFixed(0)}`
+                          : ' · free'}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

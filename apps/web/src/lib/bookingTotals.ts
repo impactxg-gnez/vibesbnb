@@ -21,6 +21,8 @@ export function computeBookingGrandTotal(params: {
   extraGuestPrice?: number;
   refundableDeposit?: number;
   applyCardFee?: boolean;
+  earlyCheckInFee?: number;
+  lateCheckOutFee?: number;
 }): { stayNights: number; grandTotal: number } {
   const quote = buildBookingQuoteFromProperty({
     property: {
@@ -39,6 +41,8 @@ export function computeBookingGrandTotal(params: {
     pets: params.pets,
     wellnessLineItems: params.wellnessLineItems as WellnessQuoteLine[],
     applyCardFee: params.applyCardFee,
+    earlyCheckInFee: params.earlyCheckInFee,
+    lateCheckOutFee: params.lateCheckOutFee,
   });
 
   const stayNights = nightsBetweenYmd(params.checkInYmd, params.checkOutYmd);

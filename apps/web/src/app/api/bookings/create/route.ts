@@ -4,6 +4,13 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { computeBookingGrandTotal, totalsMatchCents } from '@/lib/bookingTotals';
+import {
+  computeEarlyLateFees,
+  earlyCheckInTimeOptions,
+  lateCheckOutTimeOptions,
+  normalizeHhmm,
+  policyFromDbRow,
+} from '@/lib/checkInOutPolicy';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
 import {
   assertStayDoesNotConflict,
@@ -34,6 +41,10 @@ export async function POST(request: NextRequest) {
       guest_agreement_accepted,
       guest_agreement_signer_name,
       wellness_line_items,
+      early_check_in_requested,
+      requested_early_check_in_time,
+      late_check_out_requested,
+      requested_late_check_out_time,
     } = body;
 
     // Validate required fields
@@ -74,7 +85,7 @@ export async function POST(request: NextRequest) {
     const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
       .select(
-        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit'
+        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee'
       )
       .eq('id', property_id)
       .single();
@@ -149,6 +160,64 @@ export async function POST(request: NextRequest) {
         image: typeof row.image === 'string' ? row.image : row.image === null ? null : undefined,
       }));
 
+    const checkInOutPolicy = policyFromDbRow(propertyRow as Record<string, unknown>);
+    const earlyRequested = early_check_in_requested === true;
+    const lateRequested = late_check_out_requested === true;
+    let requestedEarly = earlyRequested
+      ? normalizeHhmm(requested_early_check_in_time)
+      : null;
+    let requestedLate = lateRequested
+      ? normalizeHhmm(requested_late_check_out_time)
+      : null;
+
+    if (earlyRequested) {
+      if (!checkInOutPolicy.earlyCheckInAllowed) {
+        return NextResponse.json(
+          { error: 'Early check-in is not available for this property.' },
+          { status: 400 }
+        );
+      }
+      const allowedEarly = earlyCheckInTimeOptions(
+        checkInOutPolicy.earliestEarlyCheckInTime,
+        checkInOutPolicy.checkInTime
+      );
+      if (!requestedEarly || !allowedEarly.includes(requestedEarly)) {
+        return NextResponse.json(
+          { error: 'Please select a valid early check-in time.' },
+          { status: 400 }
+        );
+      }
+    } else {
+      requestedEarly = null;
+    }
+
+    if (lateRequested) {
+      if (!checkInOutPolicy.lateCheckOutAllowed) {
+        return NextResponse.json(
+          { error: 'Late check-out is not available for this property.' },
+          { status: 400 }
+        );
+      }
+      const allowedLate = lateCheckOutTimeOptions(
+        checkInOutPolicy.checkOutTime,
+        checkInOutPolicy.latestLateCheckOutTime
+      );
+      if (!requestedLate || !allowedLate.includes(requestedLate)) {
+        return NextResponse.json(
+          { error: 'Please select a valid late check-out time.' },
+          { status: 400 }
+        );
+      }
+    } else {
+      requestedLate = null;
+    }
+
+    const { earlyFee, lateFee } = computeEarlyLateFees({
+      policy: checkInOutPolicy,
+      earlyRequested,
+      lateRequested,
+    });
+
     const cleaning = propertyRow.cleaning_fee != null ? Number(propertyRow.cleaning_fee) : 0;
     const { grandTotal: expectedGrandTotal } = computeBookingGrandTotal({
       propertyNightlyPrice: Number(propertyRow.price) || 0,
@@ -167,6 +236,8 @@ export async function POST(request: NextRequest) {
       refundableDeposit:
         propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
       applyCardFee: propertyRow.allow_direct_booking === true,
+      earlyCheckInFee: earlyFee,
+      lateCheckOutFee: lateFee,
     });
 
     if (!totalsMatchCents(Number(total_price), expectedGrandTotal)) {
@@ -246,6 +317,10 @@ export async function POST(request: NextRequest) {
         guest_agreement_document_url: propertyRow.guest_agreement_url || null,
         wellness_line_items:
           wellnessLineItemsSanitized.length > 0 ? wellnessLineItemsSanitized : [],
+        early_check_in_requested: earlyRequested,
+        requested_early_check_in_time: requestedEarly,
+        late_check_out_requested: lateRequested,
+        requested_late_check_out_time: requestedLate,
       })
       .select()
       .single();
