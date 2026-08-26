@@ -279,11 +279,6 @@ export function Header() {
             />
           </nav>
 
-          {/* Mobile / tablet: compact vibe picker */}
-          <div className="flex lg:hidden flex-1 justify-center min-w-0 px-1">
-            <ChooseYourVibeMenu activeCategory={headerCategoryChip} />
-          </div>
-
           {/* Right Side */}
           <div className="flex items-center space-x-1.5 sm:space-x-3 md:space-x-6 shrink-0 min-w-0">
             <Link
@@ -745,6 +740,15 @@ export function Header() {
               </>
             )}
           </div>
+        </div>
+
+        {/* Phone/tablet: vibe picker on its own row so it never covers the logo */}
+        <div className="lg:hidden pb-2.5 -mt-1">
+          <ChooseYourVibeMenu
+            activeCategory={headerCategoryChip}
+            className="w-full"
+            fullWidth
+          />
         </div>
       </div>
     </header>
