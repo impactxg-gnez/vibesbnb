@@ -16,11 +16,21 @@ export const viewport: Viewport = {
   themeColor: '#0a0a0a',
 };
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://vibesbnb.com';
+
 export const metadata: Metadata = {
-  title: 'VibesBNB - Wellness-Friendly Vacation Rentals',
-  description: 'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+    template: '%s | VibesBNB',
+  },
+  description:
+    'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+  applicationName: 'VibesBNB',
   icons: {
     icon: '/logo.png',
+    apple: '/logo.png',
   },
   robots: {
     index: true,
@@ -29,6 +39,31 @@ export const metadata: Metadata = {
       index: true,
       follow: true,
     },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: siteUrl,
+    siteName: 'VibesBNB',
+    title: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+    description:
+      'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'VibesBNB — Wellness-friendly vacation rentals',
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+    description:
+      'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+    images: ['/opengraph-image'],
   },
 };
 
