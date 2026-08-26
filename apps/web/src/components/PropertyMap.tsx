@@ -2,14 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 
-/** Approximate stay area shown on the listing map (meters). */
-export const PROPERTY_MAP_APPROX_RADIUS_METERS = 20;
+/** Approximate stay area shown on the listing map (meters). Public default ~450m. */
+export const PROPERTY_MAP_APPROX_RADIUS_METERS = 450;
 
 interface PropertyMapProps {
   latitude: number;
   longitude: number;
   propertyName: string;
-  /** Circle radius in meters; defaults to 20m privacy buffer. */
+  /** Circle radius in meters; defaults to ~450m privacy buffer. */
   approximateRadiusMeters?: number;
 }
 

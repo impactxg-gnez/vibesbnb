@@ -6,7 +6,6 @@ import {
   Package,
   Plane,
   Map,
-  PartyPopper,
   Car,
   Gamepad2,
   Compass,
@@ -31,12 +30,6 @@ const upcoming = [
     title: 'Guides',
     headline: 'A city that feels like yours',
     body: 'Local guides walk you through the places you\'re visiting with a complete itinerary planned: the spots worth lingering, the corners worth discovering, zero guesswork.',
-  },
-  {
-    icon: PartyPopper,
-    title: 'Houseparties',
-    headline: 'The night, fully hosted',
-    body: 'Bring the celebration home. We match houseparty hosts to what travellers want. You enjoy the party, they handle the rest. Holiday energy, zero stress.',
   },
   {
     icon: Car,

@@ -24,8 +24,24 @@ import {
   type CheckInOutPolicy,
   validateCheckInOutPolicy,
 } from '@/lib/checkInOutPolicy';
+import { CancellationSafetyEditor } from '@/components/host/CancellationSafetyEditor';
+import {
+  cancellationSafetyFromDbRow,
+  cancellationSafetyToDbColumns,
+  DEFAULT_SAFETY_FLAGS,
+  type CancellationPolicyId,
+  type SafetyFlags,
+} from '@/lib/cancellationPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
+
+async function bustListingCache(propertyId: string) {
+  try {
+    await fetch(`/api/host/properties/${propertyId}/invalidate-cache`, { method: 'POST' });
+  } catch {
+    /* non-blocking */
+  }
+}
 
 interface Room {
   id: string;
@@ -59,6 +75,9 @@ interface Property {
   /** When true, guests can pay immediately without messaging for approval first */
   allowDirectBooking: boolean;
   checkInOut: CheckInOutPolicy;
+  cancellationPolicy: CancellationPolicyId;
+  partiesAllowed: boolean;
+  safety: SafetyFlags;
   amenities: string[];
   images: File[];
   imagePreviewUrls: string[];
@@ -97,6 +116,9 @@ export default function EditPropertyPage() {
     minBookingNights: null,
     allowDirectBooking: false,
     checkInOut: { ...EMPTY_CHECK_IN_OUT_POLICY },
+    cancellationPolicy: 'flexible',
+    partiesAllowed: false,
+    safety: { ...DEFAULT_SAFETY_FLAGS },
     amenities: [],
     images: [],
     imagePreviewUrls: [],
@@ -207,6 +229,14 @@ export default function EditPropertyPage() {
               minBookingNights: normalizeMinBookingNights(propertyData.min_booking_nights),
               allowDirectBooking: propertyData.allow_direct_booking === true,
               checkInOut: policyFromDbRow(propertyData),
+              ...(() => {
+                const cs = cancellationSafetyFromDbRow(propertyData);
+                return {
+                  cancellationPolicy: cs.cancellationPolicy,
+                  partiesAllowed: cs.partiesAllowed,
+                  safety: cs.safety,
+                };
+              })(),
             };
 
             console.log('Loaded property from Supabase:', loadedProperty);
@@ -299,6 +329,14 @@ export default function EditPropertyPage() {
                 ),
                 allowDirectBooking: property.allowDirectBooking === true || property.allow_direct_booking === true,
                 checkInOut: policyFromDbRow(property),
+                ...(() => {
+                  const cs = cancellationSafetyFromDbRow(property);
+                  return {
+                    cancellationPolicy: cs.cancellationPolicy,
+                    partiesAllowed: cs.partiesAllowed,
+                    safety: cs.safety,
+                  };
+                })(),
               };
 
               console.log('Loaded property from localStorage:', loadedProperty);
@@ -611,6 +649,11 @@ export default function EditPropertyPage() {
             min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
             allow_direct_booking: formData.allowDirectBooking,
             ...policyToDbColumns(formData.checkInOut),
+            ...cancellationSafetyToDbColumns({
+              cancellationPolicy: formData.cancellationPolicy,
+              partiesAllowed: formData.partiesAllowed,
+              safety: formData.safety,
+            }),
             amenities: formData.amenities,
             images: allImageUrls,
             rooms: roomsData,
@@ -675,6 +718,7 @@ export default function EditPropertyPage() {
         localStorage.setItem(`properties_${cacheScope}`, JSON.stringify(updatedProperties));
         console.log('[Edit Property] Property also updated in localStorage as backup');
 
+        await bustListingCache(formData.id);
         toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
         router.push('/host/properties');
       } else {
@@ -1139,6 +1183,22 @@ export default function EditPropertyPage() {
             <CheckInOutPolicyEditor
               value={formData.checkInOut}
               onChange={(checkInOut) => setFormData({ ...formData, checkInOut })}
+            />
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <CancellationSafetyEditor
+              cancellationPolicy={formData.cancellationPolicy}
+              partiesAllowed={formData.partiesAllowed}
+              safety={formData.safety}
+              onChange={(next) =>
+                setFormData({
+                  ...formData,
+                  cancellationPolicy: next.cancellationPolicy,
+                  partiesAllowed: next.partiesAllowed,
+                  safety: next.safety,
+                })
+              }
             />
           </div>
 

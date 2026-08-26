@@ -15,6 +15,7 @@ import {
 import { MessageCircle, Building, Sparkles, Plane, Briefcase, Plus, X, Check, Wallet } from 'lucide-react';
 import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchModal';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
+import { ChooseYourVibeMenu } from '@/components/properties/ChooseYourVibeMenu';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -24,6 +25,7 @@ export function Header() {
   const headerCategoryChip = pathname === '/search' ? searchParams.get('category') : null;
   const supabase = createClient();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showGuestMenu, setShowGuestMenu] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<{ email: string; name: string; role: string }[]>([]);
@@ -276,6 +278,11 @@ export function Header() {
               activeCategory={headerCategoryChip}
             />
           </nav>
+
+          {/* Mobile / tablet: compact vibe picker */}
+          <div className="flex lg:hidden flex-1 justify-center min-w-0 px-1">
+            <ChooseYourVibeMenu activeCategory={headerCategoryChip} />
+          </div>
 
           {/* Right Side */}
           <div className="flex items-center space-x-1.5 sm:space-x-3 md:space-x-6 shrink-0 min-w-0">
@@ -660,15 +667,64 @@ export function Header() {
                   </>
                 ) : (
                   <div className="flex items-center space-x-2 sm:space-x-4">
+                    <div className="relative z-[60] xl:hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowGuestMenu(!showGuestMenu)}
+                        className="flex items-center justify-center w-9 h-9 bg-white/5 hover:bg-primary-500/10 border border-white/10 hover:border-primary-500/50 rounded-full transition-all"
+                        aria-expanded={showGuestMenu}
+                        aria-haspopup="menu"
+                        aria-label="Menu"
+                      >
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                        </svg>
+                      </button>
+                      {showGuestMenu && (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-full mt-2 w-48 bg-gray-950 border border-primary-500/20 rounded-2xl shadow-2xl z-[100] py-2"
+                        >
+                          <Link
+                            href="/about"
+                            className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
+                            onClick={() => setShowGuestMenu(false)}
+                          >
+                            About
+                          </Link>
+                          <Link
+                            href="/coming-soon"
+                            className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
+                            onClick={() => setShowGuestMenu(false)}
+                          >
+                            Coming Soon
+                          </Link>
+                          <Link
+                            href="/login"
+                            className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
+                            onClick={() => setShowGuestMenu(false)}
+                          >
+                            Log In
+                          </Link>
+                          <Link
+                            href="/signup"
+                            className="block px-4 py-2.5 text-sm font-bold text-primary-400 hover:bg-primary-500/10"
+                            onClick={() => setShowGuestMenu(false)}
+                          >
+                            Sign Up
+                          </Link>
+                        </div>
+                      )}
+                    </div>
                     <Link
                       href="/about"
-                      className="text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap xl:hidden"
+                      className="hidden xl:inline text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
                     >
                       About
                     </Link>
                     <Link
                       href="/coming-soon"
-                      className="hidden sm:inline text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap xl:hidden"
+                      className="hidden xl:inline text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
                     >
                       Coming Soon
                     </Link>

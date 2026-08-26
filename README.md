@@ -204,7 +204,7 @@ Proprietary - All rights reserved.
 ## 📞 Support
 
 For questions or issues:
-- Email: hello@vibesbnb.com
+- Email: info@vibesbnb.com
 - Repository: https://github.com/impactxg-gnez/vibesbnb
 
 ---

@@ -28,6 +28,12 @@ import {
   type CheckInOutPolicy,
 } from '@/lib/checkInOutPolicy';
 import {
+  cancellationPolicyGuestBlurb,
+  normalizeCancellationPolicy,
+  type CancellationPolicyId,
+} from '@/lib/cancellationPolicy';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
+import {
   clearWellnessCartForBooking,
   loadWellnessCartForBooking,
   type WellnessBookingLineItem,
@@ -55,6 +61,7 @@ interface Property {
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
   checkInOut?: CheckInOutPolicy;
+  cancellationPolicy?: CancellationPolicyId;
   /** Host-uploaded PDF URL (optional); snapshot stored on booking */
   guest_agreement_url?: string | null;
   wellness_consumption_indoor_allowed?: boolean;
@@ -232,6 +239,7 @@ export default function NewBookingPage() {
         minBookingNights: normalizeMinBookingNights(propertyRow.min_booking_nights),
         allowDirectBooking: propertyRow.allow_direct_booking === true,
         checkInOut: policyFromDbRow(propertyRow),
+        cancellationPolicy: normalizeCancellationPolicy(propertyRow.cancellation_policy),
       });
 
       // If units were selected, filter them
@@ -594,7 +602,10 @@ export default function NewBookingPage() {
               {/* Property Info */}
               <div className="pb-6 border-b border-gray-800">
                 <h2 className="text-2xl font-bold text-white mb-2">{property.name}</h2>
-                <p className="text-gray-400">{property.location}</p>
+                <p className="text-gray-400">{formatPublicLocation(property.location)}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Exact address is shared after booking confirmation.
+                </p>
               </div>
 
               {/* Dates */}
@@ -933,7 +944,16 @@ export default function NewBookingPage() {
                 <p className="text-gray-400 text-sm">Select dates to see pricing</p>
               )}
 
-              <div className="mt-6 pt-6 border-t border-gray-800">
+              <div className="mt-6 pt-6 border-t border-gray-800 space-y-3">
+                <p className="text-xs text-gray-300">
+                  <span className="font-semibold text-white">Cancellation: </span>
+                  {cancellationPolicyGuestBlurb(
+                    property.cancellationPolicy || 'flexible',
+                    formData.checkIn && formData.checkOut
+                      ? nightsBetweenYmd(formData.checkIn, formData.checkOut)
+                      : undefined
+                  )}
+                </p>
                 <p className="text-xs text-gray-400 text-center">
                   You submit your request first, then pay the total with PayPal on this page. The
                   host still approves the stay; if they decline, arrange refunds outside the app or

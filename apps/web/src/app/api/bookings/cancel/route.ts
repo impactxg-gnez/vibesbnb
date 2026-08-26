@@ -5,6 +5,11 @@ import { releaseBookingAvailability } from '@/lib/bookingAvailability';
 import { dispatchHostCancelledBooking } from '@/lib/notifications/dispatchHostCancelledBooking';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { cancelHostPayoutForBooking } from '@/lib/hostPayouts';
+import {
+  normalizeCancellationPolicy,
+  resolveRefund,
+} from '@/lib/cancellationPolicy';
+import { nightsBetweenYmd } from '@/lib/dateUtils';
 
 const HOST_CANCELLABLE = new Set([
   'pending_approval',
@@ -70,8 +75,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let policy = normalizeCancellationPolicy(booking.cancellation_policy);
+    if (!booking.cancellation_policy && booking.property_id) {
+      const { data: prop } = await supabase
+        .from('properties')
+        .select('cancellation_policy')
+        .eq('id', booking.property_id)
+        .maybeSingle();
+      policy = normalizeCancellationPolicy(prop?.cancellation_policy);
+    }
+
+    const checkIn = String(booking.check_in || '');
+    const checkOut = String(booking.check_out || '');
+    let nights = 1;
+    try {
+      nights = Math.max(1, nightsBetweenYmd(checkIn, checkOut));
+    } catch {
+      nights = Math.max(1, Number(booking.nights) || 1);
+    }
+
+    const totalPaid =
+      booking.payment_status === 'paid' || booking.payment_status === 'refunded'
+        ? Number(booking.total_price) || 0
+        : Number(booking.total_price) || 0;
+
+    const refund = resolveRefund({
+      policy,
+      nights,
+      checkInYmd: checkIn,
+      bookedAt: booking.created_at || new Date().toISOString(),
+      cancelledAt: new Date().toISOString(),
+      totalPaid: booking.payment_status === 'paid' ? totalPaid : 0,
+      cancelledBy: isHost ? 'host' : 'guest',
+      priorPaymentStatus: booking.payment_status,
+    });
+
     const newPaymentStatus =
-      booking.payment_status === 'paid' ? 'refunded' : booking.payment_status;
+      booking.payment_status === 'paid'
+        ? refund.paymentStatus === 'refunded'
+          ? 'refunded'
+          : 'paid'
+        : booking.payment_status;
 
     const { error: updateError } = await supabase
       .from('bookings')
@@ -81,6 +125,10 @@ export async function POST(request: NextRequest) {
         cancellation_reason: reason || null,
         cancelled_by: isHost ? 'host' : 'guest',
         cancelled_at: new Date().toISOString(),
+        cancellation_policy: policy,
+        refund_amount: refund.refundAmount,
+        refund_percent: refund.refundPercent,
+        refund_summary: refund.refundSummary,
       })
       .eq('id', bookingId);
 
@@ -143,7 +191,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      refund: {
+        amount: refund.refundAmount,
+        percent: refund.refundPercent,
+        summary: refund.refundSummary,
+        paymentStatus: newPaymentStatus,
+      },
+    });
   } catch (error: unknown) {
     console.error('Error cancelling booking:', error);
     const message = error instanceof Error ? error.message : 'Failed to cancel booking';

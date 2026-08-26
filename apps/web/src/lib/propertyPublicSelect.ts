@@ -50,6 +50,12 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'late_check_out_allowed',
   'latest_late_check_out_time',
   'late_check_out_fee',
+  'cancellation_policy',
+  'parties_allowed',
+  'safety_smoke_co_detectors',
+  'safety_first_aid_kit',
+  'safety_emergency_exits',
+  'safety_building_security',
 ] as const;
 
 /** Search, map, cards, APIs that list many properties */

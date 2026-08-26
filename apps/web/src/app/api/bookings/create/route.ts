@@ -19,6 +19,7 @@ import {
 } from '@/lib/bookingAvailability';
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { normalizeCancellationPolicy } from '@/lib/cancellationPolicy';
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
       .select(
-        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee'
+        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee, cancellation_policy'
       )
       .eq('id', property_id)
       .single();
@@ -321,6 +322,9 @@ export async function POST(request: NextRequest) {
         requested_early_check_in_time: requestedEarly,
         late_check_out_requested: lateRequested,
         requested_late_check_out_time: requestedLate,
+        cancellation_policy: normalizeCancellationPolicy(
+          (propertyRow as { cancellation_policy?: string }).cancellation_policy
+        ),
       })
       .select()
       .single();

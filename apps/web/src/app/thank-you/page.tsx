@@ -173,7 +173,7 @@ export default function ThankYouPage() {
 
           {/* Footer */}
           <p className="text-gray-500 text-sm mt-8">
-            Questions? Contact us at <a href="mailto:hello@vibesbnb.com" className="text-green-400 hover:text-green-300">hello@vibesbnb.com</a>
+            Questions? Contact us at <a href="mailto:info@vibesbnb.com" className="text-green-400 hover:text-green-300">info@vibesbnb.com</a>
           </p>
         </div>
       </div>

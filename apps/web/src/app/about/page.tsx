@@ -246,8 +246,8 @@ export default function AboutPage() {
         </div>
         <p className="text-center text-muted text-sm mt-8">
           Questions? Reach us at{' '}
-          <a href="mailto:hello@vibesbnb.com" className="text-primary-500 hover:text-primary-400">
-            hello@vibesbnb.com
+          <a href="mailto:info@vibesbnb.com" className="text-primary-500 hover:text-primary-400">
+            info@vibesbnb.com
           </a>
         </p>
       </section>

@@ -43,6 +43,13 @@ import {
   validateCheckInOutPolicy,
   type CheckInOutPolicy,
 } from '@/lib/checkInOutPolicy';
+import { CancellationSafetyEditor } from '@/components/host/CancellationSafetyEditor';
+import {
+  cancellationSafetyToDbColumns,
+  DEFAULT_SAFETY_FLAGS,
+  type CancellationPolicyId,
+  type SafetyFlags,
+} from '@/lib/cancellationPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { ALL_CATALOG_AMENITIES } from '@/lib/propertyAmenityCatalog';
@@ -116,6 +123,9 @@ export default function NewPropertyPage() {
     refundableDeposit: 0,
     minBookingNights: null as number | null,
     checkInOut: { ...EMPTY_CHECK_IN_OUT_POLICY } as CheckInOutPolicy,
+    cancellationPolicy: 'flexible' as CancellationPolicyId,
+    partiesAllowed: false,
+    safety: { ...DEFAULT_SAFETY_FLAGS } as SafetyFlags,
     amenities: [] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
@@ -357,6 +367,11 @@ export default function NewPropertyPage() {
         refundable_deposit: formData.refundableDeposit,
         min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
         ...policyToDbColumns(formData.checkInOut),
+        ...cancellationSafetyToDbColumns({
+          cancellationPolicy: formData.cancellationPolicy,
+          partiesAllowed: formData.partiesAllowed,
+          safety: formData.safety,
+        }),
         latitude: formData.coordinates?.lat,
         longitude: formData.coordinates?.lng,
         google_maps_url: formData.coordinates
@@ -404,6 +419,12 @@ export default function NewPropertyPage() {
           });
         } catch (e) {
           console.warn('Could not create notification:', e);
+        }
+
+        try {
+          await fetch(`/api/host/properties/${propertyId}/invalidate-cache`, { method: 'POST' });
+        } catch {
+          /* non-blocking */
         }
 
         toast.success('Property published! You can edit it anytime from your dashboard.', { duration: 5000 });
@@ -1064,6 +1085,22 @@ export default function NewPropertyPage() {
         <CheckInOutPolicyEditor
           value={formData.checkInOut}
           onChange={(checkInOut) => setFormData({ ...formData, checkInOut })}
+        />
+      </div>
+
+      <div className="mt-8 p-6 bg-gray-900 border border-gray-800 rounded-xl">
+        <CancellationSafetyEditor
+          cancellationPolicy={formData.cancellationPolicy}
+          partiesAllowed={formData.partiesAllowed}
+          safety={formData.safety}
+          onChange={(next) =>
+            setFormData({
+              ...formData,
+              cancellationPolicy: next.cancellationPolicy,
+              partiesAllowed: next.partiesAllowed,
+              safety: next.safety,
+            })
+          }
         />
       </div>
     </div>

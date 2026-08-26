@@ -11,6 +11,7 @@ import {
   ADMIN_PROPERTY_LIST_DEFAULT_LIMIT,
   ADMIN_PROPERTY_LIST_MAX_LIMIT,
 } from '@/lib/adminPropertySelect';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 function accessTokenFromRequest(request: NextRequest): string {
   return request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
@@ -171,6 +172,8 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       throw error;
     }
+
+    void invalidatePropertyListingCaches(propertyId);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

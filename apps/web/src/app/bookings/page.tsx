@@ -174,7 +174,15 @@ export default function BookingsPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to cancel booking');
       }
-      toast.success('Booking cancelled');
+      toast.success(
+        data.refund?.summary
+          ? `Booking cancelled. ${data.refund.summary}${
+              typeof data.refund.amount === 'number' && data.refund.amount > 0
+                ? ` ($${Number(data.refund.amount).toFixed(2)})`
+                : ''
+            }`
+          : 'Booking cancelled'
+      );
       loadBookings();
     } catch (error: any) {
       console.error('Error cancelling booking:', error);

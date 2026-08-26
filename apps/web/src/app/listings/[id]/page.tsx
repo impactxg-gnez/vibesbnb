@@ -66,6 +66,18 @@ import {
   formatHhmmLabel,
   policyFromDbRow,
 } from '@/lib/checkInOutPolicy';
+import {
+  cancellationSafetyFromDbRow,
+  type CancellationPolicyId,
+  type SafetyFlags,
+  DEFAULT_SAFETY_FLAGS,
+} from '@/lib/cancellationPolicy';
+import {
+  approximateMapCenter,
+  formatPublicLocation,
+  PUBLIC_MAP_APPROX_RADIUS_METERS,
+} from '@/lib/propertyLocationPrivacy';
+import { ThingsToKnowSection } from '@/components/properties/ThingsToKnowSection';
 import { AmenityIcon } from '@/lib/amenityIcons';
 
 const GALLERY_HERO_BLUR =
@@ -88,6 +100,9 @@ interface Property {
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
   checkInOut?: import('@/lib/checkInOutPolicy').CheckInOutPolicy;
+  cancellationPolicy?: CancellationPolicyId;
+  partiesAllowed?: boolean;
+  safety?: SafetyFlags;
   bedrooms: number;
   /** Total beds when set (may exceed bedroom count) */
   beds?: number | null;
@@ -119,15 +134,8 @@ interface Property {
   }>;
 }
 
-// Helper to get general area from location (hide exact address)
-const getGeneralLocation = (location: string): string => {
-  if (!location) return '';
-  // Split by comma and take last 2-3 parts (city, state, country)
-  const parts = location.split(',').map(p => p.trim());
-  if (parts.length <= 2) return location;
-  // Return city, state/country (last 2 parts)
-  return parts.slice(-2).join(', ');
-};
+// Guest-facing area + city (no street)
+const getGeneralLocation = (location: string): string => formatPublicLocation(location);
 
 export default function ListingDetailPage() {
   const params = useParams();
@@ -430,6 +438,14 @@ export default function ListingDetailPage() {
             ),
             allowDirectBooking: propertyData.allow_direct_booking === true,
             checkInOut: policyFromDbRow(propertyData),
+            ...(() => {
+              const cs = cancellationSafetyFromDbRow(propertyData);
+              return {
+                cancellationPolicy: cs.cancellationPolicy,
+                partiesAllowed: cs.partiesAllowed,
+                safety: cs.safety,
+              };
+            })(),
             refundableDeposit:
               propertyData.refundable_deposit != null
                 ? Number(propertyData.refundable_deposit)
@@ -776,11 +792,6 @@ export default function ListingDetailPage() {
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <h1 className="text-4xl font-bold text-white">{property.name}</h1>
-              {vibeMarker ? (
-                <VibeMarkerBadge marker={vibeMarker} />
-              ) : hasBalcony ? (
-                <BalconyAvailableTag />
-              ) : null}
             </div>
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
               <p className="text-emerald-400 font-semibold tracking-wide">
@@ -858,6 +869,7 @@ export default function ListingDetailPage() {
 
             <div className="absolute top-4 left-4 z-[15] flex flex-col gap-2 items-start max-w-[min(100%,18rem)]">
               {vibeMarker ? <VibeMarkerBadge marker={vibeMarker} /> : null}
+              {!vibeMarker && hasBalcony ? <BalconyAvailableTag /> : null}
               {property.wellnessFriendly && (
                 <div className="bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
                   🧘 Wellness-Friendly
@@ -903,26 +915,33 @@ export default function ListingDetailPage() {
           </div>
           </div>
 
-          {/* Map — 20m radius at host-entered coordinates (no exact pin) */}
-          {property.latitude != null && property.longitude != null && (
+          {/* Map — approximate area (jittered center, ~450m); exact address after booking */}
+          {property.latitude != null && property.longitude != null && (() => {
+            const approx = approximateMapCenter(
+              property.latitude,
+              property.longitude,
+              property.id
+            );
+            return (
             <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800 relative">
               <PropertyMap
                 key={property.id}
-                latitude={property.latitude}
-                longitude={property.longitude}
+                latitude={approx.latitude}
+                longitude={approx.longitude}
                 propertyName={property.name}
+                approximateRadiusMeters={PUBLIC_MAP_APPROX_RADIUS_METERS}
               />
               <div className="absolute bottom-4 left-4 right-4 bg-gray-900/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-700">
                 <p className="text-sm text-gray-300 flex items-center gap-2">
                   <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
                   <span>
-                    Green circle shows the approximate stay area (about 20 meters). Exact address
-                    is shared after booking confirmation.
+                    Approximate area only. Exact address is shared after booking confirmation.
                   </span>
                 </p>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -930,7 +949,7 @@ export default function ListingDetailPage() {
           <div className="lg:col-span-2 space-y-8">
             {/* Quick Info — host, property type, capacity */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between min-w-0">
                 <div className="flex gap-4 min-w-0 flex-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -953,26 +972,26 @@ export default function ListingDetailPage() {
                     ) : null}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-8 gap-y-3 lg:shrink-0 lg:pt-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 w-full min-w-0 xl:max-w-xl">
                   <div className="flex items-center gap-2 min-w-0">
                     <Building2 size={20} className="text-gray-400 shrink-0" />
-                    <span className="text-white font-medium">{property.type || 'Property'}</span>
+                    <span className="text-white font-medium truncate">{property.type || 'Property'}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <Users size={20} className="text-gray-400 shrink-0" />
                     <span className="text-white">{property.guests} guests</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <Bed size={20} className="text-gray-400 shrink-0" />
                     <span className="text-white">{property.bedrooms} bedrooms</span>
                   </div>
                   {typeof property.beds === 'number' && property.beds >= 1 && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Bed size={20} className="text-emerald-500/80 shrink-0" />
                       <span className="text-white">{property.beds} beds total</span>
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <Bath size={20} className="text-gray-400 shrink-0" />
                     <span className="text-white">{property.bathrooms} bathrooms</span>
                   </div>
@@ -1303,6 +1322,22 @@ export default function ListingDetailPage() {
                   onAddItem={handleAddToWellnessCart}
                 />
               )}
+
+            <ThingsToKnowSection
+              checkInTime={property.checkInOut?.checkInTime ?? null}
+              checkOutTime={property.checkInOut?.checkOutTime ?? null}
+              guests={property.guests}
+              petsAllowed={property.amenities.some((a) =>
+                /pets?\s*allowed/i.test(a)
+              )}
+              smokingAllowed={
+                property.wellnessConsumptionIndoorAllowed ||
+                property.wellnessConsumptionOutdoorAllowed
+              }
+              partiesAllowed={property.partiesAllowed === true}
+              cancellationPolicy={property.cancellationPolicy || 'flexible'}
+              safety={property.safety || DEFAULT_SAFETY_FLAGS}
+            />
 
             {/* Host Info */}
             <div className="bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
