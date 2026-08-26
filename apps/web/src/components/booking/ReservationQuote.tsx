@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Leaf } from 'lucide-react';
+import { ChevronDown, ChevronRight, Leaf, X } from 'lucide-react';
 import type { BookingQuote, WellnessQuoteLine } from '@/lib/bookingQuote';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
@@ -33,6 +33,10 @@ export type ReservationQuoteProps = {
   selectedUnits?: Array<{ id: string; name: string; price: number }>;
   showCardFee?: boolean;
   compact?: boolean;
+  /** When set, each wellness line shows a remove control */
+  onRemoveWellnessItem?: (index: number) => void;
+  /** Clear every wellness line */
+  onClearWellnessItems?: () => void;
 };
 
 export function ReservationQuote({
@@ -44,6 +48,8 @@ export function ReservationQuote({
   selectedUnits,
   showCardFee = false,
   compact = false,
+  onRemoveWellnessItem,
+  onClearWellnessItems,
 }: ReservationQuoteProps) {
   const [taxesOpen, setTaxesOpen] = useState(false);
   const hasTaxes = quote.salesTax > 0 || quote.touristTax > 0;
@@ -158,16 +164,48 @@ export function ReservationQuote({
 
         {quote.wellnessLineItems.length > 0 && (
           <div className="space-y-2 pt-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-primary-400 uppercase tracking-wider">
-              <Leaf size={14} />
-              Wellness supplies
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-primary-400 uppercase tracking-wider">
+                <Leaf size={14} />
+                Wellness supplies
+              </div>
+              {(onClearWellnessItems || onRemoveWellnessItem) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onClearWellnessItems) {
+                      onClearWellnessItems();
+                      return;
+                    }
+                    for (let i = quote.wellnessLineItems.length - 1; i >= 0; i--) {
+                      onRemoveWellnessItem?.(i);
+                    }
+                  }}
+                  className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 hover:text-red-400 transition"
+                >
+                  Remove all
+                </button>
+              )}
             </div>
             {quote.wellnessLineItems.map((line: WellnessQuoteLine, idx) => (
-              <div key={`${line.name}-${idx}`} className="flex justify-between gap-2 pl-1">
-                <span className="text-gray-400 truncate" title={line.name}>
+              <div key={`${line.id || line.name}-${idx}`} className="flex items-center justify-between gap-2 pl-1">
+                <span className="text-gray-400 truncate min-w-0" title={line.name}>
                   {line.name}
                 </span>
-                <span className="text-white shrink-0">{money(line.price)}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-white">{money(line.price)}</span>
+                  {onRemoveWellnessItem ? (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveWellnessItem(idx)}
+                      className="p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                      aria-label={`Remove ${line.name}`}
+                      title="Remove"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>

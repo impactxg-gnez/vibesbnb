@@ -702,6 +702,15 @@ export default function ListingDetailPage() {
     toast.success(`Added ${item.name} to wellness supplies`);
   };
 
+  const handleRemoveWellnessItem = (index: number) => {
+    setWellnessCart((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearWellnessItems = () => {
+    setWellnessCart([]);
+    toast.success('Wellness supplies removed');
+  };
+
   const hostNightlyRate = calculateTotalPrice();
   const displayNightlyRate = toTravelerPrice(hostNightlyRate);
   const stayLodgingTotal = stayDuration > 0 ? displayNightlyRate * stayDuration : 0;
@@ -1608,6 +1617,8 @@ export default function ListingDetailPage() {
                     }
                     showCardFee={property.allowDirectBooking === true}
                     compact
+                    onRemoveWellnessItem={handleRemoveWellnessItem}
+                    onClearWellnessItems={handleClearWellnessItems}
                   />
                 ) : (
                   <p className="text-gray-400 text-sm text-center">Select dates to see your quote</p>

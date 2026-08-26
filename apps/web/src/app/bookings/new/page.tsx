@@ -36,6 +36,7 @@ import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 import {
   clearWellnessCartForBooking,
   loadWellnessCartForBooking,
+  saveWellnessCartForBooking,
   type WellnessBookingLineItem,
 } from '@/lib/wellnessBookingCart';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
@@ -939,6 +940,21 @@ export default function NewBookingPage() {
                       : undefined
                   }
                   showCardFee={property.allowDirectBooking === true}
+                  onRemoveWellnessItem={(index) => {
+                    setWellnessLineItems((prev) => {
+                      const next = prev.filter((_, i) => i !== index);
+                      if (propertyId) {
+                        if (next.length === 0) clearWellnessCartForBooking(propertyId);
+                        else saveWellnessCartForBooking(propertyId, next);
+                      }
+                      return next;
+                    });
+                  }}
+                  onClearWellnessItems={() => {
+                    setWellnessLineItems([]);
+                    if (propertyId) clearWellnessCartForBooking(propertyId);
+                    toast.success('Wellness supplies removed');
+                  }}
                 />
               ) : (
                 <p className="text-gray-400 text-sm">Select dates to see pricing</p>
