@@ -45,6 +45,9 @@ interface BulkProperty {
   smokeFriendly?: boolean; // ignored — cigarette smoking removed from product
   imageUrls?: string[];
   sourceUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  googleMapsUrl?: string;
 }
 
 interface ParsedResult {
@@ -102,7 +105,8 @@ function isExternalListingUrl(raw: string): boolean {
     h.includes('vrbo.com') ||
     h.includes('homeaway.') ||
     h.includes('esca-management.com') ||
-    h.includes('ammosfl.com');
+    h.includes('ammosfl.com') ||
+    h.includes('ionica.world');
 
   if (knownHosts) return true;
 
@@ -133,6 +137,33 @@ interface ScrapeApiProperty {
   amenities?: string[];
   images?: string[];
   wellnessFriendly?: boolean;
+  latitude?: number;
+  longitude?: number;
+  googleMapsUrl?: string;
+  coordinates?: { lat?: number; lng?: number };
+}
+
+function parseFiniteCoord(value: unknown): number | undefined {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function coordsFromScrape(scraped: ScrapeApiProperty): {
+  latitude?: number;
+  longitude?: number;
+  googleMapsUrl?: string;
+} {
+  const lat =
+    parseFiniteCoord(scraped.latitude) ?? parseFiniteCoord(scraped.coordinates?.lat);
+  const lng =
+    parseFiniteCoord(scraped.longitude) ?? parseFiniteCoord(scraped.coordinates?.lng);
+  if (lat == null || lng == null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return {};
+  }
+  const googleMapsUrl =
+    (typeof scraped.googleMapsUrl === 'string' && scraped.googleMapsUrl.trim()) ||
+    `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  return { latitude: lat, longitude: lng, googleMapsUrl };
 }
 
 function locationFromScrape(scraped: ScrapeApiProperty): string {
@@ -159,6 +190,7 @@ function inferPropertyType(name: string): string {
 function scrapedListingToBulkProperty(scraped: ScrapeApiProperty, sourceUrl: string): BulkProperty {
   const name = scraped.name?.trim() || 'Imported listing';
   const amenitiesArr = Array.isArray(scraped.amenities) ? scraped.amenities : [];
+  const coords = coordsFromScrape(scraped);
   return {
     name,
     type: inferPropertyType(name),
@@ -178,6 +210,7 @@ function scrapedListingToBulkProperty(scraped: ScrapeApiProperty, sourceUrl: str
       .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
       .map((u) => unwrapProxiedImageUrl(u)),
     sourceUrl,
+    ...coords,
   };
 }
 
@@ -271,6 +304,22 @@ export default function BulkImportPage() {
         .map((url) => unwrapProxiedImageUrl(url))
         .filter(Boolean);
 
+      const latitude = parseFiniteCoord(row.latitude || row.lat);
+      const longitude = parseFiniteCoord(row.longitude || row.lng || row.lon);
+      const hasCoords =
+        latitude != null &&
+        longitude != null &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+      const googleMapsUrl =
+        row.google_maps_url ||
+        row.googlemapsurl ||
+        (hasCoords
+          ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+          : undefined);
+
       properties.push({
         name: row.name,
         type: row.type || 'House',
@@ -288,6 +337,7 @@ export default function BulkImportPage() {
         // smokeFriendly CSV column ignored (cigarette smoking removed)
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         sourceUrl,
+        ...(hasCoords ? { latitude, longitude, googleMapsUrl } : {}),
       });
     }
 
@@ -503,6 +553,15 @@ export default function BulkImportPage() {
           smoking_outside_allowed: false,
           smoke_friendly: false,
           cleaning_fee: property.cleaningFee ?? 0,
+          ...(Number.isFinite(property.latitude) && Number.isFinite(property.longitude)
+            ? {
+                latitude: property.latitude,
+                longitude: property.longitude,
+                google_maps_url:
+                  property.googleMapsUrl ||
+                  `https://www.google.com/maps/search/?api=1&query=${property.latitude},${property.longitude}`,
+              }
+            : {}),
         };
 
         const { error } = await supabase.from('properties').insert(propertyData);

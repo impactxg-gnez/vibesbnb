@@ -428,8 +428,14 @@ export default function ListingDetailPage() {
             hostImage: host.hostImage,
             hostBio: host.hostBio,
             hostJoinedDate: host.hostJoinedDate,
-            latitude: propertyData.latitude ? Number(propertyData.latitude) : undefined,
-            longitude: propertyData.longitude ? Number(propertyData.longitude) : undefined,
+            latitude: (() => {
+              const n = Number(propertyData.latitude);
+              return Number.isFinite(n) ? n : undefined;
+            })(),
+            longitude: (() => {
+              const n = Number(propertyData.longitude);
+              return Number.isFinite(n) ? n : undefined;
+            })(),
             type: propertyData.type || 'Retreat',
             rooms: propertyData.rooms || [],
             vibesbnb_take: propertyData.vibesbnb_take,
@@ -925,10 +931,12 @@ export default function ListingDetailPage() {
           </div>
 
           {/* Map — approximate area (jittered center, ~450m); exact address after booking */}
-          {property.latitude != null && property.longitude != null && (() => {
+          {Number.isFinite(property.latitude) &&
+            Number.isFinite(property.longitude) &&
+            (() => {
             const approx = approximateMapCenter(
-              property.latitude,
-              property.longitude,
+              property.latitude as number,
+              property.longitude as number,
               property.id
             );
             return (
@@ -1318,13 +1326,13 @@ export default function ListingDetailPage() {
 
             {/* Wellness supplies / nearby dispensaries — needs lat/lng to match delivery radius */}
             {property.location &&
-              property.latitude != null &&
-              property.longitude != null && (
+              Number.isFinite(property.latitude) &&
+              Number.isFinite(property.longitude) && (
                 <NearbyDispensaries
                   propertyLocation={getGeneralLocation(property.location)}
                   propertyCoordinates={{
-                    lat: property.latitude,
-                    lng: property.longitude,
+                    lat: property.latitude as number,
+                    lng: property.longitude as number,
                   }}
                   propertyId={property.id}
                   propertyName={property.name}
