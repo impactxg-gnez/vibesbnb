@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "dev": "cd apps/web && npm run dev",
+    "dev:mobile": "cd apps/mobile && npm run start",
     "build": "cd packages/shared && npm run build && cd ../../apps/web && npm run build",
     "start": "cd apps/web && npm run start",
     "test": "cd apps/web && npm run test",

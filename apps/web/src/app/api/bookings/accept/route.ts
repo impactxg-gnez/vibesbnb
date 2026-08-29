@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedSupabaseFromRequest } from '@/lib/auth/getUserFromRequest';
 import { createServiceClient } from '@/lib/supabase/service';
 import { processBookingAccept } from '@/lib/bookings/processBookingAccept';
 
@@ -12,14 +12,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing booking ID' }, { status: 400 });
     }
 
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const auth = await getAuthenticatedSupabaseFromRequest(request);
+    if (!auth) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+    const { user, supabase } = auth;
 
     const result = await processBookingAccept({
       bookingId,

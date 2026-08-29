@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedSupabaseFromRequest } from '@/lib/auth/getUserFromRequest';
 import { createServiceClient } from '@/lib/supabase/service';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
@@ -57,17 +57,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get authenticated user from server-side Supabase client
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const auth = await getAuthenticatedSupabaseFromRequest(request);
+    if (!auth) {
       return NextResponse.json(
         { error: 'User authentication required' },
         { status: 401 }
       );
     }
-
+    const { user, supabase } = auth;
     const userId = user.id;
 
     if (travellerNeedsPhoneVerification(user)) {

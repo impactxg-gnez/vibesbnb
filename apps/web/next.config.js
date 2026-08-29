@@ -13,6 +13,14 @@ const nextConfig = {
       },
     ];
   },
+  async headers() {
+    return [
+      {
+        source: '/.well-known/apple-app-site-association',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+      },
+    ];
+  },
   images: {
     // Prefer remotePatterns (supports wildcards); keeps Next/Image working for Supabase Storage, etc.
     remotePatterns: [

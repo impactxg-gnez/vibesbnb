@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "REPLACE_TEAM_ID.com.vibesbnb.app",
+        "paths": [
+          "/listings/*",
+          "/bookings",
+          "/bookings/*",
+          "/messages",
+          "/messages/*",
+          "/host/bookings",
+          "/host/bookings/*"
+        ]
+      }
+    ]
+  }
+}

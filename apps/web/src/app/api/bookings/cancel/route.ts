@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedSupabaseFromRequest } from '@/lib/auth/getUserFromRequest';
 import { createServiceClient } from '@/lib/supabase/service';
 import { releaseBookingAvailability } from '@/lib/bookingAvailability';
 import { dispatchHostCancelledBooking } from '@/lib/notifications/dispatchHostCancelledBooking';
@@ -20,15 +20,11 @@ const HOST_CANCELLABLE = new Set([
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const auth = await getAuthenticatedSupabaseFromRequest(request);
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const { user, supabase } = auth;
 
     const body = await request.json();
     const bookingId = body?.bookingId as string | undefined;

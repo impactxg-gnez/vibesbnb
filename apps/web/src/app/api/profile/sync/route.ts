@@ -1,19 +1,15 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getUserFromRequest } from '@/lib/auth/getUserFromRequest';
 import { syncProfileFromAuthUser } from '@/lib/supabase/syncProfileFromAuthUser';
 
 export const dynamic = 'force-dynamic';
 
 /** Sync auth email / phone into `profiles` for the signed-in user. */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    const user = await getUserFromRequest(request);
 
-    if (error || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
