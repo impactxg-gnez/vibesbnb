@@ -5,7 +5,7 @@ import {
 } from '@vibesbnb/shared';
 import { computeBookingQuote } from '@/lib/bookingQuote';
 import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
-import { getServiceFeePercent } from '@/lib/platformSettings';
+import { getServiceFeePercent, getHostFeePercent } from '@/lib/platformSettings';
 
 export type ReportPeriod = 'day' | 'week' | 'month' | 'custom' | 'all';
 
@@ -193,6 +193,7 @@ type PayoutRow = {
   booking_id: string;
   host_amount?: number | null;
   platform_fee?: number | null;
+  host_fee?: number | null;
   status?: string | null;
 };
 
@@ -228,6 +229,7 @@ function splitForBooking(params: {
   payout?: PayoutRow | null;
   property?: PropertyRow | null;
   feePercent: number;
+  hostFeePercent: number;
 }): {
   guestTotal: number;
   hostTransfer: number;
@@ -244,7 +246,9 @@ function splitForBooking(params: {
   let serviceFee = 0;
   if (params.payout) {
     hostTransfer = roundMoney(Number(params.payout.host_amount) || 0);
-    serviceFee = roundMoney(Number(params.payout.platform_fee) || 0);
+    const guestMarkup = roundMoney(Number(params.payout.platform_fee) || 0);
+    const hostSide = roundMoney(Number(params.payout.host_fee) || 0);
+    serviceFee = roundMoney(guestMarkup + hostSide);
   } else {
     const amounts = computeHostPayoutAmounts({
       checkIn,
@@ -254,9 +258,10 @@ function splitForBooking(params: {
       hostCleaningFee:
         params.property?.cleaning_fee != null ? Number(params.property.cleaning_fee) : 0,
       feePercent: params.feePercent,
+      hostFeePercent: params.hostFeePercent,
     });
     hostTransfer = amounts.hostAmount;
-    serviceFee = amounts.platformFee;
+    serviceFee = roundMoney(amounts.platformFee + amounts.hostFee);
   }
 
   let salesTax = 0;
@@ -288,8 +293,17 @@ function splitForBooking(params: {
       cleaningFee = quote.cleaningFee;
       // Prefer quote lodging fee when no payout ledger row
       if (!params.payout) {
-        serviceFee = quote.platformFee;
-        hostTransfer = roundMoney(quote.totalRent + quote.cleaningFee);
+        serviceFee = roundMoney(quote.platformFee);
+        const hostSide = roundMoney(guestTotal * (params.hostFeePercent / 100));
+        serviceFee = roundMoney(serviceFee + hostSide);
+        hostTransfer = roundMoney(
+          quote.totalRent +
+            quote.cleaningFee +
+            quote.extraGuestCharges +
+            quote.earlyCheckInFee +
+            quote.lateCheckOutFee -
+            hostSide
+        );
       }
     }
   } else if (guestTotal > 0 && hostTransfer + serviceFee > 0) {
@@ -330,6 +344,7 @@ export async function buildSalesReport(
     now,
   });
   const feePercent = await getServiceFeePercent(service);
+  const hostFeePercent = await getHostFeePercent(service);
 
   const { data: bookingsData, error } = await service
     .from('bookings')
@@ -355,7 +370,7 @@ export async function buildSalesReport(
   if (bookingIds.length > 0) {
     const { data: payouts } = await service
       .from('host_payouts')
-      .select('booking_id, host_amount, platform_fee, status')
+      .select('booking_id, host_amount, platform_fee, host_fee, status')
       .in('booking_id', bookingIds);
     for (const p of payouts || []) {
       payoutByBooking.set(String(p.booking_id), p as PayoutRow);
@@ -406,6 +421,7 @@ export async function buildSalesReport(
         ? propertyById.get(booking.property_id) || null
         : null,
       feePercent,
+      hostFeePercent,
     });
 
     const day = bucketKey(booking.created_at);

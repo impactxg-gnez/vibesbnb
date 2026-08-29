@@ -1,4 +1,5 @@
 import { computeBookingGrandTotal } from '@/lib/bookingTotals';
+import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
 import { computeLodgingWithBakedFee } from '@/lib/platformPricing';
 import {
   escapeHtml,
@@ -64,6 +65,8 @@ export function buildBookingInvoiceContext(params: {
   property?: Record<string, unknown> | null;
   hostContact: { name: string; email?: string | null; phone?: string | null; whatsapp?: string | null };
   payoutAccount?: Record<string, unknown> | null;
+  serviceFeePercent?: number;
+  hostFeePercent?: number;
 }): BookingInvoiceContext {
   const booking = params.booking;
   const property = params.property;
@@ -88,6 +91,7 @@ export function buildBookingInvoiceContext(params: {
     checkOutYmd: checkOut,
     selectedUnits,
     wellnessLineItems: wellnessItems,
+    feePercent: params.serviceFeePercent,
   });
 
   let hostNightlyRate = nightly;
@@ -98,6 +102,7 @@ export function buildBookingInvoiceContext(params: {
     hostNightlyRate,
     nights: stayNights,
     hostCleaningFee: cleaning,
+    feePercent: params.serviceFeePercent,
   });
   const serviceFee = lodging.platformFee;
   const wellnessTotal = wellnessItems.reduce((s, i) => s + i.price, 0);
@@ -118,6 +123,15 @@ export function buildBookingInvoiceContext(params: {
   }
 
   const totalPaid = Number(booking.total_price) || grandTotal;
+  const payoutPreview = computeHostPayoutAmounts({
+    checkIn,
+    checkOut,
+    guestTotal: totalPaid,
+    hostNightlyRate,
+    hostCleaningFee: cleaning,
+    feePercent: params.serviceFeePercent,
+    hostFeePercent: params.hostFeePercent,
+  });
 
   return {
     bookingId,
@@ -139,7 +153,7 @@ export function buildBookingInvoiceContext(params: {
     lineItems,
     serviceFee,
     totalPaid,
-    estimatedHostPayout: lodging.hostSubtotal,
+    estimatedHostPayout: payoutPreview.hostAmount,
     wellnessTotal,
     nights: stayNights,
     paymentReference: (booking.payment_intent_id as string) || null,

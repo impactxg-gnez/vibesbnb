@@ -20,6 +20,7 @@ import {
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { normalizeCancellationPolicy } from '@/lib/cancellationPolicy';
+import { getServiceFeePercent } from '@/lib/platformSettings';
 
 export async function POST(request: NextRequest) {
   try {
@@ -220,6 +221,7 @@ export async function POST(request: NextRequest) {
     });
 
     const cleaning = propertyRow.cleaning_fee != null ? Number(propertyRow.cleaning_fee) : 0;
+    const serviceFeePercent = await getServiceFeePercent(serviceSupabase);
     const { grandTotal: expectedGrandTotal } = computeBookingGrandTotal({
       propertyNightlyPrice: Number(propertyRow.price) || 0,
       cleaningFee: cleaning,
@@ -239,6 +241,7 @@ export async function POST(request: NextRequest) {
       applyCardFee: propertyRow.allow_direct_booking === true,
       earlyCheckInFee: earlyFee,
       lateCheckOutFee: lateFee,
+      feePercent: serviceFeePercent,
     });
 
     if (!totalsMatchCents(Number(total_price), expectedGrandTotal)) {

@@ -4,6 +4,7 @@ import {
   type BookingInvoiceContext,
 } from '@/lib/email/bookingInvoiceEmail';
 import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
+import { getHostFeePercent, getServiceFeePercent } from '@/lib/platformSettings';
 
 /**
  * Sends VibesBNB-themed booking confirmation + invoice to traveller and host (once per paid booking).
@@ -68,6 +69,11 @@ export async function dispatchBookingConfirmedEmails(
     payoutAccount = payout as Record<string, unknown> | null;
   }
 
+  const [serviceFeePercent, hostFeePercent] = await Promise.all([
+    getServiceFeePercent(service),
+    getHostFeePercent(service),
+  ]);
+
   const ctx = buildBookingInvoiceContext({
     booking: booking as Record<string, unknown>,
     property,
@@ -81,6 +87,8 @@ export async function dispatchBookingConfirmedEmails(
       whatsapp: hostPhone,
     },
     payoutAccount,
+    serviceFeePercent,
+    hostFeePercent,
   });
 
   const base = appUrl.replace(/\/$/, '');

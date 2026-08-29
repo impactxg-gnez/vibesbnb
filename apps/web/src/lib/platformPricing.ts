@@ -1,15 +1,83 @@
-import { PLATFORM_FEE_PERCENT } from '@vibesbnb/shared';
+import { HOST_FEE_PERCENT, PLATFORM_FEE_PERCENT } from '@vibesbnb/shared';
 
-/** Platform fee % (client may override via admin localStorage). */
+const LS_SERVICE = 'serviceFee';
+const LS_HOST = 'hostFee';
+
+let cachedServiceFee: number | null = null;
+let cachedHostFee: number | null = null;
+let syncPromise: Promise<void> | null = null;
+
+function readLocalFee(key: string, fallback: number): number | null {
+  if (typeof window === 'undefined') return null;
+  const saved = localStorage.getItem(key);
+  if (saved == null) return null;
+  const n = Number(saved);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return n;
+}
+
+function writeLocalFees(serviceFeePercent: number, hostFeePercent: number): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LS_SERVICE, String(serviceFeePercent));
+  localStorage.setItem(LS_HOST, String(hostFeePercent));
+}
+
+/** Guest-facing service fee % (client cache → localStorage → default). */
 export function getPlatformFeePercent(): number {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('serviceFee');
-    if (saved != null) {
-      const n = Number(saved);
-      if (Number.isFinite(n) && n >= 0 && n <= 100) return n;
-    }
+  if (cachedServiceFee != null) return cachedServiceFee;
+  return readLocalFee(LS_SERVICE, PLATFORM_FEE_PERCENT) ?? PLATFORM_FEE_PERCENT;
+}
+
+/** Host fee % deducted from payout (client cache → localStorage → default). */
+export function getHostFeePercentClient(): number {
+  if (cachedHostFee != null) return cachedHostFee;
+  return readLocalFee(LS_HOST, HOST_FEE_PERCENT) ?? HOST_FEE_PERCENT;
+}
+
+export function setCachedPlatformFees(
+  serviceFeePercent: number,
+  hostFeePercent: number
+): void {
+  cachedServiceFee = serviceFeePercent;
+  cachedHostFee = hostFeePercent;
+  writeLocalFees(serviceFeePercent, hostFeePercent);
+}
+
+/** Fetch current platform fees from the server (safe for all visitors). */
+export async function syncPlatformFeesFromServer(): Promise<{
+  serviceFeePercent: number;
+  hostFeePercent: number;
+}> {
+  if (syncPromise) {
+    await syncPromise;
+    return {
+      serviceFeePercent: getPlatformFeePercent(),
+      hostFeePercent: getHostFeePercentClient(),
+    };
   }
-  return PLATFORM_FEE_PERCENT;
+
+  syncPromise = (async () => {
+    try {
+      const res = await fetch('/api/platform-fees', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const service = Number(data.serviceFeePercent);
+      const host = Number(data.hostFeePercent);
+      if (Number.isFinite(service) && Number.isFinite(host)) {
+        setCachedPlatformFees(service, host);
+      }
+    } catch {
+      /* non-blocking */
+    } finally {
+      syncPromise = null;
+    }
+  })();
+
+  await syncPromise;
+  return {
+    serviceFeePercent: getPlatformFeePercent(),
+    hostFeePercent: getHostFeePercentClient(),
+  };
 }
 
 /** Host-listed amount → guest-facing price with platform fee baked in. */

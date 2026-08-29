@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const { data: rows, error } = await service
       .from('host_payouts')
       .select(
-        'id, booking_id, host_id, property_id, guest_total, platform_fee, host_amount, currency, status, check_in, check_out, property_name, paid_at, transfer_ref, notes, cancelled_at, cancel_reason, created_at, updated_at'
+        'id, booking_id, host_id, property_id, guest_total, platform_fee, host_fee, host_amount, currency, status, check_in, check_out, property_name, paid_at, transfer_ref, notes, cancelled_at, cancel_reason, created_at, updated_at'
       )
       .eq('host_id', auth.hostId)
       .order('created_at', { ascending: false });

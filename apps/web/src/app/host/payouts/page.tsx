@@ -31,6 +31,7 @@ type PayoutRow = {
   booking_id: string;
   guest_total: number;
   platform_fee: number;
+  host_fee: number;
   host_amount: number;
   status: 'pending' | 'paid' | 'cancelled';
   check_in?: string | null;
@@ -319,7 +320,7 @@ export default function HostPayoutsPage() {
                     <th className="px-4 py-3 font-semibold">Property</th>
                     <th className="px-4 py-3 font-semibold">Dates</th>
                     <th className="px-4 py-3 font-semibold text-right">Guest paid</th>
-                    <th className="px-4 py-3 font-semibold text-right">Fee</th>
+                    <th className="px-4 py-3 font-semibold text-right">Host fee</th>
                     <th className="px-4 py-3 font-semibold text-right">Your payout</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                   </tr>
@@ -338,8 +339,8 @@ export default function HostPayoutsPage() {
                       <td className="px-4 py-3 text-gray-300 text-right whitespace-nowrap">
                         {money(row.guest_total)}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-right whitespace-nowrap">
-                        {money(row.platform_fee)}
+                      <td className="px-4 py-3 text-amber-400/90 text-right whitespace-nowrap">
+                        {money(row.host_fee ?? 0)}
                       </td>
                       <td className="px-4 py-3 text-white font-semibold text-right whitespace-nowrap">
                         {money(row.host_amount)}
@@ -371,9 +372,9 @@ export default function HostPayoutsPage() {
         </div>
 
         <p className="text-xs text-gray-500 mt-6">
-          Payout amounts are your lodging earnings (nights × rate + cleaning). Platform fees and
-          guest taxes are excluded. Transfers are processed by VibesBNB after stays are confirmed
-          and paid.
+          Your payout is lodging earnings minus the host platform fee (a percentage of the guest&apos;s
+          total booking amount). Guest taxes, wellness supplies, and the guest service fee are
+          handled separately. Transfers are processed by VibesBNB after stays are confirmed and paid.
         </p>
       </div>
 

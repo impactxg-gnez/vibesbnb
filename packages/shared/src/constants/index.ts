@@ -1,4 +1,6 @@
 export const PLATFORM_FEE_PERCENT = 10;
+/** Deducted from host payout — % of guest grand total (before transfer). */
+export const HOST_FEE_PERCENT = 5;
 /** Florida sales tax applied to taxable lodging + platform fee + extras (wellness, extra guests). */
 export const SALES_TAX_PERCENT = 7;
 /** Tourist & development tax on the same taxable base. */

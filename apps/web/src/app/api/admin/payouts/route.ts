@@ -79,7 +79,7 @@ async function getTransferQueue(statusFilter: string | null) {
   let query = service
     .from('host_payouts')
     .select(
-      'id, booking_id, host_id, property_id, guest_total, platform_fee, host_amount, currency, status, check_in, check_out, property_name, paid_at, transfer_ref, notes, cancelled_at, cancel_reason, created_at'
+      'id, booking_id, host_id, property_id, guest_total, platform_fee, host_fee, host_amount, currency, status, check_in, check_out, property_name, paid_at, transfer_ref, notes, cancelled_at, cancel_reason, created_at'
     )
     .order('created_at', { ascending: false })
     .limit(200);
@@ -128,6 +128,7 @@ async function getTransferQueue(statusFilter: string | null) {
       check_out: r.check_out,
       guest_total: Number(r.guest_total) || 0,
       platform_fee: Number(r.platform_fee) || 0,
+      host_fee: Number((r as { host_fee?: unknown }).host_fee) || 0,
       host_amount: Number(r.host_amount) || 0,
       currency: r.currency || 'USD',
       status: r.status,

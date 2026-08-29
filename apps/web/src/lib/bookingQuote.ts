@@ -183,6 +183,7 @@ export function buildBookingQuoteFromProperty(params: {
   applyCardFee?: boolean;
   earlyCheckInFee?: number;
   lateCheckOutFee?: number;
+  feePercent?: number;
 }): BookingQuote | null {
   const cleaning =
     params.property.cleaning_fee != null
@@ -213,5 +214,6 @@ export function buildBookingQuoteFromProperty(params: {
     applyCardFee: params.applyCardFee,
     earlyCheckInFee: params.earlyCheckInFee,
     lateCheckOutFee: params.lateCheckOutFee,
+    feePercent: params.feePercent,
   });
 }
