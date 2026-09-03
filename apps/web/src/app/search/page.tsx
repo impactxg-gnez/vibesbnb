@@ -234,7 +234,7 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v4';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v5';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 const SEARCH_CATALOG_PAGE_SIZE = 50;
 

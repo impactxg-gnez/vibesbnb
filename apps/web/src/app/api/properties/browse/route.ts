@@ -8,6 +8,7 @@ import { logApiPerf } from '@/lib/monitoring/apiPerf';
 const HOST_ID_CHUNK = 80;
 const MAX_LIMIT_CAP = 48;
 const BROWSE_PAGE_SIZE = 25;
+const COVER_ENRICH_CHUNK = 40;
 
 /**
  * Card fields without `images` / heavy arrays — full image arrays are huge
@@ -24,6 +25,7 @@ const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'reviews_count',
   'has_team_review',
   'type',
+  'amenities',
   'guests',
   'status',
   'created_at',
@@ -58,11 +60,79 @@ const PROPERTY_BROWSE_NO_IMAGES_FALLBACK = [
   'longitude',
 ].join(',');
 
-function withEmptyImages(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-  return rows.map((r) => ({
-    ...r,
-    images: Array.isArray(r.images) ? r.images : [],
-  }));
+function firstHttpCover(images: unknown): string | null {
+  if (!Array.isArray(images)) return null;
+  for (const raw of images) {
+    if (typeof raw !== 'string') continue;
+    const url = raw.trim();
+    if (url.length < 12) continue;
+    const lower = url.toLowerCase();
+    if (!lower.startsWith('http')) continue;
+    if (lower.startsWith('data:')) continue;
+    if (lower.includes('via.placeholder')) continue;
+    return url;
+  }
+  return null;
+}
+
+function withCardImages(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return rows.map((r) => {
+    const fromImages = firstHttpCover(r.images);
+    const fromCover =
+      typeof r.cover_image === 'string' && r.cover_image.trim().startsWith('http')
+        ? r.cover_image.trim()
+        : null;
+    const cover = fromImages || fromCover;
+    return {
+      ...r,
+      images: cover ? [cover] : [],
+    };
+  });
+}
+
+/** Attach one cover URL per row without selecting full images[] over PostgREST. */
+async function enrichCoverImages(
+  supabase: SupabaseClient,
+  rows: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+  if (rows.length === 0) return rows;
+
+  const already = rows.filter((r) => firstHttpCover(r.images));
+  if (already.length === rows.length) return withCardImages(rows);
+
+  const needIds = rows
+    .filter((r) => !firstHttpCover(r.images))
+    .map((r) => (typeof r.id === 'string' ? r.id : null))
+    .filter((id): id is string => Boolean(id));
+
+  const coverById = new Map<string, string>();
+
+  for (let i = 0; i < needIds.length; i += COVER_ENRICH_CHUNK) {
+    const slice = needIds.slice(i, i + COVER_ENRICH_CHUNK);
+    const { data, error } = await supabase.rpc('property_cover_images', {
+      p_ids: slice,
+    });
+    if (error) {
+      console.warn('[properties/browse] cover enrich RPC failed', {
+        message: error.message,
+        code: error.code,
+        chunk: i,
+      });
+      break;
+    }
+    for (const row of (data ?? []) as Array<{ id?: string; cover_image?: string | null }>) {
+      if (typeof row.id === 'string' && typeof row.cover_image === 'string' && row.cover_image) {
+        coverById.set(row.id, row.cover_image);
+      }
+    }
+  }
+
+  return rows.map((r) => {
+    const existing = firstHttpCover(r.images);
+    const id = typeof r.id === 'string' ? r.id : '';
+    const cover = existing || coverById.get(id) || null;
+    return { ...r, images: cover ? [cover] : [] };
+  });
 }
 
 async function fetchViaRpc(
@@ -91,7 +161,7 @@ async function fetchViaRpc(
           message: error.message,
           code: error.code,
         });
-        return { rows: all, error: null, usedRpc: true };
+        return { rows: withCardImages(all), error: null, usedRpc: true };
       }
       return { rows: [], error, usedRpc: false };
     }
@@ -104,7 +174,7 @@ async function fetchViaRpc(
     offset += take;
   }
 
-  return { rows: all, error: null, usedRpc: true };
+  return { rows: withCardImages(all), error: null, usedRpc: true };
 }
 
 async function fetchWithoutImages(
@@ -121,7 +191,7 @@ async function fetchWithoutImages(
       .limit(limitParam);
     if (error) return { rows: [], error };
     return {
-      rows: withEmptyImages((data ?? []) as unknown as Record<string, unknown>[]),
+      rows: (data ?? []) as unknown as Record<string, unknown>[],
       error: null,
     };
   }
@@ -140,7 +210,7 @@ async function fetchWithoutImages(
     if (error) {
       if (all.length > 0) {
         console.warn('[properties/browse] no-images page failed after partial', error.message);
-        return { rows: withEmptyImages(all), error: null };
+        return { rows: all, error: null };
       }
       return { rows: [], error };
     }
@@ -150,7 +220,7 @@ async function fetchWithoutImages(
     if (page.length < BROWSE_PAGE_SIZE) break;
     from += BROWSE_PAGE_SIZE;
   }
-  return { rows: withEmptyImages(all), error: null };
+  return { rows: all, error: null };
 }
 
 /**
@@ -225,12 +295,12 @@ export async function GET(request: NextRequest) {
     let usedFallback = false;
     let rows: Record<string, unknown>[] = [];
 
-    // Prefer RPC that truncates images[] server-side (requires SQL migration).
+    // Prefer RPC that returns a single cover URL (requires SQL migration).
     const rpcResult = await fetchViaRpc(supabase, limitParam);
     if (!rpcResult.error) {
       rows = rpcResult.rows;
     } else {
-      console.warn('[properties/browse] RPC unavailable, using no-images select', {
+      console.warn('[properties/browse] RPC unavailable, using no-images select + cover enrich', {
         message: rpcResult.error.message,
         code: rpcResult.error.code,
       });
@@ -260,7 +330,7 @@ export async function GET(request: NextRequest) {
           );
         }
       }
-      rows = result.rows;
+      rows = await enrichCoverImages(supabase, result.rows);
       usedFallback = true;
     }
 

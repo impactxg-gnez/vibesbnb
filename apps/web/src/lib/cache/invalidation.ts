@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { getRedis } from '@/lib/cache/redis';
 
 const AVAIL_PROP_PREFIX = 'avail:v1:';
-const BROWSE_PREFIX = 'browse:v5:';
+const BROWSE_PREFIX = 'browse:v6:';
 
 export function availabilityCacheKey(propertyId: string, roomKey: string): string {
   return `${AVAIL_PROP_PREFIX}${propertyId}:${roomKey}`;
