@@ -8,7 +8,6 @@ import { logApiPerf } from '@/lib/monitoring/apiPerf';
 const HOST_ID_CHUNK = 80;
 const MAX_LIMIT_CAP = 48;
 const BROWSE_PAGE_SIZE = 20;
-const COVER_ENRICH_CHUNK = 40;
 
 /**
  * Card fields without `images` / heavy arrays — full image arrays are huge
@@ -114,60 +113,17 @@ function httpCoversFromUnknown(images: unknown, extra?: unknown): string[] {
 }
 
 function withCardImages(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-  return rows.map((r) => ({
-    ...r,
-    images: httpCoversFromUnknown(r.images, r.cover_image ?? r.cover_images),
-  }));
-}
-
-function missingHttpCovers(rows: Record<string, unknown>[]): boolean {
-  return rows.some((r) => httpCoversFromUnknown(r.images).length === 0);
-}
-
-/** Attach http cover URLs without selecting full images[] over PostgREST. */
-async function enrichCoverImages(
-  supabase: SupabaseClient,
-  rows: Record<string, unknown>[]
-): Promise<Record<string, unknown>[]> {
-  if (rows.length === 0) return rows;
-  if (!missingHttpCovers(rows)) return withCardImages(rows);
-
-  const needIds = rows
-    .filter((r) => httpCoversFromUnknown(r.images).length === 0)
-    .map((r) => (typeof r.id === 'string' ? r.id : null))
-    .filter((id): id is string => Boolean(id));
-
-  const coverById = new Map<string, string[]>();
-
-  for (let i = 0; i < needIds.length; i += COVER_ENRICH_CHUNK) {
-    const slice = needIds.slice(i, i + COVER_ENRICH_CHUNK);
-    const { data, error } = await supabase.rpc('property_cover_images', {
-      p_ids: slice,
-    });
-    if (error) {
-      console.warn('[properties/browse] cover enrich RPC failed', {
-        message: error.message,
-        code: error.code,
-        chunk: i,
-      });
-      break;
-    }
-    for (const row of (data ?? []) as Array<{
-      id?: string;
-      cover_image?: string | null;
-      cover_images?: string[] | null;
-    }>) {
-      if (typeof row.id !== 'string') continue;
-      const covers = httpCoversFromUnknown(row.cover_images, row.cover_image);
-      if (covers.length) coverById.set(row.id, covers);
-    }
-  }
-
   return rows.map((r) => {
-    const existing = httpCoversFromUnknown(r.images);
-    if (existing.length) return { ...r, images: existing };
+    const covers = httpCoversFromUnknown(r.images, r.cover_image ?? r.cover_images);
+    if (covers.length > 0) {
+      return { ...r, images: covers };
+    }
     const id = typeof r.id === 'string' ? r.id : '';
-    return { ...r, images: coverById.get(id) ?? [] };
+    // Proxy serves http cover or embedded data:image without shipping base64 in browse JSON.
+    return {
+      ...r,
+      images: id ? [`/api/properties/${encodeURIComponent(id)}/cover`] : [],
+    };
   });
 }
 
@@ -331,57 +287,54 @@ export async function GET(request: NextRequest) {
     let usedFallback = false;
     let rows: Record<string, unknown>[] = [];
 
-    // Prefer RPC that returns http(s) covers only (requires SQL migration).
-    const rpcResult = await fetchViaRpc(supabase, limitParam);
-    if (!rpcResult.error) {
-      rows = rpcResult.rows;
-      // Older RPC builds may still return data: blobs — strip + re-cover from DB.
-      if (missingHttpCovers(rows)) {
-        rows = await enrichCoverImages(supabase, rows);
-      }
-    } else {
-      console.warn('[properties/browse] RPC unavailable, using no-images select + cover enrich', {
-        message: rpcResult.error.message,
-        code: rpcResult.error.code,
+    // Slim PostgREST select first — never wait on RPC statement_timeout.
+    // cover_image is a small text column; images[] is intentionally omitted.
+    let result = await fetchWithoutImages(
+      supabase,
+      PROPERTY_BROWSE_NO_IMAGES_SELECT,
+      limitParam
+    );
+    if (result.error) {
+      console.warn('[properties/browse] cover_image select failed, trying fallback', {
+        message: result.error.message,
+        code: result.error.code,
       });
-
-      let result = await fetchWithoutImages(
+      result = await fetchWithoutImages(
         supabase,
-        PROPERTY_BROWSE_NO_IMAGES_SELECT,
+        PROPERTY_BROWSE_NO_IMAGES_FALLBACK,
         limitParam
       );
-      if (result.error) {
-        console.error('[properties/browse] primary no-images failed', result.error);
-        result = await fetchWithoutImages(
-          supabase,
-          PROPERTY_BROWSE_NO_IMAGES_FALLBACK,
-          limitParam
-        );
-      }
-      if (result.error) {
-        console.error('[properties/browse] fallback no-images failed', result.error);
-        result = await fetchWithoutImages(
-          supabase,
-          PROPERTY_BROWSE_MINIMAL_SELECT,
-          limitParam
-        );
-      }
-      if (result.error) {
+    }
+    if (result.error) {
+      result = await fetchWithoutImages(
+        supabase,
+        PROPERTY_BROWSE_MINIMAL_SELECT,
+        limitParam
+      );
+    }
+
+    if (!result.error) {
+      rows = withCardImages(result.rows);
+      usedFallback = true;
+    } else {
+      // Last resort: cover-only RPC (still avoids images[] when SQL is up to date).
+      console.warn('[properties/browse] selects failed, trying RPC', {
+        message: result.error.message,
+        code: result.error.code,
+      });
+      const rpcResult = await fetchViaRpc(supabase, limitParam);
+      if (rpcResult.error) {
         return NextResponse.json(
           {
-            error: result.error.message,
-            code: result.error.code,
-            details: result.error.details,
-            hint: result.error.hint,
+            error: rpcResult.error.message,
+            code: rpcResult.error.code,
+            details: rpcResult.error.details,
+            hint: rpcResult.error.hint,
           },
           { status: 500 }
         );
       }
-      rows = withCardImages(result.rows);
-      if (missingHttpCovers(rows)) {
-        rows = await enrichCoverImages(supabase, rows);
-      }
-      usedFallback = true;
+      rows = rpcResult.rows;
     }
 
     const hostIdSet = new Set<string>();

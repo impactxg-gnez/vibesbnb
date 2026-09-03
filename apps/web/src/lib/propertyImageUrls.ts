@@ -140,7 +140,18 @@ export function normalizePropertyImages(
   for (const raw of images) {
     if (typeof raw !== 'string') continue;
     const url = unwrapProxiedImageUrl(raw);
-    if (!url || seen.has(url) || !isLikelyDisplayableImageUrl(url)) continue;
+    if (!url || seen.has(url)) continue;
+
+    // Same-origin cover proxy (browse uses this when cover_image is missing).
+    if (url.startsWith('/api/properties/') && url.includes('/cover')) {
+      if (!seen.has(url)) {
+        seen.add(url);
+        remote.push(url);
+      }
+      continue;
+    }
+
+    if (!isLikelyDisplayableImageUrl(url)) continue;
     seen.add(url);
 
     if (url.startsWith('data:image/')) {

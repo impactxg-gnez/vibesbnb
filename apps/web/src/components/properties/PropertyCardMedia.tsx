@@ -166,8 +166,10 @@ export function PropertyCardMedia({
   const safeIndex = Math.min(Math.max(0, index), slides.length - 1);
   const mainSrc = slides[safeIndex] ?? PLACEHOLDER;
   const [mainUseOriginal, setMainUseOriginal] = useState(false);
+  const mainIsLocalProxy =
+    mainSrc.startsWith('/') || mainSrc.startsWith('data:');
   const mainDisplaySrc =
-    mainSrc.startsWith('data:') || mainUseOriginal ? mainSrc : listingCardMainImageUrl(mainSrc);
+    mainIsLocalProxy || mainUseOriginal ? mainSrc : listingCardMainImageUrl(mainSrc);
 
   useEffect(() => {
     setMainUseOriginal(false);
@@ -224,7 +226,7 @@ export function PropertyCardMedia({
           priority={priority}
           quality={72}
           fetchPriority={priority ? 'high' : 'low'}
-          unoptimized={mainSrc.startsWith('data:')}
+          unoptimized={mainIsLocalProxy || mainSrc.startsWith('data:')}
           placeholder="blur"
           blurDataURL={MAIN_BLUR}
           onError={handleMainImageError}

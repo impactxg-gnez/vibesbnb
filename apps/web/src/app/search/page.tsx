@@ -234,7 +234,7 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v7';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v8';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 const SEARCH_CATALOG_PAGE_SIZE = 50;
 
@@ -277,6 +277,7 @@ function normalizeListingImageUrl(url: string): string {
   if (!url || typeof url !== 'string') {
     return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
   }
+  if (url.startsWith('/api/properties/') && url.includes('/cover')) return url;
   if (url.startsWith('data:') || url.startsWith('https://via.placeholder.com')) return url;
   try {
     new URL(url);
@@ -468,11 +469,18 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
         : null;
     const normalizedImages = [...rawImages, ...(cover ? [cover] : [])]
       .map(normalizeListingImageUrl)
-      .filter((img: string) => img?.length > 0 && !img.startsWith('data:'));
+      .filter((img: string) => {
+        if (!img?.length) return false;
+        if (img.startsWith('/api/properties/')) return true;
+        if (img.startsWith('data:')) return false;
+        return true;
+      });
     const images =
       normalizedImages.length > 0
         ? Array.from(new Set(normalizedImages)).slice(0, 3)
-        : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
+        : p.id
+          ? [`/api/properties/${encodeURIComponent(String(p.id))}/cover`]
+          : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
 
     const hostId = typeof p.host_id === 'string' ? p.host_id : '';
     const prof = hostId ? inv.profileById[hostId] : undefined;
