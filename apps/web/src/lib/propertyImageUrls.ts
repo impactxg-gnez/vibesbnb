@@ -144,8 +144,9 @@ export function normalizePropertyImages(
     seen.add(url);
 
     if (url.startsWith('data:image/')) {
-      // Scraped listings often store many huge base64 blobs — keep a few for fallbacks.
-      if (embedded.length < 8) embedded.push(url);
+      // Scraped listings often store huge base64 blobs that break next/image on cards.
+      // Prefer remote http(s) covers; only keep tiny data: fallbacks.
+      if (url.length <= 48_000 && embedded.length < 2) embedded.push(url);
     } else if (/^https?:\/\//i.test(url)) {
       remote.push(url);
     }
