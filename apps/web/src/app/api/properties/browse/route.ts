@@ -7,7 +7,7 @@ import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
 const HOST_ID_CHUNK = 80;
 const MAX_LIMIT_CAP = 48;
-const BROWSE_PAGE_SIZE = 25;
+const BROWSE_PAGE_SIZE = 20;
 const COVER_ENRICH_CHUNK = 40;
 
 /**
@@ -38,6 +38,7 @@ const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'latitude',
   'longitude',
   'min_booking_nights',
+  'cover_image',
 ].join(',');
 
 const PROPERTY_BROWSE_NO_IMAGES_FALLBACK = [
@@ -58,6 +59,20 @@ const PROPERTY_BROWSE_NO_IMAGES_FALLBACK = [
   'beds',
   'latitude',
   'longitude',
+].join(',');
+
+const PROPERTY_BROWSE_MINIMAL_SELECT = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'type',
+  'guests',
+  'status',
+  'created_at',
 ].join(',');
 
 function isHttpCoverUrl(url: string): boolean {
@@ -342,20 +357,30 @@ export async function GET(request: NextRequest) {
           PROPERTY_BROWSE_NO_IMAGES_FALLBACK,
           limitParam
         );
-        usedFallback = true;
-        if (result.error) {
-          return NextResponse.json(
-            {
-              error: result.error.message,
-              code: result.error.code,
-              details: result.error.details,
-              hint: result.error.hint,
-            },
-            { status: 500 }
-          );
-        }
       }
-      rows = await enrichCoverImages(supabase, result.rows);
+      if (result.error) {
+        console.error('[properties/browse] fallback no-images failed', result.error);
+        result = await fetchWithoutImages(
+          supabase,
+          PROPERTY_BROWSE_MINIMAL_SELECT,
+          limitParam
+        );
+      }
+      if (result.error) {
+        return NextResponse.json(
+          {
+            error: result.error.message,
+            code: result.error.code,
+            details: result.error.details,
+            hint: result.error.hint,
+          },
+          { status: 500 }
+        );
+      }
+      rows = withCardImages(result.rows);
+      if (missingHttpCovers(rows)) {
+        rows = await enrichCoverImages(supabase, rows);
+      }
       usedFallback = true;
     }
 

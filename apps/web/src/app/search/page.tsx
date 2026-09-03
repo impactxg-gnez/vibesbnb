@@ -234,7 +234,7 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v6';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v7';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 const SEARCH_CATALOG_PAGE_SIZE = 50;
 
@@ -263,6 +263,7 @@ const SEARCH_CATALOG_NO_IMAGES_SELECT = [
   'latitude',
   'longitude',
   'min_booking_nights',
+  'cover_image',
 ].join(',');
 
 type ProfileBrief = {
@@ -461,12 +462,16 @@ function listingsFromInventory(inv: SearchInventory): Listing[] {
   return inv.properties.map((p: any) => {
     const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
     const rawImages = p.images || [];
-    const normalizedImages = rawImages
+    const cover =
+      typeof p.cover_image === 'string' && p.cover_image.trim().startsWith('http')
+        ? p.cover_image.trim()
+        : null;
+    const normalizedImages = [...rawImages, ...(cover ? [cover] : [])]
       .map(normalizeListingImageUrl)
-      .filter((img: string) => img?.length > 0);
+      .filter((img: string) => img?.length > 0 && !img.startsWith('data:'));
     const images =
       normalizedImages.length > 0
-        ? normalizedImages
+        ? Array.from(new Set(normalizedImages)).slice(0, 3)
         : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
 
     const hostId = typeof p.host_id === 'string' ? p.host_id : '';
