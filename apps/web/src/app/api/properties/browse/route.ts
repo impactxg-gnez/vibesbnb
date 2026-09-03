@@ -7,11 +7,11 @@ import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
 const HOST_ID_CHUNK = 80;
 const MAX_LIMIT_CAP = 48;
-const BROWSE_PAGE_SIZE = 50;
+const BROWSE_PAGE_SIZE = 25;
 
 /**
- * Card fields without `images` — full image arrays are huge (50–200+ URLs) and
- * cause statement timeouts when selecting many active listings at once.
+ * Card fields without `images` / heavy arrays — full image arrays are huge
+ * (50–200+ URLs) and cause statement timeouts on uncapped browse.
  */
 const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'id',
@@ -24,7 +24,6 @@ const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'reviews_count',
   'has_team_review',
   'type',
-  'amenities',
   'guests',
   'status',
   'created_at',
@@ -36,11 +35,7 @@ const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'wellness_consumption_outdoor_allowed',
   'latitude',
   'longitude',
-  'smoking_inside_allowed',
-  'smoking_outside_allowed',
-  'smoke_friendly',
   'min_booking_nights',
-  'vibesbnb_take',
 ].join(',');
 
 const PROPERTY_BROWSE_NO_IMAGES_FALLBACK = [
@@ -52,17 +47,13 @@ const PROPERTY_BROWSE_NO_IMAGES_FALLBACK = [
   'price',
   'rating',
   'reviews_count',
-  'has_team_review',
   'type',
-  'amenities',
   'guests',
   'status',
   'created_at',
   'bedrooms',
   'bathrooms',
   'beds',
-  'wellness_consumption_indoor_allowed',
-  'wellness_consumption_outdoor_allowed',
   'latitude',
   'longitude',
 ].join(',');

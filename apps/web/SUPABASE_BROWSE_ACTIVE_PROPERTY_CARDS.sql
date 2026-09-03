@@ -1,3 +1,6 @@
+CREATE INDEX IF NOT EXISTS idx_properties_status_created_at
+  ON public.properties (status, created_at DESC);
+
 -- Fast browse cards: truncate huge images[] arrays (imports often ship 50–200+ URLs).
 -- Used by /api/properties/browse to avoid statement timeouts.
 
