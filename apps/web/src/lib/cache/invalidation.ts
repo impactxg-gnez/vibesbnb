@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { getRedis } from '@/lib/cache/redis';
 
 const AVAIL_PROP_PREFIX = 'avail:v1:';
-const BROWSE_PREFIX = 'browse:v2:';
+const BROWSE_PREFIX = 'browse:v3:';
 
 export function availabilityCacheKey(propertyId: string, roomKey: string): string {
   return `${AVAIL_PROP_PREFIX}${propertyId}:${roomKey}`;
@@ -26,8 +26,12 @@ export async function invalidatePropertyListingCaches(propertyId: string): Promi
   const pipe = redis.pipeline();
   pipe.del(availabilityCacheKey(propertyId, 'all'));
   // Browse payloads are keyed by limit; keep TTL short — explicit bust common caps.
-  for (const cap of ['all', '48', '24', '12']) {
+  for (const cap of ['all', '48', '24', '20', '12', '3']) {
     pipe.del(browseCacheKey(cap));
+  }
+  // Legacy cache keys from earlier browse versions
+  for (const cap of ['all', '48', '24', '20', '12', '3']) {
+    pipe.del(`browse:v2:${cap}`);
   }
   await pipe.exec();
 }

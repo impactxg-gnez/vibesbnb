@@ -233,9 +233,10 @@ function sortSearchListings(
   return copy;
 }
 
-/** Bump when browse payload fields change so stale tabs pick up vibe flags. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v2';
+/** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v3';
 const SEARCH_CATALOG_TTL_MS = 300_000;
+const SEARCH_CATALOG_PAGE_SIZE = 40;
 
 type ProfileBrief = {
   avatar_url: string | null;
@@ -316,7 +317,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId =
       typeof window !== 'undefined' && controller
-        ? window.setTimeout(() => controller.abort(), 12_000)
+        ? window.setTimeout(() => controller.abort(), 45_000)
         : 0;
     try {
       const res = await fetch('/api/properties/browse', {
@@ -354,16 +355,33 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
       if (timeoutId) window.clearTimeout(timeoutId);
     }
 
-    // Browse down — load directly from Supabase so vibe flags still reach cards
+    // Browse down — load directly from Supabase in pages so vibe flags still reach cards
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('properties')
-        .select(PROPERTY_BROWSE_LIST_COLUMNS)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-      if (!error && Array.isArray(data) && data.length > 0) {
-        const propertyRows = data as unknown as Array<Record<string, unknown>>;
+      const propertyRows: Array<Record<string, unknown>> = [];
+      let from = 0;
+      const hardCap = 2000;
+      while (from < hardCap) {
+        const to = from + SEARCH_CATALOG_PAGE_SIZE - 1;
+        const { data, error } = await supabase
+          .from('properties')
+          .select(PROPERTY_BROWSE_LIST_COLUMNS)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        if (error) {
+          if (propertyRows.length === 0) break;
+          console.warn('[Search] catalog page failed after partial load:', error.message);
+          break;
+        }
+        const page = (data ?? []) as unknown as Array<Record<string, unknown>>;
+        if (page.length === 0) break;
+        propertyRows.push(...page);
+        if (page.length < SEARCH_CATALOG_PAGE_SIZE) break;
+        from += SEARCH_CATALOG_PAGE_SIZE;
+      }
+
+      if (propertyRows.length > 0) {
         const hostIds = [
           ...new Set(
             propertyRows
@@ -373,17 +391,20 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
         ];
         const profileById: Record<string, ProfileBrief> = {};
         if (hostIds.length) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, avatar_url, full_name, host_badge')
-            .in('id', hostIds);
-          for (const row of profiles ?? []) {
-            if (row?.id) {
-              profileById[row.id] = {
-                avatar_url: row.avatar_url ?? null,
-                full_name: row.full_name ?? null,
-                host_badge: row.host_badge ?? null,
-              };
+          for (let i = 0; i < hostIds.length; i += 80) {
+            const slice = hostIds.slice(i, i + 80);
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, avatar_url, full_name, host_badge')
+              .in('id', slice);
+            for (const row of profiles ?? []) {
+              if (row?.id) {
+                profileById[row.id] = {
+                  avatar_url: row.avatar_url ?? null,
+                  full_name: row.full_name ?? null,
+                  host_badge: row.host_badge ?? null,
+                };
+              }
             }
           }
         }
