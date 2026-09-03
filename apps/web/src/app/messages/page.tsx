@@ -16,6 +16,8 @@ interface Conversation {
   booking_id?: string | null;
   last_message: string | null;
   last_message_at: string | null;
+  inquiry_check_in?: string | null;
+  inquiry_check_out?: string | null;
   host_name?: string | null;
   host_avatar?: string | null;
   traveller_name?: string | null;
@@ -246,6 +248,8 @@ export default function MessagesPage() {
                     title={selectedConversationObj.properties?.name || 'Chat'}
                     counterpartName={getCounterpartName(selectedConversationObj)}
                     counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
+                    inquiryCheckIn={selectedConversationObj.inquiry_check_in}
+                    inquiryCheckOut={selectedConversationObj.inquiry_check_out}
                     onMessagesRead={handleMessagesRead}
                   />
                 </div>

@@ -13,6 +13,8 @@ interface ConversationResponse {
   booking_id: string | null;
   last_message: string | null;
   last_message_at: string | null;
+  inquiry_check_in?: string | null;
+  inquiry_check_out?: string | null;
   host_name?: string | null;
   host_avatar?: string | null;
   traveller_name?: string | null;
@@ -24,6 +26,12 @@ interface ConversationResponse {
     location?: string;
     images?: string[];
   } | null;
+}
+
+function parseInquiryYmd(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -77,6 +85,8 @@ export async function GET(request: NextRequest) {
           booking_id,
           last_message,
           last_message_at,
+          inquiry_check_in,
+          inquiry_check_out,
           host_name,
           host_avatar,
           traveller_name,
@@ -101,7 +111,53 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      if (error.code === '42703') { // Undefined column
+      if (error.code === '42703') {
+        // Older DBs may lack inquiry date columns — retry without them.
+        if (
+          String(error.message || '').includes('inquiry_check_in') ||
+          String(error.message || '').includes('inquiry_check_out')
+        ) {
+          const retry = (useService ? serviceSupabase : supabase)
+            .from('conversations')
+            .select(
+              `
+                id,
+                property_id,
+                host_id,
+                traveller_id,
+                booking_id,
+                last_message,
+                last_message_at,
+                host_name,
+                host_avatar,
+                traveller_name,
+                traveller_avatar,
+                host_unread_count,
+                traveller_unread_count,
+                properties (
+                  name,
+                  location,
+                  images
+                )
+              `
+            )
+            .order('last_message_at', { ascending: false });
+          if (filterConversationId) retry.eq('id', filterConversationId);
+          else if (!useService) retry.or(`host_id.eq.${user.id},traveller_id.eq.${user.id}`);
+          const { data: retryData, error: retryError } = await retry;
+          if (retryError) {
+            if (retryError.code === '42703') {
+              throw new Error(
+                'Missing database columns: host_unread_count or traveller_unread_count. Please run the migration: SUPABASE_FIX_MESSAGING_ARCHIVE.sql in your Supabase SQL editor.'
+              );
+            }
+            throw retryError;
+          }
+          return NextResponse.json({
+            conversations: (retryData as ConversationResponse[] | null) ?? [],
+            viewer_id: user.id,
+          });
+        }
         throw new Error(
           'Missing database columns: host_unread_count or traveller_unread_count. Please run the migration: SUPABASE_FIX_MESSAGING_ARCHIVE.sql in your Supabase SQL editor.'
         );
@@ -153,6 +209,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const propertyId = body?.propertyId;
+    const inquiryCheckIn = parseInquiryYmd(body?.checkIn);
+    const inquiryCheckOut = parseInquiryYmd(body?.checkOut);
+    const inquiryDates =
+      inquiryCheckIn && inquiryCheckOut && inquiryCheckOut > inquiryCheckIn
+        ? { inquiry_check_in: inquiryCheckIn, inquiry_check_out: inquiryCheckOut }
+        : null;
 
     if (!propertyId) {
       return NextResponse.json(
@@ -184,12 +246,27 @@ export async function POST(request: NextRequest) {
 
     const { data: existingConversation } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, inquiry_check_in, inquiry_check_out')
       .eq('property_id', propertyId)
       .eq('traveller_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (existingConversation?.id) {
+      if (inquiryDates) {
+        const { data: updated, error: updateError } = await supabase
+          .from('conversations')
+          .update(inquiryDates)
+          .eq('id', existingConversation.id)
+          .select('id, inquiry_check_in, inquiry_check_out')
+          .single();
+        if (!updateError && updated) {
+          return NextResponse.json({ conversation: updated });
+        }
+        // Column may not exist yet — still return the thread.
+        if (updateError && updateError.code !== '42703') {
+          console.warn('[ConversationsAPI] inquiry date update failed', updateError);
+        }
+      }
       return NextResponse.json({ conversation: existingConversation });
     }
 
@@ -199,22 +276,35 @@ export async function POST(request: NextRequest) {
       resolveUserContact(serviceSupabase, property.host_id),
     ]);
 
-    const { data: conversation, error } = await supabase
+    const insertPayload: Record<string, unknown> = {
+      property_id: propertyId,
+      host_id: property.host_id,
+      traveller_id: user.id,
+      last_message: 'Conversation started',
+      last_message_at: new Date().toISOString(),
+      host_name: hostContact.name,
+      traveller_name: travellerContact.name,
+      ...(inquiryDates || {}),
+    };
+
+    let { data: conversation, error } = await supabase
       .from('conversations')
-      .insert({
-        property_id: propertyId,
-        host_id: property.host_id,
-        traveller_id: user.id,
-        last_message: 'Conversation started',
-        last_message_at: new Date().toISOString(),
-        host_name: hostContact.name,
-        traveller_name: travellerContact.name,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
+    if (error?.code === '42703' && inquiryDates) {
+      const { inquiry_check_in: _in, inquiry_check_out: _out, ...withoutDates } = insertPayload;
+      const retry = await supabase.from('conversations').insert(withoutDates).select().single();
+      conversation = retry.data;
+      error = retry.error;
+    }
+
     if (error) {
       throw error;
+    }
+    if (!conversation) {
+      throw new Error('Failed to create conversation');
     }
 
     // New thread only — subsequent messages must not trigger admin_new_chat

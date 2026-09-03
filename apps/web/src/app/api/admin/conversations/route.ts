@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
           booking_id,
           last_message,
           last_message_at,
+          inquiry_check_in,
+          inquiry_check_out,
           host_name,
           traveller_name,
           host_avatar,

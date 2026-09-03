@@ -61,7 +61,7 @@ export default function PropertyChatButton({
     }
 
     setIsOpen(true);
-    if (conversationId || loading) return;
+    if (loading) return;
 
     setLoading(true);
     setDetailsError(null);
@@ -69,13 +69,19 @@ export default function PropertyChatButton({
       const response = await fetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId }),
+        body: JSON.stringify({
+          propertyId,
+          checkIn: checkIn || null,
+          checkOut: checkOut || null,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to start conversation');
       }
-      setConversationId(data.conversation.id);
+      const id = data.conversation.id as string;
+      setConversationId(id);
+      await loadConversationDetails(id);
     } catch (error: any) {
       console.error('[PropertyChatButton] open error', error);
       toast.error(error.message || 'Unable to start chat');
@@ -179,6 +185,16 @@ export default function PropertyChatButton({
                 <p className="text-sm text-gray-400">
                   Send your request here first. Complete the booking form when you&apos;re ready.
                 </p>
+                {(checkIn && checkOut) ||
+                (conversationDetails?.inquiry_check_in &&
+                  conversationDetails?.inquiry_check_out) ? (
+                  <p className="mt-1 text-sm text-emerald-400 font-medium">
+                    Stay:{' '}
+                    {conversationDetails?.inquiry_check_in && conversationDetails?.inquiry_check_out
+                      ? `${String(conversationDetails.inquiry_check_in).slice(0, 10)} → ${String(conversationDetails.inquiry_check_out).slice(0, 10)}`
+                      : `${checkIn} → ${checkOut}`}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 {!isViewerHost && (
@@ -238,6 +254,12 @@ export default function PropertyChatButton({
                     conversationDetails.host_id === user?.id
                       ? conversationDetails.traveller_avatar
                       : conversationDetails.host_avatar
+                  }
+                  inquiryCheckIn={
+                    conversationDetails.inquiry_check_in || checkIn || null
+                  }
+                  inquiryCheckOut={
+                    conversationDetails.inquiry_check_out || checkOut || null
                   }
                   onMessagesRead={() => loadConversationDetails(conversationId)}
                 />
