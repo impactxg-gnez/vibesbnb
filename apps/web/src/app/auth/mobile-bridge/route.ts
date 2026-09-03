@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 /**
  * Authenticated WebView entry: mobile sends Bearer access token (+ optional refresh_token query).
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const tokenClient = createClient(supabaseUrl, anonKey, {
+  const tokenClient = createSupabaseJsClient(supabaseUrl, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: userData, error: userError } = await tokenClient.auth.getUser(accessToken);
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const supabase = createClient();
+  const supabase = createServerClient();
   await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
