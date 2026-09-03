@@ -1,15 +1,18 @@
+-- One-time setup for fast search/browse. Safe to re-run.
+-- properties.id is TEXT in this project (not uuid).
+
 CREATE INDEX IF NOT EXISTS idx_properties_status_created_at
   ON public.properties (status, created_at DESC);
 
--- Fast browse cards: truncate huge images[] arrays (imports often ship 50–200+ URLs).
--- Used by /api/properties/browse to avoid statement timeouts.
+-- DROP required when changing RETURNS TABLE shape
+DROP FUNCTION IF EXISTS public.browse_active_property_cards(integer, integer);
 
 CREATE OR REPLACE FUNCTION public.browse_active_property_cards(
   p_limit integer DEFAULT 40,
   p_offset integer DEFAULT 0
 )
 RETURNS TABLE (
-  id uuid,
+  id text,
   host_id uuid,
   name text,
   title text,
@@ -44,42 +47,45 @@ SECURITY INVOKER
 SET search_path = public
 AS $$
   SELECT
-    p.id,
+    p.id::text,
     p.host_id,
     p.name,
     p.title,
     p.location,
-    p.price,
-    p.rating,
-    p.reviews_count,
-    p.has_team_review,
-    COALESCE(p.images[1:4], ARRAY[]::text[]) AS images,
+    p.price::numeric,
+    p.rating::numeric,
+    COALESCE(p.reviews_count, 0)::integer,
+    COALESCE(p.has_team_review, false),
+    COALESCE(p.images[1:4], ARRAY[]::text[]),
     p.type,
-    p.amenities,
-    p.guests,
+    COALESCE(p.amenities, ARRAY[]::text[]),
+    COALESCE(p.guests, 0)::integer,
     p.status,
     p.created_at,
-    p.bedrooms,
-    p.bathrooms,
-    p.beds,
-    p.wellness_friendly,
-    p.wellness_consumption_indoor_allowed,
-    p.wellness_consumption_outdoor_allowed,
-    p.latitude,
-    p.longitude,
-    p.smoking_inside_allowed,
-    p.smoking_outside_allowed,
-    p.smoke_friendly,
-    p.min_booking_nights,
+    COALESCE(p.bedrooms, 0)::integer,
+    COALESCE(p.bathrooms, 0)::numeric,
+    COALESCE(p.beds, 0)::integer,
+    COALESCE(p.wellness_friendly, false),
+    COALESCE(p.wellness_consumption_indoor_allowed, false),
+    COALESCE(p.wellness_consumption_outdoor_allowed, false),
+    p.latitude::double precision,
+    p.longitude::double precision,
+    COALESCE(p.smoking_inside_allowed, false),
+    COALESCE(p.smoking_outside_allowed, false),
+    COALESCE(p.smoke_friendly, false),
+    p.min_booking_nights::integer,
     p.vibesbnb_take
   FROM public.properties p
   WHERE p.status = 'active'
-  ORDER BY p.created_at DESC
+  ORDER BY p.created_at DESC NULLS LAST
   LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 40), 100))
   OFFSET GREATEST(0, COALESCE(p_offset, 0));
 $$;
 
-GRANT EXECUTE ON FUNCTION public.browse_active_property_cards(integer, integer) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.browse_active_property_cards(integer, integer)
+  TO anon, authenticated, service_role;
 
 COMMENT ON FUNCTION public.browse_active_property_cards(integer, integer) IS
   'Paged active listing cards with images truncated to 4 URLs for search/browse performance.';
+
+SELECT 'browse_active_property_cards ready.' AS status;
