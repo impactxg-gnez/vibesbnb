@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Search, Eye, Check, X, Phone, Mail, MessageCircle, Loader2 } from 'lucide-react';
 import { isAdminUser } from '@/lib/auth/isAdmin';
@@ -58,6 +58,7 @@ function formatBookedAt(iso: string): string {
 export default function ManageReservationsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,12 +84,20 @@ export default function ManageReservationsPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    const bookingId = searchParams.get('bookingId');
+    if (bookingId && !searchQuery) {
+      setSearchQuery(bookingId);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     let filtered = reservations;
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (r) =>
+          r.id.toLowerCase().includes(query) ||
           r.property_name?.toLowerCase().includes(query) ||
           r.user_name?.toLowerCase().includes(query) ||
           r.user_email?.toLowerCase().includes(query) ||

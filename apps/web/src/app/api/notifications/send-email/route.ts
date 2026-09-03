@@ -78,6 +78,32 @@ interface NewMessageData {
   recipientName?: string;
 }
 
+interface AdminNewBookingData {
+  bookingId: string;
+  propertyName: string;
+  hostName: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  totalPrice: number;
+  status: string;
+  paymentStatus?: string;
+  adminBookingUrl: string;
+  recipientName?: string;
+}
+
+interface AdminNewChatData {
+  conversationId: string;
+  guestName: string;
+  hostName?: string;
+  propertyName?: string;
+  messagePreview: string;
+  createdAt: string;
+  adminChatUrl: string;
+  recipientName?: string;
+}
+
 type EmailTemplateData =
   | BookingRequestData
   | BookingRequestSubmittedData
@@ -86,7 +112,9 @@ type EmailTemplateData =
   | BookingCancelledData
   | BookingCancelledByHostData
   | HostApplicationApprovedData
-  | NewMessageData;
+  | NewMessageData
+  | AdminNewBookingData
+  | AdminNewChatData;
 
 function generateEmailHtml(template: string, data: EmailTemplateData): string {
   const baseStyles = `
@@ -486,6 +514,156 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
           </div>
           <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
             You received this because you have an active conversation on VibesBNB.
+          </p>
+        </div>
+      `;
+    }
+
+    case 'admin_new_booking': {
+      const d = data as AdminNewBookingData;
+      const esc = (v: unknown) =>
+        String(v ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      const fmtDate = (raw: string) => {
+        try {
+          return new Date(raw).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          });
+        } catch {
+          return esc(raw);
+        }
+      };
+      const amount =
+        typeof d.totalPrice === 'number' && Number.isFinite(d.totalPrice)
+          ? `$${d.totalPrice.toFixed(2)}`
+          : esc(d.totalPrice);
+      const greeting = d.recipientName ? `Hi ${esc(d.recipientName)},` : 'Hi,';
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #059669; margin-bottom: 16px;">🛎 New booking request</h1>
+            <p style="color: #374151; font-size: 16px; margin-bottom: 20px;">
+              ${greeting} a new booking was created on VibesBNB.
+            </p>
+            <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Booking ID</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right; font-family: monospace; font-size: 12px;">${esc(d.bookingId)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Property</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.propertyName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Host</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.hostName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Guest</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.guestName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Check-in</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${fmtDate(d.checkIn)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Check-out</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${fmtDate(d.checkOut)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Guests</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.guests)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Status</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.status)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Payment</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.paymentStatus || 'pending')}</td>
+                </tr>
+                <tr style="border-top: 1px solid #e5e7eb;">
+                  <td style="padding: 12px 0 8px; color: #6b7280; font-weight: 600;">Amount</td>
+                  <td style="padding: 12px 0 8px; color: #059669; font-weight: 700; font-size: 20px; text-align: right;">${amount}</td>
+                </tr>
+              </table>
+            </div>
+            <a href="${esc(d.adminBookingUrl || `${appUrl}/admin/reservations`)}" style="${buttonStyles}">
+              Open in admin
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            Admin notification from VibesBNB.
+          </p>
+        </div>
+      `;
+    }
+
+    case 'admin_new_chat': {
+      const d = data as AdminNewChatData;
+      const esc = (v: unknown) =>
+        String(v ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      const safePreview = esc(d.messagePreview || '').replace(/\n/g, '<br/>');
+      let when = esc(d.createdAt);
+      try {
+        when = new Date(d.createdAt).toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        });
+      } catch {
+        /* keep raw */
+      }
+      const greeting = d.recipientName ? `Hi ${esc(d.recipientName)},` : 'Hi,';
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #059669; margin-bottom: 16px;">💬 New conversation</h1>
+            <p style="color: #374151; font-size: 16px; margin-bottom: 20px;">
+              ${greeting} a new chat thread was started on VibesBNB.
+            </p>
+            <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Conversation ID</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right; font-family: monospace; font-size: 12px;">${esc(d.conversationId)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Guest</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.guestName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Host</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.hostName || '—')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Property</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.propertyName || '—')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Started</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${when}</td>
+                </tr>
+              </table>
+            </div>
+            <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #059669;">
+              <p style="color: #6b7280; font-size: 12px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em;">Initial message</p>
+              <p style="color: #374151; font-size: 15px; margin: 0;">${safePreview}</p>
+            </div>
+            <a href="${esc(d.adminChatUrl || `${appUrl}/admin/messages`)}" style="${buttonStyles}">
+              Open in admin messages
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            Admin notification from VibesBNB. Sent only when a new thread is created.
           </p>
         </div>
       `;

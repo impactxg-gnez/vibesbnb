@@ -42,6 +42,16 @@ function fmtPrice(n: number) {
   return '$' + Math.round(n).toLocaleString('en-US');
 }
 
+function displayPriceRange(
+  initial: [number, number] | null | undefined,
+  ceil: number
+): [number, number] {
+  if (!initial) return [0, ceil];
+  const lo = Math.max(0, Math.min(ceil, initial[0]));
+  const hi = Math.max(0, Math.min(ceil, initial[1]));
+  return [Math.min(lo, hi), Math.max(lo, hi)];
+}
+
 export default function Filters({
   onApply,
   onClose,
@@ -56,8 +66,8 @@ export default function Filters({
   /** Slider / filter range uses $0 … catalog max so the default includes all nightly rates. */
   const sliderSpan = Math.max(ceil, 1);
 
-  const [minPrice, setMinPrice] = useState(() => initialFilters?.priceRange?.[0] ?? 0);
-  const [maxPrice, setMaxPrice] = useState(() => initialFilters?.priceRange?.[1] ?? ceil);
+  const [minPrice, setMinPrice] = useState(() => displayPriceRange(initialFilters?.priceRange, ceil)[0]);
+  const [maxPrice, setMaxPrice] = useState(() => displayPriceRange(initialFilters?.priceRange, ceil)[1]);
 
   const [rooms, setRooms] = useState(initialFilters?.rooms || 0);
   const [beds, setBeds] = useState(initialFilters?.beds || 0);
@@ -69,16 +79,16 @@ export default function Filters({
   const [hoverBar, setHoverBar] = useState<number | null>(null);
 
   useEffect(() => {
-    const r = initialFilters?.priceRange;
-    if (!r) return;
-    const lo = Math.max(0, Math.min(ceil, r[0]));
-    const hi = Math.max(0, Math.min(ceil, r[1]));
-    setMinPrice(Math.min(lo, hi));
-    setMaxPrice(Math.max(lo, hi));
-  }, [floor, ceil, initialFilters?.priceRange?.[0], initialFilters?.priceRange?.[1]]);
+    const [lo, hi] = displayPriceRange(initialFilters?.priceRange, ceil);
+    setMinPrice(lo);
+    setMaxPrice(hi);
+  }, [floor, ceil, initialFilters?.priceRange?.[0], initialFilters?.priceRange?.[1], initialFilters?.priceRange]);
 
   const clamp = (n: number) =>
     Math.max(0, Math.min(ceil, Math.round(Number.isFinite(n) ? n : 0)));
+
+  const isFullSpan = (lo: number, hi: number) =>
+    Math.round(lo) <= 0 && Math.round(hi) >= Math.round(ceil);
 
   const emitLive = (lo: number, hi: number) => {
     if (!onPriceRangeLive) return;
@@ -97,6 +107,8 @@ export default function Filters({
   };
 
   const barOverlapsSelection = (i: number) => {
+    // No budget → entire histogram is selected
+    if (isFullSpan(minPrice, maxPrice)) return true;
     const { bLo, bHi } = bucketBoundaries(i);
     return !(bHi < minPrice || bLo > maxPrice);
   };
@@ -136,21 +148,26 @@ export default function Filters({
     );
   };
 
-  const handleApply = () => {
-    const lo = clamp(Math.min(minPrice, maxPrice));
-    const hi = clamp(Math.max(minPrice, maxPrice));
-    onApply({
-      priceRange: [lo, hi],
+  const buildFilters = (lo: number, hi: number) => {
+    const clampedLo = clamp(Math.min(lo, hi));
+    const clampedHi = clamp(Math.max(lo, hi));
+    return {
+      // Full span = empty budget (show every matching stay)
+      priceRange: isFullSpan(clampedLo, clampedHi) ? null : ([clampedLo, clampedHi] as [number, number]),
       rooms,
       beds,
       bathrooms,
       propertyTypes,
       amenities,
-    });
+    };
+  };
+
+  const handleApply = () => {
+    onApply(buildFilters(minPrice, maxPrice));
   };
 
   const defaultFilters = () => ({
-    priceRange: [0, ceil] as [number, number],
+    priceRange: null as null,
     rooms: 0,
     beds: 0,
     bathrooms: 0,
@@ -159,8 +176,7 @@ export default function Filters({
   });
 
   const hasActiveFilters =
-    minPrice !== 0 ||
-    maxPrice !== ceil ||
+    !isFullSpan(minPrice, maxPrice) ||
     rooms > 0 ||
     beds > 0 ||
     bathrooms > 0 ||
@@ -223,6 +239,7 @@ export default function Filters({
           <p className="text-muted text-sm mb-12 font-medium">
             Nightly rates (per night) for properties matching your search — min {fmtPrice(floor)}, max{' '}
             {fmtPrice(ceil)}.
+            {isFullSpan(minPrice, maxPrice) ? ' No budget applied — showing all matching stays.' : ''}
           </p>
 
           <div className="relative pt-12 pb-8 px-1">
@@ -338,10 +355,15 @@ export default function Filters({
                 <span className="text-white font-bold opacity-50">$</span>
                 <input
                   type="number"
-                  value={minPrice}
+                  value={isFullSpan(minPrice, maxPrice) ? '' : minPrice}
+                  placeholder="Any"
                   onChange={(e) => {
                     const raw = e.target.value;
-                    if (raw === '') return;
+                    if (raw === '') {
+                      setMinPrice(0);
+                      emitLive(0, maxPrice);
+                      return;
+                    }
                     const v = clamp(Number(raw));
                     const next = Math.min(v, maxPrice - 1);
                     setMinPrice(next);
@@ -359,10 +381,15 @@ export default function Filters({
                 <span className="text-white font-bold opacity-50 ml-auto">$</span>
                 <input
                   type="number"
-                  value={maxPrice}
+                  value={isFullSpan(minPrice, maxPrice) ? '' : maxPrice}
+                  placeholder="Any"
                   onChange={(e) => {
                     const raw = e.target.value;
-                    if (raw === '') return;
+                    if (raw === '') {
+                      setMaxPrice(ceil);
+                      emitLive(minPrice, ceil);
+                      return;
+                    }
                     const v = clamp(Number(raw));
                     const next = Math.max(v, minPrice + 1);
                     setMaxPrice(next);
@@ -512,7 +539,10 @@ export default function Filters({
 
       <div className="p-10 border-t border-white/10 flex items-center justify-between glass-morphism backdrop-blur-3xl sticky bottom-0 z-10">
         <button
-          onClick={handleReset}
+          onClick={() => {
+            const cleared = handleReset();
+            onApply(cleared);
+          }}
           className="text-white/40 font-black tracking-widest text-[10px] uppercase hover:text-white transition-all underline decoration-white/20 decoration-2 underline-offset-8"
         >
           Reset All

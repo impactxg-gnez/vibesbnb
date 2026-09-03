@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
+import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
 
 interface ConversationResponse {
   id: string;
@@ -191,6 +193,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ conversation: existingConversation });
     }
 
+    const serviceSupabase = createServiceClient();
+    const [travellerContact, hostContact] = await Promise.all([
+      resolveUserContact(serviceSupabase, user.id),
+      resolveUserContact(serviceSupabase, property.host_id),
+    ]);
+
     const { data: conversation, error } = await supabase
       .from('conversations')
       .insert({
@@ -199,12 +207,35 @@ export async function POST(request: NextRequest) {
         traveller_id: user.id,
         last_message: 'Conversation started',
         last_message_at: new Date().toISOString(),
+        host_name: hostContact.name,
+        traveller_name: travellerContact.name,
       })
       .select()
       .single();
 
     if (error) {
       throw error;
+    }
+
+    // New thread only — subsequent messages must not trigger admin_new_chat
+    try {
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+      void dispatchAdminNewChatEmail({
+        service: serviceSupabase,
+        appUrl,
+        conversationId: conversation.id,
+        guestName: travellerContact.name,
+        hostName: hostContact.name,
+        propertyName: property.name || 'Listing',
+        messagePreview: 'Conversation started',
+        createdAt:
+          conversation.last_message_at ||
+          conversation.created_at ||
+          new Date().toISOString(),
+      });
+    } catch (adminEmailErr) {
+      console.warn('[ConversationsAPI] admin_new_chat failed:', adminEmailErr);
     }
 
     return NextResponse.json({ conversation });

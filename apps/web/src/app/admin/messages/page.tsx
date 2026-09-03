@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import { MessageSquare, Search, User } from 'lucide-react';
@@ -52,6 +52,8 @@ function getSenderLabel(
 export default function MessagesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedConversationId = searchParams.get('conversationId');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(
     null
@@ -95,6 +97,10 @@ export default function MessagesPage() {
       const list: Conversation[] = data.conversations || [];
       setConversations(list);
       setSelectedConversation((prev) => {
+        if (preselectedConversationId) {
+          const match = list.find((c) => c.id === preselectedConversationId);
+          if (match) return match;
+        }
         if (prev) {
           return list.find((c) => c.id === prev.id) ?? list[0] ?? null;
         }

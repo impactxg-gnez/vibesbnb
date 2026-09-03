@@ -2,9 +2,61 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
-import { validateMessage } from '@/lib/utils/contactFilter';
+import {
+  getContactBlockUserMessage,
+  validateMessage,
+} from '@/lib/utils/contactFilter';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
 import { dispatchNewMessageNotification } from '@/lib/notifications/dispatchNewMessageNotification';
+
+type BookingRow = {
+  id: string;
+  status: string | null;
+  payment_status: string | null;
+};
+
+async function conversationAllowsContactSharing(
+  service: ReturnType<typeof createServiceClient>,
+  conversation: {
+    booking_id?: string | null;
+    property_id?: string | null;
+    host_id: string;
+    traveller_id: string;
+  }
+): Promise<boolean> {
+  const isUnlocked = (b: BookingRow | null | undefined) => {
+    if (!b) return false;
+    const status = String(b.status || '').toLowerCase();
+    const payment = String(b.payment_status || '').toLowerCase();
+    // Confirmed reservation (Airbnb-style) unlocks contact details
+    return status === 'confirmed' || payment === 'paid';
+  };
+
+  if (conversation.booking_id) {
+    const { data } = await service
+      .from('bookings')
+      .select('id, status, payment_status')
+      .eq('id', conversation.booking_id)
+      .maybeSingle();
+    if (isUnlocked(data as BookingRow | null)) return true;
+  }
+
+  // Fallback: any confirmed booking between these parties for this property
+  if (conversation.property_id) {
+    const { data } = await service
+      .from('bookings')
+      .select('id, status, payment_status')
+      .eq('property_id', conversation.property_id)
+      .eq('host_id', conversation.host_id)
+      .eq('user_id', conversation.traveller_id)
+      .or('status.eq.confirmed,payment_status.eq.paid')
+      .limit(1)
+      .maybeSingle();
+    if (isUnlocked(data as BookingRow | null)) return true;
+  }
+
+  return false;
+}
 
 export async function GET(
   request: NextRequest,
@@ -12,14 +64,13 @@ export async function GET(
 ) {
   try {
     const serviceSupabase = createServiceClient();
-    
-    // Try to get user from Authorization header first
+
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     let user = null;
     let supabase;
-    
+
     if (token) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -40,7 +91,7 @@ export async function GET(
 
     const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
-      .select('id, host_id, traveller_id')
+      .select('id, host_id, traveller_id, booking_id, property_id')
       .eq('id', params.conversationId)
       .single();
 
@@ -55,6 +106,11 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const contactSharingAllowed = await conversationAllowsContactSharing(
+      serviceSupabase,
+      conversation
+    );
+
     const { data, error } = await supabase
       .from('messages')
       .select('id, sender_id, body, created_at')
@@ -66,10 +122,7 @@ export async function GET(
     }
 
     const senderIds = Array.from(new Set((data || []).map((msg) => msg.sender_id)));
-    const profiles: Record<
-      string,
-      { name: string; avatar: string }
-    > = {};
+    const profiles: Record<string, { name: string; avatar: string }> = {};
 
     if (senderIds.length > 0) {
       const userResponses = await Promise.all(
@@ -97,7 +150,10 @@ export async function GET(
       sender_profile: profiles[msg.sender_id] || null,
     }));
 
-    return NextResponse.json({ messages: messagesWithProfiles });
+    return NextResponse.json({
+      messages: messagesWithProfiles,
+      contactSharingAllowed,
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to load messages' },
@@ -112,14 +168,13 @@ export async function POST(
 ) {
   try {
     const serviceSupabase = createServiceClient();
-    
-    // Try to get user from Authorization header first
+
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     let user = null;
     let supabase;
-    
+
     if (token) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -148,27 +203,12 @@ export async function POST(
       );
     }
 
-    // Server-side validation for contact information
-    const validation = validateMessage(message, user.id);
-    if (!validation.allowed) {
-      const errorMessages: Record<string, string> = {
-        'email': 'Email addresses are not allowed. Please keep communication on VibesBNB.',
-        'phone': 'Phone numbers are not allowed. Please keep communication on VibesBNB.',
-        'url': 'Links and URLs are not allowed. Please keep communication on VibesBNB.',
-        'social_media': 'Social media references are not allowed. Please keep communication on VibesBNB.',
-        'contact_solicitation': 'Sharing contact details outside the platform is not allowed.',
-      };
-      return NextResponse.json(
-        { error: errorMessages[validation.reason || 'email'] || 'Contact details are not allowed.' },
-        { status: 400 }
-      );
-    }
-
     const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select(
         `
         id,
+        property_id,
         host_id,
         traveller_id,
         booking_id,
@@ -193,13 +233,38 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Pre-booking only: reject this message (not the whole chat). After confirmation, allow.
+    const contactSharingAllowed = await conversationAllowsContactSharing(
+      serviceSupabase,
+      conversation
+    );
+
+    let containsContact = false;
+    if (!contactSharingAllowed) {
+      const validation = validateMessage(message, user.id);
+      if (!validation.allowed) {
+        const userMessage = getContactBlockUserMessage(validation.reason);
+        return NextResponse.json(
+          {
+            error: userMessage,
+            code: 'CONTACT_INFO_BLOCKED',
+            reason: validation.reason || 'contact',
+            conversationBlocked: false,
+          },
+          { status: 422 }
+        );
+      }
+    } else {
+      containsContact = !validateMessage(message, user.id).allowed;
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .insert({
         conversation_id: params.conversationId,
         sender_id: user.id,
         body: message,
-        contains_contact_info: false,
+        contains_contact_info: containsContact,
       })
       .select()
       .single();
@@ -241,17 +306,21 @@ export async function POST(
       console.warn('Failed to create message notification:', notificationError);
     }
 
-    await dispatchPushToUser(recipientId, 'New message', `From ${senderLabel}: ${message.slice(0, 120)}`, {
-      stage: 'new_message',
-      bookingId: conversation.booking_id || undefined,
-      conversationId: params.conversationId,
-    });
+    await dispatchPushToUser(
+      recipientId,
+      'New message',
+      `From ${senderLabel}: ${message.slice(0, 120)}`,
+      {
+        stage: 'new_message',
+        bookingId: conversation.booking_id || undefined,
+        conversationId: params.conversationId,
+      }
+    );
 
     const propertyName =
       (conversation.properties as { name?: string } | null)?.name || 'your property';
     const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
-      request.nextUrl.origin;
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || request.nextUrl.origin;
 
     void dispatchNewMessageNotification({
       service: serviceSupabase,
@@ -264,7 +333,7 @@ export async function POST(
       appUrl,
     });
 
-    return NextResponse.json({ message: data });
+    return NextResponse.json({ message: data, contactSharingAllowed });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to send message' },
@@ -272,4 +341,3 @@ export async function POST(
     );
   }
 }
-

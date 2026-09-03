@@ -21,6 +21,8 @@ import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { normalizeCancellationPolicy } from '@/lib/cancellationPolicy';
 import { getServiceFeePercent } from '@/lib/platformSettings';
+import { dispatchAdminNewBookingEmail } from '@/lib/notifications/dispatchAdminNewBookingEmail';
+import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
 
 export async function POST(request: NextRequest) {
   try {
@@ -369,6 +371,8 @@ export async function POST(request: NextRequest) {
 
     // Ensure conversation exists between traveller and host
     let conversationId: string | null = null;
+    let createdNewConversation = false;
+    let initialChatPreview: string | null = null;
     try {
       const { data: existingConversation } = await supabase
         .from('conversations')
@@ -437,6 +441,7 @@ export async function POST(request: NextRequest) {
         }
 
         conversationId = newConversation?.id ?? null;
+        createdNewConversation = Boolean(conversationId);
       }
 
       if (conversationId) {
@@ -449,6 +454,8 @@ export async function POST(request: NextRequest) {
         ]
           .filter(Boolean)
           .join('\n');
+
+        initialChatPreview = requestSummary;
 
         await supabase.from('messages').insert({
           conversation_id: conversationId,
@@ -545,6 +552,46 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.warn('Failed to send guest confirmation email:', e);
       }
+    }
+
+    // Admin emails (best-effort, idempotent). Does not affect booking success.
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+      void dispatchAdminNewBookingEmail({
+        service: serviceSupabase,
+        appUrl,
+        bookingId: booking.id,
+        propertyName: property_name,
+        hostName,
+        guestName: guest_name || 'Guest',
+        checkIn: String(check_in),
+        checkOut: String(check_out),
+        guests: Number(guests) || 0,
+        totalPrice: Number(total_price) || 0,
+        status: String(booking.status || initialStatus),
+        paymentStatus: booking.payment_status || 'pending',
+      });
+
+      if (createdNewConversation && conversationId) {
+        const travellerName =
+          guest_name ||
+          user.user_metadata?.full_name ||
+          user.user_metadata?.display_name ||
+          user.email ||
+          'Traveller';
+        void dispatchAdminNewChatEmail({
+          service: serviceSupabase,
+          appUrl,
+          conversationId,
+          guestName: travellerName,
+          hostName,
+          propertyName: property_name,
+          messagePreview: initialChatPreview || 'Booking request created',
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } catch (adminEmailErr) {
+      console.warn('Failed to dispatch admin notification emails:', adminEmailErr);
     }
 
     return NextResponse.json({

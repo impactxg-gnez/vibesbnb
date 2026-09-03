@@ -89,10 +89,10 @@ function formatDateShort(dateStr: string): string {
 }
 
 const HISTOGRAM_BUCKET_COUNT = 40;
-const PRICE_FILTER_CAP = 100_000;
 
 type SearchModalFilters = {
-  priceRange: [number, number];
+  /** null = no budget (show every property that passes other filters) */
+  priceRange: [number, number] | null;
   rooms: number;
   beds: number;
   bathrooms: number;
@@ -136,15 +136,28 @@ function applyNonPriceListingFilters(
 
 function applyPriceRangeFilter(
   listings: Listing[],
-  priceRange: [number, number] | undefined
+  priceRange: [number, number] | null | undefined
 ): Listing[] {
-  const [priceMin, priceMax] = priceRange || [0, Number.MAX_SAFE_INTEGER];
+  // Empty / unset budget must not hide any stays
+  if (!priceRange) return listings;
+  const [priceMin, priceMax] = priceRange;
   const safeMin = Math.max(0, Number(priceMin) || 0);
   const safeMax = Math.max(safeMin, Number(priceMax) || 0);
   return listings.filter((listing) => {
     const guestPrice = toTravelerPrice(listing.price);
     return guestPrice >= safeMin && guestPrice <= safeMax;
   });
+}
+
+/** Full-span (or wider) ranges are treated as "no budget". */
+function isUnconstrainedPriceRange(
+  priceRange: [number, number] | null | undefined,
+  catalogMax: number
+): boolean {
+  if (!priceRange) return true;
+  if (!Number.isFinite(catalogMax) || catalogMax <= 0) return true;
+  const [lo, hi] = priceRange;
+  return Math.round(lo) <= 0 && Math.round(hi) >= Math.round(catalogMax);
 }
 
 function computePriceDistribution(
@@ -716,7 +729,7 @@ export default function SearchPage() {
   const [preferWellnessFriendly, setPreferWellnessFriendly] = useState(PREFER_WELLNESS_DEFAULT);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState<SearchModalFilters>({
-    priceRange: [0, PRICE_FILTER_CAP],
+    priceRange: null,
     rooms: 0,
     beds: 0,
     bathrooms: 0,
@@ -890,24 +903,26 @@ export default function SearchPage() {
     [nonPriceFiltered]
   );
 
-  // Keep price range inside [0, catalog max]. When the catalog first loads, prev can be [0, 1]
-  // from the empty-list placeholder distribution — clamping hi with max(min, hi) would collapse
-  // both ends to catalog min ($96). Reset stale ranges to full span: $0 to catalog max.
+  // Only touch an explicit budget. Never invent a price range on catalog load —
+  // that used to clamp [0, CAP] → subset max and stick after clearing location.
   useEffect(() => {
-    const catMin = priceDistribution.min;
     const catMax = priceDistribution.max;
-    if (!Number.isFinite(catMin) || !Number.isFinite(catMax) || catMax <= 0) return;
+    if (!Number.isFinite(catMax) || catMax <= 0) return;
     setActiveFilters((prev) => {
-      const lo = prev.priceRange[0];
-      const hi = prev.priceRange[1];
-      if (hi < catMin) {
-        return { ...prev, priceRange: [0, catMax] };
+      const range = prev.priceRange;
+      if (!range) return prev;
+      if (isUnconstrainedPriceRange(range, catMax)) {
+        return { ...prev, priceRange: null };
       }
+      const [lo, hi] = range;
       const nLo = Math.min(catMax, Math.max(0, lo));
       const nHi = Math.min(catMax, Math.max(0, hi));
       const adjLo = Math.min(nLo, nHi);
       const adjHi = Math.max(nLo, nHi);
       if (adjLo === lo && adjHi === hi) return prev;
+      if (isUnconstrainedPriceRange([adjLo, adjHi], catMax)) {
+        return { ...prev, priceRange: null };
+      }
       return { ...prev, priceRange: [adjLo, adjHi] };
     });
   }, [priceDistribution.min, priceDistribution.max]);
@@ -1077,16 +1092,29 @@ export default function SearchPage() {
   const availableCount = listings.filter((l) => l.isAvailable !== false).length;
   const unavailableCount = listings.filter((l) => l.isAvailable === false).length;
 
-  const [priceRangeMin, priceRangeMax] = activeFilters.priceRange;
-  const catalogMin = priceDistribution.min;
   const catalogMax = priceDistribution.max;
-  // "No price filter" = $0 through catalog max (not catalog min, so cheap stays aren't excluded by default)
-  const priceFilterActive =
-    Math.round(priceRangeMin) !== 0 || Math.round(priceRangeMax) !== Math.round(catalogMax);
+  const priceFilterActive = !isUnconstrainedPriceRange(activeFilters.priceRange, catalogMax);
 
-  const handlePriceRangeLive = useCallback((lo: number, hi: number) => {
-    setActiveFilters((prev) => ({ ...prev, priceRange: [lo, hi] }));
-  }, []);
+  const handlePriceRangeLive = useCallback(
+    (lo: number, hi: number) => {
+      setActiveFilters((prev) => {
+        const nextRange: [number, number] | null = isUnconstrainedPriceRange([lo, hi], catalogMax)
+          ? null
+          : [lo, hi];
+        if (
+          (prev.priceRange === null && nextRange === null) ||
+          (prev.priceRange !== null &&
+            nextRange !== null &&
+            prev.priceRange[0] === nextRange[0] &&
+            prev.priceRange[1] === nextRange[1])
+        ) {
+          return prev;
+        }
+        return { ...prev, priceRange: nextRange };
+      });
+    },
+    [catalogMax]
+  );
   const filterChipCount =
     activeFilters.propertyTypes.length +
     activeFilters.amenities.length +
@@ -1342,7 +1370,13 @@ export default function SearchPage() {
                     onPriceRangeLive={handlePriceRangeLive}
                     onClose={() => setShowFiltersModal(false)}
                     onApply={(filters) => {
-                      setActiveFilters(filters);
+                      const next = filters as SearchModalFilters;
+                      const range = next.priceRange;
+                      setActiveFilters({
+                        ...next,
+                        priceRange:
+                          range && isUnconstrainedPriceRange(range, catalogMax) ? null : range ?? null,
+                      });
                       setShowFiltersModal(false);
                     }}
                   />
