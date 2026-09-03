@@ -20,7 +20,8 @@ import {
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { normalizeCancellationPolicy } from '@/lib/cancellationPolicy';
-import { getServiceFeePercent } from '@/lib/platformSettings';
+import { getServiceFeePercent, getHostFeePercent } from '@/lib/platformSettings';
+import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
 import { dispatchAdminNewBookingEmail } from '@/lib/notifications/dispatchAdminNewBookingEmail';
 import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
 
@@ -484,6 +485,26 @@ export async function POST(request: NextRequest) {
       if (hostEmail) {
         try {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+          const hostFeePercent = await getHostFeePercent(serviceSupabase);
+          const payoutAmounts = computeHostPayoutAmounts({
+            guestTotal: Number(total_price),
+            checkIn: String(check_in),
+            checkOut: String(check_out),
+            hostNightlyRate: Number(propertyRow.price) || 0,
+            hostCleaningFee: cleaning,
+            feePercent: serviceFeePercent,
+            hostFeePercent,
+            booking: {
+              guests: Number(guests) || 1,
+              kids: kids != null ? Number(kids) : 0,
+              pets: pets != null ? Number(pets) : 0,
+              selected_units: Array.isArray(selected_units) ? selected_units : null,
+              wellness_line_items: wellnessLineItemsSanitized,
+              early_check_in_requested: earlyRequested,
+              late_check_out_requested: lateRequested,
+            },
+            property: propertyRow as Record<string, unknown>,
+          });
           await fetch(`${appUrl}/api/notifications/send-email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -499,6 +520,9 @@ export async function POST(request: NextRequest) {
                 guests,
                 totalPrice: total_price,
                 bookingId: booking.id,
+                hostFee: payoutAmounts.hostFee,
+                hostFeePercent,
+                hostPayout: payoutAmounts.hostAmount,
               },
             }),
           });

@@ -17,6 +17,12 @@ interface BookingRequestData {
   guests: number;
   totalPrice: number;
   bookingId: string;
+  /** Host platform fee deducted from payout (amount). */
+  hostFee?: number;
+  /** Host fee percent of guest total (e.g. 5). */
+  hostFeePercent?: number;
+  /** Estimated host payout after host fee (optional). */
+  hostPayout?: number;
 }
 
 interface BookingRequestSubmittedData {
@@ -148,6 +154,18 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
   switch (template) {
     case 'booking_request': {
       const d = data as BookingRequestData;
+      const hostFee =
+        typeof d.hostFee === 'number' && Number.isFinite(d.hostFee) ? d.hostFee : null;
+      const hostFeePercent =
+        typeof d.hostFeePercent === 'number' && Number.isFinite(d.hostFeePercent)
+          ? d.hostFeePercent
+          : null;
+      const hostPayout =
+        typeof d.hostPayout === 'number' && Number.isFinite(d.hostPayout) ? d.hostPayout : null;
+      const hostFeeLabel =
+        hostFeePercent != null
+          ? `Host service fee (${hostFeePercent}%)`
+          : 'Host service fee';
       return `
         <div style="${baseStyles}">
           <div style="${cardStyles}">
@@ -178,10 +196,36 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
                   <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">${d.guests}</td>
                 </tr>
                 <tr style="border-top: 1px solid #e5e7eb;">
-                  <td style="padding: 12px 0 8px; color: #6b7280; font-weight: 600;">Total</td>
-                  <td style="padding: 12px 0 8px; color: #059669; font-weight: 700; font-size: 20px; text-align: right;">$${d.totalPrice.toFixed(2)}</td>
+                  <td style="padding: 12px 0 8px; color: #6b7280;">Guest total</td>
+                  <td style="padding: 12px 0 8px; color: #111827; font-weight: 600; text-align: right;">$${Number(d.totalPrice).toFixed(2)}</td>
                 </tr>
+                ${
+                  hostFee != null
+                    ? `<tr>
+                  <td style="padding: 8px 0; color: #6b7280;">${hostFeeLabel}</td>
+                  <td style="padding: 8px 0; color: #111827; font-weight: 600; text-align: right;">−$${hostFee.toFixed(2)}</td>
+                </tr>`
+                    : ''
+                }
+                ${
+                  hostPayout != null
+                    ? `<tr>
+                  <td style="padding: 8px 0; color: #6b7280; font-weight: 600;">Your estimated payout</td>
+                  <td style="padding: 8px 0; color: #059669; font-weight: 700; font-size: 18px; text-align: right;">$${hostPayout.toFixed(2)}</td>
+                </tr>`
+                    : `<tr>
+                  <td style="padding: 12px 0 8px; color: #6b7280; font-weight: 600;">Total</td>
+                  <td style="padding: 12px 0 8px; color: #059669; font-weight: 700; font-size: 20px; text-align: right;">$${Number(d.totalPrice).toFixed(2)}</td>
+                </tr>`
+                }
               </table>
+              ${
+                hostFee != null
+                  ? `<p style="color: #6b7280; font-size: 12px; margin: 12px 0 0;">
+                The host service fee is deducted from your payout when the stay is completed. Guest total is what the traveller pays.
+              </p>`
+                  : ''
+              }
             </div>
             <p style="color: #374151; font-size: 14px; margin-bottom: 16px;">
               Please review and respond to this booking request as soon as possible.
