@@ -234,9 +234,36 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v3';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v4';
 const SEARCH_CATALOG_TTL_MS = 300_000;
-const SEARCH_CATALOG_PAGE_SIZE = 40;
+const SEARCH_CATALOG_PAGE_SIZE = 50;
+
+/** Client fallback when browse API is down — omit images to avoid statement timeouts. */
+const SEARCH_CATALOG_NO_IMAGES_SELECT = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'reviews_count',
+  'has_team_review',
+  'type',
+  'amenities',
+  'guests',
+  'status',
+  'created_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'wellness_friendly',
+  'wellness_consumption_indoor_allowed',
+  'wellness_consumption_outdoor_allowed',
+  'latitude',
+  'longitude',
+  'min_booking_nights',
+].join(',');
 
 type ProfileBrief = {
   avatar_url: string | null;
@@ -365,7 +392,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
         const to = from + SEARCH_CATALOG_PAGE_SIZE - 1;
         const { data, error } = await supabase
           .from('properties')
-          .select(PROPERTY_BROWSE_LIST_COLUMNS)
+          .select(SEARCH_CATALOG_NO_IMAGES_SELECT)
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .range(from, to);

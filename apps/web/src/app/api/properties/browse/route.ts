@@ -1,28 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createBrowserClient, type SupabaseClient } from '@supabase/supabase-js';
-import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { getRedis } from '@/lib/cache/redis';
 import { redisGetJson, redisSetJson } from '@/lib/cache/redisJson';
 import { browseCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
-/** POSTgREST-safe chunk size for `in()` profile lookups */
 const HOST_ID_CHUNK = 80;
-
-/** Optional cap when clients only need a handful (homepage rows). Uncapped when omitted (search/map). */
 const MAX_LIMIT_CAP = 48;
-
-/** Page size for uncapped browse — keeps each query under statement timeout. */
-const BROWSE_PAGE_SIZE = 40;
-
-/** Cap carousel payload; cards only need a few images. */
-const MAX_BROWSE_IMAGES = 8;
+const BROWSE_PAGE_SIZE = 50;
 
 /**
- * Emergency-safe columns for when the full browse select triggers a PostgREST 500
- * (e.g. due to a broken column, view, policy, or type cast). Keep small + card-safe.
+ * Card fields without `images` — full image arrays are huge (50–200+ URLs) and
+ * cause statement timeouts when selecting many active listings at once.
  */
-const PROPERTY_BROWSE_FALLBACK_COLUMNS = [
+const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'id',
   'host_id',
   'name',
@@ -32,7 +23,36 @@ const PROPERTY_BROWSE_FALLBACK_COLUMNS = [
   'rating',
   'reviews_count',
   'has_team_review',
-  'images',
+  'type',
+  'amenities',
+  'guests',
+  'status',
+  'created_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'wellness_friendly',
+  'wellness_consumption_indoor_allowed',
+  'wellness_consumption_outdoor_allowed',
+  'latitude',
+  'longitude',
+  'smoking_inside_allowed',
+  'smoking_outside_allowed',
+  'smoke_friendly',
+  'min_booking_nights',
+  'vibesbnb_take',
+].join(',');
+
+const PROPERTY_BROWSE_NO_IMAGES_FALLBACK = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'reviews_count',
+  'has_team_review',
   'type',
   'amenities',
   'guests',
@@ -45,23 +65,62 @@ const PROPERTY_BROWSE_FALLBACK_COLUMNS = [
   'wellness_consumption_outdoor_allowed',
   'latitude',
   'longitude',
-] as const;
+].join(',');
 
-const PROPERTY_BROWSE_FALLBACK_SELECT = PROPERTY_BROWSE_FALLBACK_COLUMNS.join(',');
-
-function trimBrowseRow(row: Record<string, unknown>): Record<string, unknown> {
-  const images = row.images;
-  if (Array.isArray(images) && images.length > MAX_BROWSE_IMAGES) {
-    return { ...row, images: images.slice(0, MAX_BROWSE_IMAGES) };
-  }
-  return row;
+function withEmptyImages(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return rows.map((r) => ({
+    ...r,
+    images: Array.isArray(r.images) ? r.images : [],
+  }));
 }
 
-async function fetchActivePropertiesPaged(
+async function fetchViaRpc(
+  supabase: SupabaseClient,
+  limitParam?: number
+): Promise<{ rows: Record<string, unknown>[]; error: any | null; usedRpc: boolean }> {
+  const pageSize = limitParam !== undefined ? limitParam : BROWSE_PAGE_SIZE;
+  const all: Record<string, unknown>[] = [];
+  let offset = 0;
+  const hardCap = limitParam !== undefined ? limitParam : 2000;
+
+  while (offset < hardCap) {
+    const take =
+      limitParam !== undefined ? limitParam : Math.min(pageSize, hardCap - offset);
+    const { data, error } = await supabase.rpc('browse_active_property_cards', {
+      p_limit: take,
+      p_offset: offset,
+    });
+
+    if (error) {
+      // Return what we have if a later page fails — better than empty search
+      if (all.length > 0) {
+        console.warn('[properties/browse] RPC page failed after partial load', {
+          offset,
+          loaded: all.length,
+          message: error.message,
+          code: error.code,
+        });
+        return { rows: all, error: null, usedRpc: true };
+      }
+      return { rows: [], error, usedRpc: false };
+    }
+
+    const page = (data ?? []) as Record<string, unknown>[];
+    if (page.length === 0) break;
+    all.push(...page);
+    if (limitParam !== undefined) break;
+    if (page.length < take) break;
+    offset += take;
+  }
+
+  return { rows: all, error: null, usedRpc: true };
+}
+
+async function fetchWithoutImages(
   supabase: SupabaseClient,
   select: string,
   limitParam?: number
-): Promise<{ rows: Record<string, unknown>[]; error: { message?: string; code?: string; details?: string; hint?: string } | null }> {
+): Promise<{ rows: Record<string, unknown>[]; error: any | null }> {
   if (limitParam !== undefined) {
     const { data, error } = await supabase
       .from('properties')
@@ -71,16 +130,14 @@ async function fetchActivePropertiesPaged(
       .limit(limitParam);
     if (error) return { rows: [], error };
     return {
-      rows: ((data ?? []) as unknown as Record<string, unknown>[]).map(trimBrowseRow),
+      rows: withEmptyImages((data ?? []) as unknown as Record<string, unknown>[]),
       error: null,
     };
   }
 
   const all: Record<string, unknown>[] = [];
   let from = 0;
-  // Hard ceiling so a runaway loop cannot hang the function
   const hardCap = 2000;
-
   while (from < hardCap) {
     const to = from + BROWSE_PAGE_SIZE - 1;
     const { data, error } = await supabase
@@ -89,34 +146,25 @@ async function fetchActivePropertiesPaged(
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .range(from, to);
-
     if (error) {
-      // Return what we have if a later page fails — better than empty search
       if (all.length > 0) {
-        console.warn('[properties/browse] page failed after partial load', {
-          from,
-          loaded: all.length,
-          message: error.message,
-          code: error.code,
-        });
-        return { rows: all, error: null };
+        console.warn('[properties/browse] no-images page failed after partial', error.message);
+        return { rows: withEmptyImages(all), error: null };
       }
       return { rows: [], error };
     }
-
-    const page = ((data ?? []) as unknown as Record<string, unknown>[]).map(trimBrowseRow);
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
     if (page.length === 0) break;
     all.push(...page);
     if (page.length < BROWSE_PAGE_SIZE) break;
     from += BROWSE_PAGE_SIZE;
   }
-
-  return { rows: all, error: null };
+  return { rows: withEmptyImages(all), error: null };
 }
 
 /**
  * CDN-cacheable aggregated payload: active properties (no embeddings) + host profile rows
- * needed for listing cards. Reduces duplicate browser→Supabase work and amortizes latency.
+ * needed for listing cards.
  */
 export async function GET(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -184,46 +232,45 @@ export async function GET(request: NextRequest) {
     });
 
     let usedFallback = false;
-    let { rows, error: pErr } = await fetchActivePropertiesPaged(
-      supabase,
-      PROPERTY_BROWSE_LIST_COLUMNS,
-      limitParam
-    );
+    let rows: Record<string, unknown>[] = [];
 
-    if (pErr) {
-      console.error('[properties/browse] primary query failed', {
-        message: pErr.message,
-        code: pErr.code,
-        details: pErr.details,
-        hint: pErr.hint,
+    // Prefer RPC that truncates images[] server-side (requires SQL migration).
+    const rpcResult = await fetchViaRpc(supabase, limitParam);
+    if (!rpcResult.error) {
+      rows = rpcResult.rows;
+    } else {
+      console.warn('[properties/browse] RPC unavailable, using no-images select', {
+        message: rpcResult.error.message,
+        code: rpcResult.error.code,
       });
 
-      const fallback = await fetchActivePropertiesPaged(
+      let result = await fetchWithoutImages(
         supabase,
-        PROPERTY_BROWSE_FALLBACK_SELECT,
+        PROPERTY_BROWSE_NO_IMAGES_SELECT,
         limitParam
       );
-      if (fallback.error) {
-        console.error('[properties/browse] fallback query failed', {
-          message: fallback.error.message,
-          code: fallback.error.code,
-          details: fallback.error.details,
-          hint: fallback.error.hint,
-        });
-        return NextResponse.json(
-          {
-            error: fallback.error.message,
-            code: fallback.error.code,
-            details: fallback.error.details,
-            hint: fallback.error.hint,
-          },
-          { status: 500 }
+      if (result.error) {
+        console.error('[properties/browse] primary no-images failed', result.error);
+        result = await fetchWithoutImages(
+          supabase,
+          PROPERTY_BROWSE_NO_IMAGES_FALLBACK,
+          limitParam
         );
+        usedFallback = true;
+        if (result.error) {
+          return NextResponse.json(
+            {
+              error: result.error.message,
+              code: result.error.code,
+              details: result.error.details,
+              hint: result.error.hint,
+            },
+            { status: 500 }
+          );
+        }
       }
-
+      rows = result.rows;
       usedFallback = true;
-      rows = fallback.rows;
-      pErr = null;
     }
 
     const hostIdSet = new Set<string>();
