@@ -8,7 +8,7 @@ export const maxDuration = 30;
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
 
-function isHttpUrl(url: string | null | undefined): url is string {
+function isHttpUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') return false;
   const t = url.trim();
   const lower = t.toLowerCase();
