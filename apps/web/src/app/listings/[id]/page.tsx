@@ -45,13 +45,14 @@ import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { resolveConsumptionPolicy, resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
-import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
-import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
-import { ReservationQuote } from '@/components/booking/ReservationQuote';
+import { PROPERTY_DETAIL_CORE_COLUMNS } from '@/lib/propertyPublicSelect';
 import {
+  listingCardImagesFromRow,
   listingGalleryImageUrl,
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
+import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
@@ -321,19 +322,22 @@ export default function ListingDetailPage() {
 
         let propertyData: any = null;
 
-        // Try to load from Supabase if configured
+        // Fast first paint: slim row (cover_image, no images[] / rooms).
         if (isSupabaseConfigured) {
           const { data, error } = await supabase
             .from('properties')
-            .select(PROPERTY_DETAIL_PUBLIC_COLUMNS)
+            .select(PROPERTY_DETAIL_CORE_COLUMNS)
             .eq('id', params.id as string)
             .eq('status', 'active')
             .single();
 
           if (!error && data) {
             const d = data as unknown as Record<string, unknown>;
+            const cardImages = listingCardImagesFromRow(d);
             propertyData = {
               ...d,
+              images: cardImages,
+              rooms: [],
               wellnessFriendly: d.wellness_friendly,
               hostId: d.host_id,
               vibesbnb_take: d.vibesbnb_take,
@@ -477,6 +481,21 @@ export default function ListingDetailPage() {
 
         if (isSupabaseConfigured) {
           const propertyId = params.id as string;
+          // Hydrate gallery (http URLs only) without blocking first paint.
+          void fetch(`/api/properties/${encodeURIComponent(propertyId)}/gallery`)
+            .then(async (res) => {
+              if (!res.ok) return;
+              const payload = await res.json().catch(() => null);
+              const gallery = Array.isArray(payload?.images)
+                ? normalizePropertyImages(payload.images, PDP_IMAGE_PLACEHOLDER)
+                : [];
+              if (gallery.length === 0) return;
+              setProperty((prev) => (prev ? { ...prev, images: gallery } : prev));
+            })
+            .catch(() => {
+              /* non-blocking */
+            });
+
           try {
             const [profileResult, reviewsResult] = await Promise.all([
               propertyData.host_id
@@ -493,6 +512,24 @@ export default function ListingDetailPage() {
                 };
               }),
             ]);
+
+            // Also pull rooms on a deferred slim select (no images[]).
+            void (async () => {
+              try {
+                const { data: roomRow } = await supabase
+                  .from('properties')
+                  .select('rooms')
+                  .eq('id', propertyId)
+                  .maybeSingle();
+                if (roomRow?.rooms && Array.isArray(roomRow.rooms)) {
+                  setProperty((prev) =>
+                    prev ? { ...prev, rooms: roomRow.rooms as any[] } : prev
+                  );
+                }
+              } catch {
+                /* non-blocking */
+              }
+            })();
 
             const profile = 'data' in profileResult ? profileResult.data : null;
             const rawReviews = 'data' in reviewsResult ? reviewsResult.data : [];
@@ -511,7 +548,14 @@ export default function ListingDetailPage() {
                 : '2024',
             };
 
-            setProperty(buildProperty(reviews, host));
+            setProperty((prev) => {
+              if (!prev) return buildProperty(reviews, host);
+              return {
+                ...buildProperty(reviews, host),
+                images: prev.images,
+                rooms: prev.rooms,
+              };
+            });
             setReviewsData(reviews);
 
             if (propertyData.host_id) {

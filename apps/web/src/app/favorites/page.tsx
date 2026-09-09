@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { createClient } from '@/lib/supabase/client';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { DatePicker } from '@/components/ui/DatePicker';
 import {
   enumerateStayNightsYmd,
@@ -210,7 +211,7 @@ export default function FavoritesPage() {
                 location: p.location,
                 price: p.price,
                 rating: p.rating,
-                images: p.images || [],
+                images: listingCardImagesFromRow(p),
                 type: p.type,
                 amenities: p.amenities || [],
                 guests: p.guests,

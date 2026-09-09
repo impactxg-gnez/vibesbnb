@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { PropertyCardRatingBadge } from '@/components/properties/PropertyCardRatingBadge';
@@ -146,7 +147,7 @@ export default function UserProfilePage() {
             rating: Number(p.rating || 0),
             reviews: Number((p as { reviews_count?: number }).reviews_count) || 0,
             createdAt: typeof p.created_at === 'string' ? p.created_at : null,
-            images: Array.isArray(p.images) ? (p.images as string[]) : [],
+            images: listingCardImagesFromRow(p),
             bedrooms: typeof p.bedrooms === 'number' ? p.bedrooms : Number(p.bedrooms) || undefined,
             beds: typeof p.beds === 'number' ? p.beds : Number(p.beds) || undefined,
             status: p.status != null ? String(p.status) : undefined,

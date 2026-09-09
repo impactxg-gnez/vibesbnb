@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import PropertiesMap from '@/components/PropertiesMap';
 import Link from 'next/link';
-import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
+import PropertiesMap from '@/components/PropertiesMap';
 
 interface Listing {
   id: string;
@@ -117,7 +117,7 @@ export default function MapPage() {
             location: p.location || '',
             price: p.price ? Number(p.price) : 0,
             status: p.status || 'active',
-            images: p.images || [],
+            images: listingCardImagesFromRow(p),
             coordinates: coords,
           };
         });

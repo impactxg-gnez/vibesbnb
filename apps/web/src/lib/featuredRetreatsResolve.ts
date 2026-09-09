@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { PROPERTY_FEATURED_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 
 /** Hard cap for homepage Featured Vibes cards. */
 export const FEATURED_VIBES_HOME_LIMIT = 6;
@@ -153,7 +154,7 @@ function mapRowToRetreat(
     reviews: reviewsCount,
     price: p.price != null ? Number(p.price) : 0,
     // Cap carousel payload — cards only need a few frames
-    images: Array.isArray(p.images) ? (p.images as string[]).filter(Boolean).slice(0, 6) : [],
+    images: listingCardImagesFromRow(p),
     amenities: amenitiesFull.slice(0, 2),
     hasBalcony: propertyHasBalcony(amenitiesFull),
     badge: p.wellness_friendly ? 'Wellness-friendly' : 'Featured',

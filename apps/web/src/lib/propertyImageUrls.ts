@@ -175,6 +175,33 @@ export function primaryPropertyImageUrl(
   return normalizePropertyImages(images, fallback)[0] ?? fallback;
 }
 
+/**
+ * Card images from a browse/list row. Prefers http(s) cover_image / images;
+ * falls back to same-origin cover proxy (never ships base64 in list JSON).
+ */
+export function listingCardImagesFromRow(row: {
+  id?: unknown;
+  images?: unknown;
+  cover_image?: unknown;
+}): string[] {
+  const id = typeof row.id === 'string' ? row.id : '';
+  const candidates: string[] = [];
+  if (typeof row.cover_image === 'string' && row.cover_image.trim()) {
+    candidates.push(row.cover_image.trim());
+  }
+  if (Array.isArray(row.images)) {
+    for (const raw of row.images) {
+      if (typeof raw === 'string' && raw.trim()) candidates.push(raw.trim());
+    }
+  }
+  const normalized = normalizePropertyImages(candidates, PLACEHOLDER).filter(
+    (u) => u !== PLACEHOLDER && !u.startsWith('data:')
+  );
+  if (normalized.length > 0) return normalized.slice(0, 3);
+  if (id) return [`/api/properties/${encodeURIComponent(id)}/cover`];
+  return [PLACEHOLDER];
+}
+
 /** Thumbnail strip (~200px wide sources). */
 export function listingThumbImageUrl(url: string): string {
   return applyKind(unwrapProxiedImageUrl(url), 'thumb');

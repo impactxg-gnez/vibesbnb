@@ -1,5 +1,6 @@
 /**
  * Columns for public-facing property reads (omit `embedding` vector — see ADMIN properties route notes).
+ * Prefer `cover_image` over `images[]` on list paths — galleries often store huge base64 blobs.
  */
 
 const PROPERTY_PUBLIC_FIELD_LIST = [
@@ -12,7 +13,7 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'rating',
   'reviews_count',
   'has_team_review',
-  'images',
+  'cover_image',
   'type',
   'amenities',
   'guests',
@@ -31,7 +32,6 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'google_maps_url',
   'latitude',
   'longitude',
-  'rooms',
   'smoking_inside_allowed',
   'smoking_outside_allowed',
   'smoke_friendly',
@@ -58,12 +58,11 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'safety_building_security',
 ] as const;
 
-/** Search, map, cards, APIs that list many properties */
+/** Search, map, cards, APIs that list many properties — no images[] / rooms. */
 export const PROPERTY_PUBLIC_LIST_COLUMNS = PROPERTY_PUBLIC_FIELD_LIST.join(',');
 
 /**
- * Browse/search/map payloads — omit heavy columns (description, rooms JSON, unused URLs)
- * to keep TTFB + JSON parse time low for listing grids.
+ * Browse/search/map payloads — omit heavy columns (description, rooms JSON, images[]).
  */
 const PROPERTY_BROWSE_FIELD_LIST = [
   'id',
@@ -75,7 +74,7 @@ const PROPERTY_BROWSE_FIELD_LIST = [
   'rating',
   'reviews_count',
   'has_team_review',
-  'images',
+  'cover_image',
   'type',
   'amenities',
   'guests',
@@ -101,12 +100,25 @@ export const PROPERTY_BROWSE_LIST_COLUMNS = PROPERTY_BROWSE_FIELD_LIST.join(',')
 /** Featured homepage cards — browse fields plus description (trimmed in UI). */
 export const PROPERTY_FEATURED_LIST_COLUMNS = `${PROPERTY_BROWSE_LIST_COLUMNS},description`;
 
-const PROPERTY_DETAIL_FIELD_LIST = [
+/**
+ * Single listing first paint — everything except fat `images[]` / `rooms`.
+ * Gallery loads via `/api/properties/[id]/gallery` after paint.
+ */
+const PROPERTY_DETAIL_CORE_FIELD_LIST = [
   ...PROPERTY_PUBLIC_FIELD_LIST,
   'guest_agreement_url',
   'allow_extra_guests',
   'extra_guest_price',
 ] as const;
 
-/** Single listing + checkout (booking new) — still no embeddings */
+export const PROPERTY_DETAIL_CORE_COLUMNS = PROPERTY_DETAIL_CORE_FIELD_LIST.join(',');
+
+/** @deprecated Prefer PROPERTY_DETAIL_CORE_COLUMNS + gallery API — includes images/rooms. */
+const PROPERTY_DETAIL_FIELD_LIST = [
+  ...PROPERTY_DETAIL_CORE_FIELD_LIST,
+  'images',
+  'rooms',
+] as const;
+
+/** Single listing + checkout — still no embeddings (legacy full row). */
 export const PROPERTY_DETAIL_PUBLIC_COLUMNS = PROPERTY_DETAIL_FIELD_LIST.join(',');

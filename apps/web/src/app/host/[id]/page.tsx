@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PUBLIC_HOST_PROFILE_PROPERTY_STATUSES } from '@/lib/hostPublicProfile';
 import toast from 'react-hot-toast';
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { listingMatchesHeaderCategory } from '@/lib/propertySearchFilters';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
@@ -89,7 +90,12 @@ export default function HostProfilePage() {
           .order('created_at', { ascending: false });
 
         if (propsError) throw propsError;
-        setProperties((props ?? []) as unknown as Property[]);
+        setProperties(
+          ((props ?? []) as unknown as Record<string, unknown>[]).map((p) => ({
+            ...(p as unknown as Property),
+            images: listingCardImagesFromRow(p),
+          }))
+        );
 
         // Fetch stats (bookings and earnings) — scope by host_id, not property_id alone
         const { data: bookings, error: bookingsError } = await supabase

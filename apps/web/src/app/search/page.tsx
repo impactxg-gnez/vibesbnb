@@ -30,7 +30,7 @@ import {
   listingMatchesAnyPropertyTypeChip,
   listingMatchesHeaderCategory,
 } from '@/lib/propertySearchFilters';
-import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
@@ -234,9 +234,11 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v8';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v9';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 const SEARCH_CATALOG_PAGE_SIZE = 50;
+/** First paint: enough cards for above-the-fold without waiting on full catalog. */
+const SEARCH_CATALOG_FIRST_LIMIT = 48;
 
 /** Client fallback when browse API is down — omit images to avoid statement timeouts. */
 const SEARCH_CATALOG_NO_IMAGES_SELECT = [
@@ -273,18 +275,56 @@ type ProfileBrief = {
 };
 type SearchInventory = { properties: any[]; profileById: Record<string, ProfileBrief> };
 
-function normalizeListingImageUrl(url: string): string {
-  if (!url || typeof url !== 'string') {
-    return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
+function profilesFromBrowsePayload(payload: {
+  profiles?: Array<{
+    id?: string;
+    avatar_url?: string | null;
+    full_name?: string | null;
+    host_badge?: string | null;
+  }>;
+}): Record<string, ProfileBrief> {
+  const profileById: Record<string, ProfileBrief> = {};
+  for (const row of payload.profiles ?? []) {
+    if (row?.id) {
+      profileById[row.id] = {
+        avatar_url: row.avatar_url ?? null,
+        full_name: row.full_name ?? null,
+        host_badge: row.host_badge ?? null,
+      };
+    }
   }
-  if (url.startsWith('/api/properties/') && url.includes('/cover')) return url;
-  if (url.startsWith('data:') || url.startsWith('https://via.placeholder.com')) return url;
+  return profileById;
+}
+
+function cacheSearchInventory(inv: SearchInventory) {
   try {
-    new URL(url);
-    return url;
+    typeof sessionStorage !== 'undefined' &&
+      sessionStorage.setItem(
+        SEARCH_CATALOG_STORAGE_KEY,
+        JSON.stringify({ at: Date.now(), inv })
+      );
   } catch {
-    return 'https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available';
+    /* quota / private mode */
   }
+}
+
+async function fetchBrowseInventory(
+  limit?: number,
+  signal?: AbortSignal
+): Promise<SearchInventory | null> {
+  const qs = limit != null ? `?limit=${limit}` : '';
+  const res = await fetch(`/api/properties/browse${qs}`, {
+    method: 'GET',
+    signal,
+  });
+  if (!res.ok) return null;
+  const payload = await res.json();
+  const properties = payload.properties ?? [];
+  if (!Array.isArray(properties) || properties.length === 0) return null;
+  return {
+    properties,
+    profileById: profilesFromBrowsePayload(payload),
+  };
 }
 
 function collectLocalStorageFallbackProperties(): any[] {
@@ -308,9 +348,11 @@ function collectLocalStorageFallbackProperties(): any[] {
 
 /**
  * Loads the catalog once per session/tab (never on every URL tweak).
- * Dramatically reduces Supabase / Browse API IO when travellers change dates, guests, or sort.
+ * First paint uses a capped browse page; full catalog hydrates in the background.
  */
-async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
+async function loadSearchCatalogOnce(
+  onPartial?: (inv: SearchInventory) => void
+): Promise<SearchInventory | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const isConfigured =
@@ -327,13 +369,17 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
   }
 
   try {
-    const cached = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SEARCH_CATALOG_STORAGE_KEY) : null;
+    const cached =
+      typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem(SEARCH_CATALOG_STORAGE_KEY)
+        : null;
     if (cached) {
       const { at, inv } = JSON.parse(cached) as { at: number; inv: SearchInventory };
       if (
         typeof at === 'number' &&
         Date.now() - at < SEARCH_CATALOG_TTL_MS &&
-        Array.isArray(inv?.properties)
+        Array.isArray(inv?.properties) &&
+        inv.properties.length > 0
       ) {
         return inv;
       }
@@ -346,37 +392,28 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId =
       typeof window !== 'undefined' && controller
-        ? window.setTimeout(() => controller.abort(), 45_000)
+        ? window.setTimeout(() => controller.abort(), 20_000)
         : 0;
     try {
-      const res = await fetch('/api/properties/browse', {
-        method: 'GET',
-        signal: controller?.signal,
-      });
-      if (res.ok) {
-        const payload = await res.json();
-        const properties = payload.properties ?? [];
-        const profileById: Record<string, ProfileBrief> = {};
-        for (const row of payload.profiles ?? []) {
-          if (row?.id) {
-            profileById[row.id] = {
-              avatar_url: row.avatar_url ?? null,
-              full_name: row.full_name ?? null,
-              host_badge: row.host_badge ?? null,
-            };
-          }
-        }
-        const inv: SearchInventory = { properties, profileById };
+      // Fast first page for above-the-fold cards.
+      const first = await fetchBrowseInventory(
+        SEARCH_CATALOG_FIRST_LIMIT,
+        controller?.signal
+      );
+      if (first) {
+        onPartial?.(first);
+        // Full catalog (cover-only browse) — should be small/fast once slim.
         try {
-          typeof sessionStorage !== 'undefined' &&
-            sessionStorage.setItem(
-              SEARCH_CATALOG_STORAGE_KEY,
-              JSON.stringify({ at: Date.now(), inv })
-            );
+          const all = await fetchBrowseInventory(undefined, controller?.signal);
+          if (all && all.properties.length >= first.properties.length) {
+            cacheSearchInventory(all);
+            return all;
+          }
         } catch {
-          // quota / private mode
+          /* keep first page */
         }
-        return inv;
+        cacheSearchInventory(first);
+        return first;
       }
     } catch {
       /* aborted or network — fall through */
@@ -438,14 +475,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
           }
         }
         const inv: SearchInventory = { properties: propertyRows, profileById };
-        try {
-          sessionStorage.setItem(
-            SEARCH_CATALOG_STORAGE_KEY,
-            JSON.stringify({ at: Date.now(), inv })
-          );
-        } catch {
-          /* ignore */
-        }
+        cacheSearchInventory(inv);
         return inv;
       }
     } catch {
@@ -462,25 +492,7 @@ async function loadSearchCatalogOnce(): Promise<SearchInventory | null> {
 function listingsFromInventory(inv: SearchInventory): Listing[] {
   return inv.properties.map((p: any) => {
     const consumption = resolveWellnessConsumptionFlags(p as Record<string, unknown>);
-    const rawImages = p.images || [];
-    const cover =
-      typeof p.cover_image === 'string' && p.cover_image.trim().startsWith('http')
-        ? p.cover_image.trim()
-        : null;
-    const normalizedImages = [...rawImages, ...(cover ? [cover] : [])]
-      .map(normalizeListingImageUrl)
-      .filter((img: string) => {
-        if (!img?.length) return false;
-        if (img.startsWith('/api/properties/')) return true;
-        if (img.startsWith('data:')) return false;
-        return true;
-      });
-    const images =
-      normalizedImages.length > 0
-        ? Array.from(new Set(normalizedImages)).slice(0, 3)
-        : p.id
-          ? [`/api/properties/${encodeURIComponent(String(p.id))}/cover`]
-          : ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image+Available'];
+    const images = listingCardImagesFromRow(p);
 
     const hostId = typeof p.host_id === 'string' ? p.host_id : '';
     const prof = hostId ? inv.profileById[hostId] : undefined;
@@ -846,7 +858,12 @@ export default function SearchPage() {
     void (async () => {
       setLoading(true);
       try {
-        const inv = await loadSearchCatalogOnce();
+        const inv = await loadSearchCatalogOnce((partial) => {
+          if (!cancelled) {
+            setInventory(partial);
+            setLoading(false);
+          }
+        });
         if (!cancelled) setInventory(inv);
       } catch (e) {
         console.error('[Search] Failed to load catalog:', e);

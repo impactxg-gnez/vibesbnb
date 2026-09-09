@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { normalizePropertyImages } from '@/lib/propertyImageUrls';
 
 const siteUrl =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://vibesbnb.com';
@@ -43,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const { data } = await supabase
       .from('properties')
-      .select('name, title, description, location, images, status')
+      .select('name, title, description, location, cover_image, status')
       .eq('id', id)
       .maybeSingle();
 
@@ -59,15 +58,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ? `Wellness-friendly stay in ${String(data.location).split(',').slice(-2).join(', ').trim()}`
         : fallbackDescription);
 
-    const images = normalizePropertyImages(
-      Array.isArray(data?.images) ? (data!.images as string[]) : [],
-      `${siteUrl}/opengraph-image`
-    );
-    const primary = images[0];
-    const ogImage =
-      primary && /^https?:\/\//i.test(primary) && !primary.startsWith('data:')
-        ? primary
-        : `${siteUrl}/opengraph-image`;
+    const cover =
+      typeof data?.cover_image === 'string' && data.cover_image.trim().startsWith('http')
+        ? data.cover_image.trim()
+        : null;
+    const ogImage = cover || `${siteUrl}/opengraph-image`;
 
     return {
       title: name,

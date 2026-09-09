@@ -6,12 +6,14 @@ import { browseCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
 
 const HOST_ID_CHUNK = 80;
-const MAX_LIMIT_CAP = 48;
-const BROWSE_PAGE_SIZE = 20;
+const MAX_LIMIT_CAP = 100;
+const BROWSE_PAGE_SIZE = 40;
+/** Redis TTL for slim cover-only payloads (seconds). */
+const BROWSE_REDIS_TTL_SEC = 300;
 
 /**
  * Card fields without `images` / heavy arrays — full image arrays are huge
- * (50–200+ URLs) and cause statement timeouts on uncapped browse.
+ * (50–200+ URLs / base64) and cause statement timeouts on uncapped browse.
  */
 const PROPERTY_BROWSE_NO_IMAGES_SELECT = [
   'id',
@@ -76,7 +78,7 @@ const PROPERTY_BROWSE_MINIMAL_SELECT = [
 
 function isHttpCoverUrl(url: string): boolean {
   const trimmed = url.trim();
-  if (trimmed.length < 12) return false;
+  if (trimmed.length < 12 || trimmed.length > 2000) return false;
   const lower = trimmed.toLowerCase();
   if (!lower.startsWith('http://') && !lower.startsWith('https://')) return false;
   if (lower.startsWith('data:')) return false;
@@ -85,52 +87,84 @@ function isHttpCoverUrl(url: string): boolean {
   return true;
 }
 
-/** Collect up to 3 remote http(s) covers — never data: / placeholders. */
-function httpCoversFromUnknown(images: unknown, extra?: unknown): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  const push = (raw: unknown) => {
-    if (typeof raw !== 'string' || !isHttpCoverUrl(raw)) return;
-    const url = raw.trim();
-    if (seen.has(url)) return;
-    seen.add(url);
-    out.push(url);
-  };
+function firstHttpCover(images: unknown, cover?: unknown): string | null {
+  if (typeof cover === 'string' && isHttpCoverUrl(cover)) return cover.trim();
   if (Array.isArray(images)) {
     for (const raw of images) {
-      push(raw);
-      if (out.length >= 3) return out;
+      if (typeof raw === 'string' && isHttpCoverUrl(raw)) return raw.trim();
     }
   }
-  if (typeof extra === 'string') push(extra);
-  else if (Array.isArray(extra)) {
-    for (const raw of extra) {
-      push(raw);
-      if (out.length >= 3) return out;
-    }
-  }
-  return out;
+  return null;
 }
 
-function withCardImages(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+/**
+ * Strip every heavy field. Cards get at most one http cover or the /cover proxy.
+ * Never return data: URLs or multi-image galleries in browse JSON.
+ */
+function slimBrowseRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
   return rows.map((r) => {
-    const covers = httpCoversFromUnknown(r.images, r.cover_image ?? r.cover_images);
-    if (covers.length > 0) {
-      return { ...r, images: covers };
-    }
     const id = typeof r.id === 'string' ? r.id : '';
-    // Proxy serves http cover or embedded data:image without shipping base64 in browse JSON.
+    const cover = firstHttpCover(r.images, r.cover_image ?? r.cover_images);
+    const images = cover
+      ? [cover]
+      : id
+        ? [`/api/properties/${encodeURIComponent(id)}/cover`]
+        : [];
+
+    // Explicit allowlist — drop images[], rooms, description blobs, etc.
     return {
-      ...r,
-      images: id ? [`/api/properties/${encodeURIComponent(id)}/cover`] : [],
+      id: r.id,
+      host_id: r.host_id,
+      name: r.name,
+      title: r.title,
+      location: r.location,
+      price: r.price,
+      rating: r.rating,
+      reviews_count: r.reviews_count,
+      has_team_review: r.has_team_review,
+      type: r.type,
+      amenities: Array.isArray(r.amenities) ? r.amenities : [],
+      guests: r.guests,
+      status: r.status,
+      created_at: r.created_at,
+      bedrooms: r.bedrooms,
+      bathrooms: r.bathrooms,
+      beds: r.beds,
+      wellness_friendly: r.wellness_friendly,
+      wellness_consumption_indoor_allowed: r.wellness_consumption_indoor_allowed,
+      wellness_consumption_outdoor_allowed: r.wellness_consumption_outdoor_allowed,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      smoking_inside_allowed: r.smoking_inside_allowed,
+      smoking_outside_allowed: r.smoking_outside_allowed,
+      smoke_friendly: r.smoke_friendly,
+      min_booking_nights: r.min_booking_nights,
+      cover_image: cover,
+      images,
     };
   });
+}
+
+/** Reject stale Redis payloads that still embed base64 galleries. */
+function isSlimBrowseCache(parsed: { properties?: unknown[] } | null): boolean {
+  if (!parsed?.properties || !Array.isArray(parsed.properties)) return false;
+  const sample = parsed.properties.slice(0, 8) as Record<string, unknown>[];
+  for (const row of sample) {
+    const imgs = row.images;
+    if (!Array.isArray(imgs)) continue;
+    if (imgs.length > 3) return false;
+    for (const u of imgs) {
+      if (typeof u !== 'string') return false;
+      if (u.startsWith('data:') || u.length > 2500) return false;
+    }
+  }
+  return true;
 }
 
 async function fetchViaRpc(
   supabase: SupabaseClient,
   limitParam?: number
-): Promise<{ rows: Record<string, unknown>[]; error: any | null; usedRpc: boolean }> {
+): Promise<{ rows: Record<string, unknown>[]; error: any | null }> {
   const pageSize = limitParam !== undefined ? limitParam : BROWSE_PAGE_SIZE;
   const all: Record<string, unknown>[] = [];
   let offset = 0;
@@ -145,7 +179,6 @@ async function fetchViaRpc(
     });
 
     if (error) {
-      // Return what we have if a later page fails — better than empty search
       if (all.length > 0) {
         console.warn('[properties/browse] RPC page failed after partial load', {
           offset,
@@ -153,20 +186,35 @@ async function fetchViaRpc(
           message: error.message,
           code: error.code,
         });
-        return { rows: withCardImages(all), error: null, usedRpc: true };
+        return { rows: slimBrowseRows(all), error: null };
       }
-      return { rows: [], error, usedRpc: false };
+      return { rows: [], error };
     }
 
     const page = (data ?? []) as Record<string, unknown>[];
     if (page.length === 0) break;
+    // If RPC still returns fat galleries, abort RPC path — PostgREST slim select is safer.
+    const fat = page.some((row) => {
+      const imgs = row.images;
+      if (!Array.isArray(imgs) || imgs.length <= 3) return false;
+      return imgs.some(
+        (u) => typeof u === 'string' && (u.startsWith('data:') || u.length > 2500)
+      );
+    });
+    if (fat) {
+      console.warn('[properties/browse] RPC returned fat images[]; ignoring RPC path');
+      return {
+        rows: [],
+        error: { message: 'RPC returned fat images', code: 'FAT_IMAGES' },
+      };
+    }
     all.push(...page);
     if (limitParam !== undefined) break;
     if (page.length < take) break;
     offset += take;
   }
 
-  return { rows: withCardImages(all), error: null, usedRpc: true };
+  return { rows: slimBrowseRows(all), error: null };
 }
 
 async function fetchWithoutImages(
@@ -258,7 +306,7 @@ export async function GET(request: NextRequest) {
           profiles: unknown[];
           usedFallback?: boolean;
         }>(redis, bKey);
-        if (parsed?.properties) {
+        if (parsed?.properties && isSlimBrowseCache(parsed)) {
           await bumpCacheStat('hit');
           logApiPerf('GET /api/properties/browse', Date.now() - started, {
             cache: 'hit',
@@ -268,11 +316,14 @@ export async function GET(request: NextRequest) {
             headers: {
               'Cache-Control':
                 limitParam !== undefined
-                  ? 'public, s-maxage=120, stale-while-revalidate=600'
-                  : 'public, s-maxage=60, stale-while-revalidate=300',
+                  ? 'public, s-maxage=300, stale-while-revalidate=900'
+                  : 'public, s-maxage=180, stale-while-revalidate=600',
               'X-Cache': 'redis-hit',
             },
           });
+        }
+        if (parsed?.properties && !isSlimBrowseCache(parsed)) {
+          console.warn('[properties/browse] ignoring fat redis cache', bKey);
         }
         await bumpCacheStat('miss');
       } catch (redisReadErr) {
@@ -288,7 +339,6 @@ export async function GET(request: NextRequest) {
     let rows: Record<string, unknown>[] = [];
 
     // Slim PostgREST select first — never wait on RPC statement_timeout.
-    // cover_image is a small text column; images[] is intentionally omitted.
     let result = await fetchWithoutImages(
       supabase,
       PROPERTY_BROWSE_NO_IMAGES_SELECT,
@@ -314,10 +364,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (!result.error) {
-      rows = withCardImages(result.rows);
+      rows = slimBrowseRows(result.rows);
       usedFallback = true;
     } else {
-      // Last resort: cover-only RPC (still avoids images[] when SQL is up to date).
       console.warn('[properties/browse] selects failed, trying RPC', {
         message: result.error.message,
         code: result.error.code,
@@ -372,7 +421,7 @@ export async function GET(request: NextRequest) {
 
     if (redis) {
       try {
-        await redisSetJson(redis, bKey, payload, { ex: 45 });
+        await redisSetJson(redis, bKey, payload, { ex: BROWSE_REDIS_TTL_SEC });
       } catch (redisWriteErr) {
         console.warn('[properties/browse] redis write failed', redisWriteErr);
       }
@@ -388,8 +437,8 @@ export async function GET(request: NextRequest) {
       headers: {
         'Cache-Control':
           limitParam !== undefined
-            ? 'public, s-maxage=120, stale-while-revalidate=600'
-            : 'public, s-maxage=60, stale-while-revalidate=300',
+            ? 'public, s-maxage=300, stale-while-revalidate=900'
+            : 'public, s-maxage=180, stale-while-revalidate=600',
         ...(usedFallback ? { 'X-Properties-Browse-Fallback': '1' } : {}),
         ...(redis ? { 'X-Cache': 'miss' } : {}),
       },

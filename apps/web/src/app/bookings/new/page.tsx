@@ -16,7 +16,8 @@ import {
   todayLocalYmd,
 } from '@/lib/dateUtils';
 import { buildGuestAgreementNotice } from '@/lib/guestAgreementCopy';
-import { PROPERTY_DETAIL_PUBLIC_COLUMNS } from '@/lib/propertyPublicSelect';
+import { PROPERTY_DETAIL_CORE_COLUMNS } from '@/lib/propertyPublicSelect';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import {
   computeEarlyLateFees,
@@ -155,7 +156,7 @@ export default function NewBookingPage() {
       const supabase = createClient();
       const { data: rawProperty, error } = await supabase
         .from('properties')
-        .select(PROPERTY_DETAIL_PUBLIC_COLUMNS)
+        .select(PROPERTY_DETAIL_CORE_COLUMNS)
         .eq('id', propertyId)
         .eq('status', 'active')
         .single();
@@ -166,7 +167,10 @@ export default function NewBookingPage() {
         return;
       }
 
-      const propertyRow = rawProperty as unknown as Record<string, unknown>;
+      const propertyRow = {
+        ...(rawProperty as unknown as Record<string, unknown>),
+        images: listingCardImagesFromRow(rawProperty as unknown as Record<string, unknown>),
+      } as Record<string, unknown>;
       const hostId =
         propertyRow.host_id != null ? String(propertyRow.host_id) : undefined;
       const defaultHostName = 'Property Host';
