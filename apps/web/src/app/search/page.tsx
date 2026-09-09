@@ -234,11 +234,13 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v9';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v10';
 const SEARCH_CATALOG_TTL_MS = 300_000;
-const SEARCH_CATALOG_PAGE_SIZE = 50;
+const SEARCH_CATALOG_PAGE_SIZE = 40;
 /** First paint: enough cards for above-the-fold without waiting on full catalog. */
-const SEARCH_CATALOG_FIRST_LIMIT = 48;
+const SEARCH_CATALOG_FIRST_LIMIT = 24;
+const SEARCH_FIRST_PAGE_TIMEOUT_MS = 25_000;
+const SEARCH_FULL_CATALOG_TIMEOUT_MS = 45_000;
 
 /** Client fallback when browse API is down — omit images to avoid statement timeouts. */
 const SEARCH_CATALOG_NO_IMAGES_SELECT = [
@@ -268,12 +270,84 @@ const SEARCH_CATALOG_NO_IMAGES_SELECT = [
   'cover_image',
 ].join(',');
 
+const SEARCH_CATALOG_NO_COVER_SELECT = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'reviews_count',
+  'type',
+  'amenities',
+  'guests',
+  'status',
+  'created_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'wellness_friendly',
+  'latitude',
+  'longitude',
+  'min_booking_nights',
+].join(',');
+
+const SEARCH_CATALOG_MINIMAL_SELECT = [
+  'id',
+  'host_id',
+  'name',
+  'title',
+  'location',
+  'price',
+  'rating',
+  'type',
+  'guests',
+  'status',
+  'created_at',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'latitude',
+  'longitude',
+].join(',');
+
 type ProfileBrief = {
   avatar_url: string | null;
   full_name: string | null;
   host_badge?: string | null;
 };
 type SearchInventory = { properties: any[]; profileById: Record<string, ProfileBrief> };
+
+/** Drop base64 / multi-image galleries so sessionStorage + UI stay usable on cold loads. */
+function slimCatalogProperties(properties: any[]): any[] {
+  return properties.map((p) => {
+    const id = typeof p?.id === 'string' ? p.id : '';
+    const cover =
+      typeof p?.cover_image === 'string' &&
+      p.cover_image.startsWith('http') &&
+      p.cover_image.length < 2000
+        ? p.cover_image
+        : Array.isArray(p?.images)
+          ? p.images.find(
+              (u: unknown) =>
+                typeof u === 'string' &&
+                u.startsWith('http') &&
+                u.length < 2000 &&
+                !u.includes('photo-1542718610')
+            )
+          : null;
+    return {
+      ...p,
+      images: cover
+        ? [cover]
+        : id
+          ? [`/api/properties/${encodeURIComponent(id)}/cover`]
+          : [],
+      cover_image: cover || null,
+    };
+  });
+}
 
 function profilesFromBrowsePayload(payload: {
   profiles?: Array<{
@@ -304,27 +378,38 @@ function cacheSearchInventory(inv: SearchInventory) {
         JSON.stringify({ at: Date.now(), inv })
       );
   } catch {
-    /* quota / private mode */
+    /* quota / private mode — still return inv to the UI */
   }
 }
 
 async function fetchBrowseInventory(
   limit?: number,
-  signal?: AbortSignal
+  timeoutMs = 25_000
 ): Promise<SearchInventory | null> {
-  const qs = limit != null ? `?limit=${limit}` : '';
-  const res = await fetch(`/api/properties/browse${qs}`, {
-    method: 'GET',
-    signal,
-  });
-  if (!res.ok) return null;
-  const payload = await res.json();
-  const properties = payload.properties ?? [];
-  if (!Array.isArray(properties) || properties.length === 0) return null;
-  return {
-    properties,
-    profileById: profilesFromBrowsePayload(payload),
-  };
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId =
+    typeof window !== 'undefined' && controller
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : 0;
+  try {
+    const qs = limit != null ? `?limit=${limit}` : '';
+    const res = await fetch(`/api/properties/browse${qs}`, {
+      method: 'GET',
+      signal: controller?.signal,
+    });
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const raw = payload.properties ?? [];
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    return {
+      properties: slimCatalogProperties(raw),
+      profileById: profilesFromBrowsePayload(payload),
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
 }
 
 function collectLocalStorageFallbackProperties(): any[] {
@@ -344,6 +429,35 @@ function collectLocalStorageFallbackProperties(): any[] {
     }
   });
   return allProperties;
+}
+
+async function fetchSupabaseCatalogPages(
+  select: string
+): Promise<Array<Record<string, unknown>>> {
+  const supabase = createClient();
+  const propertyRows: Array<Record<string, unknown>> = [];
+  let from = 0;
+  const hardCap = 2000;
+  while (from < hardCap) {
+    const to = from + SEARCH_CATALOG_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('properties')
+      .select(select)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (error) {
+      if (propertyRows.length === 0) throw error;
+      console.warn('[Search] catalog page failed after partial load:', error.message);
+      break;
+    }
+    const page = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    if (page.length === 0) break;
+    propertyRows.push(...page);
+    if (page.length < SEARCH_CATALOG_PAGE_SIZE) break;
+    from += SEARCH_CATALOG_PAGE_SIZE;
+  }
+  return propertyRows;
 }
 
 /**
@@ -381,112 +495,91 @@ async function loadSearchCatalogOnce(
         Array.isArray(inv?.properties) &&
         inv.properties.length > 0
       ) {
-        return inv;
+        return {
+          properties: slimCatalogProperties(inv.properties),
+          profileById: inv.profileById || {},
+        };
       }
     }
   } catch {
     // ignore malformed cache
   }
 
+  // Fast first page for above-the-fold cards (own timeout — do not share with full catalog).
+  const first = await fetchBrowseInventory(
+    SEARCH_CATALOG_FIRST_LIMIT,
+    SEARCH_FIRST_PAGE_TIMEOUT_MS
+  );
+  if (first) {
+    onPartial?.(first);
+    // Full catalog with a separate timeout so a slow "all" never kills first paint.
+    const all = await fetchBrowseInventory(undefined, SEARCH_FULL_CATALOG_TIMEOUT_MS);
+    if (all && all.properties.length >= first.properties.length) {
+      cacheSearchInventory(all);
+      return all;
+    }
+    cacheSearchInventory(first);
+    return first;
+  }
+
+  // Browse down — paginated Supabase selects (try cover_image, then without, then minimal).
   try {
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId =
-      typeof window !== 'undefined' && controller
-        ? window.setTimeout(() => controller.abort(), 20_000)
-        : 0;
-    try {
-      // Fast first page for above-the-fold cards.
-      const first = await fetchBrowseInventory(
-        SEARCH_CATALOG_FIRST_LIMIT,
-        controller?.signal
-      );
-      if (first) {
-        onPartial?.(first);
-        // Full catalog (cover-only browse) — should be small/fast once slim.
-        try {
-          const all = await fetchBrowseInventory(undefined, controller?.signal);
-          if (all && all.properties.length >= first.properties.length) {
-            cacheSearchInventory(all);
-            return all;
-          }
-        } catch {
-          /* keep first page */
-        }
-        cacheSearchInventory(first);
-        return first;
+    const selects = [
+      SEARCH_CATALOG_NO_IMAGES_SELECT,
+      SEARCH_CATALOG_NO_COVER_SELECT,
+      SEARCH_CATALOG_MINIMAL_SELECT,
+    ];
+    let propertyRows: Array<Record<string, unknown>> = [];
+    for (const select of selects) {
+      try {
+        propertyRows = await fetchSupabaseCatalogPages(select);
+        if (propertyRows.length > 0) break;
+      } catch (err: any) {
+        console.warn('[Search] catalog select failed, trying slimmer columns:', err?.message || err);
       }
-    } catch {
-      /* aborted or network — fall through */
-    } finally {
-      if (timeoutId) window.clearTimeout(timeoutId);
     }
 
-    // Browse down — load directly from Supabase in pages so vibe flags still reach cards
-    try {
-      const supabase = createClient();
-      const propertyRows: Array<Record<string, unknown>> = [];
-      let from = 0;
-      const hardCap = 2000;
-      while (from < hardCap) {
-        const to = from + SEARCH_CATALOG_PAGE_SIZE - 1;
-        const { data, error } = await supabase
-          .from('properties')
-          .select(SEARCH_CATALOG_NO_IMAGES_SELECT)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .range(from, to);
-        if (error) {
-          if (propertyRows.length === 0) break;
-          console.warn('[Search] catalog page failed after partial load:', error.message);
-          break;
-        }
-        const page = (data ?? []) as unknown as Array<Record<string, unknown>>;
-        if (page.length === 0) break;
-        propertyRows.push(...page);
-        if (page.length < SEARCH_CATALOG_PAGE_SIZE) break;
-        from += SEARCH_CATALOG_PAGE_SIZE;
-      }
-
-      if (propertyRows.length > 0) {
-        const hostIds = [
-          ...new Set(
-            propertyRows
-              .map((r) => r.host_id)
-              .filter((id): id is string => typeof id === 'string' && id.length > 0)
-          ),
-        ];
-        const profileById: Record<string, ProfileBrief> = {};
-        if (hostIds.length) {
-          for (let i = 0; i < hostIds.length; i += 80) {
-            const slice = hostIds.slice(i, i + 80);
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('id, avatar_url, full_name, host_badge')
-              .in('id', slice);
-            for (const row of profiles ?? []) {
-              if (row?.id) {
-                profileById[row.id] = {
-                  avatar_url: row.avatar_url ?? null,
-                  full_name: row.full_name ?? null,
-                  host_badge: row.host_badge ?? null,
-                };
-              }
+    if (propertyRows.length > 0) {
+      const hostIds = [
+        ...new Set(
+          propertyRows
+            .map((r) => r.host_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        ),
+      ];
+      const profileById: Record<string, ProfileBrief> = {};
+      if (hostIds.length) {
+        const supabase = createClient();
+        for (let i = 0; i < hostIds.length; i += 80) {
+          const slice = hostIds.slice(i, i + 80);
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, avatar_url, full_name, host_badge')
+            .in('id', slice);
+          for (const row of profiles ?? []) {
+            if (row?.id) {
+              profileById[row.id] = {
+                avatar_url: row.avatar_url ?? null,
+                full_name: row.full_name ?? null,
+                host_badge: row.host_badge ?? null,
+              };
             }
           }
         }
-        const inv: SearchInventory = { properties: propertyRows, profileById };
-        cacheSearchInventory(inv);
-        return inv;
       }
-    } catch {
-      /* fall through to localStorage */
+      const inv: SearchInventory = {
+        properties: slimCatalogProperties(propertyRows),
+        profileById,
+      };
+      cacheSearchInventory(inv);
+      return inv;
     }
-  } catch {
-    /* fall through */
+  } catch (e) {
+    console.warn('[Search] Supabase catalog fallback failed:', e);
   }
 
   const rows = collectLocalStorageFallbackProperties();
-  return rows.length ? { properties: rows, profileById: {} } : null;
+  return rows.length ? { properties: slimCatalogProperties(rows), profileById: {} } : null;
 }
 
 function listingsFromInventory(inv: SearchInventory): Listing[] {

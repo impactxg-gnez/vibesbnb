@@ -161,62 +161,6 @@ function isSlimBrowseCache(parsed: { properties?: unknown[] } | null): boolean {
   return true;
 }
 
-async function fetchViaRpc(
-  supabase: SupabaseClient,
-  limitParam?: number
-): Promise<{ rows: Record<string, unknown>[]; error: any | null }> {
-  const pageSize = limitParam !== undefined ? limitParam : BROWSE_PAGE_SIZE;
-  const all: Record<string, unknown>[] = [];
-  let offset = 0;
-  const hardCap = limitParam !== undefined ? limitParam : 2000;
-
-  while (offset < hardCap) {
-    const take =
-      limitParam !== undefined ? limitParam : Math.min(pageSize, hardCap - offset);
-    const { data, error } = await supabase.rpc('browse_active_property_cards', {
-      p_limit: take,
-      p_offset: offset,
-    });
-
-    if (error) {
-      if (all.length > 0) {
-        console.warn('[properties/browse] RPC page failed after partial load', {
-          offset,
-          loaded: all.length,
-          message: error.message,
-          code: error.code,
-        });
-        return { rows: slimBrowseRows(all), error: null };
-      }
-      return { rows: [], error };
-    }
-
-    const page = (data ?? []) as Record<string, unknown>[];
-    if (page.length === 0) break;
-    // If RPC still returns fat galleries, abort RPC path — PostgREST slim select is safer.
-    const fat = page.some((row) => {
-      const imgs = row.images;
-      if (!Array.isArray(imgs) || imgs.length <= 3) return false;
-      return imgs.some(
-        (u) => typeof u === 'string' && (u.startsWith('data:') || u.length > 2500)
-      );
-    });
-    if (fat) {
-      console.warn('[properties/browse] RPC returned fat images[]; ignoring RPC path');
-      return {
-        rows: [],
-        error: { message: 'RPC returned fat images', code: 'FAT_IMAGES' },
-      };
-    }
-    all.push(...page);
-    if (limitParam !== undefined) break;
-    if (page.length < take) break;
-    offset += take;
-  }
-
-  return { rows: slimBrowseRows(all), error: null };
-}
-
 async function fetchWithoutImages(
   supabase: SupabaseClient,
   select: string,
@@ -338,7 +282,7 @@ export async function GET(request: NextRequest) {
     let usedFallback = false;
     let rows: Record<string, unknown>[] = [];
 
-    // Slim PostgREST select first — never wait on RPC statement_timeout.
+    // Slim PostgREST select only — never call fat image RPCs on the hot path.
     let result = await fetchWithoutImages(
       supabase,
       PROPERTY_BROWSE_NO_IMAGES_SELECT,
@@ -363,28 +307,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!result.error) {
-      rows = slimBrowseRows(result.rows);
-      usedFallback = true;
-    } else {
-      console.warn('[properties/browse] selects failed, trying RPC', {
-        message: result.error.message,
-        code: result.error.code,
-      });
-      const rpcResult = await fetchViaRpc(supabase, limitParam);
-      if (rpcResult.error) {
-        return NextResponse.json(
-          {
-            error: rpcResult.error.message,
-            code: rpcResult.error.code,
-            details: rpcResult.error.details,
-            hint: rpcResult.error.hint,
-          },
-          { status: 500 }
-        );
-      }
-      rows = rpcResult.rows;
+    if (result.error) {
+      return NextResponse.json(
+        {
+          error: result.error.message,
+          code: result.error.code,
+          details: result.error.details,
+          hint: result.error.hint,
+        },
+        { status: 500 }
+      );
     }
+
+    rows = slimBrowseRows(result.rows);
+    usedFallback = true;
 
     const hostIdSet = new Set<string>();
     for (const r of rows) {

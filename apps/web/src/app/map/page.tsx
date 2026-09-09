@@ -40,11 +40,30 @@ export default function MapPage() {
 
         if (isSupabaseConfigured) {
           try {
-            const res = await fetch('/api/properties/browse', { method: 'GET' });
+            const res = await fetch('/api/properties/browse?limit=100', { method: 'GET' });
             if (res.ok) {
               const payload = await res.json();
-              propertiesData = payload.properties ?? [];
-              loadedViaBrowse = true;
+              propertiesData = (payload.properties ?? []).map((p: any) => {
+                const id = typeof p?.id === 'string' ? p.id : '';
+                const cover =
+                  typeof p?.cover_image === 'string' && p.cover_image.startsWith('http')
+                    ? p.cover_image
+                    : Array.isArray(p?.images)
+                      ? p.images.find(
+                          (u: unknown) =>
+                            typeof u === 'string' && u.startsWith('http') && u.length < 2000
+                        )
+                      : null;
+                return {
+                  ...p,
+                  images: cover
+                    ? [cover]
+                    : id
+                      ? [`/api/properties/${encodeURIComponent(id)}/cover`]
+                      : [],
+                };
+              });
+              loadedViaBrowse = propertiesData.length > 0;
             }
           } catch (e) {
             console.warn('[Map] browse failed', e);
