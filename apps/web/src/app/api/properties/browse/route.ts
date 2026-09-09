@@ -355,6 +355,23 @@ export async function GET(request: NextRequest) {
 
     const payload = { properties: rows, profiles, usedFallback };
 
+    // Hard fail-closed: never ship multi-MB gallery/base64 browse responses.
+    const approx = JSON.stringify(payload).length;
+    if (approx > 1_500_000) {
+      console.error('[properties/browse] payload still too large after slim', {
+        bytes: approx,
+        rows: rows.length,
+      });
+      return NextResponse.json(
+        {
+          error: 'Browse payload too large',
+          code: 'BROWSE_PAYLOAD_TOO_LARGE',
+          hint: 'Re-run SUPABASE_BROWSE_ACTIVE_PROPERTY_CARDS.sql and ensure cover_image is populated.',
+        },
+        { status: 503 }
+      );
+    }
+
     if (redis) {
       try {
         await redisSetJson(redis, bKey, payload, { ex: BROWSE_REDIS_TTL_SEC });
@@ -371,10 +388,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control':
-          limitParam !== undefined
-            ? 'public, s-maxage=300, stale-while-revalidate=900'
-            : 'public, s-maxage=180, stale-while-revalidate=600',
+        // Avoid CDN caching fat legacy payloads for long.
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+        'X-Browse-Slim': '1',
         ...(usedFallback ? { 'X-Properties-Browse-Fallback': '1' } : {}),
         ...(redis ? { 'X-Cache': 'miss' } : {}),
       },

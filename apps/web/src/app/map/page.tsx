@@ -40,10 +40,32 @@ export default function MapPage() {
 
         if (isSupabaseConfigured) {
           try {
-            const res = await fetch('/api/properties/browse?limit=100', { method: 'GET' });
+            const res = await fetch('/api/properties/catalog', { method: 'GET' });
             if (res.ok) {
               const payload = await res.json();
-              propertiesData = (payload.properties ?? []).map((p: any) => {
+              propertiesData = payload.properties ?? [];
+              loadedViaBrowse = Array.isArray(propertiesData) && propertiesData.length > 0;
+            }
+            if (!loadedViaBrowse) {
+              const browseRes = await fetch('/api/properties/browse?limit=48', { method: 'GET' });
+              if (browseRes.ok) {
+                const payload = await browseRes.json();
+                const raw = payload.properties ?? [];
+                const fat =
+                  Array.isArray(raw?.[0]?.images) &&
+                  (raw[0].images.length > 3 ||
+                    raw[0].images.some(
+                      (u: unknown) =>
+                        typeof u === 'string' && (u.startsWith('data:') || u.length > 2500)
+                    ));
+                if (!fat) {
+                  propertiesData = raw;
+                  loadedViaBrowse = propertiesData.length > 0;
+                }
+              }
+            }
+            if (loadedViaBrowse) {
+              propertiesData = propertiesData.map((p: any) => {
                 const id = typeof p?.id === 'string' ? p.id : '';
                 const cover =
                   typeof p?.cover_image === 'string' && p.cover_image.startsWith('http')
@@ -63,7 +85,6 @@ export default function MapPage() {
                       : [],
                 };
               });
-              loadedViaBrowse = propertiesData.length > 0;
             }
           } catch (e) {
             console.warn('[Map] browse failed', e);

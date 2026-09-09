@@ -234,13 +234,15 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v10';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v11';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 const SEARCH_CATALOG_PAGE_SIZE = 40;
 /** First paint: enough cards for above-the-fold without waiting on full catalog. */
 const SEARCH_CATALOG_FIRST_LIMIT = 24;
-const SEARCH_FIRST_PAGE_TIMEOUT_MS = 25_000;
-const SEARCH_FULL_CATALOG_TIMEOUT_MS = 45_000;
+const SEARCH_CATALOG_TIMEOUT_MS = 20_000;
+const SEARCH_BROWSE_TIMEOUT_MS = 12_000;
+/** Reject browse bodies larger than this — fat image payloads hang Incognito cold loads. */
+const SEARCH_BROWSE_MAX_BYTES = 1_500_000;
 
 /** Client fallback when browse API is down — omit images to avoid statement timeouts. */
 const SEARCH_CATALOG_NO_IMAGES_SELECT = [
@@ -384,7 +386,7 @@ function cacheSearchInventory(inv: SearchInventory) {
 
 async function fetchBrowseInventory(
   limit?: number,
-  timeoutMs = 25_000
+  timeoutMs = SEARCH_BROWSE_TIMEOUT_MS
 ): Promise<SearchInventory | null> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timeoutId =
@@ -394,6 +396,49 @@ async function fetchBrowseInventory(
   try {
     const qs = limit != null ? `?limit=${limit}` : '';
     const res = await fetch(`/api/properties/browse${qs}`, {
+      method: 'GET',
+      signal: controller?.signal,
+    });
+    if (!res.ok) return null;
+    const len = Number(res.headers.get('content-length') || 0);
+    if (len > SEARCH_BROWSE_MAX_BYTES) {
+      console.warn('[Search] skipping oversized browse payload', len);
+      return null;
+    }
+    const payload = await res.json();
+    const raw = payload.properties ?? [];
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    // If first row still has a fat gallery, treat browse as unusable.
+    const sampleImgs = raw[0]?.images;
+    if (
+      Array.isArray(sampleImgs) &&
+      (sampleImgs.length > 3 ||
+        sampleImgs.some(
+          (u: unknown) => typeof u === 'string' && (u.startsWith('data:') || u.length > 2500)
+        ))
+    ) {
+      console.warn('[Search] browse still returns fat images; ignoring');
+      return null;
+    }
+    return {
+      properties: slimCatalogProperties(raw),
+      profileById: profilesFromBrowsePayload(payload),
+    };
+  } catch {
+    return null;
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchCatalogInventory(timeoutMs = SEARCH_CATALOG_TIMEOUT_MS): Promise<SearchInventory | null> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId =
+    typeof window !== 'undefined' && controller
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : 0;
+  try {
+    const res = await fetch('/api/properties/catalog', {
       method: 'GET',
       signal: controller?.signal,
     });
@@ -505,29 +550,39 @@ async function loadSearchCatalogOnce(
     // ignore malformed cache
   }
 
-  // Fast first page for above-the-fold cards (own timeout — do not share with full catalog).
+  // PRIMARY: lightweight catalog API (never touches images[]).
+  const catalog = await fetchCatalogInventory(SEARCH_CATALOG_TIMEOUT_MS);
+  if (catalog) {
+    onPartial?.(catalog);
+    cacheSearchInventory(catalog);
+    // Optional upgrade via slim browse (ignored if still fat / slow).
+    void fetchBrowseInventory(SEARCH_CATALOG_FIRST_LIMIT, SEARCH_BROWSE_TIMEOUT_MS).then(
+      (browse) => {
+        if (browse && browse.properties.length >= catalog.properties.length) {
+          cacheSearchInventory(browse);
+        }
+      }
+    );
+    return catalog;
+  }
+
+  // SECONDARY: capped browse — only if payload is slim.
   const first = await fetchBrowseInventory(
     SEARCH_CATALOG_FIRST_LIMIT,
-    SEARCH_FIRST_PAGE_TIMEOUT_MS
+    SEARCH_BROWSE_TIMEOUT_MS
   );
   if (first) {
     onPartial?.(first);
-    // Full catalog with a separate timeout so a slow "all" never kills first paint.
-    const all = await fetchBrowseInventory(undefined, SEARCH_FULL_CATALOG_TIMEOUT_MS);
-    if (all && all.properties.length >= first.properties.length) {
-      cacheSearchInventory(all);
-      return all;
-    }
     cacheSearchInventory(first);
     return first;
   }
 
-  // Browse down — paginated Supabase selects (try cover_image, then without, then minimal).
+  // TERTIARY: direct Supabase — minimal columns first (most reliable on cold loads).
   try {
     const selects = [
-      SEARCH_CATALOG_NO_IMAGES_SELECT,
-      SEARCH_CATALOG_NO_COVER_SELECT,
       SEARCH_CATALOG_MINIMAL_SELECT,
+      SEARCH_CATALOG_NO_COVER_SELECT,
+      SEARCH_CATALOG_NO_IMAGES_SELECT,
     ];
     let propertyRows: Array<Record<string, unknown>> = [];
     for (const select of selects) {
