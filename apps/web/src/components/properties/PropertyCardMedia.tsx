@@ -271,7 +271,7 @@ export function PropertyCardMedia({
             <button
               type="button"
               onClick={handlePrevious}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
               aria-label="Previous image"
             >
               <ChevronLeft size={20} strokeWidth={2.5} />
@@ -279,7 +279,7 @@ export function PropertyCardMedia({
             <button
               type="button"
               onClick={handleNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
               aria-label="Next image"
             >
               <ChevronRight size={20} strokeWidth={2.5} />

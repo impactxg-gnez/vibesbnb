@@ -27,7 +27,7 @@ function RootNavigator() {
       if (payload.conversationId) {
         router.push(`/chat/${payload.conversationId}`);
       } else if (payload.bookingId) {
-        router.push('/(tabs)/bookings');
+        router.push('/web?path=%2Fbookings&title=My%20trips');
       }
     });
     return () => sub.remove();

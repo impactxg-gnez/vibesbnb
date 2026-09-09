@@ -524,6 +524,30 @@ export function SearchSection({
                             autoFocus
                           />
                           <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-hide">
+                            {displayLocations.length > 0 ? (
+                              <>
+                                {selectedLocation.trim().length > 0 && (
+                                  <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted">
+                                    Locations
+                                  </div>
+                                )}
+                                {displayLocations.map((location) => (
+                                  <button
+                                    key={location}
+                                    type="button"
+                                    onClick={() => handleLocationSelect(location)}
+                                    className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium"
+                                  >
+                                    {location}
+                                  </button>
+                                ))}
+                              </>
+                            ) : matchedProperties.length === 0 ? (
+                              <div className="px-4 py-3 text-muted text-sm italic">No matching places or properties</div>
+                            ) : null}
+                            {matchedProperties.length > 0 && displayLocations.length > 0 && (
+                              <div className="border-t border-white/10 my-2 pt-2" aria-hidden />
+                            )}
                             {matchedProperties.length > 0 && (
                               <>
                                 <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted">
@@ -550,30 +574,6 @@ export function SearchSection({
                                 ))}
                               </>
                             )}
-                            {matchedProperties.length > 0 && displayLocations.length > 0 && (
-                              <div className="border-t border-white/10 my-2 pt-2" aria-hidden />
-                            )}
-                            {displayLocations.length > 0 ? (
-                              <>
-                                {selectedLocation.trim().length > 0 && (
-                                  <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-                                    Locations
-                                  </div>
-                                )}
-                                {displayLocations.map((location) => (
-                                  <button
-                                    key={location}
-                                    type="button"
-                                    onClick={() => handleLocationSelect(location)}
-                                    className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium"
-                                  >
-                                    {location}
-                                  </button>
-                                ))}
-                              </>
-                            ) : matchedProperties.length === 0 ? (
-                              <div className="px-4 py-3 text-muted text-sm italic">No matching places or properties</div>
-                            ) : null}
                           </div>
                         </div>
                       )}

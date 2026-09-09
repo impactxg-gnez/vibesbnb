@@ -35,7 +35,8 @@ module.exports = {
           DEFAULT: '#1A1A1A',
           dark: '#0A0A0A',
         },
-        muted: '#A0A0A0',
+        // ~7.6:1 on #0A0A0A — WCAG 2.2 AA (≥4.5:1) for normal text
+        muted: '#B3B3B3',
       },
     },
   },

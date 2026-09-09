@@ -16,7 +16,8 @@ export type AmenityCategoryId =
   | 'kitchen_dining'
   | 'location'
   | 'outdoor'
-  | 'parking_facilities';
+  | 'parking_facilities'
+  | 'accessibility';
 
 export interface AmenityCategory {
   id: AmenityCategoryId;
@@ -214,6 +215,22 @@ export const AMENITY_CATEGORIES: readonly AmenityCategory[] = [
       'Single level home',
     ],
   },
+  {
+    id: 'accessibility',
+    title: 'Accessibility',
+    amenities: [
+      'Step-free guest entrance',
+      'Lit path to entrance',
+      'Roll-in shower',
+      'Wide doorways',
+      'Accessible parking spot',
+      'Grab bars in shower',
+      'Grab bars near toilet',
+      'Accessible bed height',
+      'Elevator',
+      'Single level home',
+    ],
+  },
 ] as const;
 
 /** Flat list of all catalog amenity labels. */
@@ -279,6 +296,16 @@ export const LEGACY_AMENITY_ALIASES: Record<string, string | string[]> = {
   sauna: 'Sauna',
   essentials: 'Essentials',
   'essentials - towels, bed sheets, soap, and toilet paper': 'Essentials',
+  'step-free guest entrance': 'Step-free guest entrance',
+  'step free entrance': 'Step-free guest entrance',
+  'wheelchair accessible': 'Step-free guest entrance',
+  'roll-in shower': 'Roll-in shower',
+  'roll in shower': 'Roll-in shower',
+  'wide doorways': 'Wide doorways',
+  'wide doorway': 'Wide doorways',
+  'lit path to entrance': 'Lit path to entrance',
+  elevator: 'Elevator',
+  'single level home': 'Single level home',
 };
 
 /** Map a raw amenity string to a catalog label, or null if unknown. */

@@ -56,6 +56,9 @@ const PROPERTY_PUBLIC_FIELD_LIST = [
   'safety_first_aid_kit',
   'safety_emergency_exits',
   'safety_building_security',
+  'accessibility_description',
+  'adapted_status',
+  'image_alts',
 ] as const;
 
 /** Search, map, cards, APIs that list many properties — no images[] / rooms. */
@@ -93,6 +96,7 @@ const PROPERTY_BROWSE_FIELD_LIST = [
   'smoke_friendly',
   'min_booking_nights',
   'vibesbnb_take',
+  'adapted_status',
 ] as const;
 
 export const PROPERTY_BROWSE_LIST_COLUMNS = PROPERTY_BROWSE_FIELD_LIST.join(',');

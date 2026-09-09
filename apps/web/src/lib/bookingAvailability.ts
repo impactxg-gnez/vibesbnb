@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type ServiceSupabase = SupabaseClient;
 
+type SelectedUnit = { id?: string | null };
+
 function enumerateStayDays(checkInYmd: string, checkOutYmd: string): string[] {
   const days: string[] = [];
   const start = new Date(checkInYmd + 'T12:00:00');
@@ -39,6 +41,29 @@ export async function holdBookingNights(
     selectedUnits: SelectedUnit[] | null | undefined;
   }
 ): Promise<void> {
+  const roomIds =
+    params.selectedUnits && params.selectedUnits.length > 0
+      ? params.selectedUnits.map((u) => u.id || null).filter((id): id is string => !!id)
+      : null;
+
+  // Prefer atomic RPC when migration is applied (locks accessible-unit inventory).
+  const { error: rpcError } = await service.rpc('hold_booking_nights_atomic', {
+    p_property_id: params.propertyId,
+    p_host_id: params.hostId,
+    p_booking_id: params.bookingId,
+    p_check_in: params.checkInYmd,
+    p_check_out: params.checkOutYmd,
+    p_room_ids: roomIds && roomIds.length > 0 ? roomIds : null,
+  });
+
+  if (!rpcError) return;
+
+  // Fallback for environments that have not run SUPABASE_ACCESSIBILITY_FEATURES.sql yet
+  if (rpcError.message?.includes('stay_conflict')) {
+    throw new Error('Those dates are no longer available for the selected unit.');
+  }
+  console.warn('[holdBookingNights] RPC unavailable, using row updates:', rpcError.message);
+
   const start = new Date(params.checkInYmd + 'T12:00:00');
   const end = new Date(params.checkOutYmd + 'T12:00:00');
 
@@ -90,8 +115,6 @@ export async function holdBookingNights(
     }
   }
 }
-
-type SelectedUnit = { id?: string | null };
 
 export async function assertStayDoesNotConflict(
   service: ServiceSupabase,

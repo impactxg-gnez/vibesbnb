@@ -6,7 +6,7 @@ export const theme = {
   card: '#1A1A1A',
   border: 'rgba(255,255,255,0.08)',
   text: '#ffffff',
-  muted: '#A0A0A0',
+  muted: '#B3B3B3',
   primary: '#00E676',
   primaryDark: '#00C853',
   primaryMuted: 'rgba(0,230,118,0.15)',

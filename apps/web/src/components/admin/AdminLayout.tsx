@@ -29,6 +29,7 @@ import {
   Sparkles,
   CalendarClock,
   Mail,
+  Accessibility,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -147,6 +148,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     },
     { label: 'Manage Service Fee', href: '/admin/service-fee', icon: <Settings className="w-5 h-5" /> },
     { label: 'Document Verification', href: '/admin/verification', icon: <FileText className="w-5 h-5" /> },
+    { label: 'Adapted Accessibility', href: '/admin/accessibility', icon: <Accessibility className="w-5 h-5" /> },
     { label: 'Messages', href: '/admin/messages', icon: <MessageSquare className="w-5 h-5" /> },
     {
       label: 'Admin notification emails',

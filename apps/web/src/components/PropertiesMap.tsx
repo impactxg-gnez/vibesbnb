@@ -423,16 +423,45 @@ export default function PropertiesMap({
   }
 
   return (
-    <div className={`bg-gray-900 border border-gray-800 rounded-xl overflow-hidden ${className}`} style={{ height }}>
-      <div ref={mapRef} className="w-full h-full" />
+    <div
+      className={`relative bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col ${className}`}
+      style={{ height }}
+    >
+      <div
+        ref={mapRef}
+        className="w-full flex-1 min-h-0"
+        role="application"
+        aria-label="Map of available stays. Use the listing list below for keyboard access."
+      />
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-            <p className="text-white">Loading map...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4" aria-hidden />
+            <p className="text-white" role="status">Loading map...</p>
           </div>
         </div>
       )}
+      <div className="border-t border-white/10 max-h-40 overflow-y-auto bg-gray-950 shrink-0">
+        <h3 className="sr-only">Listings on map</h3>
+        <ul className="divide-y divide-white/5">
+          {propertiesWithCoords.map((p: Property & { coordinates: { lat: number; lng: number } }) => {
+            const qs = listingQuery ? `?${listingQuery}` : '';
+            return (
+              <li key={p.id}>
+                <a
+                  href={`/listings/${p.id}${qs}`}
+                  className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-white/5 focus-visible:bg-white/10"
+                >
+                  <span className="font-semibold text-white truncate">{p.name}</span>
+                  <span className="text-primary-500 font-bold tabular-nums shrink-0">
+                    ${Math.round(toTravelerPrice(Number(p.price) || 0))}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }

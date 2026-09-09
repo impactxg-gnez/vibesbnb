@@ -83,7 +83,7 @@ export default function ChatScreen() {
           const mine = item.sender_id === user?.id;
           return (
             <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-              <Text style={styles.bubbleText}>{item.content}</Text>
+              <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : null]}>{item.content}</Text>
             </View>
           );
         }}
@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
   mine: { alignSelf: 'flex-end', backgroundColor: theme.primary },
   theirs: { alignSelf: 'flex-start', backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border },
   bubbleText: { color: theme.text },
+  bubbleTextMine: { color: '#000000' },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

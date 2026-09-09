@@ -14,7 +14,7 @@
       "ios": { "simulator": false },
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://vibesbnb.com"
+        "EXPO_PUBLIC_API_URL": "https://www.vibesbnb.com"
       },
       "node": "22.14.0"
     },

@@ -80,6 +80,7 @@ interface Property {
   partiesAllowed: boolean;
   safety: SafetyFlags;
   amenities: string[];
+  accessibilityDescription: string;
   images: File[];
   imagePreviewUrls: string[];
   rooms?: Room[];
@@ -121,6 +122,7 @@ export default function EditPropertyPage() {
     partiesAllowed: false,
     safety: { ...DEFAULT_SAFETY_FLAGS },
     amenities: [],
+    accessibilityDescription: '',
     images: [],
     imagePreviewUrls: [],
     rooms: [],
@@ -221,6 +223,7 @@ export default function EditPropertyPage() {
                   ? Number(propertyData.refundable_deposit)
                   : 0,
               amenities: propertyData.amenities || [],
+              accessibilityDescription: propertyData.accessibility_description || '',
               images: [],
               imagePreviewUrls: propertyData.images || [],
               rooms: propertyData.rooms || [],
@@ -316,6 +319,7 @@ export default function EditPropertyPage() {
                       ? Number(property.refundable_deposit)
                       : 0,
                 amenities: property.amenities || [],
+                accessibilityDescription: property.accessibilityDescription || property.accessibility_description || '',
                 images: [],
                 imagePreviewUrls: property.images || [],
                 rooms: property.rooms || [],
@@ -656,7 +660,13 @@ export default function EditPropertyPage() {
               safety: formData.safety,
             }),
             amenities: formData.amenities,
+            accessibility_description: formData.accessibilityDescription.trim() || null,
             images: allImageUrls,
+            image_alts: allImageUrls.map((url: string, i: number) => ({
+              url,
+              alt: `${formData.name.trim() || 'Listing'} — photo ${i + 1}`,
+              source: 'fallback',
+            })),
             rooms: roomsData,
             latitude: formData.coordinates?.lat,
             longitude: formData.coordinates?.lng,
@@ -1338,12 +1348,37 @@ export default function EditPropertyPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-xl font-semibold text-white mb-2">Amenities</h2>
             <p className="text-sm text-gray-400 mb-6">
-              119 amenities across 12 categories — select everything your property offers.
+              Includes an Accessibility category (step-free entrance, roll-in shower, wide doorways, and more).
             </p>
             <PropertyAmenitiesPicker
               selected={formData.amenities}
               onChange={(amenities) => setFormData({ ...formData, amenities })}
             />
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
+            <h2 className="text-xl font-semibold text-white">Accessibility details</h2>
+            <p className="text-sm text-gray-400">
+              Describe how guests with mobility or other access needs can use this space. This text appears on
+              your listing.
+            </p>
+            <label htmlFor="accessibility-description" className="block text-sm font-medium text-gray-300">
+              Accessibility description
+            </label>
+            <textarea
+              id="accessibility-description"
+              rows={5}
+              value={formData.accessibilityDescription}
+              onChange={(e) =>
+                setFormData({ ...formData, accessibilityDescription: e.target.value })
+              }
+              className="input min-h-[120px]"
+              placeholder="e.g. Step-free path from street parking to the front door; 36-inch clear doorway; roll-in shower with grab bars…"
+            />
+            <p className="text-xs text-gray-500">
+              To earn an Adapted badge, submit proof photos (measuring tape at doorways, etc.) via Support —
+              admin review required.
+            </p>
           </div>
 
           {/* Images by Room */}

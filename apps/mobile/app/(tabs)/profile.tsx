@@ -54,7 +54,7 @@ export default function ProfileScreen() {
             onPress={() => {
               if (mode === 'hosting') {
                 void setMode('traveling');
-                router.replace('/(tabs)');
+                router.replace('/');
               } else {
                 void setMode('hosting');
                 router.replace('/(host)/dashboard');
@@ -84,7 +84,11 @@ export default function ProfileScreen() {
           </>
         )}
 
-        <Button label="Log out" variant="ghost" onPress={() => void signOut()} />
+        {user ? (
+          <Button label="Log out" variant="ghost" onPress={() => void signOut()} />
+        ) : (
+          <Button label="Log in" onPress={() => openWebPath('/login', 'Log in')} />
+        )}
       </ScrollView>
     </Screen>
   );

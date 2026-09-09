@@ -41,7 +41,7 @@ export default function WebAppScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: title || 'VibesBNB', headerShown: true }} />
+      <Stack.Screen options={{ title: title || 'VibesBNB', headerShown: false }} />
       <WebView
         source={source}
         style={styles.webview}

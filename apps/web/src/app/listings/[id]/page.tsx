@@ -80,6 +80,8 @@ import {
 } from '@/lib/propertyLocationPrivacy';
 import { ThingsToKnowSection } from '@/components/properties/ThingsToKnowSection';
 import { AmenityIcon } from '@/lib/amenityIcons';
+import { ListingAccessibilitySection } from '@/components/listings/ListingAccessibilitySection';
+import { altForImageUrl, normalizeImageAlts } from '@/lib/accessibility';
 
 const GALLERY_HERO_BLUR =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
@@ -110,7 +112,10 @@ interface Property {
   bathrooms: number;
   guests: number;
   images: string[];
+  imageAlts?: import('@/lib/accessibility').ImageAltEntry[];
   amenities: string[];
+  accessibilityDescription?: string | null;
+  adaptedStatus?: string | null;
   wellnessFriendly: boolean;
   wellnessConsumptionIndoorAllowed: boolean;
   wellnessConsumptionOutdoorAllowed: boolean;
@@ -416,7 +421,10 @@ export default function ListingDetailPage() {
             bathrooms: propertyData.bathrooms || 0,
             guests: propertyData.guests || 0,
             images: normalizePropertyImages(propertyData.images || [], PDP_IMAGE_PLACEHOLDER),
+            imageAlts: normalizeImageAlts(propertyData.image_alts),
             amenities: propertyData.amenities || [],
+            accessibilityDescription: propertyData.accessibility_description || null,
+            adaptedStatus: propertyData.adapted_status || null,
             wellnessFriendly:
               propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
             wellnessConsumptionIndoorAllowed: consumption.indoor,
@@ -895,7 +903,11 @@ export default function ListingDetailPage() {
             <Image
               key={`${property.id}-${currentImageIndex}`}
               src={heroDisplaySrc}
-              alt={`${property.name} - Image ${currentImageIndex + 1}`}
+              alt={altForImageUrl(
+                galleryImages[currentImageIndex],
+                property.imageAlts,
+                `${property.name} — photo ${currentImageIndex + 1}`
+              )}
               fill
               priority={currentImageIndex === 0}
               fetchPriority={currentImageIndex === 0 ? 'high' : 'low'}
@@ -1080,6 +1092,12 @@ export default function ListingDetailPage() {
                 ))}
               </div>
             </div>
+
+            <ListingAccessibilitySection
+              amenities={property.amenities}
+              description={property.accessibilityDescription}
+              adaptedStatus={property.adaptedStatus}
+            />
 
             {/* Room/Unit Selection — only when the listing has multiple bookable units */}
             {property.rooms && property.rooms.length > 1 && (

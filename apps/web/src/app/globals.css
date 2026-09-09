@@ -11,6 +11,17 @@
     @apply bg-surface-dark text-white transition-colors antialiased;
     overflow-x: clip;
   }
+
+  /* WCAG 2.2 AA — visible keyboard focus (do not remove without replacement) */
+  :focus-visible {
+    outline: 2px solid #00e676;
+    outline-offset: 2px;
+  }
+
+  a:focus:not(:focus-visible),
+  button:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 @layer components {
@@ -23,7 +34,16 @@
   }
   
   .input {
-    @apply w-full px-4 py-2 bg-surface border border-white/5 rounded-2xl text-white placeholder-muted focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all;
+    @apply w-full px-4 py-2 bg-surface border border-white/5 rounded-2xl text-white placeholder-muted focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
+  }
+
+  .input:focus {
+    outline: none;
+  }
+
+  .input:focus-visible {
+    outline: 2px solid #00e676;
+    outline-offset: 2px;
   }
   
   .card {
@@ -61,6 +81,31 @@
 
 /* Prevent layout shifts during hydration */
 @layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: 0;
+    z-index: 10000;
+    transform: translateY(-120%);
+    @apply bg-primary-500 text-black font-bold px-4 py-2 rounded-b-xl shadow-lg;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
   .no-layout-shift {
     contain: layout style;
   }

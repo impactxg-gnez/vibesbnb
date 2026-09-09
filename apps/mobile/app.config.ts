@@ -74,6 +74,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://vibesbnb.com',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://www.vibesbnb.com',
   },
 });

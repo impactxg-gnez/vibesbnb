@@ -9,7 +9,7 @@ export default function HostLayout() {
   const router = useRouter();
 
   if (mode !== 'hosting') {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/" />;
   }
 
   return (
@@ -24,7 +24,7 @@ export default function HostLayout() {
           <Pressable
             onPress={() => {
               void setMode('traveling');
-              router.replace('/(tabs)');
+              router.replace('/');
             }}
             style={{ marginRight: 12 }}
           >

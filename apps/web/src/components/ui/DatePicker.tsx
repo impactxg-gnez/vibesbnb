@@ -108,6 +108,7 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
           dateFormat="MMM d, yyyy"
           placeholderText="Select date"
           popperPlacement="bottom-start"
+          showPopperArrow={false}
           {...props}
         />
       </div>

@@ -3,11 +3,12 @@ import { theme } from '@/src/constants/theme';
 
 type Props = TextInputProps & { label?: string };
 
-export function Input({ label, style, ...rest }: Props) {
+export function Input({ label, style, accessibilityLabel, ...rest }: Props) {
   return (
     <View style={styles.wrap}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
+        accessibilityLabel={accessibilityLabel || label}
         placeholderTextColor={theme.muted}
         style={[styles.input, style]}
         {...rest}

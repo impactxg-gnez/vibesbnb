@@ -265,6 +265,14 @@ export function Header() {
                 About
               </Link>
               <Link
+                href="/accessibility"
+                className={`transition-colors ${
+                  pathname === '/accessibility' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'
+                }`}
+              >
+                Accessibility
+              </Link>
+              <Link
                 href="/coming-soon"
                 className={`transition-colors ${
                   pathname === '/coming-soon' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'

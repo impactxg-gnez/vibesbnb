@@ -21,8 +21,10 @@ import {
   Footprints,
   Bed,
   Search,
+  Accessibility,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ACCESSIBILITY_FILTER_CHIPS } from '@/lib/accessibility';
 
 export interface PriceDistribution {
   min: number;
@@ -84,6 +86,14 @@ export default function Filters({
     setMaxPrice(hi);
   }, [floor, ceil, initialFilters?.priceRange?.[0], initialFilters?.priceRange?.[1], initialFilters?.priceRange]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const clamp = (n: number) =>
     Math.max(0, Math.min(ceil, Math.round(Number.isFinite(n) ? n : 0)));
 
@@ -136,7 +146,19 @@ export default function Filters({
     { id: 'Workspace', label: 'Workspace', icon: <Briefcase size={18} /> },
     { id: 'Fireplace', label: 'Fireplace', icon: <Flame size={18} /> },
     { id: 'Balcony', label: 'Balcony', icon: <Home size={18} /> },
+    ...ACCESSIBILITY_FILTER_CHIPS.map((label) => ({
+      id: label,
+      label,
+      icon: <Accessibility size={18} aria-hidden />,
+    })),
   ];
+
+  const standardAmenities = allAmenities.filter(
+    (a) => !(ACCESSIBILITY_FILTER_CHIPS as readonly string[]).includes(a.id)
+  );
+  const accessibilityAmenities = allAmenities.filter((a) =>
+    (ACCESSIBILITY_FILTER_CHIPS as readonly string[]).includes(a.id)
+  );
 
   const togglePropertyType = (type: string) => {
     setPropertyTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]));
@@ -205,7 +227,12 @@ export default function Filters({
   const rightPct = 100 - (maxPrice / sliderSpan) * 100;
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 text-white overflow-hidden shadow-2xl">
+    <div
+      className="flex flex-col h-full bg-gray-950 text-white overflow-hidden shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Refine selection filters"
+    >
       <div className="flex items-center justify-between gap-3 p-6 border-b border-white/10 glass-morphism sticky top-0 z-10">
         <button
           onClick={onClose}
@@ -455,20 +482,24 @@ export default function Filters({
                 </div>
                 <div className="flex items-center gap-4 bg-black/40 p-1.5 rounded-2xl border border-white/10 shadow-lg">
                   <button
+                    type="button"
+                    aria-label={`Decrease ${field.label}`}
                     onClick={() => field.setValue(Math.max(0, field.value - 1))}
                     disabled={field.value === 0}
                     className="w-12 h-12 rounded-xl border border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 disabled:opacity-20 transition-all active:scale-90"
                   >
-                    <Minus size={20} />
+                    <Minus size={20} aria-hidden />
                   </button>
-                  <span className="text-white font-black text-xl w-8 text-center tabular-nums">
+                  <span className="text-white font-black text-xl w-8 text-center tabular-nums" aria-live="polite">
                     {field.value === 0 ? 'Any' : field.value}
                   </span>
                   <button
+                    type="button"
+                    aria-label={`Increase ${field.label}`}
                     onClick={() => field.setValue(field.value + 1)}
                     className="w-12 h-12 rounded-xl bg-primary-500 text-black flex items-center justify-center hover:bg-primary-400 hover:shadow-primary-500/25 transition-all active:scale-90 shadow-lg"
                   >
-                    <Plus size={20} />
+                    <Plus size={20} aria-hidden />
                   </button>
                 </div>
               </div>
@@ -482,9 +513,11 @@ export default function Filters({
             Property Features
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(showAllAmenities ? allAmenities : allAmenities.slice(0, 8)).map((amenity) => (
+            {(showAllAmenities ? standardAmenities : standardAmenities.slice(0, 8)).map((amenity) => (
               <button
                 key={amenity.id}
+                type="button"
+                aria-pressed={amenities.includes(amenity.id)}
                 onClick={() => toggleAmenity(amenity.id)}
                 className={`flex items-center justify-between px-6 py-5 rounded-3xl border transition-all duration-500 ${
                   amenities.includes(amenity.id)
@@ -534,6 +567,36 @@ export default function Filters({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
+        </section>
+
+        <section aria-labelledby="a11y-filters-heading">
+          <h3 id="a11y-filters-heading" className="text-lg font-bold mb-2 flex items-center gap-2">
+            <span className="w-1.5 h-6 bg-primary-500 rounded-full" />
+            Accessibility
+          </h3>
+          <p className="text-muted text-sm mb-6">
+            Filter stays by entrance, bathroom, and doorway features.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {accessibilityAmenities.map((amenity) => (
+              <button
+                key={amenity.id}
+                type="button"
+                aria-pressed={amenities.includes(amenity.id)}
+                onClick={() => toggleAmenity(amenity.id)}
+                className={`flex items-center justify-between px-6 py-5 rounded-3xl border transition-all ${
+                  amenities.includes(amenity.id)
+                    ? 'bg-primary-500/10 border-primary-500 text-white font-black'
+                    : 'bg-white/5 border-white/5 text-muted hover:border-white/20 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="text-primary-500/80">{amenity.icon}</div>
+                  <span className="text-sm font-bold text-left">{amenity.label}</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
       </div>
 

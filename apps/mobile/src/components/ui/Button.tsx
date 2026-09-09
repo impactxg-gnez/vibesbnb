@@ -6,9 +6,12 @@ type Props = PressableProps & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 };
 
-export function Button({ label, variant = 'primary', style, disabled, ...rest }: Props) {
+export function Button({ label, variant = 'primary', style, disabled, accessibilityLabel, ...rest }: Props) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || label}
+      accessibilityState={{ disabled: !!disabled }}
       style={(state) => [
         styles.base,
         styles[variant],
