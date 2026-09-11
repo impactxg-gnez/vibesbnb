@@ -94,7 +94,7 @@ export default function HostPayoutsPage() {
 
   useEffect(() => {
     setPayoutInfo(resolvePayoutInfo(user?.user_metadata?.payout_info));
-  }, [user]);
+  }, [user?.id, user?.user_metadata?.payout_info]);
 
   useEffect(() => {
     if (!loading && user && !accessChecking && !canAccess) {
@@ -142,11 +142,11 @@ export default function HostPayoutsPage() {
     } finally {
       setLoadingRows(false);
     }
-  }, [user, canAccess]);
+  }, [user?.id, canAccess]);
 
   useEffect(() => {
     if (!loading && user && canAccess) void loadPayouts();
-  }, [loading, user, canAccess, hostScopeRevision, loadPayouts]);
+  }, [loading, user?.id, canAccess, hostScopeRevision, loadPayouts]);
 
   if (loading || !user || accessChecking) {
     return (

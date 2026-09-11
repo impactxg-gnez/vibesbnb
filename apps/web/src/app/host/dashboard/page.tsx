@@ -114,11 +114,11 @@ export default function HostDashboardPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [user, canAccess]);
+  }, [user?.id, canAccess]);
 
   useEffect(() => {
     if (!loading && user && canAccess) void loadDashboard();
-  }, [loading, user, canAccess, hostScopeRevision, loadDashboard]);
+  }, [loading, user?.id, canAccess, hostScopeRevision, loadDashboard]);
 
   if (loading || !user || accessChecking) {
     return (

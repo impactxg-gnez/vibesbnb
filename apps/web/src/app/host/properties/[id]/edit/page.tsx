@@ -136,6 +136,9 @@ export default function EditPropertyPage() {
   const [agreementUploading, setAgreementUploading] = useState(false);
   const [hostScopeRevision, setHostScopeRevision] = useState(0);
   const propertyReloadKeyRef = useRef<string | null>(null);
+  const hasLoadedPropertyRef = useRef(false);
+  /** propertyId + impersonation revision — do not refetch while this matches */
+  const loadedScopeKeyRef = useRef<string | null>(null);
 
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
 
@@ -149,8 +152,14 @@ export default function EditPropertyPage() {
     if (loading || !user) return;
 
     const propertyId = String(params.id);
+    const scopeLoadKey = `${propertyId}:${hostScopeRevision}`;
     const reloadKey = `${propertyId}:${user.id}:${hostScopeRevision}`;
     if (propertyReloadKeyRef.current === reloadKey) {
+      return;
+    }
+    // Same listing + host scope already hydrated — keep local edits (tab focus / auth churn).
+    if (loadedScopeKeyRef.current === scopeLoadKey && hasLoadedPropertyRef.current) {
+      propertyReloadKeyRef.current = reloadKey;
       return;
     }
     propertyReloadKeyRef.current = reloadKey;
@@ -158,7 +167,10 @@ export default function EditPropertyPage() {
     const loadProperty = async () => {
       if (!user) return;
 
-      setLoadingProperty(true);
+      // Avoid unmounting the form (and AvailabilityEditor) after the first load.
+      if (!hasLoadedPropertyRef.current) {
+        setLoadingProperty(true);
+      }
       try {
         const supabase = createClient();
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -245,6 +257,8 @@ export default function EditPropertyPage() {
 
             console.log('Loaded property from Supabase:', loadedProperty);
             setFormData(loadedProperty);
+            hasLoadedPropertyRef.current = true;
+            loadedScopeKeyRef.current = `${String(params.id)}:${hostScopeRevision}`;
             
             // Load rooms if they exist, otherwise create default room from images
             if (propertyData.rooms && Array.isArray(propertyData.rooms) && propertyData.rooms.length > 0) {
@@ -346,6 +360,8 @@ export default function EditPropertyPage() {
 
               console.log('Loaded property from localStorage:', loadedProperty);
               setFormData(loadedProperty);
+              hasLoadedPropertyRef.current = true;
+              loadedScopeKeyRef.current = `${String(params.id)}:${hostScopeRevision}`;
               
               // Load rooms if they exist, otherwise create default room from images
               if (property.rooms && Array.isArray(property.rooms) && property.rooms.length > 0) {
@@ -390,12 +406,13 @@ export default function EditPropertyPage() {
         toast.error('Failed to load property');
         router.push('/host/properties');
       } finally {
+        hasLoadedPropertyRef.current = true;
         setLoadingProperty(false);
       }
     };
 
     void loadProperty();
-  }, [params.id, user?.id, hostScopeRevision, loading]);
+  }, [params.id, user?.id, hostScopeRevision, loading, router]);
 
   const addRoom = () => {
     const unitNumber = rooms.length + 1;
@@ -581,7 +598,6 @@ export default function EditPropertyPage() {
                                     supabaseUrl !== 'https://placeholder.supabase.co';
       
       const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-      const admin = user && isAdminUser(user);
       const cacheScope = supabaseUser && user ? getHostScopeUserId(user, supabaseUser.id) : user?.id || '';
 
       // Collect all images from rooms
@@ -624,66 +640,66 @@ export default function EditPropertyPage() {
       }
 
       if (isSupabaseConfigured && supabaseUser) {
-        // Save to Supabase (admins may update any listing when supporting a host)
-        let updateQ = supabase
-          .from('properties')
-          .update({
-            name: formData.name,
-            title: formData.name,
-            description: formData.description,
-            location: formData.location,
-            bedrooms: formData.bedrooms,
-            beds: formData.beds,
-            bathrooms: formData.bathrooms,
-            guests: formData.guests,
-            price: formData.price,
-            type: formData.type,
-            wellness_friendly:
-              formData.wellnessFriendly ||
-              formData.wellnessConsumptionIndoorAllowed ||
-              formData.wellnessConsumptionOutdoorAllowed,
-            wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
-            wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
-            smoking_inside_allowed: false,
-            smoking_outside_allowed: false,
-            smoke_friendly: false,
-            allow_extra_guests: formData.allowExtraGuests,
-            extra_guest_price: formData.extraGuestPrice,
-            cleaning_fee: formData.cleaningFee,
-            refundable_deposit: formData.refundableDeposit,
-            min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
-            allow_direct_booking: formData.allowDirectBooking,
-            ...policyToDbColumns(formData.checkInOut),
-            ...cancellationSafetyToDbColumns({
-              cancellationPolicy: formData.cancellationPolicy,
-              partiesAllowed: formData.partiesAllowed,
-              safety: formData.safety,
-            }),
-            amenities: formData.amenities,
-            accessibility_description: formData.accessibilityDescription.trim() || null,
-            images: allImageUrls,
-            image_alts: allImageUrls.map((url: string, i: number) => ({
-              url,
-              alt: `${formData.name.trim() || 'Listing'} — photo ${i + 1}`,
-              source: 'fallback',
-            })),
-            rooms: roomsData,
-            latitude: formData.coordinates?.lat,
-            longitude: formData.coordinates?.lng,
-            google_maps_url: formData.googleMapsUrl,
-            vibesbnb_take: formData.vibesbnb_take,
-            guest_agreement_url: formData.guestAgreementUrl?.trim() || null,
-            status: newStatus,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', formData.id);
-        if (!admin) {
-          updateQ = updateQ.eq('host_id', supabaseUser.id);
-        }
-        const { error } = await updateQ;
+        // Save via host API so admins can update any listing (service role bypasses RLS).
+        // Direct client Supabase updates fail for admins on other hosts' properties.
+        const updates = {
+          name: formData.name,
+          title: formData.name,
+          description: formData.description,
+          location: formData.location,
+          bedrooms: formData.bedrooms,
+          beds: formData.beds,
+          bathrooms: formData.bathrooms,
+          guests: formData.guests,
+          price: formData.price,
+          type: formData.type,
+          wellness_friendly:
+            formData.wellnessFriendly ||
+            formData.wellnessConsumptionIndoorAllowed ||
+            formData.wellnessConsumptionOutdoorAllowed,
+          wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+          wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
+          smoking_inside_allowed: false,
+          smoking_outside_allowed: false,
+          smoke_friendly: false,
+          allow_extra_guests: formData.allowExtraGuests,
+          extra_guest_price: formData.extraGuestPrice,
+          cleaning_fee: formData.cleaningFee,
+          refundable_deposit: formData.refundableDeposit,
+          min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+          allow_direct_booking: formData.allowDirectBooking,
+          ...policyToDbColumns(formData.checkInOut),
+          ...cancellationSafetyToDbColumns({
+            cancellationPolicy: formData.cancellationPolicy,
+            partiesAllowed: formData.partiesAllowed,
+            safety: formData.safety,
+          }),
+          amenities: formData.amenities,
+          accessibility_description: formData.accessibilityDescription.trim() || null,
+          images: allImageUrls,
+          image_alts: allImageUrls.map((url: string, i: number) => ({
+            url,
+            alt: `${formData.name.trim() || 'Listing'} — photo ${i + 1}`,
+            source: 'fallback',
+          })),
+          rooms: roomsData,
+          latitude: formData.coordinates?.lat,
+          longitude: formData.coordinates?.lng,
+          google_maps_url: formData.googleMapsUrl,
+          vibesbnb_take: formData.vibesbnb_take,
+          guest_agreement_url: formData.guestAgreementUrl?.trim() || null,
+          status: newStatus,
+        };
 
-        if (error) {
-          throw error;
+        const saveRes = await fetch(`/api/host/properties/${formData.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ updates }),
+        });
+        const saveJson = (await saveRes.json().catch(() => ({}))) as { error?: string };
+        if (!saveRes.ok) {
+          throw new Error(saveJson.error || `Failed to update property (${saveRes.status})`);
         }
 
         // Optional local cache — never store data-URL images; never fail the save on quota
@@ -800,7 +816,7 @@ export default function EditPropertyPage() {
     }
   };
 
-  if (loading || loadingProperty) {
+  if ((loading || loadingProperty) && !hasLoadedPropertyRef.current) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">

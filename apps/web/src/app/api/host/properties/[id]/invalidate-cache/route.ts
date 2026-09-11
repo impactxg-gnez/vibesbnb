@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
-import { isAdminUser } from '@/lib/auth/isAdmin';
+import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
 
 /**
  * Bust Redis browse/availability caches after host edits listing fields
@@ -17,30 +16,9 @@ export async function POST(
       return NextResponse.json({ error: 'property id required' }, { status: 400 });
     }
 
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: property, error } = await supabase
-      .from('properties')
-      .select('id, host_id')
-      .eq('id', propertyId)
-      .maybeSingle();
-
-    if (error || !property) {
-      return NextResponse.json({ error: 'Property not found' }, { status: 404 });
-    }
-
-    const isHost = property.host_id === user.id;
-    const isAdmin = isAdminUser(user);
-    if (!isHost && !isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const access = await resolveHostPropertyAccess(propertyId);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     await invalidatePropertyListingCaches(propertyId);

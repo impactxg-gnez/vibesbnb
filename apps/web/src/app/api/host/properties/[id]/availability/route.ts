@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 interface AvailabilityEntry {
   day: string;
@@ -8,44 +9,17 @@ interface AvailabilityEntry {
   room_id?: string | null;
 }
 
-async function ensureHostOwnership(
-  supabase: ReturnType<typeof createClient>,
-  propertyId: string,
-  userId: string
-) {
-  const { data: property, error } = await supabase
-    .from('properties')
-    .select('host_id')
-    .eq('id', propertyId)
-    .single();
-
-  if (error || !property) {
-    throw new Error('Property not found');
-  }
-
-  if (property.host_id !== userId) {
-    throw new Error('Forbidden');
-  }
-}
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const access = await resolveHostPropertyAccess(params.id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
-    await ensureHostOwnership(supabase, params.id, user.id);
-
-    const { data, error } = await supabase
+    const { data, error } = await access.db
       .from('property_availability')
       .select('id, day, status, note, room_id, booking_id')
       .eq('property_id', params.id)
@@ -56,17 +30,9 @@ export async function GET(
     }
 
     return NextResponse.json({ availability: data ?? [] });
-  } catch (error: any) {
-    const status =
-      error.message === 'Forbidden'
-        ? 403
-        : error.message === 'Property not found'
-        ? 404
-        : 500;
-    return NextResponse.json(
-      { error: error.message || 'Failed to load availability' },
-      { status }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load availability';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -75,17 +41,10 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const access = await resolveHostPropertyAccess(params.id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
-
-    await ensureHostOwnership(supabase, params.id, user.id);
 
     const body = (await request.json()) as { entries: AvailabilityEntry[] };
 
@@ -96,7 +55,15 @@ export async function PUT(
       );
     }
 
-    const upserts: any[] = [];
+    const hostId = access.property.host_id;
+    const upserts: Array<{
+      property_id: string;
+      host_id: string;
+      day: string;
+      status: string;
+      note: string | null;
+      room_id: string | null;
+    }> = [];
     const deletions: { day: string; room_id: string | null }[] = [];
 
     body.entries.forEach((entry) => {
@@ -114,7 +81,7 @@ export async function PUT(
       } else {
         upserts.push({
           property_id: params.id,
-          host_id: user.id,
+          host_id: hostId,
           day: entry.day,
           status: entry.status,
           note: entry.note ?? null,
@@ -123,10 +90,8 @@ export async function PUT(
       }
     });
 
-    // Handle upserts manually due to partial unique indexes
     for (const entry of upserts) {
-      // First try to update existing entry
-      let updateQuery = supabase
+      let updateQuery = access.db
         .from('property_availability')
         .update({
           status: entry.status,
@@ -143,13 +108,12 @@ export async function PUT(
       }
 
       const { data: updated, error: updateError } = await updateQuery.select();
-      
-      // If no rows updated, insert new entry
+
       if (!updateError && (!updated || updated.length === 0)) {
-        const { error: insertError } = await supabase
+        const { error: insertError } = await access.db
           .from('property_availability')
           .insert(entry);
-        
+
         if (insertError) {
           throw insertError;
         }
@@ -158,39 +122,30 @@ export async function PUT(
       }
     }
 
-    // Delete entries that are being set back to available
     for (const deletion of deletions) {
-      let deleteQuery = supabase
+      let deleteQuery = access.db
         .from('property_availability')
         .delete()
         .eq('property_id', params.id)
         .eq('day', deletion.day)
-        .eq('status', 'blocked'); // Only delete blocked entries, not booked ones
-      
+        .eq('status', 'blocked');
+
       if (deletion.room_id) {
         deleteQuery = deleteQuery.eq('room_id', deletion.room_id);
       } else {
         deleteQuery = deleteQuery.is('room_id', null);
       }
-      
+
       const { error: deleteError } = await deleteQuery;
       if (deleteError) {
         console.warn('Failed to delete availability entry:', deleteError);
       }
     }
 
+    void invalidatePropertyListingCaches(params.id);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    const status =
-      error.message === 'Forbidden'
-        ? 403
-        : error.message === 'Property not found'
-        ? 404
-        : 500;
-    return NextResponse.json(
-      { error: error.message || 'Failed to update availability' },
-      { status }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update availability';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

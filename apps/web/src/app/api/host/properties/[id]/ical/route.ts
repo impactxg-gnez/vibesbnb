@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
 import { syncOnePropertyIcalSource } from '@/lib/calendar/syncExternalIcal';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const access = await resolveHostPropertyAccess(params.id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
-    const { data: property, error: propError } = await supabase
+    const { data: property, error: propError } = await access.db
       .from('properties')
       .select('id, host_id, ical_export_token')
       .eq('id', params.id)
@@ -25,11 +20,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
     }
 
-    if (property.host_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const { data: sources, error: sourcesError } = await supabase
+    const { data: sources, error: sourcesError } = await access.db
       .from('property_ical_sources')
       .select(
         'id, name, ical_url, last_synced_at, last_hash, sync_status, sync_error, is_active, last_manual_sync_at, created_at'
@@ -66,28 +57,9 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: property, error: propError } = await supabase
-      .from('properties')
-      .select('id, host_id')
-      .eq('id', params.id)
-      .single();
-
-    if (propError || !property) {
-      return NextResponse.json({ error: 'Property not found' }, { status: 404 });
-    }
-
-    if (property.host_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const access = await resolveHostPropertyAccess(params.id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     const body = await request.json();
@@ -104,12 +76,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     const service = createServiceClient();
+    const hostId = access.property.host_id;
 
     const { data: source, error: insertError } = await service
       .from('property_ical_sources')
       .insert({
         property_id: params.id,
-        host_id: user.id,
+        host_id: hostId,
         name,
         ical_url,
         sync_status: 'active',
@@ -152,14 +125,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const access = await resolveHostPropertyAccess(params.id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     const { searchParams } = new URL(request.url);
@@ -171,20 +139,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const service = createServiceClient();
 
+    // Scope delete to this property (admins can remove any source on the listing)
     const { error: deleteError } = await service
       .from('property_ical_sources')
       .delete()
       .eq('id', sourceId)
-      .eq('host_id', user.id);
+      .eq('property_id', params.id);
 
     if (deleteError) {
       throw deleteError;
     }
 
-    await service
-      .from('property_availability')
-      .delete()
-      .eq('ical_source_id', sourceId);
+    await service.from('property_availability').delete().eq('ical_source_id', sourceId);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

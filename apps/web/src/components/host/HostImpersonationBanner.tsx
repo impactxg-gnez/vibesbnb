@@ -31,7 +31,7 @@ export function HostImpersonationBanner() {
     };
     sync();
     return onImpersonationChanged(sync);
-  }, [user]);
+  }, [user?.id]);
 
   if (!active) return null;
 

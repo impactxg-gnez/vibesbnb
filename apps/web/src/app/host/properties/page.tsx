@@ -27,6 +27,51 @@ import {
 } from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
+import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
+
+/** List view only — never select images[] / rooms / embedding (base64 galleries hang the request). */
+const HOST_PROPERTY_LIST_COLUMNS = [
+  'id',
+  'name',
+  'title',
+  'description',
+  'location',
+  'bedrooms',
+  'bathrooms',
+  'beds',
+  'guests',
+  'price',
+  'status',
+  'wellness_friendly',
+  'check_in_time',
+  'check_out_time',
+  'google_maps_url',
+  'source_url',
+  'latitude',
+  'longitude',
+  'type',
+  'amenities',
+  'cover_image',
+  'created_at',
+].join(',');
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        window.clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
 
 interface Property {
   id: string;
@@ -106,14 +151,14 @@ export default function HostPropertiesPage() {
 
   // Check if payout settings are configured
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       const payoutInfo = user.user_metadata?.payout_info;
       setHasPayoutSettings(!!payoutInfo?.account_number_masked);
     }
-  }, [user]);
+  }, [user?.id, user?.user_metadata?.payout_info]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       // Only clear mock data, not real properties
       // We'll be more conservative - only remove if ALL properties are clearly mock data
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -155,7 +200,9 @@ export default function HostPropertiesPage() {
 
       loadProperties();
     }
-  }, [user, hostScopeRevision]);
+    // loadProperties is intentionally omitted: re-run only on user id / impersonation scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [user?.id, hostScopeRevision]);
 
   const loadProperties = useCallback(async () => {
     if (!user) return;
@@ -232,13 +279,17 @@ export default function HostPropertiesPage() {
 
       if (supabaseUser) {
         const hostScopeId = getHostScopeUserId(user, supabaseUser.id);
-        // Fetch properties from Supabase
+        // Fetch properties from Supabase (slim columns — select('*') hangs on base64 galleries)
         console.log('[Properties] Loading properties for host_id:', hostScopeId);
-        const { data: propertiesData, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('host_id', hostScopeId)
-          .order('created_at', { ascending: false });
+        const { data: propertiesData, error } = await withTimeout(
+          supabase
+            .from('properties')
+            .select(HOST_PROPERTY_LIST_COLUMNS)
+            .eq('host_id', hostScopeId)
+            .order('created_at', { ascending: false }),
+          20000,
+          'Host properties query'
+        );
 
         if (error) {
           console.error('[Properties] Error loading properties from Supabase:', error);
@@ -248,7 +299,6 @@ export default function HostPropertiesPage() {
           return;
         } else {
           console.log('[Properties] Found properties from Supabase:', propertiesData?.length || 0);
-          console.log('[Properties] Properties data:', propertiesData);
 
           let finalProperties: Property[] = [];
 
@@ -262,11 +312,7 @@ export default function HostPropertiesPage() {
                 .replace(/^property-listing[_\s-]*/i, '')
                 .trim() || 'Untitled Property';
 
-              // Ensure at least one image
-              let images = p.images || [];
-              if (images.length === 0) {
-                images = ['https://via.placeholder.com/800x600/1a1a1a/ffffff?text=No+Image'];
-              }
+              const images = listingCardImagesFromRow(p);
 
               return {
                 id: p.id,
@@ -278,7 +324,7 @@ export default function HostPropertiesPage() {
                 beds: p.beds,
                 guests: p.guests || 0,
                 price: p.price ? Number(p.price) : 0,
-                images: images,
+                images,
                 amenities: p.amenities || [],
                 status: (p.status || 'active') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                 wellnessFriendly: p.wellness_friendly || false,
@@ -433,19 +479,6 @@ export default function HostPropertiesPage() {
               }
             }
 
-            // Debug: Check all properties (without host_id filter) to see what's in the database
-            console.log('[Properties] Checking all properties in database...');
-            const { data: allProperties, error: allError } = await supabase
-              .from('properties')
-              .select('id, name, host_id, status')
-              .limit(10);
-
-            if (!allError && allProperties) {
-              console.log('[Properties] All properties in database:', allProperties);
-              console.log('[Properties] Current host scope ID:', hostScopeId);
-              console.log('[Properties] Properties with matching host_id:', allProperties.filter(p => p.host_id === hostScopeId));
-            }
-
             // No properties found anywhere - show empty state
             setProperties([]);
             setStats({
@@ -462,11 +495,16 @@ export default function HostPropertiesPage() {
       console.error('Error loading properties:', error);
       // Always try localStorage as fallback, even if Supabase is configured
       console.log('[Properties] Error occurred, falling back to localStorage');
-      loadFromLocalStorage();
+      try {
+        loadFromLocalStorage();
+      } catch (fallbackError) {
+        console.error('[Properties] localStorage fallback failed:', fallbackError);
+        setProperties([]);
+      }
     } finally {
       setLoadingProperties(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
 
   const loadFromLocalStorage = () => {
@@ -620,7 +658,7 @@ export default function HostPropertiesPage() {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  }, [user, hostScopeRevision]);
+  }, [user?.id, hostScopeRevision]);
 
   useEffect(() => {
     if (user && properties.length >= 0) {
@@ -628,7 +666,7 @@ export default function HostPropertiesPage() {
     }
     // Remove selections for properties that no longer exist
     setSelectedProperties((prev) => prev.filter((id) => properties.some((p) => p.id === id)));
-  }, [user, properties.length, loadStats]);
+  }, [user?.id, properties.length, loadStats]);
 
   const togglePropertySelection = (propertyId: string) => {
     setSelectedProperties((prev) =>
@@ -766,7 +804,7 @@ export default function HostPropertiesPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, hostScopeRevision, loadStats]);
+  }, [user?.id, hostScopeRevision, loadStats]);
 
   const clearSelectedProperties = () => setSelectedProperties([]);
 

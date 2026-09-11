@@ -240,11 +240,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
           setSession(session);
-          // TOKEN_REFRESHED on tab focus must not replace `user` with a new object reference,
-          // or admin forms refetch and lose unsaved edits.
-          setUser((prev) =>
-            event === 'TOKEN_REFRESHED' && prev?.id === session.user.id ? prev : session.user
-          );
+          // Tab focus often emits TOKEN_REFRESHED / SIGNED_IN with a new user object.
+          // Keep a stable reference for the same id so host/admin forms do not refetch
+          // and wipe unsaved edits. Allow USER_UPDATED (and other events) through.
+          setUser((prev) => {
+            if (
+              prev?.id === session.user.id &&
+              (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')
+            ) {
+              return prev;
+            }
+            return session.user;
+          });
           persistSavedSession(session);
           void syncProfileContact();
           if (typeof window !== 'undefined') {
