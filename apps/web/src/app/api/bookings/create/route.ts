@@ -7,6 +7,8 @@ import { computeBookingGrandTotal, totalsMatchCents } from '@/lib/bookingTotals'
 import {
   computeEarlyLateFees,
   earlyCheckInTimeOptions,
+  effectiveCheckInTime,
+  effectiveCheckOutTime,
   lateCheckOutTimeOptions,
   normalizeHhmm,
   policyFromDbRow,
@@ -181,7 +183,7 @@ export async function POST(request: NextRequest) {
       }
       const allowedEarly = earlyCheckInTimeOptions(
         checkInOutPolicy.earliestEarlyCheckInTime,
-        checkInOutPolicy.checkInTime
+        effectiveCheckInTime(checkInOutPolicy)
       );
       if (!requestedEarly || !allowedEarly.includes(requestedEarly)) {
         return NextResponse.json(
@@ -201,7 +203,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const allowedLate = lateCheckOutTimeOptions(
-        checkInOutPolicy.checkOutTime,
+        effectiveCheckOutTime(checkInOutPolicy),
         checkInOutPolicy.latestLateCheckOutTime
       );
       if (!requestedLate || !allowedLate.includes(requestedLate)) {

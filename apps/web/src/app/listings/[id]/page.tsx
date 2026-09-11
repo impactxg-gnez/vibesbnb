@@ -64,7 +64,9 @@ import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import {
-  formatHhmmLabel,
+  formatEffectiveCheckInForViewer,
+  formatEffectiveCheckOutForViewer,
+  formatPropertyClockForViewer,
   policyFromDbRow,
 } from '@/lib/checkInOutPolicy';
 import {
@@ -1518,38 +1520,36 @@ export default function ListingDetailPage() {
                     {minNightsLabel(property.minBookingNights)}
                   </p>
                 )}
-                {(property.checkInOut?.checkInTime || property.checkInOut?.checkOutTime) && (
-                  <div className="mt-3 space-y-1.5 text-sm text-gray-300">
-                    {property.checkInOut.checkInTime && (
-                      <p className="flex items-center gap-2">
-                        <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
-                        Check-in after {formatHhmmLabel(property.checkInOut.checkInTime)}
-                      </p>
-                    )}
-                    {property.checkInOut.checkOutTime && (
-                      <p className="flex items-center gap-2">
-                        <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
-                        Check-out before {formatHhmmLabel(property.checkInOut.checkOutTime)}
-                      </p>
-                    )}
-                    {property.checkInOut.earlyCheckInAllowed && (
-                      <p className="text-xs text-gray-400 pl-6">
-                        Early check-in from {formatHhmmLabel(property.checkInOut.earliestEarlyCheckInTime)}
-                        {property.checkInOut.earlyCheckInFee > 0
-                          ? ` · $${property.checkInOut.earlyCheckInFee.toFixed(0)}`
-                          : ' · free'}
-                      </p>
-                    )}
-                    {property.checkInOut.lateCheckOutAllowed && (
-                      <p className="text-xs text-gray-400 pl-6">
-                        Late check-out until {formatHhmmLabel(property.checkInOut.latestLateCheckOutTime)}
-                        {property.checkInOut.lateCheckOutFee > 0
-                          ? ` · $${property.checkInOut.lateCheckOutFee.toFixed(0)}`
-                          : ' · free'}
-                      </p>
-                    )}
-                  </div>
-                )}
+                <div className="mt-3 space-y-1.5 text-sm text-gray-300">
+                  <p className="flex items-center gap-2">
+                    <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
+                    Check-in after{' '}
+                    {formatEffectiveCheckInForViewer(property.checkInOut)}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
+                    Check-out before{' '}
+                    {formatEffectiveCheckOutForViewer(property.checkInOut)}
+                  </p>
+                  {property.checkInOut?.earlyCheckInAllowed && (
+                    <p className="text-xs text-gray-400 pl-6">
+                      Early check-in from{' '}
+                      {formatPropertyClockForViewer(property.checkInOut.earliestEarlyCheckInTime)}
+                      {property.checkInOut.earlyCheckInFee > 0
+                        ? ` · $${property.checkInOut.earlyCheckInFee.toFixed(0)}`
+                        : ' · free'}
+                    </p>
+                  )}
+                  {property.checkInOut?.lateCheckOutAllowed && (
+                    <p className="text-xs text-gray-400 pl-6">
+                      Late check-out until{' '}
+                      {formatPropertyClockForViewer(property.checkInOut.latestLateCheckOutTime)}
+                      {property.checkInOut.lateCheckOutFee > 0
+                        ? ` · $${property.checkInOut.lateCheckOutFee.toFixed(0)}`
+                        : ' · free'}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Date Selection */}

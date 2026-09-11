@@ -1,4 +1,7 @@
-/** Check-in / check-out clock times and early / late stay options (HH:mm). */
+/** Check-in / check-out clock times and early / late stay options (HH:mm).
+ * Stored values are wall-clock times in the platform zone (US Eastern).
+ * Traveler UI converts them to the viewer's local timezone.
+ */
 
 export type CheckInOutPolicy = {
   checkInTime: string | null;
@@ -10,6 +13,15 @@ export type CheckInOutPolicy = {
   latestLateCheckOutTime: string | null;
   lateCheckOutFee: number;
 };
+
+/** Platform canonical zone for property clock times (US Eastern). */
+export const PROPERTY_CLOCK_TIMEZONE = 'America/New_York';
+
+/** Default check-in when host has not set one: 4:00 PM Eastern. */
+export const DEFAULT_CHECK_IN_TIME = '16:00';
+
+/** Default check-out when host has not set one: 11:00 AM Eastern. */
+export const DEFAULT_CHECK_OUT_TIME = '11:00';
 
 export const EMPTY_CHECK_IN_OUT_POLICY: CheckInOutPolicy = {
   checkInTime: null,
@@ -52,6 +64,20 @@ export function normalizeHhmm(raw: unknown): string | null {
   return short;
 }
 
+/** Host-set check-in, or platform default (4 PM Eastern). */
+export function effectiveCheckInTime(
+  policy?: Pick<CheckInOutPolicy, 'checkInTime'> | null
+): string {
+  return normalizeHhmm(policy?.checkInTime) ?? DEFAULT_CHECK_IN_TIME;
+}
+
+/** Host-set check-out, or platform default (11 AM Eastern). */
+export function effectiveCheckOutTime(
+  policy?: Pick<CheckInOutPolicy, 'checkOutTime'> | null
+): string {
+  return normalizeHhmm(policy?.checkOutTime) ?? DEFAULT_CHECK_OUT_TIME;
+}
+
 export function hhmmToMinutes(hhmm: string | null | undefined): number | null {
   const n = normalizeHhmm(hhmm);
   if (!n) return null;
@@ -68,6 +94,7 @@ export function compareHhmm(a: string | null | undefined, b: string | null | und
   return am - bm;
 }
 
+/** Format HH:mm as 12-hour label without timezone (host editor / naive display). */
 export function formatHhmmLabel(hhmm: string | null | undefined): string {
   const n = normalizeHhmm(hhmm);
   if (!n) return 'Not set';
@@ -78,6 +105,104 @@ export function formatHhmmLabel(hhmm: string | null | undefined): string {
   h = h % 12;
   if (h === 0) h = 12;
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+function ymdPartsInZone(date: Date, timeZone: string): { y: number; m: number; d: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '1');
+  return { y: get('year'), m: get('month'), d: get('day') };
+}
+
+function ymdHmInZone(ms: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(ms));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+/** Instant when `hhmm` wall-clock occurs in `timeZone` on the calendar day of `ref` in that zone. */
+export function wallTimeInZoneToDate(
+  hhmm: string,
+  timeZone: string,
+  ref: Date = new Date()
+): Date {
+  const n = normalizeHhmm(hhmm);
+  if (!n) return ref;
+  const [H, M] = n.split(':').map(Number);
+  const { y, m, d } = ymdPartsInZone(ref, timeZone);
+  const ymd = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const target = `${ymd}T${String(H).padStart(2, '0')}:${String(M).padStart(2, '0')}`;
+
+  let lo = Date.UTC(y, m - 1, d) - 36 * 3600 * 1000;
+  let hi = Date.UTC(y, m - 1, d) + 36 * 3600 * 1000;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (ymdHmInZone(mid, timeZone) < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return new Date(lo);
+}
+
+function viewerTimeZone(explicit?: string): string {
+  if (explicit) return explicit;
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || PROPERTY_CLOCK_TIMEZONE;
+  } catch {
+    return PROPERTY_CLOCK_TIMEZONE;
+  }
+}
+
+/**
+ * Format a property clock time (HH:mm in US Eastern) for the traveler's local timezone.
+ * Example: 16:00 Eastern → "1:00 PM PST" for a Pacific viewer.
+ */
+export function formatPropertyClockForViewer(
+  hhmm: string | null | undefined,
+  opts?: { timeZone?: string; includeZone?: boolean }
+): string {
+  const n = normalizeHhmm(hhmm);
+  if (!n) return 'Not set';
+  const viewerTz = viewerTimeZone(opts?.timeZone);
+  const instant = wallTimeInZoneToDate(n, PROPERTY_CLOCK_TIMEZONE);
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: viewerTz,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      ...(opts?.includeZone === false ? {} : { timeZoneName: 'short' }),
+    }).format(instant);
+  } catch {
+    return formatHhmmLabel(n);
+  }
+}
+
+/** Effective check-in label in the viewer's timezone (applies Eastern default if unset). */
+export function formatEffectiveCheckInForViewer(
+  policy?: Pick<CheckInOutPolicy, 'checkInTime'> | null,
+  opts?: { timeZone?: string }
+): string {
+  return formatPropertyClockForViewer(effectiveCheckInTime(policy), opts);
+}
+
+/** Effective check-out label in the viewer's timezone (applies Eastern default if unset). */
+export function formatEffectiveCheckOutForViewer(
+  policy?: Pick<CheckInOutPolicy, 'checkOutTime'> | null,
+  opts?: { timeZone?: string }
+): string {
+  return formatPropertyClockForViewer(effectiveCheckOutTime(policy), opts);
 }
 
 export function normalizeFee(raw: unknown): number {

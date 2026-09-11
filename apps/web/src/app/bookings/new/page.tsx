@@ -22,7 +22,11 @@ import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNight
 import {
   computeEarlyLateFees,
   earlyCheckInTimeOptions,
-  formatHhmmLabel,
+  effectiveCheckInTime,
+  effectiveCheckOutTime,
+  formatEffectiveCheckInForViewer,
+  formatEffectiveCheckOutForViewer,
+  formatPropertyClockForViewer,
   lateCheckOutTimeOptions,
   normalizeHhmm,
   policyFromDbRow,
@@ -315,12 +319,12 @@ export default function NewBookingPage() {
   const earlyTimeChoices = property?.checkInOut
     ? earlyCheckInTimeOptions(
         property.checkInOut.earliestEarlyCheckInTime,
-        property.checkInOut.checkInTime
+        effectiveCheckInTime(property.checkInOut)
       )
     : [];
   const lateTimeChoices = property?.checkInOut
     ? lateCheckOutTimeOptions(
-        property.checkInOut.checkOutTime,
+        effectiveCheckOutTime(property.checkInOut),
         property.checkInOut.latestLateCheckOutTime
       )
     : [];
@@ -650,16 +654,10 @@ export default function NewBookingPage() {
                   {minNightsLabel(property.minBookingNights)}
                 </p>
               )}
-              {(property.checkInOut?.checkInTime || property.checkInOut?.checkOutTime) && (
-                <div className="rounded-lg border border-gray-700 bg-gray-800/40 px-4 py-3 text-sm text-gray-300 space-y-1">
-                  {property.checkInOut.checkInTime && (
-                    <p>Standard check-in: {formatHhmmLabel(property.checkInOut.checkInTime)}</p>
-                  )}
-                  {property.checkInOut.checkOutTime && (
-                    <p>Standard check-out: {formatHhmmLabel(property.checkInOut.checkOutTime)}</p>
-                  )}
-                </div>
-              )}
+              <div className="rounded-lg border border-gray-700 bg-gray-800/40 px-4 py-3 text-sm text-gray-300 space-y-1">
+                <p>Standard check-in: {formatEffectiveCheckInForViewer(property.checkInOut)}</p>
+                <p>Standard check-out: {formatEffectiveCheckOutForViewer(property.checkInOut)}</p>
+              </div>
               {(property.checkInOut?.earlyCheckInAllowed ||
                 property.checkInOut?.lateCheckOutAllowed) && (
                 <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4 space-y-4">
@@ -699,7 +697,7 @@ export default function NewBookingPage() {
                         >
                           {earlyTimeChoices.map((t) => (
                             <option key={t} value={t}>
-                              {formatHhmmLabel(t)}
+                              {formatPropertyClockForViewer(t)}
                             </option>
                           ))}
                         </select>
@@ -742,7 +740,7 @@ export default function NewBookingPage() {
                         >
                           {lateTimeChoices.map((t) => (
                             <option key={t} value={t}>
-                              {formatHhmmLabel(t)}
+                              {formatPropertyClockForViewer(t)}
                             </option>
                           ))}
                         </select>

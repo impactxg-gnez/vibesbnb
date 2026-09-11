@@ -6,7 +6,10 @@ import {
   type SafetyFlags,
   cancellationPolicyGuestBlurb,
 } from '@/lib/cancellationPolicy';
-import { formatHhmmLabel } from '@/lib/checkInOutPolicy';
+import {
+  formatEffectiveCheckInForViewer,
+  formatEffectiveCheckOutForViewer,
+} from '@/lib/checkInOutPolicy';
 import { Check, Ban } from 'lucide-react';
 
 type Props = {
@@ -40,18 +43,17 @@ export function ThingsToKnowSection({
     safety.buildingSecurity ? 'Building security' : null,
   ].filter(Boolean) as string[];
 
+  const checkInLabel = formatEffectiveCheckInForViewer({ checkInTime });
+  const checkOutLabel = formatEffectiveCheckOutForViewer({ checkOutTime });
+
   const houseRules: { ok: boolean; text: string }[] = [
     {
       ok: true,
-      text: checkInTime
-        ? `Check-in after ${formatHhmmLabel(checkInTime)}`
-        : 'Check-in time shared after booking',
+      text: `Check-in after ${checkInLabel}`,
     },
     {
       ok: true,
-      text: checkOutTime
-        ? `Checkout before ${formatHhmmLabel(checkOutTime)}`
-        : 'Checkout time shared after booking',
+      text: `Checkout before ${checkOutLabel}`,
     },
     { ok: true, text: `${guests} guests maximum` },
     { ok: petsAllowed, text: petsAllowed ? 'Pets allowed' : 'No pets' },

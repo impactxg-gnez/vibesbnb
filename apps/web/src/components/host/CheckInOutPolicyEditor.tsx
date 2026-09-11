@@ -79,23 +79,26 @@ export function CheckInOutPolicyEditor({ value, onChange, className = '' }: Prop
       <div>
         <h3 className="text-white font-medium">Check-in & check-out times</h3>
         <p className="text-sm text-gray-400 mt-1">
-          Tell guests when they can arrive and leave. You can also allow early check-in or late
-          check-out with an optional fee.
+          Times are in US Eastern. Guests see them converted to their local timezone. If you leave
+          these blank, guests get the platform defaults: check-in 4:00 PM Eastern, check-out 11:00 AM
+          Eastern.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TimeSelect
           id="check-in-time"
-          label="Check-in time"
+          label="Check-in time (Eastern)"
           value={value.checkInTime}
           onChange={(checkInTime) => set({ checkInTime })}
+          emptyLabel="Default (4:00 PM Eastern)"
         />
         <TimeSelect
           id="check-out-time"
-          label="Check-out time"
+          label="Check-out time (Eastern)"
           value={value.checkOutTime}
           onChange={(checkOutTime) => set({ checkOutTime })}
+          emptyLabel="Default (11:00 AM Eastern)"
         />
       </div>
 
