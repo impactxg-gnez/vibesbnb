@@ -17,6 +17,8 @@ type Props = {
   className?: string;
   /** When true, hide the long intro paragraph (e.g. listing wizard step). */
   compact?: boolean;
+  /** Explain that common amenities are pre-selected during new listing setup. */
+  onboardingHint?: boolean;
 };
 
 export function PropertyAmenitiesPicker({
@@ -24,6 +26,7 @@ export function PropertyAmenitiesPicker({
   onChange,
   className = '',
   compact = false,
+  onboardingHint = false,
 }: Props) {
   const [search, setSearch] = useState('');
   const normalizedRef = useRef<string>('');
@@ -82,10 +85,17 @@ export function PropertyAmenitiesPicker({
 
   return (
     <div className={className}>
-      {!compact && (
+      {onboardingHint ? (
         <p className="text-sm text-gray-400 mb-4">
-          Select everything your property offers. Guests often filter by amenities when searching.
+          Some common amenities are already selected so onboarding is quicker. Deselect anything
+          your property does not have, and add anything else guests will find on site.
         </p>
+      ) : (
+        !compact && (
+          <p className="text-sm text-gray-400 mb-4">
+            Select everything your property offers. Guests often filter by amenities when searching.
+          </p>
+        )
       )}
 
       <div className="relative mb-4">

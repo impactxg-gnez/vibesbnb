@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { supabase } from '@/src/lib/supabase';
-import { acceptBooking, rejectBooking } from '@/src/lib/api';
+import { acceptBooking, fetchBookingPayoutPreview, rejectBooking } from '@/src/lib/api';
 import { theme, money } from '@/src/constants/theme';
 
 type BookingRow = {
@@ -45,16 +45,48 @@ export default function HostBookingsScreen() {
     void load();
   }, [load]);
 
-  const onAccept = (id: string) => {
-    Alert.alert('Accept booking?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Accept',
-        onPress: () => {
-          void acceptBooking(id).then(load).catch((e) => Alert.alert('Error', e.message));
-        },
-      },
-    ]);
+  const onAccept = (item: BookingRow) => {
+    const guestTotal = Number(item.total_price) || 0;
+    void fetchBookingPayoutPreview(item.id, {
+      checkIn: item.check_in,
+      checkOut: item.check_out,
+    })
+      .then((preview) => {
+        Alert.alert(
+          'Accept booking?',
+          `Guest pays ${money(preview.guestTotal)}\nLodging ${money(preview.lodgingGross)}\nHost fee (${preview.hostFeePercent}%) −${money(preview.hostFee)}\nYou’ll receive ${money(preview.hostAmount)}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Accept',
+              onPress: () => {
+                void acceptBooking(item.id)
+                  .then(load)
+                  .catch((e) => Alert.alert('Error', e.message));
+              },
+            },
+          ]
+        );
+      })
+      .catch(() => {
+        Alert.alert(
+          'Accept booking?',
+          guestTotal > 0
+            ? `Guest total ${money(guestTotal)}. Your payout will be lodging earnings minus the host service fee.`
+            : undefined,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Accept',
+              onPress: () => {
+                void acceptBooking(item.id)
+                  .then(load)
+                  .catch((e) => Alert.alert('Error', e.message));
+              },
+            },
+          ]
+        );
+      });
   };
 
   const onReject = (id: string) => {
@@ -98,7 +130,7 @@ export default function HostBookingsScreen() {
           ) : null}
           {item.status === 'pending_approval' || item.status === 'pending' ? (
             <View style={styles.actions}>
-              <Pressable style={styles.accept} onPress={() => onAccept(item.id)}>
+              <Pressable style={styles.accept} onPress={() => onAccept(item)}>
                 <Text style={styles.actionText}>Accept</Text>
               </Pressable>
               <Pressable style={styles.reject} onPress={() => onReject(item.id)}>

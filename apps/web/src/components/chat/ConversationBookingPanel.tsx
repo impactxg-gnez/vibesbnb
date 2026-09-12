@@ -8,6 +8,8 @@ import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { BookingRequestDetails, type BookingRequestInfo } from './BookingRequestDetails';
 import { BookingRequestPendingBanner } from './BookingRequestPendingBanner';
 import toast from 'react-hot-toast';
+import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
+import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
 
 type ConversationBookingPanelProps = {
   bookingId: string | null | undefined;
@@ -361,6 +363,7 @@ export function ConversationBookingPanel({
             booking={booking}
             variant={isLight ? 'light' : 'dark'}
             showGuestName
+            extraHeaders={isAdmin ? getHeadersForAdminFetch : undefined}
           />
         )}
 
@@ -511,6 +514,13 @@ export function ConversationBookingPanel({
                 />
               </div>
             </div>
+            <ApproveModalPayoutPreview
+              bookingId={booking?.id}
+              checkIn={approveCheckIn}
+              checkOut={approveCheckOut}
+              variant={isLight ? 'light' : 'dark'}
+              extraHeaders={isAdmin ? getHeadersForAdminFetch : undefined}
+            />
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
@@ -537,5 +547,34 @@ export function ConversationBookingPanel({
         </div>
       )}
     </>
+  );
+}
+
+function ApproveModalPayoutPreview({
+  bookingId,
+  checkIn,
+  checkOut,
+  variant,
+  extraHeaders,
+}: {
+  bookingId?: string | null;
+  checkIn: string;
+  checkOut: string;
+  variant: 'dark' | 'light';
+  extraHeaders?: () => Promise<Record<string, string>>;
+}) {
+  const { preview, loading } = useHostPayoutPreview({
+    bookingId,
+    checkIn,
+    checkOut,
+    extraHeaders,
+  });
+  return (
+    <HostPayoutBreakdown
+      preview={preview}
+      loading={loading}
+      variant={variant}
+      className="mb-6"
+    />
   );
 }

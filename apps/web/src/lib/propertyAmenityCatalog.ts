@@ -233,6 +233,40 @@ export const AMENITY_CATEGORIES: readonly AmenityCategory[] = [
   },
 ] as const;
 
+/** Common amenities pre-checked when a host registers a new listing. */
+export const DEFAULT_ONBOARDING_AMENITIES: readonly string[] = [
+  'Essentials',
+  'Toilet paper',
+  'Body soap',
+  'Hangers',
+  'Self check-in',
+  'Shampoo',
+  'Conditioner',
+  'Hair dryer',
+  'Hot water',
+  'Shower gel',
+  'Bed linens',
+  'Dryer',
+  'Iron',
+  'Washer',
+  'Ethernet connection',
+  'Sound system',
+  'TV',
+  'Air conditioning',
+  'Heating',
+  'Carbon monoxide alarm',
+  'Fire extinguisher',
+  'First aid kit',
+  'Smoke alarm',
+  'WiFi',
+  'Kitchen',
+  'Coffee maker',
+  'Dining table',
+  'Microwave',
+  'Refrigerator',
+  'Stove',
+];
+
 /** Flat list of all catalog amenity labels. */
 export const ALL_CATALOG_AMENITIES: readonly string[] = AMENITY_CATEGORIES.flatMap(
   (c) => c.amenities,
@@ -392,4 +426,10 @@ export function splitAmenities(selected: string[]): {
 /** Whether a label is in the official catalog. */
 export function isCatalogAmenity(label: string): boolean {
   return CATALOG_SET.has(label);
+}
+
+/** Union default onboarding amenities with any already-selected labels (deduped). */
+export function withDefaultOnboardingAmenities(selected: unknown): string[] {
+  const existing = Array.isArray(selected) ? selected : [];
+  return normalizeAmenityList([...DEFAULT_ONBOARDING_AMENITIES, ...existing]);
 }

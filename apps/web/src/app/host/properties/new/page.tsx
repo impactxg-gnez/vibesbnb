@@ -52,7 +52,10 @@ import {
 } from '@/lib/cancellationPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
-import { ALL_CATALOG_AMENITIES } from '@/lib/propertyAmenityCatalog';
+import {
+  ALL_CATALOG_AMENITIES,
+  DEFAULT_ONBOARDING_AMENITIES,
+} from '@/lib/propertyAmenityCatalog';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import {
   cannabisShortLabel,
@@ -127,7 +130,7 @@ export default function NewPropertyPage() {
     cancellationPolicy: 'flexible' as CancellationPolicyId,
     partiesAllowed: false,
     safety: { ...DEFAULT_SAFETY_FLAGS } as SafetyFlags,
-    amenities: [] as string[],
+    amenities: [...DEFAULT_ONBOARDING_AMENITIES] as string[],
     coordinates: undefined as { lat: number; lng: number } | undefined,
   });
   
@@ -871,6 +874,7 @@ export default function NewPropertyPage() {
         </h1>
         <p className="text-gray-400">
           Choose from {ALL_CATALOG_AMENITIES.length} amenities across 12 categories — same options hosts use on Airbnb.
+          Some common amenities have already been selected; change them to match what is actually at the property.
         </p>
       </div>
 
@@ -878,6 +882,7 @@ export default function NewPropertyPage() {
         selected={formData.amenities}
         onChange={(amenities) => setFormData({ ...formData, amenities })}
         compact
+        onboardingHint
       />
     </div>
   );

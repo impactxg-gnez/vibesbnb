@@ -148,6 +148,23 @@ export type PayoutRow = {
   status: string;
 };
 
+export async function fetchBookingPayoutPreview(
+  bookingId: string,
+  dates?: { checkIn?: string; checkOut?: string }
+) {
+  const qs = new URLSearchParams({ bookingId });
+  if (dates?.checkIn) qs.set('checkIn', String(dates.checkIn).slice(0, 10));
+  if (dates?.checkOut) qs.set('checkOut', String(dates.checkOut).slice(0, 10));
+  return apiFetch<{
+    guestTotal: number;
+    hostFee: number;
+    hostAmount: number;
+    hostFeePercent: number;
+    lodgingGross: number;
+    nights: number;
+  }>(`/api/bookings/payout-preview?${qs}`);
+}
+
 export async function acceptBooking(bookingId: string) {
   return apiFetch('/api/bookings/accept', {
     method: 'POST',

@@ -6,6 +6,7 @@ import {
   policyFromDbRow,
 } from '@/lib/checkInOutPolicy';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
+import { computeBookingGrandTotal } from '@/lib/bookingTotals';
 import {
   getHostFeePercent,
   getServiceFeePercent,
@@ -22,6 +23,12 @@ export type HostPayoutAmounts = {
   hostFee: number;
   hostAmount: number;
   nights: number;
+};
+
+export type HostPayoutPreview = HostPayoutAmounts & {
+  hostFeePercent: number;
+  /** Lodging earnings before the host service fee (hostAmount + hostFee). */
+  lodgingGross: number;
 };
 
 function roundMoney(n: number): number {
@@ -54,6 +61,8 @@ type PayoutPropertyContext = {
   guests?: number | null;
   allow_extra_guests?: boolean | null;
   extra_guest_price?: number | null;
+  refundable_deposit?: number | null;
+  allow_direct_booking?: boolean | null;
   check_in_time?: string | null;
   check_out_time?: string | null;
   early_check_in_allowed?: boolean | null;
@@ -172,6 +181,148 @@ export function computeHostPayoutAmounts(params: {
   };
 }
 
+function wellnessLineItemsFromBooking(
+  booking: PayoutBookingContext | null | undefined
+): Array<{ price: number }> {
+  const wellnessRaw = Array.isArray(booking?.wellness_line_items)
+    ? booking.wellness_line_items
+    : [];
+  return wellnessRaw
+    .filter(
+      (row: unknown) =>
+        row &&
+        typeof row === 'object' &&
+        typeof (row as { price?: unknown }).price !== 'undefined'
+    )
+    .map((row) => ({
+      price: Math.max(0, Number((row as { price?: unknown }).price) || 0),
+    }));
+}
+
+function guestTotalForStay(params: {
+  checkIn: string;
+  checkOut: string;
+  booking: PayoutBookingContext | null | undefined;
+  property: PayoutPropertyContext | null | undefined;
+  fallbackGuestTotal?: number | null;
+}): number {
+  const property = params.property;
+  if (property && params.checkIn && params.checkOut) {
+    const { grandTotal } = computeBookingGrandTotal({
+      propertyNightlyPrice: Number(property.price) || 0,
+      cleaningFee: property.cleaning_fee != null ? Number(property.cleaning_fee) || 0 : 0,
+      checkInYmd: params.checkIn,
+      checkOutYmd: params.checkOut,
+      selectedUnits: params.booking?.selected_units,
+      wellnessLineItems: wellnessLineItemsFromBooking(params.booking),
+      includedGuests: Number(property.guests) || 1,
+      adults: Number(params.booking?.guests) || 1,
+      kids: params.booking?.kids != null ? Number(params.booking.kids) : 0,
+      pets: params.booking?.pets != null ? Number(params.booking.pets) : 0,
+      allowExtraGuests: property.allow_extra_guests === true,
+      extraGuestPrice:
+        property.extra_guest_price != null ? Number(property.extra_guest_price) : 0,
+      refundableDeposit:
+        property.refundable_deposit != null ? Number(property.refundable_deposit) : 0,
+      applyCardFee: property.allow_direct_booking === true,
+    });
+    if (grandTotal > 0) return roundMoney(grandTotal);
+  }
+  return roundMoney(Number(params.fallbackGuestTotal) || 0);
+}
+
+export function withPayoutPreviewMeta(
+  amounts: HostPayoutAmounts,
+  hostFeePercent: number
+): HostPayoutPreview {
+  return {
+    ...amounts,
+    hostFeePercent,
+    lodgingGross: roundMoney(amounts.hostAmount + amounts.hostFee),
+  };
+}
+
+const PAYOUT_PROPERTY_SELECT =
+  'price, cleaning_fee, guests, allow_extra_guests, extra_guest_price, refundable_deposit, allow_direct_booking, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee';
+
+const PAYOUT_BOOKING_SELECT =
+  'id, host_id, property_id, property_name, check_in, check_out, total_price, status, payment_status, guests, kids, pets, wellness_line_items, early_check_in_requested, late_check_out_requested, selected_units';
+
+/**
+ * Estimated host payout for a booking (used when accepting, before payment creates a ledger row).
+ */
+export async function previewHostPayoutForBooking(
+  service: SupabaseClient,
+  bookingId: string,
+  opts?: { checkIn?: string | null; checkOut?: string | null }
+): Promise<
+  | { ok: true; preview: HostPayoutPreview; hostId: string }
+  | { ok: false; error: string; status: number }
+> {
+  const { data: booking, error: bookingError } = await service
+    .from('bookings')
+    .select(PAYOUT_BOOKING_SELECT)
+    .eq('id', bookingId)
+    .maybeSingle();
+
+  if (bookingError || !booking) {
+    return { ok: false, error: 'Booking not found', status: 404 };
+  }
+
+  const row = booking as BookingRow;
+  if (!row.host_id) {
+    return { ok: false, error: 'Booking has no host', status: 400 };
+  }
+
+  const checkIn = datePart(opts?.checkIn) || datePart(row.check_in) || '';
+  const checkOut = datePart(opts?.checkOut) || datePart(row.check_out) || '';
+  if (!checkIn || !checkOut || nightsBetweenYmd(checkIn, checkOut) <= 0) {
+    return { ok: false, error: 'Invalid check-in and check-out dates', status: 400 };
+  }
+
+  let property: PayoutPropertyContext | null = null;
+  if (row.property_id) {
+    const { data: propertyRow } = await service
+      .from('properties')
+      .select(PAYOUT_PROPERTY_SELECT)
+      .eq('id', row.property_id)
+      .maybeSingle();
+    property = propertyRow as PayoutPropertyContext | null;
+  }
+
+  const [serviceFeePercent, hostFeePercent] = await Promise.all([
+    getServiceFeePercent(service),
+    getHostFeePercent(service),
+  ]);
+
+  const guestTotal = guestTotalForStay({
+    checkIn,
+    checkOut,
+    booking: row,
+    property,
+    fallbackGuestTotal: row.total_price,
+  });
+
+  const amounts = computeHostPayoutAmounts({
+    checkIn,
+    checkOut,
+    guestTotal,
+    hostNightlyRate: property?.price != null ? Number(property.price) : null,
+    hostCleaningFee:
+      property?.cleaning_fee != null ? Number(property.cleaning_fee) || 0 : 0,
+    feePercent: serviceFeePercent,
+    hostFeePercent,
+    booking: row,
+    property,
+  });
+
+  return {
+    ok: true,
+    hostId: row.host_id,
+    preview: withPayoutPreviewMeta(amounts, hostFeePercent),
+  };
+}
+
 type BookingRow = {
   id: string;
   host_id?: string | null;
@@ -240,9 +391,7 @@ export async function ensurePendingHostPayout(
   if (row.property_id) {
     const { data: propertyRow } = await service
       .from('properties')
-      .select(
-        'price, cleaning_fee, guests, allow_extra_guests, extra_guest_price, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee'
-      )
+      .select(PAYOUT_PROPERTY_SELECT)
       .eq('id', row.property_id)
       .maybeSingle();
     property = propertyRow as PayoutPropertyContext | null;

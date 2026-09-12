@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-const MAX_GALLERY = 24;
+const MAX_GALLERY = 80;
 
 function isHttpUrl(url: string): boolean {
   const t = url.trim();

@@ -28,6 +28,8 @@ import {
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
+import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
+import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
 
 /** List view only — never select images[] / rooms / embedding (base64 galleries hang the request). */
 const HOST_PROPERTY_LIST_COLUMNS = [
@@ -1642,7 +1644,13 @@ export default function HostPropertiesPage() {
                       </div>
 
                       {isPending && (
-                        <div className="flex flex-wrap gap-3">
+                        <div className="space-y-3">
+                          <PendingBookingPayout
+                            bookingId={booking.id}
+                            checkIn={booking.check_in}
+                            checkOut={booking.check_out}
+                          />
+                          <div className="flex flex-wrap gap-3">
                           <button
                             disabled={acceptLoading}
                             onClick={() => handleBookingAction(booking.id, 'accept')}
@@ -1659,6 +1667,7 @@ export default function HostPropertiesPage() {
                             {rejectLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                             Reject
                           </button>
+                        </div>
                         </div>
                       )}
 
@@ -2208,6 +2217,23 @@ export default function HostPropertiesPage() {
       )}
     </div>
   );
+}
+
+function PendingBookingPayout({
+  bookingId,
+  checkIn,
+  checkOut,
+}: {
+  bookingId: string;
+  checkIn?: string;
+  checkOut?: string;
+}) {
+  const { preview, loading } = useHostPayoutPreview({
+    bookingId,
+    checkIn,
+    checkOut,
+  });
+  return <HostPayoutBreakdown preview={preview} loading={loading} />;
 }
 
 

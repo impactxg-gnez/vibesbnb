@@ -211,10 +211,18 @@ html:not(.dark) .hover\:border-primary-500\/50:hover {
   border-color: color-mix(in srgb, var(--primary) 35%, transparent) !important;
 }
 
-/* Cream text only on filled primary actions (dark theme used text-black on green). */
+/* Cream text on filled primary actions. Light theme remaps text-white → espresso,
+   which is unreadable on forest green (e.g. Browse Properties). */
 html:not(.dark) .bg-primary-500.text-black,
+html:not(.dark) .bg-primary-500.text-white,
+html:not(.dark) .bg-primary-400.text-black,
+html:not(.dark) .bg-primary-400.text-white,
 html:not(.dark) .bg-emerald-500.text-black,
-html:not(.dark) .bg-primary-400.text-black {
+html:not(.dark) .bg-emerald-500.text-white,
+html:not(.dark) .bg-emerald-600.text-white,
+html:not(.dark) .bg-emerald-600.text-black,
+html:not(.dark) .bg-emerald-700.text-white,
+html:not(.dark) .hover\:bg-emerald-600:hover.text-white {
   color: var(--on-primary) !important;
 }
 

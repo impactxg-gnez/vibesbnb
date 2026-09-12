@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -10,17 +10,37 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   listingCardMainImageUrl,
+  listingThumbImageUrl,
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 import { resolveVibeMarker } from '@/lib/consumptionPolicy';
+import {
+  cachedPropertyGallery,
+  loadPropertyGalleryUrls,
+} from '@/lib/propertyGalleryCache';
 
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
 
 const MAIN_BLUR =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
+
+const THUMB_COUNT = 4;
+const SWIPE_THRESHOLD = 42;
+
+function mergeGalleryUrls(seed: string[], extra: string[]): string[] {
+  return normalizePropertyImages([...seed, ...extra], PLACEHOLDER).filter(
+    (url) => url !== PLACEHOLDER || seed.length === 0
+  );
+}
+
+function thumbWindowStart(index: number, total: number, size = THUMB_COUNT): number {
+  if (total <= size) return 0;
+  const maxStart = total - size;
+  return Math.min(maxStart, Math.max(0, index - 1));
+}
 
 export type PropertyCardMediaProps = {
   images: string[];
@@ -65,12 +85,18 @@ export function PropertyCardMedia({
   priority = false,
 }: PropertyCardMediaProps) {
   const [failedSrcs, setFailedSrcs] = useState<Set<string>>(() => new Set());
+  const [galleryExtras, setGalleryExtras] = useState<string[]>(() =>
+    propertyId ? cachedPropertyGallery(propertyId) ?? [] : []
+  );
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const ignoreClickRef = useRef(false);
   const slides = useMemo(() => {
-    const normalized = normalizePropertyImages(images, PLACEHOLDER).filter(
+    const normalized = mergeGalleryUrls(images, galleryExtras).filter(
       (url) => !failedSrcs.has(url)
     );
     return normalized.length > 0 ? normalized : [PLACEHOLDER];
-  }, [images, failedSrcs]);
+  }, [images, galleryExtras, failedSrcs]);
   const [index, setIndex] = useState(0);
   const { user } = useAuth();
   const router = useRouter();
@@ -83,7 +109,69 @@ export function PropertyCardMedia({
   useEffect(() => {
     setFailedSrcs(new Set());
     setIndex(0);
-  }, [images]);
+    setGalleryExtras(propertyId ? cachedPropertyGallery(propertyId) ?? [] : []);
+  }, [images, propertyId]);
+
+  const hydrateGallery = useCallback(() => {
+    if (!propertyId) return;
+    void loadPropertyGalleryUrls(propertyId).then((urls) => {
+      if (urls.length > 0) setGalleryExtras(urls);
+    });
+  }, [propertyId]);
+
+  useEffect(() => {
+    if (!propertyId) return;
+    const cached = cachedPropertyGallery(propertyId);
+    if (cached?.length) {
+      setGalleryExtras(cached);
+      return;
+    }
+
+    let cancelled = false;
+    let idleId: number | null = null;
+    const schedule = () => {
+      if (cancelled) return;
+      const run = () => {
+        if (!cancelled) hydrateGallery();
+      };
+      if (typeof requestIdleCallback === 'function') {
+        idleId = requestIdleCallback(run, { timeout: 2000 });
+      } else {
+        idleId = window.setTimeout(run, 400);
+      }
+    };
+
+    const node = rootRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      schedule();
+    } else {
+      const io = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry?.isIntersecting) return;
+          io.disconnect();
+          schedule();
+        },
+        { rootMargin: '280px', threshold: 0.01 }
+      );
+      io.observe(node);
+      return () => {
+        cancelled = true;
+        io.disconnect();
+        if (idleId != null) {
+          if (typeof cancelIdleCallback === 'function') cancelIdleCallback(idleId);
+          window.clearTimeout(idleId);
+        }
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId != null) {
+        if (typeof cancelIdleCallback === 'function') cancelIdleCallback(idleId);
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [propertyId, hydrateGallery]);
 
   const useBatchFavoriteQuery =
     favoriteBatchLoading ||
@@ -198,26 +286,73 @@ export function PropertyCardMedia({
   }, [mainDisplaySrc, mainSrc, mainUseOriginal]);
 
   const handlePrevious = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIndex((prev) => (prev > 0 ? prev - 1 : slides.length - 1));
+    (e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      hydrateGallery();
+      setIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, slides.length - 1)));
     },
-    [slides.length]
+    [slides.length, hydrateGallery]
   );
 
   const handleNext = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+    (e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      hydrateGallery();
       setIndex((prev) => (prev < slides.length - 1 ? prev + 1 : 0));
     },
-    [slides.length]
+    [slides.length, hydrateGallery]
   );
 
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const start = pointerStart.current;
+      pointerStart.current = null;
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
+      ignoreClickRef.current = true;
+      hydrateGallery();
+      if (dx < 0) {
+        setIndex((prev) => (prev < slides.length - 1 ? prev + 1 : 0));
+      } else {
+        setIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, slides.length - 1)));
+      }
+    },
+    [slides.length, hydrateGallery]
+  );
+
+  const onListingClick = useCallback((e: React.MouseEvent) => {
+    if (!ignoreClickRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    ignoreClickRef.current = false;
+  }, []);
+
+  const thumbStart = thumbWindowStart(safeIndex, slides.length);
+  const thumbs = slides.slice(thumbStart, thumbStart + THUMB_COUNT);
+
   return (
-    <div className={`flex flex-col bg-black/20 group relative overflow-hidden rounded-[inherit] ${className}`}>
-      <div className={`relative w-full overflow-hidden rounded-[inherit] ${mainHeightClass}`}>
+    <div
+      ref={rootRef}
+      className={`flex flex-col bg-black/20 group relative overflow-hidden rounded-[inherit] ${className}`}
+    >
+      <div
+        className={`relative w-full overflow-hidden ${multi ? 'rounded-t-[inherit]' : 'rounded-[inherit]'} ${mainHeightClass}`}
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => {
+          pointerStart.current = null;
+        }}
+      >
         <Image
           key={`${mainSrc}-${safeIndex}`}
           src={mainDisplaySrc}
@@ -230,7 +365,7 @@ export function PropertyCardMedia({
           placeholder="blur"
           blurDataURL={MAIN_BLUR}
           onError={handleMainImageError}
-          className="object-cover"
+          className="object-cover pointer-events-none"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
 
@@ -238,6 +373,7 @@ export function PropertyCardMedia({
           href={listingHref}
           className="absolute inset-0 z-[2]"
           aria-label={`View listing: ${alt}`}
+          onClick={onListingClick}
         />
 
         {propertyId && (
@@ -265,13 +401,12 @@ export function PropertyCardMedia({
           />
         </div>
 
-        {/* Carousel Navigation */}
         {multi && (
           <>
             <button
               type="button"
               onClick={handlePrevious}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 shadow-md"
               aria-label="Previous image"
             >
               <ChevronLeft size={20} strokeWidth={2.5} />
@@ -279,48 +414,61 @@ export function PropertyCardMedia({
             <button
               type="button"
               onClick={handleNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition-opacity duration-200 shadow-md transform hover:scale-105"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-[5] p-1.5 rounded-full bg-white/90 hover:bg-white text-gray-900 shadow-md"
               aria-label="Next image"
             >
               <ChevronRight size={20} strokeWidth={2.5} />
             </button>
-
-            {/* Dot Indicators */}
-            <div className="absolute bottom-3 left-0 right-0 z-[5] flex justify-center gap-1.5">
-              {slides.length <= 5 ? (
-                slides.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-                      i === safeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
-                    }`}
-                  />
-                ))
-              ) : (
-                Array.from({ length: 5 }).map((_, i) => {
-                  let dotIndex = i;
-                  if (safeIndex > 2) {
-                    if (safeIndex >= slides.length - 2) {
-                      dotIndex = slides.length - 5 + i;
-                    } else {
-                      dotIndex = safeIndex - 2 + i;
-                    }
-                  }
-                  
-                  return (
-                    <div
-                      key={dotIndex}
-                      className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-                        dotIndex === safeIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
-                      }`}
-                    />
-                  );
-                })
-              )}
+            <div className="absolute bottom-2 right-2 z-[5] rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+              {safeIndex + 1}/{slides.length}
             </div>
           </>
         )}
       </div>
+
+      {multi && (
+        <div
+          className={`grid gap-1 p-1.5 bg-black/25 ${
+            thumbs.length >= 4
+              ? 'grid-cols-4'
+              : thumbs.length === 3
+                ? 'grid-cols-3'
+                : 'grid-cols-2'
+          }`}
+        >
+          {thumbs.map((url, offset) => {
+            const slideIndex = thumbStart + offset;
+            const active = slideIndex === safeIndex;
+            const thumbSrc = listingThumbImageUrl(url);
+            const isLocal = url.startsWith('/') || url.startsWith('data:');
+            return (
+              <button
+                key={`${url}-${slideIndex}`}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIndex(slideIndex);
+                }}
+                className={`relative h-14 sm:h-16 overflow-hidden rounded-md ring-offset-0 ${
+                  active ? 'ring-2 ring-white' : 'ring-1 ring-white/20 opacity-80 hover:opacity-100'
+                }`}
+                aria-label={`Show photo ${slideIndex + 1}`}
+                aria-current={active ? 'true' : undefined}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={isLocal ? url : thumbSrc}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { Calendar, Users, MapPin, MessageSquare, DollarSign } from 'lucide-react';
 import { formatCalendarDate } from '@/lib/dateUtils';
+import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
+import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
 
 export type BookingRequestInfo = {
   id: string;
@@ -30,6 +32,7 @@ type BookingRequestDetailsProps = {
   showGuestName?: boolean;
   className?: string;
   variant?: 'dark' | 'light';
+  extraHeaders?: () => Promise<Record<string, string>>;
 };
 
 /** Host-facing summary of what the traveller is trying to book. */
@@ -38,9 +41,19 @@ export function BookingRequestDetails({
   showGuestName = true,
   className = '',
   variant = 'dark',
+  extraHeaders,
 }: BookingRequestDetailsProps) {
   const statusLabel = String(booking.status || 'pending').replaceAll('_', ' ');
   const isLight = variant === 'light';
+  const isPending =
+    booking.status === 'pending_approval' || booking.status === 'pending';
+  const { preview, loading } = useHostPayoutPreview({
+    bookingId: booking.id,
+    checkIn: booking.check_in,
+    checkOut: booking.check_out,
+    enabled: isPending,
+    extraHeaders,
+  });
 
   return (
     <div
@@ -91,8 +104,15 @@ export function BookingRequestDetails({
         {booking.total_price != null && (
           <div className={`flex items-start gap-2 ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
             <DollarSign size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-            <span>${Number(booking.total_price).toLocaleString('en-US')} total</span>
+            <span>${Number(booking.total_price).toLocaleString('en-US')} guest total</span>
           </div>
+        )}
+        {isPending && (
+          <HostPayoutBreakdown
+            preview={preview}
+            loading={loading}
+            variant={variant}
+          />
         )}
         {showGuestName && booking.guest_name && (
           <p className={isLight ? 'text-gray-500 text-xs' : 'text-gray-400 text-xs'}>

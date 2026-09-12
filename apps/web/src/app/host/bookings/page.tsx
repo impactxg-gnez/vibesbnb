@@ -7,6 +7,8 @@ import { Calendar, Users, DollarSign, Check, X, Eye, CreditCard, Bell } from 'lu
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
+import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
 
 interface Booking {
   id: string;
@@ -308,7 +310,7 @@ export default function HostBookingsPage() {
             <p className="text-gray-400 text-sm mb-4">
               Confirm the dates the guest will pay for. The total updates automatically if you change nights.
             </p>
-            <div className="space-y-3 mb-6">
+            <div className="space-y-3 mb-4">
               <div>
                 <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Check-in</label>
                 <input
@@ -329,6 +331,11 @@ export default function HostBookingsPage() {
                 />
               </div>
             </div>
+            <AcceptModalPayoutPreview
+              bookingId={acceptModalBooking.id}
+              checkIn={acceptCheckIn}
+              checkOut={acceptCheckOut}
+            />
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
@@ -566,6 +573,25 @@ export default function HostBookingsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function AcceptModalPayoutPreview({
+  bookingId,
+  checkIn,
+  checkOut,
+}: {
+  bookingId: string;
+  checkIn: string;
+  checkOut: string;
+}) {
+  const { preview, loading } = useHostPayoutPreview({
+    bookingId,
+    checkIn,
+    checkOut,
+  });
+  return (
+    <HostPayoutBreakdown preview={preview} loading={loading} className="mb-6" />
   );
 }
 
