@@ -2,19 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  420BNB palette
+  Cream #ECD5BB · Sand #B8A487 · Gold #B78438 · Forest #193F25 · Espresso #51372B
+*/
+:root {
+  --vb-cream: #ecd5bb;
+  --vb-sand: #b8a487;
+  --vb-gold: #b78438;
+  --vb-forest: #193f25;
+  --vb-espresso: #51372b;
+
+  --page: #ecd5bb;
+  --surface: #f4e6d4;
+  --surface-light: #faf3ea;
+  --ink: #51372b;
+  --muted: #6b5346;
+  --border: rgba(81, 55, 43, 0.16);
+  --primary: #193f25;
+  --primary-soft: #b78438;
+  --on-primary: #ecd5bb;
+  --focus-ring: #193f25;
+  --scrollbar-track: #ecd5bb;
+  --scrollbar-thumb: rgba(25, 63, 37, 0.45);
+}
+
+html.dark {
+  --page: #0a0a0a;
+  --surface: #1a1a1a;
+  --surface-light: #2a2a2a;
+  --ink: #ffffff;
+  --muted: #b3b3b3;
+  --border: rgba(255, 255, 255, 0.08);
+  --primary: #00e676;
+  --primary-soft: #4ade80;
+  --on-primary: #0a0a0a;
+  --focus-ring: #00e676;
+  --scrollbar-track: #0a0a0a;
+  --scrollbar-thumb: rgba(0, 230, 118, 0.5);
+}
+
 @layer base {
   html {
     overflow-x: clip;
   }
 
   body {
-    @apply bg-surface-dark text-white transition-colors antialiased;
+    background-color: var(--page);
+    color: var(--ink);
+    @apply transition-colors antialiased;
     overflow-x: clip;
   }
 
   /* WCAG 2.2 AA — visible keyboard focus (do not remove without replacement) */
   :focus-visible {
-    outline: 2px solid #00e676;
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
 
@@ -28,11 +70,16 @@
   .btn-primary {
     @apply bg-primary-500 text-black px-6 py-3 rounded-full font-bold hover:bg-primary-400 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  
+
+  html:not(.dark) .btn-primary {
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
+
   .btn-secondary {
     @apply bg-surface text-white border border-white/10 px-6 py-3 rounded-full font-medium hover:bg-surface-light transition-all;
   }
-  
+
   .input {
     @apply w-full px-4 py-2 bg-surface border border-white/5 rounded-2xl text-white placeholder-muted focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
   }
@@ -42,10 +89,10 @@
   }
 
   .input:focus-visible {
-    outline: 2px solid #00e676;
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
-  
+
   .card {
     @apply bg-surface rounded-3xl overflow-hidden border border-white/5 hover:border-primary-500/30 transition-all duration-300;
   }
@@ -55,6 +102,141 @@
   }
 }
 
+/* Light theme: remap hardcoded dark utilities to the 420BNB palette.
+   html.dark keeps existing Tailwind values (emerald-on-black). */
+html:not(.dark) .bg-surface-dark,
+html:not(.dark) .bg-gray-950,
+html:not(.dark) .bg-gray-900,
+html:not(.dark) .bg-black {
+  background-color: var(--page) !important;
+}
+
+html:not(.dark) .bg-surface,
+html:not(.dark) .bg-gray-800,
+html:not(.dark) .bg-gray-850 {
+  background-color: var(--surface) !important;
+}
+
+html:not(.dark) .bg-surface-light,
+html:not(.dark) .bg-gray-700 {
+  background-color: var(--surface-light) !important;
+}
+
+html:not(.dark) .bg-white\/5,
+html:not(.dark) .bg-white\/10,
+html:not(.dark) .bg-black\/20,
+html:not(.dark) .bg-black\/30,
+html:not(.dark) .hover\:bg-white\/5:hover,
+html:not(.dark) .hover\:bg-white\/10:hover {
+  background-color: color-mix(in srgb, var(--espresso) 8%, transparent) !important;
+}
+
+html:not(.dark) .bg-black\/50,
+html:not(.dark) .bg-black\/60,
+html:not(.dark) .bg-black\/70,
+html:not(.dark) .bg-black\/80 {
+  background-color: color-mix(in srgb, var(--espresso) 55%, transparent) !important;
+}
+
+html:not(.dark) .text-white {
+  color: var(--ink) !important;
+}
+
+html:not(.dark) .text-gray-100,
+html:not(.dark) .text-gray-200,
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-400,
+html:not(.dark) .text-muted {
+  color: var(--muted) !important;
+}
+
+html:not(.dark) .text-gray-500,
+html:not(.dark) .text-gray-600 {
+  color: color-mix(in srgb, var(--espresso) 70%, var(--sand)) !important;
+}
+
+html:not(.dark) .placeholder-white\/20::placeholder,
+html:not(.dark) .placeholder\:text-gray-500::placeholder,
+html:not(.dark) .placeholder-muted::placeholder {
+  color: var(--muted) !important;
+}
+
+html:not(.dark) .border-white\/5,
+html:not(.dark) .border-white\/10,
+html:not(.dark) .border-white\/20,
+html:not(.dark) .border-gray-800,
+html:not(.dark) .border-gray-700,
+html:not(.dark) .border-gray-900 {
+  border-color: var(--border) !important;
+}
+
+html:not(.dark) .divide-white\/5 > :not([hidden]) ~ :not([hidden]),
+html:not(.dark) .divide-gray-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border) !important;
+}
+
+html:not(.dark) .bg-primary-500,
+html:not(.dark) .bg-emerald-500 {
+  background-color: var(--primary) !important;
+}
+
+html:not(.dark) .hover\:bg-primary-400:hover,
+html:not(.dark) .hover\:bg-primary-500:hover {
+  background-color: color-mix(in srgb, var(--primary) 88%, white) !important;
+}
+
+html:not(.dark) .bg-primary-500\/5,
+html:not(.dark) .bg-primary-500\/10,
+html:not(.dark) .bg-primary-500\/15,
+html:not(.dark) .hover\:bg-primary-500\/5:hover,
+html:not(.dark) .hover\:bg-primary-500\/10:hover {
+  background-color: color-mix(in srgb, var(--primary) 10%, transparent) !important;
+}
+
+html:not(.dark) .text-primary-500,
+html:not(.dark) .text-primary-400,
+html:not(.dark) .hover\:text-primary-400:hover,
+html:not(.dark) .hover\:text-primary-500:hover,
+html:not(.dark) .group-hover\:text-primary-400:hover {
+  color: var(--primary) !important;
+}
+
+html:not(.dark) .border-primary-500,
+html:not(.dark) .border-primary-500\/10,
+html:not(.dark) .border-primary-500\/20,
+html:not(.dark) .border-primary-500\/30,
+html:not(.dark) .border-primary-500\/40,
+html:not(.dark) .hover\:border-primary-500\/25:hover,
+html:not(.dark) .hover\:border-primary-500\/50:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent) !important;
+}
+
+/* Cream text only on filled primary actions (dark theme used text-black on green). */
+html:not(.dark) .bg-primary-500.text-black,
+html:not(.dark) .bg-emerald-500.text-black,
+html:not(.dark) .bg-primary-400.text-black {
+  color: var(--on-primary) !important;
+}
+
+html:not(.dark) .from-gray-950,
+html:not(.dark) .from-surface-dark,
+html:not(.dark) .via-gray-950,
+html:not(.dark) .to-gray-950 {
+  --tw-gradient-from: var(--page) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(236 213 187 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+html:not(.dark) .via-white\/5 {
+  --tw-gradient-via: color-mix(in srgb, var(--espresso) 12%, transparent);
+}
+
+html:not(.dark) .shadow-\[0_15px_40px_rgba\(0\,0\,0\,0\.4\)\],
+html:not(.dark) .shadow-\[0_25px_60px_rgba\(0\,0\,0\,0\.6\)\],
+html:not(.dark) .shadow-2xl {
+  --tw-shadow-color: rgb(81 55 43 / 0.18);
+}
+
 /* Custom Styled Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -62,21 +244,25 @@
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-surface-dark;
+  background-color: var(--scrollbar-track);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary-500/50 hover:bg-primary-500;
+  background-color: var(--scrollbar-thumb);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary);
+}
+
 /* Firefox support */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(16, 185, 129, 0.5) #0a0a0a;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 /* Prevent layout shifts during hydration */
@@ -102,6 +288,11 @@
     @apply bg-primary-500 text-black font-bold px-4 py-2 rounded-b-xl shadow-lg;
   }
 
+  html:not(.dark) .skip-link {
+    background-color: var(--primary);
+    color: var(--on-primary);
+  }
+
   .skip-link:focus {
     transform: translateY(0);
   }
@@ -109,12 +300,12 @@
   .no-layout-shift {
     contain: layout style;
   }
-  
+
   /* Stable container heights for loading states */
   .min-h-content {
     min-height: calc(100vh - 80px);
   }
-  
+
   /* Prevent flicker on images */
   .no-flicker {
     -webkit-transform: translateZ(0);
@@ -122,7 +313,7 @@
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
   }
-  
+
   /* Smooth transitions without reflow */
   .gpu-accelerated {
     transform: translateZ(0);
@@ -170,10 +361,10 @@ html {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
 }

@@ -16,6 +16,7 @@ import { MessageCircle, Building, Sparkles, Plane, Briefcase, Plus, X, Check, Wa
 import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchModal';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { ChooseYourVibeMenu } from '@/components/properties/ChooseYourVibeMenu';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -562,6 +563,10 @@ export function Header() {
                             )}
                           </div>
 
+                          <div className="border-t border-white/5">
+                            <ThemeToggle variant="menu" />
+                          </div>
+
                           <div className="border-t border-white/5 pt-2 pb-2 bg-black/20">
                             <button
                               onClick={() => {
@@ -670,7 +675,7 @@ export function Header() {
                   </>
                 ) : (
                   <div className="flex items-center space-x-2 sm:space-x-4">
-                    <div className="relative z-[60] xl:hidden">
+                    <div className="relative z-[60]">
                       <button
                         type="button"
                         onClick={() => setShowGuestMenu(!showGuestMenu)}
@@ -716,6 +721,9 @@ export function Header() {
                           >
                             Sign Up
                           </Link>
+                          <div className="mt-1 border-t border-white/5">
+                            <ThemeToggle variant="menu" />
+                          </div>
                         </div>
                       )}
                     </div>

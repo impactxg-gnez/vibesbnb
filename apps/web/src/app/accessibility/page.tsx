@@ -64,8 +64,8 @@ export default function AccessibilityPage() {
             <h2 className="text-xl font-semibold mb-3">Feedback</h2>
             <p className="text-gray-300">
               If you encounter a barrier on VibesBNB, email{' '}
-              <a className="text-primary-500 underline" href="mailto:accessibility@vibesbnb.com">
-                accessibility@vibesbnb.com
+              <a className="text-primary-500 underline" href="mailto:info@vibesbnb.com">
+                info@vibesbnb.com
               </a>{' '}
               with the page URL and a short description. We take these reports seriously and prioritize fixes.
             </p>

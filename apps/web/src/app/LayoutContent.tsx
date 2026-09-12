@@ -17,7 +17,7 @@ export function LayoutContent({ children }: LayoutContentProps) {
         Skip to main content
       </a>
       <HostPendingBrowseModal />
-      <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-200">
+      <div className="border-b bg-gold/20 border-gold/40 text-espresso dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-200">
         <div className="container mx-auto px-4 py-2 text-xs md:text-sm font-semibold text-center">
           This site is currently in beta — some features might not work.
         </div>
