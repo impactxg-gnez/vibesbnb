@@ -8,7 +8,7 @@ import {
   getContactBlockUserMessage,
 } from '@/lib/utils/contactFilter';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Calendar, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, X } from 'lucide-react';
 import { formatCalendarDate } from '@/lib/dateUtils';
 
 interface Message {
@@ -34,6 +34,8 @@ interface ChatWindowProps {
   inquiryCheckIn?: string | null;
   inquiryCheckOut?: string | null;
   onMessagesRead?: () => void;
+  /** Phone: return to the conversation list. Hidden from lg and up. */
+  onBack?: () => void;
 }
 
 function formatInquiryStay(checkIn?: string | null, checkOut?: string | null): string | null {
@@ -52,6 +54,7 @@ export default function ChatWindow({
   inquiryCheckIn,
   inquiryCheckOut,
   onMessagesRead,
+  onBack,
 }: ChatWindowProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -298,42 +301,47 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 border border-gray-800 rounded-xl">
-      <div className="px-4 py-3 border-b border-gray-800">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col h-full min-h-0 bg-gray-900 border-0 rounded-none lg:border lg:border-gray-800 lg:rounded-xl">
+      <div className="shrink-0 px-3 py-2 lg:px-4 lg:py-3 border-b border-gray-800">
+        <div className="flex items-center gap-2 lg:gap-3">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="lg:hidden shrink-0 p-1.5 -ml-1 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white"
+              aria-label="Back to conversations"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          ) : null}
           {counterpartAvatar && (
             <img
               src={counterpartAvatar}
               alt={counterpartName || 'Participant'}
-              className="w-10 h-10 rounded-full object-cover"
+              className="w-8 h-8 lg:w-10 lg:h-10 rounded-full object-cover"
             />
           )}
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-white truncate">{title}</h3>
+            <h3 className="text-sm lg:text-lg font-semibold text-white truncate">{title}</h3>
             {counterpartName && (
-              <p className="text-sm text-gray-400 truncate">{counterpartName}</p>
+              <p className="text-xs lg:text-sm text-gray-400 truncate">{counterpartName}</p>
             )}
           </div>
           {contactSharingAllowed ? (
             <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-full">
               <ShieldCheck className="w-3 h-3" />
-              Contact OK
+              <span className="hidden sm:inline">Contact OK</span>
             </span>
           ) : null}
         </div>
         {inquiryStayLabel ? (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
-            <Calendar className="w-4 h-4 shrink-0 text-emerald-400" />
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-emerald-400/90">
-                Selected stay
-              </p>
-              <p className="font-semibold text-white truncate">{inquiryStayLabel}</p>
-            </div>
-          </div>
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 truncate">
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span className="font-semibold">{inquiryStayLabel}</span>
+          </p>
         ) : null}
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 lg:p-4 space-y-3 lg:space-y-4">
         {loading ? (
           <div className="text-gray-400 text-center">Loading messages...</div>
         ) : messages.length === 0 ? (
@@ -385,8 +393,13 @@ export default function ChatWindow({
                     </p>
                   )}
                   <p className="whitespace-pre-line break-words">{message.body}</p>
-                  <span className="block mt-1 text-xs text-gray-200/70">
-                    {new Date(message.created_at).toLocaleString()}
+                  <span className="block mt-1 text-[10px] lg:text-xs text-gray-200/70">
+                    {new Date(message.created_at).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
                   </span>
                 </div>
               </div>
@@ -395,9 +408,9 @@ export default function ChatWindow({
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="border-t border-gray-800 p-4">
+      <div className="shrink-0 border-t border-gray-800 p-2 lg:p-4">
         {blockBanner && (
-          <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          <div className="mb-2 lg:mb-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
             <p className="flex-1">{blockBanner}</p>
             <button
@@ -410,31 +423,42 @@ export default function ChatWindow({
             </button>
           </div>
         )}
-        <textarea
-          rows={3}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            contactSharingAllowed
-              ? 'Message your host or guest…'
-              : 'Ask about availability, amenities, or anything else…'
-          }
-          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500"
-        />
-        <div className="flex justify-end mt-3">
+        <div className="flex items-end gap-2">
+          <textarea
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+              }
+            }}
+            placeholder={
+              contactSharingAllowed
+                ? 'Message your host or guest…'
+                : 'Ask about availability, amenities, or anything else…'
+            }
+            className="flex-1 min-h-[44px] max-h-24 lg:max-h-none px-3 py-2.5 lg:px-4 lg:py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500 resize-none lg:min-h-[5.5rem]"
+          />
           <button
             type="button"
             onClick={handleSend}
             disabled={sending || !input.trim()}
-            className="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 h-11 px-4 lg:h-auto lg:px-5 lg:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
           >
-            {sending ? 'Sending...' : 'Send Message'}
+            {sending ? 'Sending…' : 'Send'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="hidden lg:block text-xs text-gray-500 mt-2">
           {contactSharingAllowed
             ? 'Booking confirmed — you can share contact details if needed. We still recommend keeping coordination in VibesBNB chat.'
             : 'Before a booking is confirmed, phone numbers, emails, links, map pins, and social handles in a message are blocked. Only that message is stopped — your chat stays open.'}
+        </p>
+        <p className="lg:hidden text-[10px] text-gray-500 mt-1">
+          {contactSharingAllowed
+            ? 'You can share contact details in this chat.'
+            : 'Phone numbers and emails are blocked until a booking is confirmed.'}
         </p>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticateHostRequest } from '@/lib/auth/authenticateHostRequest';
-import { todayLocalYmd } from '@/lib/dateUtils';
+import { isCheckInDatePast, todayLocalYmd } from '@/lib/dateUtils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     const allBookings = bookings || [];
     const pendingApprovals = allBookings
       .filter((b) => b.status === 'pending_approval' || b.status === 'pending')
+      .filter((b) => !isCheckInDatePast(b.check_in))
       .slice(0, 8);
 
     const upcomingStays = allBookings.filter((b) => {

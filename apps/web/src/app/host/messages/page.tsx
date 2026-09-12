@@ -9,6 +9,7 @@ import { ConversationBookingPanel } from '@/components/chat/ConversationBookingP
 import toast from 'react-hot-toast';
 import { MessageSquare, Calendar, Home, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { getHostScopeUserIdFromAuthOnly } from '@/lib/adminHostImpersonation';
 
 interface Conversation {
   id: string;
@@ -55,31 +56,41 @@ export default function HostMessagesPage() {
   const loadConversations = useCallback(async (showLoading = true) => {
     if (!user) return;
     if (showLoading) setLoadingList(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+      const hostScopeId = getHostScopeUserIdFromAuthOnly(user) || user.id;
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${session?.access_token || ''}`,
+      };
+      if (hostScopeId !== user.id) {
+        headers['x-impersonate-host-id'] = hostScopeId;
+      }
+
       const response = await fetch('/api/chat/conversations', {
-        headers: {
-          'Authorization': `Bearer ${session?.access_token || ''}`,
-        },
+        headers,
+        signal: controller.signal,
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.error || 'Failed to load conversations');
       }
-      
+
       const hostConvs = (data.conversations || []).filter(
-        (c: Conversation) => c.host_id === user.id
+        (c: Conversation) => c.host_id === hostScopeId
       );
-      
+
       setConversations(hostConvs);
-      
-      // Only auto-select on initial load
+
+      // Auto-select on desktop (or deep link). Phone shows the inbox first so the thread can use the full screen.
       if (!initialLoadDone.current) {
+        const desktop =
+          typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
         if (preselectedId) {
           setSelectedConversation(preselectedId);
-        } else if (hostConvs.length > 0) {
+        } else if (desktop && hostConvs.length > 0) {
           setSelectedConversation(hostConvs[0].id);
         }
         initialLoadDone.current = true;
@@ -87,9 +98,15 @@ export default function HostMessagesPage() {
     } catch (error: any) {
       console.error('[HostMessagesPage] load error', error);
       if (showLoading) {
-        toast.error(error.message || 'Failed to load conversations');
+        const timedOut = error?.name === 'AbortError';
+        toast.error(
+          timedOut
+            ? 'Timed out loading conversations. Please try again.'
+            : error.message || 'Failed to load conversations'
+        );
       }
     } finally {
+      window.clearTimeout(timeoutId);
       if (showLoading) setLoadingList(false);
     }
   }, [user, preselectedId]);
@@ -138,7 +155,8 @@ export default function HostMessagesPage() {
 
   const getViewerRole = (conversation: Conversation) => {
     if (!user) return 'viewer';
-    return conversation.host_id === user.id ? 'host' : 'traveller';
+    const hostScopeId = getHostScopeUserIdFromAuthOnly(user) || user.id;
+    return conversation.host_id === hostScopeId ? 'host' : 'traveller';
   };
 
   const getCounterpartName = (conversation: Conversation) => {
@@ -175,10 +193,12 @@ export default function HostMessagesPage() {
     return null;
   }
 
+  const threadOpen = Boolean(selectedConversation);
+
   return (
-    <div className="min-h-screen bg-gray-950 py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
-        <div className="flex items-center gap-4 mb-8">
+    <div className="bg-gray-950 max-lg:h-full max-lg:min-h-0 lg:min-h-screen lg:py-8">
+      <div className="h-full lg:container lg:mx-auto lg:px-4 lg:max-w-7xl flex flex-col">
+        <div className={`items-center gap-4 mb-8 ${threadOpen ? 'hidden lg:flex' : 'flex'} max-lg:px-4 max-lg:pt-3 max-lg:mb-3`}>
           <Link 
             href="/host/properties" 
             className="p-2 bg-gray-900 border border-gray-800 rounded-lg text-gray-400 hover:text-white transition"
@@ -186,14 +206,18 @@ export default function HostMessagesPage() {
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-4xl font-bold text-white mb-1">Host Messages</h1>
-            <p className="text-gray-400">Communication with your guests</p>
+            <h1 className="text-2xl lg:text-4xl font-bold text-white mb-0 lg:mb-1">Host Messages</h1>
+            <p className="text-gray-400 hidden sm:block">Communication with your guests</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ minHeight: 'calc(100vh - 200px)', height: '75vh' }}>
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 lg:gap-6 max-lg:h-full">
           {/* Conversation List */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+          <div
+            className={`${
+              threadOpen ? 'hidden lg:flex' : 'flex'
+            } bg-gray-900 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-2xl flex-col overflow-hidden shadow-2xl min-h-0 h-full`}
+          >
             <div className="p-4 border-b border-gray-800 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <MessageSquare size={18} className="text-emerald-500" />
@@ -294,7 +318,11 @@ export default function HostMessagesPage() {
           </div>
 
           {/* Chat + booking actions */}
-          <div className="lg:col-span-2 h-full bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col min-h-0">
+          <div
+            className={`${
+              threadOpen ? 'flex' : 'hidden lg:flex'
+            } lg:col-span-2 h-full bg-gray-900 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-2xl overflow-hidden shadow-2xl flex-col min-h-0`}
+          >
             {selectedConversationObj ? (
               <>
                 <ConversationBookingPanel
@@ -313,6 +341,7 @@ export default function HostMessagesPage() {
                     inquiryCheckIn={selectedConversationObj.inquiry_check_in}
                     inquiryCheckOut={selectedConversationObj.inquiry_check_out}
                     onMessagesRead={handleMessagesRead}
+                    onBack={() => setSelectedConversation(null)}
                   />
                 </div>
               </>

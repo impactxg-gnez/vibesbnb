@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Users, DollarSign, Check, X, Eye, CreditCard, Bell } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { isCheckInDatePast } from '@/lib/dateUtils';
 import Link from 'next/link';
 import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
 import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
@@ -38,7 +39,9 @@ export default function HostBookingsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<
+    'all' | 'pending_approval' | 'missed' | 'accepted' | 'rejected' | 'confirmed' | 'cancelled'
+  >('all');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -247,14 +250,26 @@ export default function HostBookingsPage() {
     }
   };
 
-  const filteredBookings = filter === 'all' 
-    ? bookings 
-    : bookings.filter(b => b.status === filter);
+  const isUnapproved = (status: string) =>
+    status === 'pending_approval' || status === 'pending';
+  const isMissedUnapproved = (booking: Booking) =>
+    isUnapproved(booking.status) && isCheckInDatePast(booking.check_in);
+
+  const filteredBookings =
+    filter === 'all'
+      ? bookings
+      : filter === 'missed'
+        ? bookings.filter(isMissedUnapproved)
+        : filter === 'pending_approval'
+          ? bookings.filter((b) => isUnapproved(b.status) && !isMissedUnapproved(b))
+          : bookings.filter((b) => b.status === filter);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending_approval':
         return 'bg-yellow-100 text-yellow-800';
+      case 'missed':
+        return 'bg-amber-100 text-amber-900';
       case 'accepted':
         return 'bg-blue-100 text-blue-800';
       case 'confirmed':
@@ -411,7 +426,7 @@ export default function HostBookingsPage() {
 
         {/* Filters */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          {(['all', 'pending_approval', 'accepted', 'confirmed', 'rejected', 'cancelled'] as const).map((status) => (
+          {(['all', 'pending_approval', 'missed', 'accepted', 'confirmed', 'rejected', 'cancelled'] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
@@ -433,7 +448,10 @@ export default function HostBookingsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredBookings.map((booking) => (
+            {filteredBookings.map((booking) => {
+              const missed = isMissedUnapproved(booking);
+              const canApprove = isUnapproved(booking.status) && !missed;
+              return (
               <div
                 key={booking.id}
                 className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition"
@@ -484,8 +502,10 @@ export default function HostBookingsPage() {
                       </div>
                       <div>
                         <p className="text-sm text-gray-400 mb-1">Status</p>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking.status)}`}>
-                          {booking.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(missed ? 'missed' : booking.status)}`}>
+                          {missed
+                            ? 'Missed'
+                            : booking.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </span>
                       </div>
                       <div>
@@ -496,6 +516,14 @@ export default function HostBookingsPage() {
                       </div>
                     </div>
 
+                    {missed && (
+                      <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                        <p className="text-sm text-amber-200">
+                          Stay dates passed — this request expired. Approve and reject are no longer available.
+                        </p>
+                      </div>
+                    )}
+
                     {booking.special_requests && (
                       <div className="mb-4 p-3 bg-gray-800 rounded-lg">
                         <p className="text-sm text-gray-400 mb-1">Special Requests</p>
@@ -505,7 +533,7 @@ export default function HostBookingsPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 ml-4">
-                    {(booking.status === 'pending_approval' || (booking.status as string) === 'pending') && (
+                    {canApprove && (
                       <>
                         <button
                           onClick={() => openAcceptModal(booking)}
@@ -568,7 +596,8 @@ export default function HostBookingsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

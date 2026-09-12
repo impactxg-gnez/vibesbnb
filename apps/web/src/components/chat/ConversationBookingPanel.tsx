@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, X } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { BookingRequestDetails, type BookingRequestInfo } from './BookingRequestDetails';
@@ -10,6 +10,7 @@ import { BookingRequestPendingBanner } from './BookingRequestPendingBanner';
 import toast from 'react-hot-toast';
 import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
 import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
+import { formatCalendarDate, isCheckInDatePast } from '@/lib/dateUtils';
 
 type ConversationBookingPanelProps = {
   bookingId: string | null | undefined;
@@ -43,6 +44,7 @@ export function ConversationBookingPanel({
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [approveCheckIn, setApproveCheckIn] = useState('');
   const [approveCheckOut, setApproveCheckOut] = useState('');
+  const [stayDetailsOpen, setStayDetailsOpen] = useState(false);
 
   const postBookingAction = async (
     action: 'accept' | 'reject' | 'cancel',
@@ -331,7 +333,7 @@ export function ConversationBookingPanel({
 
   if (loading) {
     return (
-      <p className={`text-xs ${mutedText} px-4 py-3 border-b ${panelBorder}`}>
+      <p className={`hidden lg:block text-xs ${mutedText} px-4 py-3 border-b ${panelBorder}`}>
         Loading booking request…
       </p>
     );
@@ -340,7 +342,7 @@ export function ConversationBookingPanel({
   if (!booking || !resolvedBookingId) {
     if (canManage) {
       return (
-        <p className={`text-xs ${mutedText} px-4 py-3 border-b ${panelBorder}`}>
+        <p className={`hidden lg:block text-xs ${mutedText} px-4 py-3 border-b ${panelBorder}`}>
           No pending booking request linked to this conversation.
         </p>
       );
@@ -350,12 +352,48 @@ export function ConversationBookingPanel({
 
   const isPending =
     booking.status === 'pending_approval' || booking.status === 'pending';
+  const isMissedRequest = isPending && isCheckInDatePast(booking.check_in);
   const isAccepted =
     booking.status === 'accepted' || booking.status === 'confirmed';
 
+  const stayLabel =
+    booking.check_in && booking.check_out
+      ? `${formatCalendarDate(booking.check_in)} → ${formatCalendarDate(booking.check_out)}`
+      : 'Dates not set';
+  const statusLabel = String(booking.status || '').replaceAll('_', ' ');
+
   return (
     <>
-      <div className={`shrink-0 px-4 py-3 border-b ${panelBorder} space-y-3 ${panelBg}`}>
+      <button
+        type="button"
+        className={`lg:hidden w-full flex items-center gap-2 px-3 py-2 text-left border-b ${panelBorder} ${panelBg}`}
+        onClick={() => setStayDetailsOpen((open) => !open)}
+        aria-expanded={stayDetailsOpen}
+      >
+        <div className="min-w-0 flex-1">
+          <p className={`text-[11px] truncate ${mutedText}`}>
+            {booking.property_name || 'Stay'} · {stayLabel}
+          </p>
+          <p className={`text-sm font-semibold truncate ${isLight ? 'text-gray-900' : 'text-white'}`}>
+            {isPending && !isMissedRequest
+              ? 'Awaiting approval'
+              : isMissedRequest
+                ? 'Missed request'
+                : statusLabel}
+          </p>
+        </div>
+        {canManage && isPending && !isMissedRequest && (
+          <span className="shrink-0 text-xs font-bold text-emerald-600">Review</span>
+        )}
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-gray-400 transition-transform ${stayDetailsOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <div
+        className={`${stayDetailsOpen ? 'block' : 'hidden'} lg:block shrink-0 px-4 py-3 border-b ${panelBorder} space-y-3 ${panelBg}`}
+      >
         {!canManage && (showSubmittedBanner || isPending) && <BookingRequestPendingBanner />}
 
         {canManage && (
@@ -377,7 +415,19 @@ export function ConversationBookingPanel({
           </div>
         )}
 
-        {canManage && isPending && (
+        {canManage && isPending && isMissedRequest && (
+          <p
+            className={`text-sm rounded-lg px-3 py-2 ${
+              isLight
+                ? 'text-amber-900 bg-amber-50 border border-amber-200'
+                : 'text-amber-200 bg-amber-500/10 border border-amber-500/20'
+            }`}
+          >
+            Stay dates passed — this request expired. Approve and reject are no longer available.
+          </p>
+        )}
+
+        {canManage && isPending && !isMissedRequest && (
           <div className="flex flex-wrap items-center gap-2 justify-end">
             <button
               type="button"

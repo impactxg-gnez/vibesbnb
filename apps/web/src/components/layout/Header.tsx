@@ -732,6 +732,7 @@ export function Header() {
         </div>
 
         {/* Phone/tablet: vibe picker on its own row so it never covers the logo */}
+        {pathname !== '/messages' && pathname !== '/host/messages' && (
         <div className="lg:hidden pb-2.5 -mt-1">
           <ChooseYourVibeMenu
             activeCategory={headerCategoryChip}
@@ -739,6 +740,7 @@ export function Header() {
             fullWidth
           />
         </div>
+        )}
       </div>
     </header>
     <PropertyNameSearchModal open={propertySearchOpen} onOpenChange={setPropertySearchOpen} />

@@ -65,6 +65,19 @@ export function todayLocalYmd(): string {
   return toYmd(t);
 }
 
+/** YYYY-MM-DD from a booking date field, or empty if unusable. */
+export function calendarYmd(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const part = datePartOnly(String(dateStr));
+  return YMD.test(part) ? part : '';
+}
+
+/** True when check-in is a calendar day before today (local). */
+export function isCheckInDatePast(checkIn?: string | null): boolean {
+  const ymd = calendarYmd(checkIn);
+  return Boolean(ymd) && ymd < todayLocalYmd();
+}
+
 export function startOfTodayLocal(): Date {
   const t = new Date();
   return new Date(t.getFullYear(), t.getMonth(), t.getDate());

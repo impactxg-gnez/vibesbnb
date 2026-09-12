@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
 import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 
 interface ConversationResponse {
   id: string;
@@ -32,6 +33,87 @@ function parseInquiryYmd(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim().slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
+
+const CONVERSATION_LIST_COLUMNS = `
+  id,
+  property_id,
+  host_id,
+  traveller_id,
+  booking_id,
+  last_message,
+  last_message_at,
+  inquiry_check_in,
+  inquiry_check_out,
+  host_name,
+  host_avatar,
+  traveller_name,
+  traveller_avatar,
+  host_unread_count,
+  traveller_unread_count
+`;
+
+const CONVERSATION_LIST_COLUMNS_NO_INQUIRY = `
+  id,
+  property_id,
+  host_id,
+  traveller_id,
+  booking_id,
+  last_message,
+  last_message_at,
+  host_name,
+  host_avatar,
+  traveller_name,
+  traveller_avatar,
+  host_unread_count,
+  traveller_unread_count
+`;
+
+function isUuid(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    v
+  );
+}
+
+async function attachPropertySummaries(
+  client: { from: (table: string) => any },
+  rows: ConversationResponse[]
+): Promise<ConversationResponse[]> {
+  const ids = [
+    ...new Set(rows.map((r) => r.property_id).filter(Boolean)),
+  ] as string[];
+  if (ids.length === 0) return rows;
+
+  const { data, error } = await client
+    .from('properties')
+    .select('id, name, location, cover_image')
+    .in('id', ids);
+
+  if (error) {
+    console.warn('[ConversationsAPI] property summary lookup failed', error);
+    return rows;
+  }
+
+  const byId = new Map(
+    (data || []).map((p: { id: string; name?: string; location?: string; cover_image?: string | null }) => [
+      p.id,
+      p,
+    ])
+  );
+
+  return rows.map((row) => {
+    const property = byId.get(row.property_id);
+    if (!property) return { ...row, properties: row.properties ?? null };
+    const cover = property.cover_image || null;
+    return {
+      ...row,
+      properties: {
+        name: property.name,
+        location: property.location,
+        images: cover ? [cover] : [],
+      },
+    };
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -68,96 +150,47 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const filterConversationId = searchParams.get('conversationId');
     const scope = searchParams.get('scope');
-    const isAdmin = user.user_metadata?.role === 'admin';
+    const isAdmin = isAdminUser(user);
     if (scope === 'admin' && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-    const useService = scope === 'admin' && isAdmin;
+    const impersonateHost =
+      searchParams.get('hostId') || request.headers.get('x-impersonate-host-id') || '';
+    const impersonatingHostId =
+      isAdmin && impersonateHost && isUuid(impersonateHost) ? impersonateHost : null;
+    const useService = (scope === 'admin' && isAdmin) || Boolean(impersonatingHostId);
+    const db = useService ? serviceSupabase : supabase;
 
-    const query = (useService ? serviceSupabase : supabase)
-      .from('conversations')
-      .select(
-        `
-          id,
-          property_id,
-          host_id,
-          traveller_id,
-          booking_id,
-          last_message,
-          last_message_at,
-          inquiry_check_in,
-          inquiry_check_out,
-          host_name,
-          host_avatar,
-          traveller_name,
-          traveller_avatar,
-          host_unread_count,
-          traveller_unread_count,
-          properties (
-            name,
-            location,
-            images
-          )
-        `
-      )
-      .order('last_message_at', { ascending: false });
+    const applyListFilters = (q: any, columns: string) => {
+      let next = q.select(columns).order('last_message_at', { ascending: false });
+      if (filterConversationId) {
+        next = next.eq('id', filterConversationId);
+      } else if (impersonatingHostId) {
+        next = next.eq('host_id', impersonatingHostId);
+      } else if (!useService || scope !== 'admin') {
+        next = next.or(`host_id.eq.${user.id},traveller_id.eq.${user.id}`);
+      }
+      return next;
+    };
 
-    if (filterConversationId) {
-      query.eq('id', filterConversationId);
-    } else if (!useService) {
-      query.or(`host_id.eq.${user.id},traveller_id.eq.${user.id}`);
+    let { data, error } = await applyListFilters(db.from('conversations'), CONVERSATION_LIST_COLUMNS);
+
+    if (error?.code === '42703') {
+      const missingInquiry =
+        String(error.message || '').includes('inquiry_check_in') ||
+        String(error.message || '').includes('inquiry_check_out');
+      if (missingInquiry) {
+        const retry = await applyListFilters(
+          db.from('conversations'),
+          CONVERSATION_LIST_COLUMNS_NO_INQUIRY
+        );
+        data = retry.data;
+        error = retry.error;
+      }
     }
-
-    const { data, error } = await query;
 
     if (error) {
       if (error.code === '42703') {
-        // Older DBs may lack inquiry date columns — retry without them.
-        if (
-          String(error.message || '').includes('inquiry_check_in') ||
-          String(error.message || '').includes('inquiry_check_out')
-        ) {
-          const retry = (useService ? serviceSupabase : supabase)
-            .from('conversations')
-            .select(
-              `
-                id,
-                property_id,
-                host_id,
-                traveller_id,
-                booking_id,
-                last_message,
-                last_message_at,
-                host_name,
-                host_avatar,
-                traveller_name,
-                traveller_avatar,
-                host_unread_count,
-                traveller_unread_count,
-                properties (
-                  name,
-                  location,
-                  images
-                )
-              `
-            )
-            .order('last_message_at', { ascending: false });
-          if (filterConversationId) retry.eq('id', filterConversationId);
-          else if (!useService) retry.or(`host_id.eq.${user.id},traveller_id.eq.${user.id}`);
-          const { data: retryData, error: retryError } = await retry;
-          if (retryError) {
-            if (retryError.code === '42703') {
-              throw new Error(
-                'Missing database columns: host_unread_count or traveller_unread_count. Please run the migration: SUPABASE_FIX_MESSAGING_ARCHIVE.sql in your Supabase SQL editor.'
-              );
-            }
-            throw retryError;
-          }
-          return NextResponse.json({
-            conversations: (retryData as ConversationResponse[] | null) ?? [],
-            viewer_id: user.id,
-          });
-        }
         throw new Error(
           'Missing database columns: host_unread_count or traveller_unread_count. Please run the migration: SUPABASE_FIX_MESSAGING_ARCHIVE.sql in your Supabase SQL editor.'
         );
@@ -165,7 +198,10 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const conversations = (data as ConversationResponse[] | null) ?? [];
+    const conversations = await attachPropertySummaries(
+      db,
+      (data as ConversationResponse[] | null) ?? []
+    );
 
     return NextResponse.json({
       conversations,

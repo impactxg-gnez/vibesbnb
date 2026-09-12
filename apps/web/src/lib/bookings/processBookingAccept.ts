@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { nightsBetweenYmd } from '@/lib/dateUtils';
+import { nightsBetweenYmd, todayLocalYmd } from '@/lib/dateUtils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { computeBookingGrandTotal } from '@/lib/bookingTotals';
 import {
@@ -74,6 +74,14 @@ export async function processBookingAccept(params: {
     checkIn != null && String(checkIn).length >= 8 ? ymd(checkIn) : ymd(booking.check_in);
   const finalCheckOut =
     checkOut != null && String(checkOut).length >= 8 ? ymd(checkOut) : ymd(booking.check_out);
+
+  if (finalCheckIn < todayLocalYmd()) {
+    return {
+      ok: false,
+      error: "This request's stay dates have passed and can no longer be approved.",
+      status: 400,
+    };
+  }
 
   const { data: propertyRow, error: propertyError } = await serviceSupabase
     .from('properties')

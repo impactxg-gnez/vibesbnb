@@ -71,9 +71,11 @@ export default function MessagesPage() {
       
       // Only auto-select on initial load
       if (!initialLoadDone.current) {
+        const desktop =
+          typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
         if (preselectedId) {
           setSelectedConversation(preselectedId);
-        } else if (data.conversations?.length) {
+        } else if (desktop && data.conversations?.length) {
           setSelectedConversation(data.conversations[0].id);
         }
         initialLoadDone.current = true;
@@ -170,12 +172,20 @@ export default function MessagesPage() {
     return null;
   }
 
+  const threadOpen = Boolean(selectedConversation);
+
   return (
-    <div className="min-h-screen bg-gray-950 py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
-        <h1 className="text-4xl font-bold text-white mb-8">Messages</h1>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ minHeight: 'calc(100vh - 200px)' }}>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-[70vh] overflow-y-auto custom-scrollbar">
+    <div className="bg-gray-950 max-lg:h-full max-lg:min-h-0 lg:min-h-screen lg:py-8">
+      <div className="h-full lg:container lg:mx-auto lg:px-4 lg:max-w-6xl flex flex-col">
+        <h1 className={`text-2xl lg:text-4xl font-bold text-white max-lg:px-4 max-lg:pt-3 ${threadOpen ? 'hidden lg:block lg:mb-8' : 'mb-3 lg:mb-8'}`}>
+          Messages
+        </h1>
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 lg:gap-6 max-lg:h-full">
+          <div
+            className={`${
+              threadOpen ? 'hidden lg:block' : 'block'
+            } bg-gray-900 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-xl p-4 h-full overflow-y-auto custom-scrollbar`}
+          >
             <h2 className="text-lg font-semibold text-white mb-4">Conversations</h2>
             {loadingList ? (
               <div className="space-y-3">
@@ -231,7 +241,11 @@ export default function MessagesPage() {
               </div>
             )}
           </div>
-          <div className="lg:col-span-2 h-[70vh] flex flex-col min-h-0 border border-gray-800 rounded-xl bg-gray-900 overflow-hidden">
+          <div
+            className={`${
+              threadOpen ? 'flex' : 'hidden lg:flex'
+            } lg:col-span-2 h-full flex-col min-h-0 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-xl bg-gray-900 overflow-hidden`}
+          >
             {selectedConversationObj ? (
               <>
                 <ConversationBookingPanel
@@ -251,6 +265,7 @@ export default function MessagesPage() {
                     inquiryCheckIn={selectedConversationObj.inquiry_check_in}
                     inquiryCheckOut={selectedConversationObj.inquiry_check_out}
                     onMessagesRead={handleMessagesRead}
+                    onBack={() => setSelectedConversation(null)}
                   />
                 </div>
               </>

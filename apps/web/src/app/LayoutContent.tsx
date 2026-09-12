@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { PhoneReminderBanner } from '@/components/layout/PhoneReminderBanner';
 import { Footer } from '@/components/layout/Footer';
@@ -12,6 +13,10 @@ interface LayoutContentProps {
 }
 
 export function LayoutContent({ children }: LayoutContentProps) {
+  const pathname = usePathname();
+  const isMessages =
+    pathname === '/messages' || pathname === '/host/messages';
+
   return (
     <div className="flex flex-col min-h-screen">
       <a href="#main-content" className="skip-link">
@@ -25,10 +30,18 @@ export function LayoutContent({ children }: LayoutContentProps) {
       </div>
       <Header />
       <PhoneReminderBanner />
-      <main id="main-content" tabIndex={-1} className="flex-grow pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 outline-none">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={
+          isMessages
+            ? 'flex-grow outline-none pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0 max-lg:h-[calc(100dvh-7.5rem)] max-lg:overflow-hidden max-lg:flex max-lg:flex-col'
+            : 'flex-grow outline-none pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0'
+        }
+      >
         {children}
       </main>
-      <Footer />
+      {!isMessages && <Footer />}
       <MobileTabBar />
       <AppVersionStamp />
     </div>

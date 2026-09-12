@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed, Clock } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, CalendarX, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed, Clock } from 'lucide-react';
 import { validateProperty, getMissingFieldsSummary, canPublish, PropertyValidation } from '@/lib/property-validation';
 import { propertyMissingCheckInOutTimes } from '@/lib/checkInOutPolicy';
 
@@ -30,6 +30,9 @@ import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
 import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
+import { isCheckInDatePast } from '@/lib/dateUtils';
+
+type HostBookingPanelType = 'new' | 'upcoming' | 'previous' | 'missed';
 
 /** List view only — never select images[] / rooms / embedding (base64 galleries hang the request). */
 const HOST_PROPERTY_LIST_COLUMNS = [
@@ -123,18 +126,21 @@ export default function HostPropertiesPage() {
     new: 0,
     upcoming: 0,
     previous: 0,
+    missed: 0,
   });
   const [bookingBuckets, setBookingBuckets] = useState<{
     new: BookingSummaryItem[];
     upcoming: BookingSummaryItem[];
     previous: BookingSummaryItem[];
+    missed: BookingSummaryItem[];
   }>({
     new: [],
     upcoming: [],
     previous: [],
+    missed: [],
   });
   const [bookingDetails, setBookingDetails] = useState<{
-    type: 'new' | 'upcoming' | 'previous';
+    type: HostBookingPanelType;
     title: string;
     description: string;
     bookings: BookingSummaryItem[];
@@ -581,8 +587,8 @@ export default function HostPropertiesPage() {
 
         if (bookingsError) {
           console.error('[Stats] Bookings query failed:', bookingsError);
-          setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
-          setBookingBuckets({ new: [], upcoming: [], previous: [] });
+          setBookingSummary({ new: 0, upcoming: 0, previous: 0, missed: 0 });
+          setBookingBuckets({ new: [], upcoming: [], previous: [], missed: [] });
           setBookingDetails(null);
           setStats({
             totalProperties,
@@ -612,7 +618,14 @@ export default function HostPropertiesPage() {
         const thisMonthRevenue = thisMonthBookings.reduce((sum, b) => sum + Number(b.total_price || 0), 0);
         const newBookings = thisMonthBookings.length;
 
-        const newPending = rows.filter((b) => b.status === 'pending_approval');
+        const isUnapproved = (status: string) =>
+          status === 'pending_approval' || status === 'pending';
+        const missedBookings = rows.filter(
+          (b) => isUnapproved(b.status) && isCheckInDatePast(b.check_in)
+        );
+        const newPending = rows.filter(
+          (b) => isUnapproved(b.status) && !isCheckInDatePast(b.check_in)
+        );
         const upcomingBookings = rows.filter((b) => {
           if (!b.check_in) return false;
           const checkIn = new Date(b.check_in);
@@ -628,23 +641,29 @@ export default function HostPropertiesPage() {
           new: newPending,
           upcoming: upcomingBookings,
           previous: previousBookings,
+          missed: missedBookings,
         });
         setBookingSummary({
           new: newPending.length,
           upcoming: upcomingBookings.length,
           previous: previousBookings.length,
+          missed: missedBookings.length,
         });
+
+        const bucketForType = (type: HostBookingPanelType) =>
+          type === 'new'
+            ? newPending
+            : type === 'upcoming'
+              ? upcomingBookings
+              : type === 'missed'
+                ? missedBookings
+                : previousBookings;
 
         setBookingDetails((current) =>
           current
             ? {
                 ...current,
-                bookings:
-                  current.type === 'new'
-                    ? newPending
-                    : current.type === 'upcoming'
-                      ? upcomingBookings
-                      : previousBookings,
+                bookings: bucketForType(current.type),
               }
             : null
         );
@@ -676,7 +695,7 @@ export default function HostPropertiesPage() {
     );
   };
 
-  const openBookingPanel = (type: 'new' | 'upcoming' | 'previous') => {
+  const openBookingPanel = (type: HostBookingPanelType) => {
     const meta = {
       new: {
         title: 'New Booking Requests',
@@ -689,6 +708,10 @@ export default function HostPropertiesPage() {
       previous: {
         title: 'Previous Bookings',
         description: 'Completed stays',
+      },
+      missed: {
+        title: 'Missed Bookings',
+        description: 'Unapproved requests whose stay dates have passed',
       },
     }[type];
 
@@ -1536,7 +1559,7 @@ export default function HostPropertiesPage() {
         })()}
 
         {/* Booking Snapshot */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           <button
             onClick={() => openBookingPanel('new')}
             className={`bg-gray-900 border rounded-xl p-6 text-left transition ${bookingDetails?.type === 'new'
@@ -1585,6 +1608,22 @@ export default function HostPropertiesPage() {
             </div>
             <p className="text-xs text-gray-500">Completed stays</p>
           </button>
+          <button
+            onClick={() => openBookingPanel('missed')}
+            className={`bg-gray-900 border rounded-xl p-6 text-left transition ${bookingDetails?.type === 'missed'
+                ? 'border-amber-500 shadow-lg shadow-amber-500/20'
+                : 'border-gray-800 hover:border-amber-500'
+              }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-gray-400 text-sm font-medium">Missed</h3>
+                <p className="text-white text-2xl font-bold">{bookingSummary.missed}</p>
+              </div>
+              <CalendarX size={24} className="text-amber-400" />
+            </div>
+            <p className="text-xs text-gray-500">Unapproved requests past stay dates</p>
+          </button>
         </div>
         {bookingDetails && (
           <div className="mb-8 bg-gray-900 border border-gray-800 rounded-2xl p-6">
@@ -1608,6 +1647,7 @@ export default function HostPropertiesPage() {
                 {bookingDetails.bookings.map((booking) => {
                   const isPending =
                     typeof booking.status === 'string' && booking.status.includes('pending');
+                  const isMissed = bookingDetails.type === 'missed';
                   const acceptLoading = bookingActionLoading === `accept-${booking.id}`;
                   const rejectLoading = bookingActionLoading === `reject-${booking.id}`;
                   const cancelLoading = bookingActionLoading === `cancel-${booking.id}`;
@@ -1643,7 +1683,13 @@ export default function HostPropertiesPage() {
                         </div>
                       </div>
 
-                      {isPending && (
+                      {isMissed && (
+                        <p className="text-sm text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                          Stay dates passed — this request expired and can no longer be approved or rejected.
+                        </p>
+                      )}
+
+                      {isPending && !isMissed && (
                         <div className="space-y-3">
                           <PendingBookingPayout
                             bookingId={booking.id}
