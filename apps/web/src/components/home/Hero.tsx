@@ -39,7 +39,9 @@ export function Hero() {
       />
       {/* Background color fill for desktop when image doesn't cover full width */}
       <div className="absolute inset-0 bg-[#8B7355] -z-10" />
-      <div className="absolute inset-0 bg-gradient-to-b from-surface-dark/40 via-transparent to-surface-dark" />
+      {/* Light theme: darken the photo so cream/forest type stays readable. Dark keeps the original wash. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/70 dark:from-surface-dark/40 dark:via-transparent dark:to-surface-dark" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent dark:from-transparent dark:via-transparent" />
 
       <div className="relative container mx-auto px-4 sm:px-6 h-full flex flex-col justify-center pb-24 sm:pb-16 md:pb-0">
         <motion.div
@@ -50,9 +52,9 @@ export function Hero() {
         >
 
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-8 sm:mb-10 md:mb-12 tracking-tight leading-[1.08] sm:leading-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-[#FAF3EA] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] mb-8 sm:mb-10 md:mb-12 tracking-tight leading-[1.08] sm:leading-tight dark:text-white dark:drop-shadow-none">
             Find your <br />
-            <span className="text-primary-500">wellness-friendly</span> <br />
+            <span className="text-[#E8C99A] dark:text-primary-500">wellness-friendly</span> <br />
             sanctuary
           </h1>
 
@@ -73,7 +75,7 @@ export function Hero() {
             </button>
             <Link
               href="/host"
-              className="bg-white/5 hover:bg-white/10 backdrop-blur-md border border-white/10 text-white px-6 sm:px-8 py-4 rounded-full font-bold transition-all text-center"
+              className="bg-[#FAF3EA] text-[#193F25] border border-[#193F25]/35 hover:bg-[#F4E6D4] px-6 sm:px-8 py-4 rounded-full font-bold transition-all text-center shadow-[0_12px_28px_rgba(25,63,37,0.18)] dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-white dark:shadow-none"
             >
               Become a Host
             </Link>

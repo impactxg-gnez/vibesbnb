@@ -267,7 +267,7 @@ export function Header() {
           <div className="flex items-center space-x-1.5 sm:space-x-3 md:space-x-6 shrink-0 min-w-0">
             <Link
               href="/favorites"
-              className="text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 flex items-center gap-2 group dark:text-gray-400 dark:hover:text-primary-400"
+              className="hidden md:flex text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 items-center gap-2 group dark:text-gray-400 dark:hover:text-primary-400"
             >
               <svg className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -276,7 +276,7 @@ export function Header() {
             </Link>
             <Link
               href="/bookings"
-              className="text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 text-xs md:text-sm font-semibold flex items-center gap-2 group dark:text-gray-400 dark:hover:text-primary-400"
+              className="hidden md:flex text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 text-xs md:text-sm font-semibold items-center gap-2 group dark:text-gray-400 dark:hover:text-primary-400"
             >
               <svg className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -384,8 +384,8 @@ export function Header() {
               <>
                 {user ? (
                   <>
-                    {/* User Menu — max-md: fixed insets so panel stays on-screen; md+: anchored to button */}
-                    <div className="relative z-[60]">
+                    {/* User Menu — hidden on phone (Profile tab); md+: anchored to button */}
+                    <div className="relative z-[60] hidden md:block">
                       <button
                         type="button"
                         onClick={() => setShowUserMenu(!showUserMenu)}
@@ -646,7 +646,7 @@ export function Header() {
                   </>
                 ) : (
                   <div className="flex items-center space-x-2 sm:space-x-4">
-                    <div className="relative z-[60]">
+                    <div className="relative z-[60] hidden md:block">
                       <button
                         type="button"
                         onClick={() => setShowGuestMenu(!showGuestMenu)}
