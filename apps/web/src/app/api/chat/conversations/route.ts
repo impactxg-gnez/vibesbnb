@@ -75,6 +75,13 @@ function isUuid(v: string): boolean {
   );
 }
 
+type PropertySummary = {
+  id: string;
+  name?: string | null;
+  location?: string | null;
+  cover_image?: string | null;
+};
+
 async function attachPropertySummaries(
   client: { from: (table: string) => any },
   rows: ConversationResponse[]
@@ -94,11 +101,9 @@ async function attachPropertySummaries(
     return rows;
   }
 
-  const byId = new Map(
-    (data || []).map((p: { id: string; name?: string; location?: string; cover_image?: string | null }) => [
-      p.id,
-      p,
-    ])
+  const summaries = (data || []) as PropertySummary[];
+  const byId = new Map<string, PropertySummary>(
+    summaries.map((p) => [p.id, p])
   );
 
   return rows.map((row) => {
@@ -108,8 +113,8 @@ async function attachPropertySummaries(
     return {
       ...row,
       properties: {
-        name: property.name,
-        location: property.location,
+        name: property.name ?? undefined,
+        location: property.location ?? undefined,
         images: cover ? [cover] : [],
       },
     };
