@@ -288,7 +288,7 @@ export function Header() {
               <>
                 <div className="flex md:hidden items-center bg-[#F4E6D4] border border-[#51372B]/20 rounded-full p-0.5 h-8 w-[136px] shrink-0 relative dark:bg-white/5 dark:border-white/10">
                   <div
-                    className={`absolute top-0.5 left-0.5 h-7 w-[62px] bg-primary-500 rounded-full transition-transform duration-300 ease-out shadow-[0_0_12px_rgba(16,185,129,0.35)] ${
+                    className={`absolute top-0.5 left-0.5 h-7 w-[62px] bg-[#193F25] rounded-full transition-transform duration-300 ease-out dark:bg-primary-500 dark:shadow-[0_0_12px_rgba(16,185,129,0.35)] ${
                       isInHostingMode ? 'translate-x-[64px]' : 'translate-x-0'
                     }`}
                     aria-hidden
@@ -297,19 +297,19 @@ export function Header() {
                     type="button"
                     onClick={switchToTraveler}
                     className={`flex-1 flex items-center justify-center gap-0.5 text-[9px] font-bold z-10 min-h-[28px] rounded-full transition-colors duration-300 ${
-                      !isInHostingMode ? 'text-black' : 'text-gray-400 active:text-white'
+                      !isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#6B5346] active:text-[#193F25] dark:text-gray-400 dark:active:text-white'
                     }`}
                     aria-pressed={!isInHostingMode}
                     aria-label="Switch to traveling — browse and book"
                   >
-                    <Plane size={12} className={!isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    <Plane size={12} className={!isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#B8A487] dark:text-gray-500'} />
                     Travel
                   </button>
                   <button
                     type="button"
                     onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
                     className={`flex-1 flex items-center justify-center gap-0.5 text-[9px] font-bold z-10 min-h-[28px] rounded-full transition-colors duration-300 ${
-                      isInHostingMode ? 'text-black' : 'text-gray-400 active:text-white'
+                      isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#6B5346] active:text-[#193F25] dark:text-gray-400 dark:active:text-white'
                     }`}
                     aria-pressed={isInHostingMode}
                     aria-label={
@@ -318,13 +318,13 @@ export function Header() {
                         : 'Become a host'
                     }
                   >
-                    <Building size={12} className={isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    <Building size={12} className={isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#B8A487] dark:text-gray-500'} />
                     Host
                   </button>
                 </div>
                 <div className="hidden md:flex items-center bg-[#F4E6D4] border border-[#51372B]/20 rounded-full p-1 h-10 w-44 relative group dark:bg-white/5 dark:border-white/10">
                   <div
-                    className={`absolute h-[30px] w-[84px] bg-primary-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
+                    className={`absolute h-[30px] w-[84px] bg-[#193F25] rounded-full transition-all duration-300 ease-out dark:bg-primary-500 dark:shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
                       isInHostingMode ? 'translate-x-[86px]' : 'translate-x-0'
                     }`}
                     aria-hidden
@@ -333,24 +333,24 @@ export function Header() {
                     type="button"
                     onClick={switchToTraveler}
                     className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
-                      !isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
+                      !isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#6B5346] hover:text-[#193F25] dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                     aria-pressed={!isInHostingMode}
                     aria-label="Switch to traveling"
                   >
-                    <Plane size={14} className={!isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    <Plane size={14} className={!isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#B8A487] dark:text-gray-500'} />
                     Traveling
                   </button>
                   <button
                     type="button"
                     onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
                     className={`flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold z-10 transition-colors duration-300 ${
-                      isInHostingMode ? 'text-black' : 'text-gray-400 hover:text-gray-200'
+                      isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#6B5346] hover:text-[#193F25] dark:text-gray-400 dark:hover:text-gray-200'
                     }`}
                     aria-pressed={isInHostingMode}
                     aria-label={hasHostOrSupportAccess ? 'Switch to hosting' : 'Become a host'}
                   >
-                    <Building size={14} className={isInHostingMode ? 'text-black' : 'text-gray-500'} />
+                    <Building size={14} className={isInHostingMode ? 'text-[#FAF3EA] dark:text-black' : 'text-[#B8A487] dark:text-gray-500'} />
                     Hosting
                   </button>
                 </div>
@@ -396,8 +396,8 @@ export function Header() {
                         <svg className="w-5 h-5 text-[#51372B] group-hover:text-[#193F25] transition-colors dark:text-gray-400 dark:group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
-                        <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(16,185,129,0.3)]">
-                          <span className="text-black text-xs font-bold">
+                        <div className="w-8 h-8 bg-[#193F25] rounded-full flex items-center justify-center dark:bg-primary-500 dark:shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                          <span className="text-[#FAF3EA] text-xs font-bold dark:text-black">
                             {user.email?.[0].toUpperCase()}
                           </span>
                         </div>
@@ -423,8 +423,8 @@ export function Header() {
                                 onClick={switchToTraveler}
                                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-2 text-xs font-bold transition-colors ${
                                   !isInHostingMode
-                                    ? 'bg-primary-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                    : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                                    ? 'bg-[#193F25] text-[#FAF3EA] dark:bg-primary-500 dark:text-black dark:shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                    : 'bg-[#F4E6D4] text-[#51372B] hover:bg-[#ECD5BB] dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10'
                                 }`}
                               >
                                 <Plane size={14} />
@@ -435,8 +435,8 @@ export function Header() {
                                 onClick={hasHostOrSupportAccess ? switchToHost : registerAsHost}
                                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-2 text-xs font-bold transition-colors ${
                                   isInHostingMode
-                                    ? 'bg-primary-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                    : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                                    ? 'bg-[#193F25] text-[#FAF3EA] dark:bg-primary-500 dark:text-black dark:shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                    : 'bg-[#F4E6D4] text-[#51372B] hover:bg-[#ECD5BB] dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10'
                                 }`}
                               >
                                 <Building size={14} />

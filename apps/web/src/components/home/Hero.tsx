@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Globe } from 'lucide-react';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 
 export function Hero() {
@@ -61,9 +62,13 @@ export function Hero() {
           <div className="mt-12 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 relative z-40">
             <button
               onClick={() => handleSearch()}
-              className="bg-primary-500 text-black px-6 sm:px-8 py-4 rounded-full font-bold flex items-center justify-center gap-3 hover:bg-primary-400 transition-all shadow-[0_0_30px_rgba(0,230,118,0.3)] group"
+              className="bg-[#193F25] text-[#FAF3EA] px-6 sm:px-8 py-4 rounded-full font-bold flex items-center justify-center gap-3 hover:bg-[#234F30] transition-all shadow-[0_12px_28px_rgba(25,63,37,0.28)] group dark:bg-primary-500 dark:text-black dark:hover:bg-primary-400 dark:shadow-[0_0_30px_rgba(0,230,118,0.3)]"
             >
-              <span className="text-xl group-hover:rotate-12 transition-transform">🌐</span>
+              <Globe
+                className="w-5 h-5 text-[#FFFFFF] dark:text-black group-hover:rotate-12 transition-transform"
+                strokeWidth={2.25}
+                aria-hidden
+              />
               Explore Properties
             </button>
             <Link
