@@ -534,7 +534,7 @@ export default function HostPropertiesPage() {
           totalBookings: 0,
           newBookings: 0,
         });
-        setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
+        setBookingSummary({ new: 0, upcoming: 0, previous: 0, missed: 0 });
       }
     } else {
       setProperties([]);
@@ -545,7 +545,7 @@ export default function HostPropertiesPage() {
         totalBookings: 0,
         newBookings: 0,
       });
-      setBookingSummary({ new: 0, upcoming: 0, previous: 0 });
+      setBookingSummary({ new: 0, upcoming: 0, previous: 0, missed: 0 });
     }
   };
 
