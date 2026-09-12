@@ -1422,7 +1422,7 @@ export default function SearchPage() {
                     <span className="hidden sm:inline">Dates</span>
                   </button>
                   {showDatePicker && (
-                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 w-[min(calc(100vw-1.5rem),22rem)] min-w-0 sm:min-w-[320px] sm:w-auto">
+                    <div className="absolute top-full right-0 mt-2 bg-[#FAF3EA] border border-[#51372B]/15 rounded-xl shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-4 w-[min(calc(100vw-1.5rem),22rem)] min-w-0 sm:min-w-[320px] sm:w-auto dark:bg-gray-900 dark:border-white/10 dark:shadow-xl">
                       <DateRangePicker
                         checkIn={searchParams.get('checkIn') || ''}
                         checkOut={searchParams.get('checkOut') || ''}
@@ -1459,12 +1459,12 @@ export default function SearchPage() {
                     <span className="hidden sm:inline">Guests</span>
                   </button>
                   {showGuestPicker && (
-                    <div className="absolute top-full right-0 mt-2 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 w-[min(calc(100vw-1.5rem),18rem)] min-w-0 sm:min-w-[240px] sm:w-auto">
+                    <div className="absolute top-full right-0 mt-2 bg-[#FAF3EA] border border-[#51372B]/15 rounded-xl shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-4 w-[min(calc(100vw-1.5rem),18rem)] min-w-0 sm:min-w-[240px] sm:w-auto dark:bg-gray-900 dark:border-white/10 dark:shadow-xl">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="text-white text-sm font-semibold">Adults</span>
-                            <p className="text-gray-400 text-xs">Ages 13+</p>
+                            <span className="text-[#193F25] text-sm font-semibold dark:text-white">Adults</span>
+                            <p className="text-[#6B5346] text-xs dark:text-gray-400">Ages 13+</p>
                           </div>
                           <div className="flex items-center gap-3">
                             <button
@@ -1476,11 +1476,11 @@ export default function SearchPage() {
                                   router.push(`/search?${params.toString()}`);
                                 }
                               }}
-                              className="w-8 h-8 rounded-lg border border-white/10 text-white hover:bg-white/10 flex items-center justify-center"
+                              className="w-8 h-8 rounded-lg border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] flex items-center justify-center dark:border-white/10 dark:bg-transparent dark:text-white dark:hover:bg-white/10"
                             >
                               −
                             </button>
-                            <span className="text-white font-semibold w-6 text-center">{searchParams.get('guests') || '1'}</span>
+                            <span className="text-[#193F25] font-semibold w-6 text-center dark:text-white">{searchParams.get('guests') || '1'}</span>
                             <button
                               onClick={() => {
                                 const currentGuests = parseInt(searchParams.get('guests') || '1');
@@ -1488,7 +1488,7 @@ export default function SearchPage() {
                                 params.set('guests', (currentGuests + 1).toString());
                                 router.push(`/search?${params.toString()}`);
                               }}
-                              className="w-8 h-8 rounded-lg border border-white/10 text-white hover:bg-white/10 flex items-center justify-center"
+                              className="w-8 h-8 rounded-lg border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] flex items-center justify-center dark:border-white/10 dark:bg-transparent dark:text-white dark:hover:bg-white/10"
                             >
                               +
                             </button>
@@ -1511,19 +1511,19 @@ export default function SearchPage() {
                   aria-label="Show Full Vibe and Balcony Vibe stays first"
                   title="Full Vibe (green) and Balcony Vibe (gold) stays first"
                   onClick={() => setVibeFirstPreference(!preferWellnessFriendly)}
-                  className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-full text-xs md:text-sm font-semibold transition-all border ${
                     preferWellnessFriendly
-                      ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.25)]'
-                      : 'bg-surface border border-white/10 text-muted hover:text-white'
+                      ? 'bg-[#193F25]/12 border-[#193F25]/45 text-[#193F25] dark:bg-emerald-500/20 dark:border-emerald-400/50 dark:text-emerald-200 dark:shadow-[0_0_16px_rgba(16,185,129,0.25)]'
+                      : 'bg-surface border-[#51372B]/20 text-[#51372B] hover:text-[#193F25] dark:border-white/10 dark:text-muted dark:hover:text-white'
                   }`}
                 >
                   <span
                     className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                      preferWellnessFriendly ? 'bg-emerald-500' : 'bg-gray-600'
+                      preferWellnessFriendly ? 'bg-[#193F25] dark:bg-emerald-500' : 'bg-[#B8A487] dark:bg-gray-600'
                     }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-[#FAF3EA] dark:bg-white transition-transform ${
                         preferWellnessFriendly ? 'translate-x-4' : 'translate-x-0.5'
                       }`}
                     />

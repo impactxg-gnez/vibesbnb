@@ -36,7 +36,7 @@ export function PropertyCategoryChips({
   const typeChips = HEADER_PROPERTY_CATEGORIES.filter((c) => c.id === 'studios' || c.id === 'condo');
 
   const renderGroup = (chips: typeof HEADER_PROPERTY_CATEGORIES) => (
-    <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-2 py-1.5 shadow-inner">
+    <div className="flex items-center bg-[#F4E6D4] border border-[#51372B]/15 rounded-2xl px-2 py-1.5 shadow-inner dark:bg-white/5 dark:border-white/10">
       {chips.map((chip, index) => {
         const Icon = CHIP_ICONS[chip.id];
         const isActive = activeCategory === chip.id;
@@ -48,7 +48,7 @@ export function PropertyCategoryChips({
               className={`px-4 py-1.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all duration-300 ${
                 isActive
                   ? 'bg-primary-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 group'
+                  : 'text-[#6B5346] hover:text-[#193F25] hover:bg-[#ECD5BB] group dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5'
               }`}
             >
               <Icon

@@ -245,7 +245,11 @@ export default function AboutPage() {
           </Link>
         </div>
         <p className="text-center text-muted text-sm mt-8">
-          Questions? Reach us at{' '}
+          Questions? See our{' '}
+          <Link href="/faq" className="text-primary-500 hover:text-primary-400">
+            FAQ
+          </Link>{' '}
+          or email{' '}
           <a href="mailto:info@vibesbnb.com" className="text-primary-500 hover:text-primary-400">
             info@vibesbnb.com
           </a>

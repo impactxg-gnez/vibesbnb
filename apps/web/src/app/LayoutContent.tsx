@@ -3,6 +3,7 @@
 import { Header } from '@/components/layout/Header';
 import { PhoneReminderBanner } from '@/components/layout/PhoneReminderBanner';
 import { Footer } from '@/components/layout/Footer';
+import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { AppVersionStamp } from '@/components/layout/AppVersionStamp';
 import { HostPendingBrowseModal } from '@/components/auth/HostPendingBrowseModal';
 
@@ -28,6 +29,7 @@ export function LayoutContent({ children }: LayoutContentProps) {
         {children}
       </main>
       <Footer />
+      <MobileTabBar />
       <AppVersionStamp />
     </div>
   );

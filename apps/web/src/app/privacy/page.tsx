@@ -58,7 +58,9 @@ export default function PrivacyPage() {
               <h2 className="text-xl font-semibold text-white mb-3">5. Cookies and Tracking</h2>
               <p>
                 We use cookies and similar tracking technologies to track activity on our service
-                and hold certain information to improve and analyze our service.
+                and hold certain information to improve and analyze our service. This includes
+                Microsoft Clarity, which records anonymized session behavior such as clicks,
+                scrolls, and heatmaps to help us understand how the site is used.
               </p>
             </section>
 

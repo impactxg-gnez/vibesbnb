@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PlatformFeeSync } from '@/components/PlatformFeeSync';
+import { MicrosoftClarity } from '@/components/analytics/MicrosoftClarity';
 import { useState } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         <ThemeProvider>
           <PlatformFeeSync />
+          <MicrosoftClarity />
           {children}
           <Toaster position="top-right" />
         </ThemeProvider>

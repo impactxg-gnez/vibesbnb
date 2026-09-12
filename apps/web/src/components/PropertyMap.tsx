@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { MAP_BACKGROUND, mapStylesForTheme } from '@/lib/googleMapStyles';
 
 /** Approximate stay area shown on the listing map (meters). Public default ~450m. */
 export const PROPERTY_MAP_APPROX_RADIUS_METERS = 450;
@@ -13,26 +15,6 @@ interface PropertyMapProps {
   /** Circle radius in meters; defaults to ~450m privacy buffer. */
   approximateRadiusMeters?: number;
 }
-
-const DARK_MAP_STYLES: Array<{
-  featureType?: string;
-  elementType?: string;
-  stylers: Array<Record<string, string>>;
-}> = [
-  { elementType: 'geometry', stylers: [{ color: '#1e1e1e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#b0b0b0' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1e1e1e' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#444444' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#252525' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#8a8a8a' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a3a3a' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#2a2a2a' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9a9a9a' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4a4a4a' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2a2a2a' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#64748b' }] },
-];
 
 function isFiniteCoord(lat: number, lng: number): boolean {
   return (
@@ -90,6 +72,9 @@ export function PropertyMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const circleRef = useRef<google.maps.Circle | null>(null);
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
   const initStartedRef = useRef(false);
   const [failed, setFailed] = useState(false);
 
@@ -114,15 +99,16 @@ export function PropertyMap({
         circleRef.current.setRadius(approximateRadiusMeters);
         circleRef.current.setMap(map);
       } else {
+        const light = themeRef.current === 'light';
         circleRef.current = new window.google.maps.Circle({
           map,
           center,
           radius: approximateRadiusMeters,
-          strokeColor: '#4ADE80',
+          strokeColor: light ? '#193F25' : '#4ADE80',
           strokeOpacity: 0.95,
           strokeWeight: 2,
-          fillColor: '#22C55E',
-          fillOpacity: 0.28,
+          fillColor: light ? '#193F25' : '#22C55E',
+          fillOpacity: light ? 0.16 : 0.28,
           clickable: false,
         });
       }
@@ -174,8 +160,8 @@ export function PropertyMap({
           disableDoubleClickZoom: false,
           minZoom: 13,
           maxZoom: 18,
-          styles: DARK_MAP_STYLES,
-          backgroundColor: '#1e1e1e',
+          styles: mapStylesForTheme(themeRef.current),
+          backgroundColor: MAP_BACKGROUND[themeRef.current],
         });
 
         mapInstanceRef.current = map;
@@ -267,12 +253,26 @@ export function PropertyMap({
     };
   }, [latitude, longitude, propertyName, approximateRadiusMeters]);
 
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const light = theme === 'light';
+    mapInstanceRef.current.setOptions({
+      styles: mapStylesForTheme(theme),
+      backgroundColor: MAP_BACKGROUND[theme],
+    });
+    circleRef.current?.setOptions({
+      strokeColor: light ? '#193F25' : '#4ADE80',
+      fillColor: light ? '#193F25' : '#22C55E',
+      fillOpacity: light ? 0.16 : 0.28,
+    });
+  }, [theme]);
+
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
 
   if (failed) {
     return (
       <div
-        className="relative flex h-full w-full flex-col items-center justify-center gap-3 bg-charcoal-900 px-6 text-center"
+        className="relative flex h-full w-full flex-col items-center justify-center gap-3 bg-[#FAF3EA] px-6 text-center dark:bg-charcoal-900"
         role="img"
         aria-label={`Map unavailable for ${propertyName}`}
       >
@@ -293,7 +293,7 @@ export function PropertyMap({
   return (
     <div
       ref={mapRef}
-      className="h-full w-full bg-charcoal-900"
+      className="h-full w-full bg-[#FAF3EA] dark:bg-charcoal-900"
       role="img"
       aria-label={`Approximate map location for ${propertyName} (${approximateRadiusMeters} meter area)`}
     />

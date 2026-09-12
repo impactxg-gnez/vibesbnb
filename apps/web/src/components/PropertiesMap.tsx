@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { useTheme } from '@/contexts/ThemeContext';
+import { MAP_BACKGROUND, mapStylesForTheme, markerColors } from '@/lib/googleMapStyles';
 
 interface Property {
   id: string;
@@ -39,6 +41,9 @@ export default function PropertiesMap({
   const markersMapRef = useRef<Map<string, any>>(new Map());
   const infoWindowsRef = useRef<Map<any, any>>(new Map());
   const [mapLoaded, setMapLoaded] = useState(false);
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   // Filter properties with coordinates - use useMemo to ensure stable reference
   const propertiesWithCoords = useMemo(() => {
@@ -152,13 +157,14 @@ export default function PropertiesMap({
     if (!mapInstanceRef.current || !window.google?.maps) return;
 
     // Reset all markers to default state
+    const colors = markerColors(themeRef.current);
     markersRef.current.forEach(marker => {
       marker.setIcon({
         path: window.google.maps.SymbolPath.CIRCLE,
         scale: 8,
-        fillColor: '#10b981', // Default green
+        fillColor: colors.active,
         fillOpacity: 1,
-        strokeColor: '#ffffff',
+        strokeColor: colors.stroke,
         strokeWeight: 2,
       });
       marker.setZIndex(1);
@@ -171,9 +177,9 @@ export default function PropertiesMap({
         marker.setIcon({
           path: window.google.maps.SymbolPath.CIRCLE,
           scale: 12, // Bigger
-          fillColor: '#059669', // Darker green
+          fillColor: colors.hover,
           fillOpacity: 1,
-          strokeColor: '#ffffff',
+          strokeColor: colors.stroke,
           strokeWeight: 3,
         });
         marker.setZIndex(999); // Bring to front
@@ -184,7 +190,7 @@ export default function PropertiesMap({
         // mapInstanceRef.current.setZoom(15);
       }
     }
-  }, [hoveredListingId, mapLoaded]);
+  }, [hoveredListingId, mapLoaded, theme]);
 
   const initializeMap = () => {
     if (!mapRef.current || !window.google?.maps || propertiesWithCoords.length === 0) {
@@ -204,37 +210,32 @@ export default function PropertiesMap({
       gestureHandling: 'greedy', // Enable scroll zoom without Ctrl key
       scrollwheel: true, // Enable mouse wheel zoom
       disableDoubleClickZoom: false, // Allow double-click zoom
-      styles: [
-        {
-          featureType: 'all',
-          elementType: 'labels.text.fill',
-          stylers: [{ color: '#ffffff' }],
-        },
-        {
-          featureType: 'all',
-          elementType: 'labels.text.stroke',
-          stylers: [{ color: '#000000' }, { visibility: 'on' }],
-        },
-        {
-          featureType: 'all',
-          elementType: 'labels.icon',
-          stylers: [{ visibility: 'off' }],
-        },
-        {
-          featureType: 'landscape',
-          elementType: 'geometry',
-          stylers: [{ color: '#1a1a1a' }],
-        },
-        {
-          featureType: 'water',
-          elementType: 'geometry',
-          stylers: [{ color: '#0a0a0a' }],
-        },
-      ],
+      backgroundColor: MAP_BACKGROUND[themeRef.current],
+      styles: mapStylesForTheme(themeRef.current),
     });
 
     updateMarkers();
   };
+
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    mapInstanceRef.current.setOptions({
+      styles: mapStylesForTheme(theme),
+      backgroundColor: MAP_BACKGROUND[theme],
+    });
+    const colors = markerColors(theme);
+    markersRef.current.forEach((marker) => {
+      const icon = marker.getIcon?.();
+      marker.setIcon({
+        path: window.google?.maps?.SymbolPath?.CIRCLE ?? icon?.path,
+        scale: icon?.scale ?? 8,
+        fillColor: colors.active,
+        fillOpacity: 1,
+        strokeColor: colors.stroke,
+        strokeWeight: icon?.strokeWeight ?? 2,
+      });
+    });
+  }, [theme]);
 
   const updateMarkers = () => {
     if (!mapInstanceRef.current || !window.google?.maps) {
@@ -308,6 +309,7 @@ export default function PropertiesMap({
           lng += (radius * Math.sin(angle)) / Math.cos(lat * Math.PI / 180);
         }
 
+        const colors = markerColors(themeRef.current);
         const marker = new window.google.maps.Marker({
           position: { lat, lng },
           map: mapInstanceRef.current,
@@ -315,9 +317,9 @@ export default function PropertiesMap({
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
             scale: 8,
-            fillColor: property.status === 'active' ? '#10b981' : '#f59e0b',
+            fillColor: property.status === 'active' ? colors.active : colors.draft,
             fillOpacity: 1,
-            strokeColor: '#ffffff',
+            strokeColor: colors.stroke,
             strokeWeight: 2,
           },
         });
@@ -333,7 +335,7 @@ export default function PropertiesMap({
             <div style="color: #000; min-width: 200px; cursor: pointer;" onclick="window.location.href='${listingPath(property.id)}'">
               <h3 style="margin: 0 0 8px 0; font-weight: 600; font-size: 16px;">${property.name}</h3>
               <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${property.location}</p>
-              <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 16px;">$${toTravelerPrice(property.price)}/night</p>
+              <p style="margin: 0; font-weight: 600; color: ${markerColors(themeRef.current).active}; font-size: 16px;">$${toTravelerPrice(property.price)}/night</p>
               ${property.status ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: ${property.status === 'active' ? '#10b981' : '#f59e0b'};">
                 ${property.status === 'active' ? '✓ Published' : 'Draft'}
               </p>` : ''}
@@ -349,7 +351,7 @@ export default function PropertiesMap({
                   <div style="padding: 8px 0; border-bottom: 1px solid #eee; cursor: pointer;" onclick="window.location.href='${listingPath(p.id)}'">
                     <h4 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${p.name}</h4>
                     <p style="margin: 0 0 2px 0; color: #666; font-size: 12px;">${p.location}</p>
-                    <p style="margin: 0; font-weight: 600; color: #10b981; font-size: 14px;">$${toTravelerPrice(p.price)}/night</p>
+                    <p style="margin: 0; font-weight: 600; color: ${markerColors(themeRef.current).active}; font-size: 14px;">$${toTravelerPrice(p.price)}/night</p>
                   </div>
                 `).join('')}
               </div>
@@ -412,10 +414,10 @@ export default function PropertiesMap({
 
   if (propertiesWithCoords.length === 0) {
     return (
-      <div className={`bg-gray-900 border border-gray-800 rounded-xl p-12 text-center ${className}`} style={{ height }}>
+      <div className={`bg-[#FAF3EA] border border-[#51372B]/15 rounded-xl p-12 text-center dark:bg-gray-900 dark:border-gray-800 ${className}`} style={{ height }}>
         <div className="text-6xl mb-4">🗺️</div>
-        <h3 className="text-xl font-semibold text-white mb-2">No Properties with Coordinates</h3>
-        <p className="text-gray-400">
+        <h3 className="text-xl font-semibold text-[#193F25] mb-2 dark:text-white">No Properties with Coordinates</h3>
+        <p className="text-[#6B5346] dark:text-gray-400">
           Add map coordinates to your properties to see them on the map
         </p>
       </div>
@@ -424,7 +426,7 @@ export default function PropertiesMap({
 
   return (
     <div
-      className={`relative bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col ${className}`}
+      className={`relative bg-[#FAF3EA] border border-[#51372B]/15 rounded-xl overflow-hidden flex flex-col dark:bg-gray-900 dark:border-gray-800 ${className}`}
       style={{ height }}
     >
       <div
@@ -434,14 +436,14 @@ export default function PropertiesMap({
         aria-label="Map of available stays. Use the listing list below for keyboard access."
       />
       {!mapLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+        <div className="absolute inset-0 flex items-center justify-center bg-[#FAF3EA] dark:bg-gray-900">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4" aria-hidden />
-            <p className="text-white" role="status">Loading map...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#193F25] dark:border-emerald-500 mx-auto mb-4" aria-hidden />
+            <p className="text-[#193F25] dark:text-white" role="status">Loading map...</p>
           </div>
         </div>
       )}
-      <div className="border-t border-white/10 max-h-40 overflow-y-auto bg-gray-950 shrink-0">
+      <div className="border-t border-[#51372B]/15 max-h-40 overflow-y-auto bg-[#F4E6D4] shrink-0 dark:border-white/10 dark:bg-gray-950">
         <h3 className="sr-only">Listings on map</h3>
         <ul className="divide-y divide-white/5">
           {propertiesWithCoords.map((p: Property & { coordinates: { lat: number; lng: number } }) => {

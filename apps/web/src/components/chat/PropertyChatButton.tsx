@@ -160,7 +160,7 @@ export default function PropertyChatButton({
     <>
       <button
         onClick={openChat}
-        className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition font-semibold text-lg flex items-center justify-center gap-2"
+        className="w-full px-6 py-4 bg-[#F4E6D4] text-[#193F25] border border-[#193F25]/30 rounded-lg hover:bg-[#ECD5BB] hover:border-[#193F25]/50 transition font-semibold text-lg flex items-center justify-center gap-2 mb-4 dark:bg-white/5 dark:text-white dark:border-white/15 dark:hover:bg-white/10"
       >
         <MessageCircle size={20} />
         Message Host

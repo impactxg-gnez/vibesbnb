@@ -58,7 +58,7 @@ export function ChooseYourVibeMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`inline-flex items-center gap-1.5 truncate rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-gray-200 hover:border-primary-500/40 hover:text-primary-400 transition ${
+        className={`inline-flex items-center gap-1.5 truncate rounded-full border border-[#51372B]/20 bg-[#F4E6D4] px-3 py-2 text-xs font-bold text-[#193F25] hover:border-[#193F25]/40 hover:text-[#122B1A] transition dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:border-primary-500/40 dark:hover:text-primary-400 ${
           fullWidth ? 'w-full justify-between max-w-none' : 'max-w-[11rem]'
         }`}
       >
@@ -68,7 +68,7 @@ export function ChooseYourVibeMenu({
       {open && (
         <div
           role="menu"
-          className={`absolute z-[80] mt-2 rounded-2xl border border-primary-500/20 bg-gray-950 py-2 shadow-2xl ${
+          className={`absolute z-[80] mt-2 rounded-2xl border border-[#51372B]/15 bg-[#FAF3EA] py-2 shadow-[0_15px_40px_rgba(81,55,43,0.16)] dark:border-primary-500/20 dark:bg-gray-950 dark:shadow-2xl ${
             fullWidth
               ? 'left-0 right-0 w-full'
               : 'left-1/2 w-52 -translate-x-1/2'
@@ -85,8 +85,8 @@ export function ChooseYourVibeMenu({
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition ${
                   isActive
-                    ? 'bg-primary-500/15 text-primary-400'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                    ? 'bg-[#193F25]/10 text-[#193F25] dark:bg-primary-500/15 dark:text-primary-400'
+                    : 'text-[#51372B] hover:bg-[#ECD5BB] hover:text-[#193F25] dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white'
                 }`}
               >
                 <Icon size={16} className={isActive ? 'text-primary-400' : 'text-gray-500'} />

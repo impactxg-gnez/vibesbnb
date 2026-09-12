@@ -184,6 +184,65 @@ export function DateRangePicker({
           height: 10px;
           flex-shrink: 0;
         }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker {
+          color: #51372b !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__header {
+          border-bottom: 1px solid rgba(81, 55, 43, 0.16) !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__current-month {
+          color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day-name {
+          color: #6b5346 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day {
+          color: #51372b !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day:hover {
+          background-color: rgba(25, 63, 37, 0.12) !important;
+          color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--in-range,
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--in-selecting-range {
+          background-color: rgba(25, 63, 37, 0.14) !important;
+          color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--range-start,
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--selecting-range-start,
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--range-end,
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--selecting-range-end,
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--selected {
+          background-color: #193f25 !important;
+          color: #ecd5bb !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--keyboard-selected:not(
+            .react-datepicker__day--selected
+          ):not(.react-datepicker__day--range-start):not(.react-datepicker__day--range-end):not(
+            .react-datepicker__day--in-range
+          ) {
+          background-color: rgba(25, 63, 37, 0.08) !important;
+          color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--disabled {
+          color: #b8a487 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__day--outside-month {
+          color: #b8a487 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__navigation,
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__navigation-icon {
+          color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__navigation--next {
+          border-left-color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__navigation--previous {
+          border-right-color: #193f25 !important;
+        }
+        html:not(.dark) .vibesbnb-daterange-picker .react-datepicker__navigation-icon::before {
+          border-color: #193f25 !important;
+        }
       `}</style>
 
       <div className="grid grid-cols-2 gap-3 mb-4">

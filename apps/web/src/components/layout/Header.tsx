@@ -17,6 +17,7 @@ import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchM
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { ChooseYourVibeMenu } from '@/components/properties/ChooseYourVibeMenu';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { COMPANY_LINKS } from '@/lib/companyLinks';
 
 export function Header() {
   const { user, signOut, loading } = useAuth();
@@ -243,7 +244,7 @@ export function Header() {
 
   return (
     <>
-    <header className="bg-surface-dark/90 backdrop-blur-xl border-b border-primary-500/10 sticky top-0 z-50 shadow-[0_4px_30px_-10px_rgba(16,185,129,0.15)]">
+    <header className="bg-[#FAF3EA]/95 backdrop-blur-xl border-b border-[#51372B]/15 sticky top-0 z-50 shadow-[0_4px_24px_-10px_rgba(81,55,43,0.12)] dark:bg-surface-dark/90 dark:border-primary-500/10 dark:shadow-[0_4px_30px_-10px_rgba(16,185,129,0.15)]">
       <div className="container mx-auto px-3 sm:px-6 max-w-full">
         <div className="flex items-center justify-between gap-2 h-16 sm:h-20 min-w-0">
           {/* Logo */}
@@ -251,37 +252,11 @@ export function Header() {
             <div className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)] shrink-0">
               <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-white tracking-tight group-hover:text-primary-400 transition-colors">VibesBNB</span>
+            <span className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-[#193F25] tracking-tight group-hover:text-[#B78438] transition-colors dark:text-white dark:group-hover:text-primary-400">VibesBNB</span>
           </Link>
 
           {/* Centered Navigation */}
           <nav className="hidden lg:flex items-center gap-5 xl:gap-6 min-w-0">
-            <div className="hidden xl:flex items-center gap-4 shrink-0 text-sm font-semibold">
-              <Link
-                href="/about"
-                className={`transition-colors ${
-                  pathname === '/about' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'
-                }`}
-              >
-                About
-              </Link>
-              <Link
-                href="/accessibility"
-                className={`transition-colors ${
-                  pathname === '/accessibility' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'
-                }`}
-              >
-                Accessibility
-              </Link>
-              <Link
-                href="/coming-soon"
-                className={`transition-colors ${
-                  pathname === '/coming-soon' ? 'text-primary-400' : 'text-gray-400 hover:text-primary-400'
-                }`}
-              >
-                Coming Soon
-              </Link>
-            </div>
             <PropertyCategoryChips
               hrefBase="/search"
               activeCategory={headerCategoryChip}
@@ -292,7 +267,7 @@ export function Header() {
           <div className="flex items-center space-x-1.5 sm:space-x-3 md:space-x-6 shrink-0 min-w-0">
             <Link
               href="/favorites"
-              className="text-gray-400 hover:text-primary-400 transition-colors duration-300 flex items-center gap-2 group"
+              className="text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 flex items-center gap-2 group dark:text-gray-400 dark:hover:text-primary-400"
             >
               <svg className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -301,7 +276,7 @@ export function Header() {
             </Link>
             <Link
               href="/bookings"
-              className="text-gray-400 hover:text-primary-400 transition-colors duration-300 text-xs md:text-sm font-semibold flex items-center gap-2 group"
+              className="text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 text-xs md:text-sm font-semibold flex items-center gap-2 group dark:text-gray-400 dark:hover:text-primary-400"
             >
               <svg className="w-4 h-4 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -311,7 +286,7 @@ export function Header() {
             {/* Mode switcher — mobile: compact pill; tablet+: full-width pill (same behavior) */}
             {user && mounted && (
               <>
-                <div className="flex md:hidden items-center bg-white/5 border border-white/10 rounded-full p-0.5 h-8 w-[136px] shrink-0 relative">
+                <div className="flex md:hidden items-center bg-[#F4E6D4] border border-[#51372B]/20 rounded-full p-0.5 h-8 w-[136px] shrink-0 relative dark:bg-white/5 dark:border-white/10">
                   <div
                     className={`absolute top-0.5 left-0.5 h-7 w-[62px] bg-primary-500 rounded-full transition-transform duration-300 ease-out shadow-[0_0_12px_rgba(16,185,129,0.35)] ${
                       isInHostingMode ? 'translate-x-[64px]' : 'translate-x-0'
@@ -347,7 +322,7 @@ export function Header() {
                     Host
                   </button>
                 </div>
-                <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full p-1 h-10 w-44 relative group">
+                <div className="hidden md:flex items-center bg-[#F4E6D4] border border-[#51372B]/20 rounded-full p-1 h-10 w-44 relative group dark:bg-white/5 dark:border-white/10">
                   <div
                     className={`absolute h-[30px] w-[84px] bg-primary-500 rounded-full transition-all duration-300 ease-out shadow-[0_0_15px_rgba(16,185,129,0.4)] ${
                       isInHostingMode ? 'translate-x-[86px]' : 'translate-x-0'
@@ -384,11 +359,11 @@ export function Header() {
             {user && !mounted && (
               <>
                 <div
-                  className="flex md:hidden h-8 w-[136px] shrink-0 rounded-full bg-white/5 border border-white/10"
+                  className="flex md:hidden h-8 w-[136px] shrink-0 rounded-full bg-[#F4E6D4] border border-[#51372B]/20 dark:bg-white/5 dark:border-white/10"
                   aria-hidden
                 />
                 <div
-                  className="hidden md:flex h-10 w-44 rounded-full bg-white/5 border border-white/10"
+                  className="hidden md:flex h-10 w-44 rounded-full bg-[#F4E6D4] border border-[#51372B]/20 dark:bg-white/5 dark:border-white/10"
                   aria-hidden
                 />
               </>
@@ -397,7 +372,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => setPropertySearchOpen(true)}
-              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-400 transition-colors duration-300 group"
+              className="w-8 h-8 flex items-center justify-center text-[#6B5346] hover:text-[#193F25] transition-colors duration-300 group dark:text-gray-400 dark:hover:text-primary-400"
               aria-label="Search by property name"
             >
               <svg className="w-5 h-5 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -414,11 +389,11 @@ export function Header() {
                       <button
                         type="button"
                         onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="flex items-center space-x-2 bg-white/5 hover:bg-primary-500/10 border border-white/10 hover:border-primary-500/50 rounded-full p-1 pl-3 transition-all duration-300 group"
+                        className="flex items-center space-x-2 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 hover:border-[#193F25]/40 rounded-full p-1 pl-3 transition-all duration-300 group dark:bg-white/5 dark:hover:bg-primary-500/10 dark:border-white/10 dark:hover:border-primary-500/50"
                         aria-expanded={showUserMenu}
                         aria-haspopup="menu"
                       >
-                        <svg className="w-5 h-5 text-gray-400 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-[#51372B] group-hover:text-[#193F25] transition-colors dark:text-gray-400 dark:group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                         <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(16,185,129,0.3)]">
@@ -432,7 +407,7 @@ export function Header() {
                       {showUserMenu && (
                         <div
                           role="menu"
-                          className="w-full min-w-0 max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(70vh,28rem)] max-md:overflow-y-auto max-md:overscroll-contain max-md:shadow-2xl md:absolute md:top-full md:mt-2 md:right-0 md:left-auto md:max-h-none md:overflow-hidden md:w-56 bg-gray-950 border border-primary-500/20 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)] z-[100]"
+                          className="w-full min-w-0 max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(70vh,28rem)] max-md:overflow-y-auto max-md:overscroll-contain max-md:shadow-2xl md:absolute md:top-full md:mt-2 md:right-0 md:left-auto md:max-h-none md:overflow-hidden md:w-56 bg-[#FAF3EA] border border-[#51372B]/15 rounded-2xl shadow-[0_15px_40px_rgba(81,55,43,0.16)] z-[100] dark:bg-gray-950 dark:border-primary-500/20 dark:shadow-[0_15px_40px_rgba(0,0,0,0.4)]"
                         >
                           <div className="px-4 py-3 bg-white/5 border-b border-white/5">
                             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Signed in as</p>
@@ -471,20 +446,16 @@ export function Header() {
                           </div>
                           
                           <div className="py-2">
-                            <Link
-                              href="/about"
-                              className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors xl:hidden"
-                              onClick={() => setShowUserMenu(false)}
-                            >
-                              About
-                            </Link>
-                            <Link
-                              href="/coming-soon"
-                              className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors xl:hidden"
-                              onClick={() => setShowUserMenu(false)}
-                            >
-                              Coming Soon
-                            </Link>
+                            {COMPANY_LINKS.map((item) => (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                {item.label}
+                              </Link>
+                            ))}
                             <Link
                               href="/profile"
                               className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
@@ -598,7 +569,7 @@ export function Header() {
                         <div
                           role="dialog"
                           aria-label="Switch account"
-                          className="w-full min-w-0 max-md:max-w-none max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(75vh,32rem)] max-md:overflow-y-auto max-md:overscroll-contain max-md:shadow-2xl md:absolute md:top-full md:mt-2 md:right-0 md:left-auto md:max-h-none md:overflow-hidden md:w-80 md:max-w-[min(20rem,calc(100vw-1.5rem))] bg-gray-950 border border-primary-500/30 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] py-5 z-[100] transform transition-all animate-in fade-in slide-in-from-top-4 duration-300"
+                          className="w-full min-w-0 max-md:max-w-none max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(75vh,32rem)] max-md:overflow-y-auto max-md:overscroll-contain max-md:shadow-2xl md:absolute md:top-full md:mt-2 md:right-0 md:left-auto md:max-h-none md:overflow-hidden md:w-80 md:max-w-[min(20rem,calc(100vw-1.5rem))] bg-[#FAF3EA] border border-[#51372B]/15 rounded-3xl shadow-[0_25px_60px_rgba(81,55,43,0.16)] py-5 z-[100] transform transition-all animate-in fade-in slide-in-from-top-4 duration-300 dark:bg-gray-950 dark:border-primary-500/30 dark:shadow-[0_25px_60px_rgba(0,0,0,0.6)]"
                         >
                           <div className="px-6 pb-4 border-b border-white/5 flex items-center justify-between">
                             <h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Switch Account</h3>
@@ -679,34 +650,30 @@ export function Header() {
                       <button
                         type="button"
                         onClick={() => setShowGuestMenu(!showGuestMenu)}
-                        className="flex items-center justify-center w-9 h-9 bg-white/5 hover:bg-primary-500/10 border border-white/10 hover:border-primary-500/50 rounded-full transition-all"
+                        className="flex items-center justify-center w-9 h-9 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 hover:border-[#193F25]/40 rounded-full transition-all dark:bg-white/5 dark:hover:bg-primary-500/10 dark:border-white/10 dark:hover:border-primary-500/50"
                         aria-expanded={showGuestMenu}
                         aria-haspopup="menu"
                         aria-label="Menu"
                       >
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-[#51372B] dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                       </button>
                       {showGuestMenu && (
                         <div
                           role="menu"
-                          className="absolute right-0 top-full mt-2 w-48 bg-gray-950 border border-primary-500/20 rounded-2xl shadow-2xl z-[100] py-2"
+                          className="absolute right-0 top-full mt-2 w-48 bg-[#FAF3EA] border border-[#51372B]/15 rounded-2xl shadow-[0_15px_40px_rgba(81,55,43,0.16)] z-[100] py-2 dark:bg-gray-950 dark:border-primary-500/20 dark:shadow-2xl"
                         >
-                          <Link
-                            href="/about"
-                            className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
-                            onClick={() => setShowGuestMenu(false)}
-                          >
-                            About
-                          </Link>
-                          <Link
-                            href="/coming-soon"
-                            className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
-                            onClick={() => setShowGuestMenu(false)}
-                          >
-                            Coming Soon
-                          </Link>
+                          {COMPANY_LINKS.map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
+                              onClick={() => setShowGuestMenu(false)}
+                            >
+                              {item.label}
+                            </Link>
+                          ))}
                           <Link
                             href="/login"
                             className="block px-4 py-2.5 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400"
@@ -728,20 +695,8 @@ export function Header() {
                       )}
                     </div>
                     <Link
-                      href="/about"
-                      className="hidden xl:inline text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
-                    >
-                      About
-                    </Link>
-                    <Link
-                      href="/coming-soon"
-                      className="hidden xl:inline text-gray-400 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
-                    >
-                      Coming Soon
-                    </Link>
-                    <Link
                       href="/login"
-                      className="text-gray-300 hover:text-primary-400 transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap"
+                      className="text-[#51372B] hover:text-[#193F25] transition-colors text-xs sm:text-sm font-semibold whitespace-nowrap dark:text-gray-300 dark:hover:text-primary-400"
                     >
                       Log In
                     </Link>

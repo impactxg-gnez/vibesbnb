@@ -144,6 +144,7 @@ vercel --prod
 NEXT_PUBLIC_API_URL=https://your-api-url.com
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_key
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+NEXT_PUBLIC_CLARITY_PROJECT_ID=your_clarity_project_id
 ```
 
 ## 🧪 Development

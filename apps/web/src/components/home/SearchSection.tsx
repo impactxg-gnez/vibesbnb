@@ -55,7 +55,6 @@ export function SearchSection({
   const [kids, setKids] = useState(initialValues?.kids || 0);
   const [pets, setPets] = useState(initialValues?.pets || 0);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isAiMode, setIsAiMode] = useState(false);
   const [vibeFirst, setVibeFirst] = useState(PREFER_WELLNESS_DEFAULT);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
@@ -294,29 +293,6 @@ export function SearchSection({
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white break-words">{searchHeading}</h2>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <button
-                onClick={() => setIsAiMode(false)}
-                className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full transition-all ${!isAiMode ? 'bg-primary-500 text-black' : 'text-muted hover:text-white'}`}
-              >
-                Standard
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAiMode(true)}
-                className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${isAiMode ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.4)]' : 'text-muted hover:text-white'}`}
-              >
-                <Sparkles size={12} />
-                AI Vibe Search
-                <span
-                  className={`ml-0.5 text-[9px] font-black uppercase tracking-tight px-1.5 py-0.5 rounded-md border ${
-                    isAiMode
-                      ? 'border-white/30 bg-white/10 text-white'
-                      : 'border-purple-500/40 bg-purple-500/15 text-purple-300'
-                  }`}
-                >
-                  Soon
-                </span>
-              </button>
-              <button
                 type="button"
                 role="switch"
                 aria-checked={vibeFirst}
@@ -335,17 +311,17 @@ export function SearchSection({
                 }}
                 className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-2 transition-all border ${
                   vibeFirst
-                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.3)]'
-                    : 'border-white/10 text-muted hover:text-white'
+                    ? 'bg-[#193F25]/12 border-[#193F25]/45 text-[#193F25] dark:bg-emerald-500/20 dark:border-emerald-400/50 dark:text-emerald-200 dark:shadow-[0_0_14px_rgba(16,185,129,0.3)]'
+                    : 'border-[#51372B]/20 text-[#51372B] hover:text-[#193F25] dark:border-white/10 dark:text-muted dark:hover:text-white'
                 }`}
               >
                 <span
                   className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
-                    vibeFirst ? 'bg-emerald-500' : 'bg-gray-600'
+                    vibeFirst ? 'bg-[#193F25] dark:bg-emerald-500' : 'bg-[#B8A487] dark:bg-gray-600'
                   }`}
                 >
                   <span
-                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    className={`inline-block h-3 w-3 transform rounded-full bg-[#FAF3EA] dark:bg-white transition-transform ${
                       vibeFirst ? 'translate-x-3.5' : 'translate-x-0.5'
                     }`}
                   />
@@ -412,31 +388,6 @@ export function SearchSection({
 
             {/* Search Inputs */}
             <div className="relative space-y-8 min-w-0 w-full">
-              {isAiMode ? (
-                <div className="relative overflow-hidden rounded-2xl border border-purple-500/25 bg-gradient-to-b from-purple-950/40 to-gray-950/80 p-8 md:p-12 text-center">
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(147,51,234,0.2),_transparent_55%)]" aria-hidden />
-                  <div className="relative space-y-5 max-w-lg mx-auto">
-                    <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-600/20 border border-purple-500/30 text-purple-300">
-                      <Sparkles className="w-7 h-7" strokeWidth={1.5} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-purple-300/90 mb-2">AI vibe search</p>
-                      <h3 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Coming soon</h3>
-                    </div>
-                    <p className="text-muted text-sm md:text-base leading-relaxed">
-                      Describe the stay you want in plain language and we&apos;ll match you with listings that fit the mood. We&apos;re finishing this experience — use{' '}
-                      <span className="text-white font-semibold">Standard</span> search below for now.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setIsAiMode(false)}
-                      className="mt-2 w-full sm:w-auto px-8 py-3.5 rounded-xl bg-primary-500 text-black font-bold hover:bg-primary-400 transition-colors shadow-[0_0_24px_rgba(16,185,129,0.25)]"
-                    >
-                      Back to standard search
-                    </button>
-                  </div>
-                </div>
-              ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 lg:gap-5 items-end w-full min-w-0">
                   {/* Where to? - Location Input */}
                   <div className="space-y-3 min-w-0" ref={locationDropdownRef}>
@@ -461,14 +412,14 @@ export function SearchSection({
                       </button>
 
                       {showLocationDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-3">
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-3 dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
                           <input
                             ref={locationInputRef}
                             type="text"
                             value={selectedLocation}
                             onChange={(e) => setSelectedLocation(e.target.value)}
                             placeholder="City or area"
-                            className="w-full px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-primary-500 mb-2"
+                            className="w-full px-4 py-3 bg-[#FFF8F0] border border-[#51372B]/15 rounded-xl text-[#51372B] placeholder-[#6B5346] focus:outline-none focus:ring-2 focus:ring-[#193F25] mb-2 dark:bg-white/5 dark:border-white/5 dark:text-white dark:placeholder-white/20 dark:focus:ring-primary-500"
                             autoFocus
                           />
                           <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-hide">
@@ -478,13 +429,13 @@ export function SearchSection({
                                   key={location}
                                   type="button"
                                   onClick={() => handleLocationSelect(location)}
-                                  className="w-full text-left px-4 py-3 text-white hover:bg-primary-500 hover:text-black rounded-xl transition-all font-medium"
+                                  className="w-full text-left px-4 py-3 text-[#51372B] hover:bg-[#193F25] hover:text-[#FAF3EA] rounded-xl transition-all font-medium dark:text-white dark:hover:bg-primary-500 dark:hover:text-black"
                                 >
                                   {location}
                                 </button>
                               ))
                             ) : (
-                              <div className="px-4 py-3 text-muted text-sm italic">No matching locations</div>
+                              <div className="px-4 py-3 text-[#6B5346] text-sm italic dark:text-muted">No matching locations</div>
                             )}
                           </div>
                         </div>
@@ -517,7 +468,7 @@ export function SearchSection({
                       </button>
 
                       {showDatePicker && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,24rem)] sm:max-w-none sm:min-w-[320px]">
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,24rem)] sm:max-w-none sm:min-w-[320px] dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
                           <DateRangePicker
                             checkIn={checkIn}
                             checkOut={checkOut}
@@ -562,28 +513,28 @@ export function SearchSection({
                       </button>
 
                       {showGuestPicker && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,20rem)] lg:left-0 lg:right-auto lg:w-max lg:max-w-none lg:min-w-[280px]">
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,20rem)] lg:left-0 lg:right-auto lg:w-max lg:max-w-none lg:min-w-[280px] dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
                           <div className="space-y-6">
                             {/* Adults */}
                             <div className="flex items-center justify-between">
                               <div>
-                                <span className="text-white font-bold">Adults</span>
-                                <p className="text-muted text-xs">Ages 13+</p>
+                                <span className="text-[#193F25] font-bold dark:text-white">Adults</span>
+                                <p className="text-[#6B5346] text-xs dark:text-muted">Ages 13+</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <button
                                   type="button"
                                   onClick={() => handleGuestChange(-1)}
                                   disabled={guests <= 1}
-                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] hover:border-[#193F25]/40 disabled:opacity-30 transition-all flex items-center justify-center font-bold dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/50"
                                 >
                                   −
                                 </button>
-                                <span className="text-white font-bold w-4 text-center">{guests}</span>
+                                <span className="text-[#193F25] font-bold w-4 text-center dark:text-white">{guests}</span>
                                 <button
                                   type="button"
                                   onClick={() => handleGuestChange(1)}
-                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] hover:border-[#193F25]/40 transition-all flex items-center justify-center font-bold dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/50"
                                 >
                                   +
                                 </button>
@@ -593,23 +544,23 @@ export function SearchSection({
                             {/* Kids */}
                             <div className="flex items-center justify-between">
                               <div>
-                                <span className="text-white font-bold">Children</span>
-                                <p className="text-muted text-xs">Ages 2-12</p>
+                                <span className="text-[#193F25] font-bold dark:text-white">Children</span>
+                                <p className="text-[#6B5346] text-xs dark:text-muted">Ages 2-12</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <button
                                   type="button"
                                   onClick={() => handleKidsChange(-1)}
                                   disabled={kids <= 0}
-                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] hover:border-[#193F25]/40 disabled:opacity-30 transition-all flex items-center justify-center font-bold dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/50"
                                 >
                                   −
                                 </button>
-                                <span className="text-white font-bold w-4 text-center">{kids}</span>
+                                <span className="text-[#193F25] font-bold w-4 text-center dark:text-white">{kids}</span>
                                 <button
                                   type="button"
                                   onClick={() => handleKidsChange(1)}
-                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] hover:border-[#193F25]/40 transition-all flex items-center justify-center font-bold dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/50"
                                 >
                                   +
                                 </button>
@@ -619,23 +570,23 @@ export function SearchSection({
                             {/* Pets */}
                             <div className="flex items-center justify-between">
                               <div>
-                                <span className="text-white font-bold">Pets</span>
-                                <p className="text-muted text-xs">Furry friends welcome</p>
+                                <span className="text-[#193F25] font-bold dark:text-white">Pets</span>
+                                <p className="text-[#6B5346] text-xs dark:text-muted">Furry friends welcome</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <button
                                   type="button"
                                   onClick={() => handlePetsChange(-1)}
                                   disabled={pets <= 0}
-                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 disabled:opacity-30 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] hover:border-[#193F25]/40 disabled:opacity-30 transition-all flex items-center justify-center font-bold dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/50"
                                 >
                                   −
                                 </button>
-                                <span className="text-white font-bold w-4 text-center">{pets}</span>
+                                <span className="text-[#193F25] font-bold w-4 text-center dark:text-white">{pets}</span>
                                 <button
                                   type="button"
                                   onClick={() => handlePetsChange(1)}
-                                  className="w-10 h-10 rounded-xl border border-white/30 bg-white/5 text-white hover:bg-white/10 hover:border-white/50 transition-all flex items-center justify-center font-bold"
+                                  className="w-10 h-10 rounded-xl border border-[#51372B]/25 bg-[#F4E6D4] text-[#193F25] hover:bg-[#ECD5BB] hover:border-[#193F25]/40 transition-all flex items-center justify-center font-bold dark:border-white/30 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:hover:border-white/50"
                                 >
                                   +
                                 </button>
@@ -669,7 +620,6 @@ export function SearchSection({
                     </div>
                   </button>
                 </div>
-              )}
             </div>
           </>
         )}

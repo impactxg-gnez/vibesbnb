@@ -1642,7 +1642,7 @@ export default function ListingDetailPage() {
               <button
                 onClick={handleBooking}
                 disabled={!!(user && property?.hostId && String(property.hostId) === String(user.id))}
-                className="w-full px-6 py-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-700 disabled:text-gray-300 disabled:cursor-not-allowed transition font-semibold text-lg mb-4"
+                className="w-full px-6 py-4 bg-[#193F25] text-[#FAF3EA] rounded-lg hover:bg-[#234F30] disabled:bg-[#B8A487] disabled:text-[#FAF3EA] disabled:cursor-not-allowed transition font-semibold text-lg mb-4 dark:bg-emerald-600 dark:text-white dark:hover:bg-emerald-700 dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
               >
                 <Calendar size={20} className="inline mr-2" />
                 {user && property?.hostId && String(property.hostId) === String(user.id)
