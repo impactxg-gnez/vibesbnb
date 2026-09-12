@@ -16,7 +16,7 @@ export function MobileTabBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface-dark/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden pb-[env(safe-area-inset-bottom,0px)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden pb-[env(safe-area-inset-bottom,0px)] bg-[#193F25] border-t border-[#E8C99A]/25 backdrop-blur-xl dark:bg-surface-dark/80 dark:border-white/5">
       <div className="grid grid-cols-5 h-20">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -24,8 +24,11 @@ export function MobileTabBar() {
             <Link
               key={item.id}
               href={item.href}
-              className={`relative flex flex-col items-center justify-center w-full h-full transition-colors ${isActive ? 'text-primary-500' : 'text-muted hover:text-white'
-                }`}
+              className={`relative flex flex-col items-center justify-center w-full h-full transition-colors ${
+                isActive
+                  ? 'text-[#E8C99A] dark:text-primary-500'
+                  : 'text-[#FAF3EA]/80 hover:text-[#FAF3EA] dark:text-muted dark:hover:text-white'
+              }`}
             >
               {isActive && (
                 <motion.div

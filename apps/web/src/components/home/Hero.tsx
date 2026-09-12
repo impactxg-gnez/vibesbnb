@@ -1,11 +1,64 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Globe } from 'lucide-react';
 import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
+
+const HERO_PHRASES = [
+  'wellness-friendly',
+  '420 certified',
+  'holistic-inclusive',
+  'session-friendly',
+] as const;
+
+function RotatingHeroPhrase() {
+  const reduceMotion = useReducedMotion();
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % HERO_PHRASES.length);
+    }, 2800);
+    return () => window.clearInterval(id);
+  }, [reduceMotion]);
+
+  const phrase = HERO_PHRASES[index];
+
+  return (
+    <span className="relative inline-grid overflow-hidden align-bottom text-[#E8C99A] dark:text-primary-500">
+      {HERO_PHRASES.map((item) => (
+        <span
+          key={item}
+          className="invisible col-start-1 row-start-1 whitespace-nowrap"
+          aria-hidden
+        >
+          {item}
+        </span>
+      ))}
+      {reduceMotion ? (
+        <span className="col-start-1 row-start-1 whitespace-nowrap">{HERO_PHRASES[0]}</span>
+      ) : (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={phrase}
+            className="col-start-1 row-start-1 whitespace-nowrap"
+            initial={{ opacity: 0, y: '0.45em' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '-0.45em' }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            aria-hidden
+          >
+            {phrase}
+          </motion.span>
+        </AnimatePresence>
+      )}
+    </span>
+  );
+}
 
 export function Hero() {
   const router = useRouter();
@@ -54,7 +107,8 @@ export function Hero() {
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-[#FAF3EA] drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)] mb-8 sm:mb-10 md:mb-12 tracking-tight leading-[1.08] sm:leading-tight dark:text-white dark:drop-shadow-none">
             Find your <br />
-            <span className="text-[#E8C99A] dark:text-primary-500">wellness-friendly</span> <br />
+            <span className="sr-only">wellness-friendly, 420 certified, holistic-inclusive, and session-friendly </span>
+            <RotatingHeroPhrase /> <br />
             sanctuary
           </h1>
 

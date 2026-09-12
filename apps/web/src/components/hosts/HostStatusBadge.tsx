@@ -26,8 +26,8 @@ export function HostStatusBadge({
     <span
       className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-bold whitespace-nowrap tracking-tight border ${className} ${
         isSuperBud
-          ? 'bg-amber-500/15 border-amber-400/35 text-amber-300'
-          : 'bg-sky-500/10 border-sky-400/30 text-sky-300'
+          ? 'bg-[#FEF3C7] border-[#B45309]/45 text-[#7C2D12] dark:bg-amber-500/15 dark:border-amber-400/35 dark:text-amber-300'
+          : 'bg-[#CFFAFE] border-[#0E7490]/40 text-[#155E75] dark:bg-sky-500/10 dark:border-sky-400/30 dark:text-sky-300'
       }`}
       title={
         isSuperBud
