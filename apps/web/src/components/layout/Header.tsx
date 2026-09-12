@@ -252,7 +252,7 @@ export function Header() {
             <div className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)] shrink-0">
               <img src="/logo.png" alt="VibesBNB Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-[#193F25] tracking-tight group-hover:text-[#B78438] transition-colors dark:text-white dark:group-hover:text-primary-400">VibesBNB</span>
+            <span className="text-base min-[380px]:text-lg sm:text-2xl font-bold text-[#193F25] tracking-tight group-hover:text-[#B78438] transition-colors truncate max-w-[28vw] min-[420px]:max-w-none dark:text-white dark:group-hover:text-primary-400">VibesBNB</span>
           </Link>
 
           {/* Centered Navigation */}
@@ -384,16 +384,34 @@ export function Header() {
               <>
                 {user ? (
                   <>
-                    {/* User Menu — hidden on phone (Profile tab); md+: anchored to button */}
-                    <div className="relative z-[60] hidden md:block">
+                    {/* User menu — compact burger on phone; avatar pill on md+ */}
+                    <div className="relative z-[60] shrink-0">
                       <button
                         type="button"
                         onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="flex items-center space-x-2 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 hover:border-[#193F25]/40 rounded-full p-1 pl-3 transition-all duration-300 group dark:bg-white/5 dark:hover:bg-primary-500/10 dark:border-white/10 dark:hover:border-primary-500/50"
+                        className="md:hidden relative flex items-center justify-center w-9 h-9 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 rounded-full dark:bg-white/5 dark:border-white/10"
                         aria-expanded={showUserMenu}
                         aria-haspopup="menu"
+                        aria-label="Menu"
                       >
-                        <svg className="w-5 h-5 text-[#51372B] group-hover:text-[#193F25] transition-colors dark:text-gray-400 dark:group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-[#51372B] dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                        </svg>
+                        {unreadMessages > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-emerald-500 text-black text-[9px] font-bold leading-[14px] text-center">
+                            {unreadMessages > 9 ? '9+' : unreadMessages}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowUserMenu(!showUserMenu)}
+                        className="hidden md:flex items-center space-x-2 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 hover:border-[#193F25]/40 rounded-full p-1 pl-3 transition-all duration-300 group dark:bg-white/5 dark:hover:bg-primary-500/10 dark:border-white/10 dark:hover:border-primary-500/50"
+                        aria-expanded={showUserMenu}
+                        aria-haspopup="menu"
+                        aria-label="Menu"
+                      >
+                        <svg className="w-5 h-5 text-[#51372B] group-hover:text-[#193F25] transition-colors dark:text-gray-400 dark:group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                         <div className="w-8 h-8 bg-[#193F25] rounded-full flex items-center justify-center dark:bg-primary-500 dark:shadow-[0_0_10px_rgba(16,185,129,0.3)]">
@@ -646,7 +664,7 @@ export function Header() {
                   </>
                 ) : (
                   <div className="flex items-center space-x-2 sm:space-x-4">
-                    <div className="relative z-[60] hidden md:block">
+                    <div className="relative z-[60] shrink-0">
                       <button
                         type="button"
                         onClick={() => setShowGuestMenu(!showGuestMenu)}
@@ -662,7 +680,7 @@ export function Header() {
                       {showGuestMenu && (
                         <div
                           role="menu"
-                          className="absolute right-0 top-full mt-2 w-48 bg-[#FAF3EA] border border-[#51372B]/15 rounded-2xl shadow-[0_15px_40px_rgba(81,55,43,0.16)] z-[100] py-2 dark:bg-gray-950 dark:border-primary-500/20 dark:shadow-2xl"
+                          className="w-full min-w-0 max-md:fixed max-md:left-3 max-md:right-3 max-md:top-[4.75rem] sm:max-md:top-24 max-md:mt-0 max-md:max-h-[min(70vh,28rem)] max-md:overflow-y-auto md:absolute md:right-0 md:top-full md:mt-2 md:w-48 md:left-auto bg-[#FAF3EA] border border-[#51372B]/15 rounded-2xl shadow-[0_15px_40px_rgba(81,55,43,0.16)] z-[100] py-2 dark:bg-gray-950 dark:border-primary-500/20 dark:shadow-2xl"
                         >
                           {COMPANY_LINKS.map((item) => (
                             <Link
