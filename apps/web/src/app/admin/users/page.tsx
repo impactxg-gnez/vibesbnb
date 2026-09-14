@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, User, Mail, Phone, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building, Pencil, ShieldBan } from 'lucide-react';
+import { Search, User, Mail, Phone, DollarSign, ToggleLeft, ToggleRight, Trash2, Eye, Download, Home, Plane, Users, Building, Pencil, ShieldBan, PlusCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
@@ -638,17 +638,30 @@ export default function ManageUsersPage() {
                             </button>
                           )}
                           {(userData.role === 'host' || (userData.properties_count ?? 0) > 0) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setImpersonatedHost(userData.id, userData.email || userData.name);
-                                router.push('/host/properties');
-                              }}
-                              className="text-emerald-600 hover:text-emerald-900 flex items-center gap-1 font-semibold"
-                            >
-                              <Home className="w-4 h-4" />
-                              Host view
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setImpersonatedHost(userData.id, userData.email || userData.name);
+                                  router.push('/host/properties');
+                                }}
+                                className="text-emerald-600 hover:text-emerald-900 flex items-center gap-1 font-semibold"
+                              >
+                                <Home className="w-4 h-4" />
+                                Host view
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setImpersonatedHost(userData.id, userData.email || userData.name);
+                                  router.push('/host/properties/new');
+                                }}
+                                className="text-teal-600 hover:text-teal-900 flex items-center gap-1 font-semibold"
+                              >
+                                <PlusCircle className="w-4 h-4" />
+                                Add listing
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={() => handleViewBookings(userData)}

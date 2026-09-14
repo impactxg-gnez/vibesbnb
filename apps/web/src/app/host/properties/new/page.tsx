@@ -29,6 +29,14 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
+import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
+import { isDataUrl, uploadPropertyImages } from '@/lib/propertyImageUpload';
+import { isAdminUser } from '@/lib/auth/isAdmin';
+import {
+  getImpersonatedHostId,
+  getImpersonationHostLabel,
+  onImpersonationChanged,
+} from '@/lib/adminHostImpersonation';
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import LocationPicker from '@/components/LocationPicker';
 import ImageReorder from '@/components/properties/ImageReorder';
@@ -143,6 +151,22 @@ export default function NewPropertyPage() {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Admins in host support mode create the listing on the host's account, not their own.
+  const [targetHost, setTargetHost] = useState<{ id: string; label: string } | null>(null);
+
+  useEffect(() => {
+    if (!user || !isAdminUser(user)) {
+      setTargetHost(null);
+      return;
+    }
+    const sync = () => {
+      const id = getImpersonatedHostId();
+      setTargetHost(id ? { id, label: getImpersonationHostLabel() || id } : null);
+    };
+    sync();
+    return onImpersonationChanged(sync);
+  }, [user?.id]);
 
   // Step definitions
   const steps = [
@@ -318,9 +342,10 @@ export default function NewPropertyPage() {
         }
       }
 
-      // In the host flow, always create listings for the signed-in host.
-      // Admin impersonation (sessionStorage) should not affect host-created listings.
-      const userId = (supabaseUser?.id || user.id) as string;
+      // Listings belong to the host being supported when an admin is in host support mode,
+      // otherwise to the signed-in host.
+      const signedInUserId = (supabaseUser?.id || user.id) as string;
+      const userId = targetHost?.id || signedInUserId;
 
       if (isSupabaseConfigured && !supabaseUser) {
         toast.error('Still signing you in. Wait a moment, then tap Publish again.');
@@ -402,6 +427,63 @@ export default function NewPropertyPage() {
 
         toast.success('Property published!');
         router.push('/host/application-submitted');
+      } else if (targetHost) {
+        // RLS only allows inserts where host_id is the caller's own id, so the admin route
+        // creates the listing (and the host's notification) with the service role.
+        const headers = await getHeadersForAdminFetch();
+        if (!headers.Authorization) {
+          throw new Error('Your admin session expired — please sign in again.');
+        }
+
+        // Photos go up after the row exists: embedded photos in the create body would blow
+        // past the serverless request limit and come back as a 413.
+        const response = await fetch('/api/admin/properties', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hostId: targetHost.id,
+            property: { ...propertyData, images: allImageUrls.filter((u) => !isDataUrl(u)) },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create the listing for this host');
+        }
+
+        const createdId: string = data.propertyId || propertyId;
+
+        if (allImageUrls.some(isDataUrl)) {
+          const toastId = toast.loading('Uploading photos…');
+          const upload = await uploadPropertyImages(createdId, allImageUrls, (done, total) => {
+            toast.loading(`Uploading photos… ${done}/${total}`, { id: toastId });
+          });
+          const stored = upload.urls.filter((u) => !isDataUrl(u));
+
+          if (stored.length > 0) {
+            const patch = await fetch(`/api/host/properties/${encodeURIComponent(createdId)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ images: stored }),
+            });
+            if (!patch.ok) {
+              const patchError = await patch.json().catch(() => ({}));
+              toast.error(patchError.error || 'Listing created, but photos could not be attached.', {
+                id: toastId,
+              });
+            } else if (upload.error) {
+              toast.error(`Some photos failed to upload: ${upload.error}`, { id: toastId });
+            } else {
+              toast.success('Photos uploaded.', { id: toastId });
+            }
+          } else {
+            toast.error(upload.error || 'Photos could not be uploaded.', { id: toastId });
+          }
+        }
+
+        toast.success(`Listing created for ${targetHost.label}.`, { duration: 5000 });
+        router.push(`/admin/listings?property=${encodeURIComponent(createdId)}`);
+        return;
       } else {
         const { error: insertError } = await supabase
           .from('properties')
@@ -1128,6 +1210,14 @@ export default function NewPropertyPage() {
             Here's what we'll show to guests. Make sure everything looks good.
           </p>
         </div>
+
+        {targetHost && (
+          <div className="mb-8 rounded-2xl border border-amber-500/40 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
+            This listing will be created on{' '}
+            <span className="font-semibold text-white">{targetHost.label}</span>'s account, not
+            yours. Exit host support mode in the banner above to list under your own account.
+          </div>
+        )}
 
         {/* Preview Card */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mb-8">

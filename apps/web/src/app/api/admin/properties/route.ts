@@ -12,6 +12,7 @@ import {
   ADMIN_PROPERTY_LIST_MAX_LIMIT,
 } from '@/lib/adminPropertySelect';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { PROPERTY_CREATE_KEYS, pickWritableProperty } from '@/lib/propertyWritableColumns';
 
 function accessTokenFromRequest(request: NextRequest): string {
   return request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
@@ -79,6 +80,109 @@ export async function GET(request: NextRequest) {
         ? ' Run SUPABASE_ADMIN_LIST_PROPERTIES_RPC.sql in the Supabase SQL editor, then redeploy.'
         : '';
     return NextResponse.json({ error: `${message}${hint}` }, { status: 500 });
+  }
+}
+
+const PROPERTY_STATUSES = ['active', 'draft', 'inactive', 'pending_approval'];
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+/**
+ * Creates a listing owned by `hostId` rather than the signed-in admin. Needs the service role
+ * because RLS only lets a user insert properties where `host_id` is their own id.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await authenticateAdminRequest(request);
+    if ('response' in auth) return auth.response;
+
+    const body = await request.json().catch(() => null);
+    const hostId = typeof body?.hostId === 'string' ? body.hostId.trim() : '';
+    const property =
+      body?.property && typeof body.property === 'object' && !Array.isArray(body.property)
+        ? (body.property as Record<string, unknown>)
+        : null;
+
+    if (!isUuid(hostId)) {
+      return NextResponse.json({ error: 'A valid host id is required' }, { status: 400 });
+    }
+    if (!property) {
+      return NextResponse.json({ error: 'property payload is required' }, { status: 400 });
+    }
+    if (!hasServiceRoleKey()) {
+      return NextResponse.json(
+        {
+          error:
+            'Server missing SUPABASE_SERVICE_ROLE_KEY. Add it in Vercel environment variables and redeploy.',
+        },
+        { status: 503 }
+      );
+    }
+
+    const serviceSupabase = createServiceClient();
+
+    const { data: host, error: hostError } = await serviceSupabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('id', hostId)
+      .maybeSingle();
+
+    if (hostError) throw hostError;
+    if (!host) {
+      return NextResponse.json({ error: 'Host account not found' }, { status: 404 });
+    }
+
+    const insertPayload = pickWritableProperty(property, PROPERTY_CREATE_KEYS);
+
+    const name = typeof insertPayload.name === 'string' ? insertPayload.name.trim() : '';
+    if (!name) {
+      return NextResponse.json({ error: 'Property name is required' }, { status: 400 });
+    }
+    if (
+      insertPayload.status != null &&
+      !PROPERTY_STATUSES.includes(String(insertPayload.status))
+    ) {
+      return NextResponse.json({ error: 'Invalid property status' }, { status: 400 });
+    }
+
+    const propertyId = `${hostId}_${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const { error: insertError } = await serviceSupabase.from('properties').insert({
+      ...insertPayload,
+      id: propertyId,
+      host_id: hostId,
+      status: insertPayload.status ?? 'active',
+      updated_at: now,
+    });
+
+    if (insertError) throw insertError;
+
+    try {
+      await serviceSupabase.from('notifications').insert({
+        user_id: hostId,
+        type: 'property_submitted',
+        title: 'Listing added to your account',
+        message: `"${name}" was added to your account by the VibesBNB team. Manage it from your host dashboard.`,
+        related_property_id: propertyId,
+      });
+    } catch (e) {
+      console.warn('[admin/properties POST] notification failed:', e);
+    }
+
+    void invalidatePropertyListingCaches(propertyId);
+
+    return NextResponse.json({
+      success: true,
+      propertyId,
+      host: { id: host.id, name: host.full_name ?? null, email: host.email ?? null },
+    });
+  } catch (error: unknown) {
+    console.error('Failed to create property for host:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create property';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
