@@ -14,6 +14,7 @@ import LocationPicker from '@/components/LocationPicker';
 import AvailabilityEditor from '@/components/properties/AvailabilityEditor';
 import ImageReorder from '@/components/properties/ImageReorder';
 import { applyWatermark } from '@/lib/image-utils';
+import { uploadPropertyImages } from '@/lib/propertyImageUpload';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import { CheckInOutPolicyEditor } from '@/components/host/CheckInOutPolicyEditor';
@@ -35,6 +36,8 @@ import {
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
+
+const PHOTO_UPLOAD_TOAST = 'property-photo-upload';
 
 async function bustListingCache(propertyId: string) {
   try {
@@ -640,6 +643,34 @@ export default function EditPropertyPage() {
       }
 
       if (isSupabaseConfigured && supabaseUser) {
+        // Photos have to reach the API as storage URLs. Embedded data URLs push the PATCH body
+        // past the serverless request limit, which fails the whole save with a 413.
+        const embeddedTotal = allImageUrls.filter((url) => url.startsWith('data:')).length;
+        let photoError: string | null = null;
+        let uploadedSoFar = 0;
+        const storedRooms: typeof roomsData = [];
+
+        if (embeddedTotal > 0) {
+          toast.loading(`Uploading photos (0/${embeddedTotal})…`, { id: PHOTO_UPLOAD_TOAST });
+        }
+
+        for (const room of roomsData) {
+          const stored = await uploadPropertyImages(formData.id, room.images, () => {
+            uploadedSoFar += 1;
+            toast.loading(`Uploading photos (${uploadedSoFar}/${embeddedTotal})…`, {
+              id: PHOTO_UPLOAD_TOAST,
+            });
+          });
+          photoError = photoError ?? stored.error;
+          storedRooms.push({ ...room, images: stored.urls });
+        }
+
+        if (embeddedTotal > 0) {
+          toast.dismiss(PHOTO_UPLOAD_TOAST);
+        }
+
+        const storedImageUrls = storedRooms.flatMap((room) => room.images as string[]);
+
         // Save via host API so admins can update any listing (service role bypasses RLS).
         // Direct client Supabase updates fail for admins on other hosts' properties.
         const updates = {
@@ -676,13 +707,21 @@ export default function EditPropertyPage() {
           }),
           amenities: formData.amenities,
           accessibility_description: formData.accessibilityDescription.trim() || null,
-          images: allImageUrls,
-          image_alts: allImageUrls.map((url: string, i: number) => ({
-            url,
-            alt: `${formData.name.trim() || 'Listing'} — photo ${i + 1}`,
-            source: 'fallback',
-          })),
-          rooms: roomsData,
+          // When a photo could not be stored, leave the photo columns alone and drop the room
+          // image arrays so the API keeps what is already saved instead of losing photos.
+          ...(photoError
+            ? {}
+            : {
+                images: storedImageUrls,
+                image_alts: storedImageUrls.map((url: string, i: number) => ({
+                  url,
+                  alt: `${formData.name.trim() || 'Listing'} — photo ${i + 1}`,
+                  source: 'fallback',
+                })),
+              }),
+          rooms: photoError
+            ? storedRooms.map(({ images: _images, ...room }) => room)
+            : storedRooms,
           latitude: formData.coordinates?.lat,
           longitude: formData.coordinates?.lng,
           google_maps_url: formData.googleMapsUrl,
@@ -735,8 +774,8 @@ export default function EditPropertyPage() {
                     ...policyToDbColumns(formData.checkInOut),
                     amenities: formData.amenities,
                     // Prefer remote URLs only — data: previews blow localStorage quota
-                    images: allImageUrls.filter((u) => /^https?:\/\//i.test(u)),
-                    rooms: roomsData.map((r: { images?: string[] }) => ({
+                    images: storedImageUrls.filter((u) => /^https?:\/\//i.test(u)),
+                    rooms: storedRooms.map((r: { images?: string[] }) => ({
                       ...r,
                       images: (r.images || []).filter((u) => /^https?:\/\//i.test(u)),
                     })),
@@ -754,7 +793,16 @@ export default function EditPropertyPage() {
         }
 
         await bustListingCache(formData.id);
-        toast.success(publish ? 'Property published successfully!' : 'Property updated successfully!');
+        if (photoError) {
+          toast.success(
+            publish ? 'Property published — photos unchanged.' : 'Property updated — photos unchanged.'
+          );
+          toast.error(`Photos could not be uploaded: ${photoError}`, { duration: 8000 });
+        } else {
+          toast.success(
+            publish ? 'Property published successfully!' : 'Property updated successfully!'
+          );
+        }
         router.push('/host/properties');
       } else {
         // Fallback to localStorage (for demo accounts)
