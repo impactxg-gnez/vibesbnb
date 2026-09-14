@@ -77,7 +77,11 @@ export function PhoneOtpVerification({
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
-  const useDemoOtp = !isSupabaseConfigured() || !isFirebaseWebConfigured();
+  // Fake OTP is local-dev only. Production must send a real SMS even if Firebase
+  // env vars are missing — otherwise any 6-digit code would "verify" a number.
+  const useDemoOtp =
+    process.env.NODE_ENV !== 'production' &&
+    (!isSupabaseConfigured() || !isFirebaseWebConfigured());
 
   useEffect(() => {
     return () => {
@@ -132,6 +136,13 @@ export function PhoneOtpVerification({
         confirmationRef.current = null;
         lastOtpSentAtRef.current = Date.now();
         toast.success('Demo mode: enter any 6-digit code to continue.');
+        return;
+      }
+
+      if (!isFirebaseWebConfigured()) {
+        toast.error(
+          'Phone verification is not available. SMS is not configured on this site yet.'
+        );
         return;
       }
 
