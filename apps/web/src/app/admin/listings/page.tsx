@@ -68,6 +68,7 @@ export default function ManageListingsPage() {
   const searchParams = useSearchParams();
   const [properties, setProperties] = useState<Property[]>([]);
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     city: '',
@@ -129,9 +130,15 @@ export default function ManageListingsPage() {
       const response = await fetch('/api/admin/properties?limit=100', {
         headers: { ...headers },
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => ({}));
 
-      if (!response.ok) throw new Error(payload.error || 'Failed to load properties');
+      if (!response.ok) {
+        throw new Error(
+          payload.error || `Failed to load properties (HTTP ${response.status})`
+        );
+      }
+
+      setLoadError(null);
 
       // For each property, try to get host info
       const propertiesWithHosts = await Promise.all(
@@ -154,6 +161,7 @@ export default function ManageListingsPage() {
       console.error('Error loading properties:', error);
       const message =
         error instanceof Error && error.message ? error.message : 'Failed to load properties';
+      setLoadError(message);
       toast.error(message);
     }
   }, []);
@@ -488,7 +496,23 @@ export default function ManageListingsPage() {
         <div className="flex flex-col xl:flex-row gap-6 items-start">
         {/* Properties Grid */}
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${selectedProperty ? 'xl:flex-1' : 'w-full lg:grid-cols-3'}`}>
-          {filteredProperties.length === 0 ? (
+          {loadError ? (
+            <div
+              className="col-span-full rounded-lg border border-red-200 bg-red-50 p-6 text-center"
+              role="alert"
+            >
+              <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" aria-hidden />
+              <p className="font-semibold text-red-900">Could not load properties</p>
+              <p className="mt-2 text-sm text-red-700 break-words">{loadError}</p>
+              <button
+                type="button"
+                onClick={() => void reloadProperties({ silent: true })}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+              >
+                Try again
+              </button>
+            </div>
+          ) : filteredProperties.length === 0 ? (
             <div className="col-span-full text-center py-12">
               <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">No listings found</p>

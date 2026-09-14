@@ -5,7 +5,7 @@ import {
   hasServiceRoleKey,
 } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
-import { fetchAdminPropertyList } from '@/lib/adminPropertyList';
+import { describeAdminListError, fetchAdminPropertyList } from '@/lib/adminPropertyList';
 import {
   ADMIN_PROPERTY_DETAIL_COLUMNS,
   ADMIN_PROPERTY_LIST_DEFAULT_LIMIT,
@@ -70,7 +70,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Failed to load admin properties:', error);
-    const message = error instanceof Error ? error.message : 'Failed to load properties';
+    const message =
+      error instanceof Error
+        ? error.message
+        : describeAdminListError((error ?? {}) as { message?: string });
     const hint =
       message.includes('statement timeout') || message.includes('57014')
         ? ' Run SUPABASE_ADMIN_LIST_PROPERTIES_RPC.sql in the Supabase SQL editor, then redeploy.'

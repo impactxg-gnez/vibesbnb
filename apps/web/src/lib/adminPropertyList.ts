@@ -3,14 +3,33 @@ import { ADMIN_PROPERTY_LIST_COLUMNS } from '@/lib/adminPropertySelect';
 
 export type AdminPropertyListRow = Record<string, unknown>;
 
-function isMissingRpcError(error: { code?: string; message?: string }): boolean {
+type PgLikeError = {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+/** Core columns guaranteed by SUPABASE_00_SCHEMA_BOOTSTRAP.sql on every deployment. */
+const ADMIN_PROPERTY_LIST_CORE_COLUMNS = 'id,name,title,location,price,rating,status,created_at';
+
+/** Postgres/PostgREST "column does not exist" — schema drift between environments. */
+function isUndefinedColumnError(error: PgLikeError): boolean {
   const msg = error.message ?? '';
   return (
-    error.code === '42883' ||
-    error.code === 'PGRST202' ||
-    msg.includes('admin_list_properties') ||
-    msg.includes('Could not find the function')
+    error.code === '42703' ||
+    error.code === 'PGRST204' ||
+    /column .* does not exist/i.test(msg)
   );
+}
+
+/** Flatten a Supabase error into a message that keeps the SQLSTATE and details. */
+export function describeAdminListError(error: PgLikeError): string {
+  const parts = [error.message?.trim() || 'Failed to load properties'];
+  if (error.code) parts.push(`[${error.code}]`);
+  if (error.details) parts.push(String(error.details).trim());
+  if (error.hint) parts.push(String(error.hint).trim());
+  return parts.filter(Boolean).join(' ');
 }
 
 function firstImageUrl(images: unknown): string | null {
@@ -79,29 +98,16 @@ async function withCoverImages(
   });
 }
 
-/** Fast path: DB RPC (SECURITY DEFINER, index-friendly). Fallback: slim PostgREST select. */
-export async function fetchAdminPropertyList(
+/** Slim PostgREST select used whenever the RPC is unavailable or fails. */
+async function selectPropertyList(
   supabase: SupabaseClient,
+  columns: string,
   opts: { status: string; limit: number; offset: number }
-): Promise<AdminPropertyListRow[]> {
-  const { data, error } = await supabase.rpc('admin_list_properties', {
-    p_status: opts.status,
-    p_limit: opts.limit,
-    p_offset: opts.offset,
-  });
-
-  if (!error && Array.isArray(data)) {
-    return withCoverImages(supabase, data as AdminPropertyListRow[]);
-  }
-
-  if (error && !isMissingRpcError(error)) {
-    throw error;
-  }
-
+) {
   const fallbackLimit = Math.min(opts.limit, 50);
   let query = supabase
     .from('properties')
-    .select(ADMIN_PROPERTY_LIST_COLUMNS)
+    .select(columns)
     .order('created_at', { ascending: false })
     .range(opts.offset, opts.offset + fallbackLimit - 1);
 
@@ -109,7 +115,64 @@ export async function fetchAdminPropertyList(
     query = query.eq('status', opts.status);
   }
 
-  const { data: rows, error: queryError } = await query;
-  if (queryError) throw queryError;
-  return withCoverImages(supabase, (rows ?? []) as unknown as AdminPropertyListRow[]);
+  return query;
+}
+
+/**
+ * Fast path: DB RPC (SECURITY DEFINER, index-friendly).
+ * Any RPC failure (missing function, missing grant, result-type drift) degrades to a slim
+ * PostgREST select so the admin grid keeps working, and a missing optional column degrades
+ * again to core columns only. Only a total failure surfaces as an error.
+ */
+export async function fetchAdminPropertyList(
+  supabase: SupabaseClient,
+  opts: { status: string; limit: number; offset: number }
+): Promise<AdminPropertyListRow[]> {
+  const { data, error: rpcError } = await supabase.rpc('admin_list_properties', {
+    p_status: opts.status,
+    p_limit: opts.limit,
+    p_offset: opts.offset,
+  });
+
+  if (!rpcError && Array.isArray(data)) {
+    return withCoverImages(supabase, data as AdminPropertyListRow[]);
+  }
+
+  if (rpcError) {
+    console.warn(
+      '[adminPropertyList] admin_list_properties RPC unavailable, using PostgREST fallback:',
+      describeAdminListError(rpcError)
+    );
+  }
+
+  const { data: rows, error: queryError } = await selectPropertyList(
+    supabase,
+    ADMIN_PROPERTY_LIST_COLUMNS,
+    opts
+  );
+
+  if (!queryError) {
+    return withCoverImages(supabase, (rows ?? []) as unknown as AdminPropertyListRow[]);
+  }
+
+  if (!isUndefinedColumnError(queryError)) {
+    throw new Error(describeAdminListError(queryError));
+  }
+
+  console.warn(
+    '[adminPropertyList] optional column missing, retrying with core columns:',
+    describeAdminListError(queryError)
+  );
+
+  const { data: coreRows, error: coreError } = await selectPropertyList(
+    supabase,
+    ADMIN_PROPERTY_LIST_CORE_COLUMNS,
+    opts
+  );
+
+  if (coreError) {
+    throw new Error(describeAdminListError(coreError));
+  }
+
+  return withCoverImages(supabase, (coreRows ?? []) as unknown as AdminPropertyListRow[]);
 }
