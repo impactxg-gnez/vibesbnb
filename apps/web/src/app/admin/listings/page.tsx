@@ -20,6 +20,7 @@ import {
   Trash2,
   X,
   PanelRight,
+  Image as ImageIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
@@ -187,6 +188,8 @@ export default function ManageListingsPage() {
   });
   const [savingQuickEdit, setSavingQuickEdit] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [migratingPhotos, setMigratingPhotos] = useState(false);
+  const [migratingAllPhotos, setMigratingAllPhotos] = useState(false);
 
   const openPropertyManagement = async (property: Property) => {
     setSelectedProperty(property);
@@ -278,6 +281,171 @@ export default function ManageListingsPage() {
       toast.error(e instanceof Error ? e.message : 'Failed to save');
     } finally {
       setSavingQuickEdit(false);
+    }
+  };
+
+  /**
+   * Photos saved as base64 never reach the listing gallery, which accepts http(s) URLs only.
+   * The API migrates a few photos per call, so keep calling until nothing is left.
+   */
+  const migratePropertyPhotos = useCallback(
+    async (
+      propertyId: string,
+      onProgress?: (moved: number, remaining: number) => void
+    ): Promise<{ moved: number; unfinished: boolean }> => {
+      let moved = 0;
+
+      for (let pass = 0; pass < 60; pass++) {
+        const response = await fetch(
+          `/api/host/properties/${encodeURIComponent(propertyId)}/images/migrate`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ limit: 6 }),
+          }
+        );
+        const payload = (await response.json().catch(() => ({}))) as {
+          migrated?: number;
+          remaining?: number;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || `Photo migration failed (${response.status})`);
+        }
+
+        moved += payload.migrated ?? 0;
+        if (!payload.remaining) return { moved, unfinished: false };
+        onProgress?.(moved, payload.remaining);
+      }
+
+      return { moved, unfinished: true };
+    },
+    []
+  );
+
+  const handleMigratePhotos = async (property: Property) => {
+    setMigratingPhotos(true);
+    const toastId = 'migrate-photos';
+    toast.loading('Moving photos to storage…', { id: toastId });
+
+    try {
+      const { moved, unfinished } = await migratePropertyPhotos(
+        property.id,
+        (done, remaining) => {
+          toast.loading(`Moving photos to storage… ${done} done, ${remaining} left`, {
+            id: toastId,
+          });
+        }
+      );
+
+      if (unfinished) {
+        toast.success(`Moved ${moved} photos. Run it again to finish the rest.`, { id: toastId });
+      } else {
+        toast.success(
+          moved > 0
+            ? `Moved ${moved} photo${moved === 1 ? '' : 's'} to storage.`
+            : 'Photos are already stored as URLs.',
+          { id: toastId }
+        );
+      }
+      await reloadProperties({ silent: true });
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Photo migration failed', {
+        id: toastId,
+      });
+    } finally {
+      setMigratingPhotos(false);
+    }
+  };
+
+  /** Every listing id, paged, so the bulk pass also covers listings not in the current filter. */
+  const fetchAllPropertyIds = useCallback(async (): Promise<string[]> => {
+    const headers = await getHeadersForAdminFetch();
+    if (!headers.Authorization) throw new Error('No valid session — please sign in again.');
+
+    const ids: string[] = [];
+    // 50 matches the API's PostgREST fallback cap, so `hasMore` stays accurate while paging.
+    const pageSize = 50;
+
+    for (let offset = 0; offset < 5000; offset += pageSize) {
+      const response = await fetch(
+        `/api/admin/properties?limit=${pageSize}&offset=${offset}`,
+        { headers: { ...headers } }
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        properties?: Array<{ id?: unknown }>;
+        hasMore?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok) throw new Error(payload.error || 'Failed to list properties');
+
+      for (const row of payload.properties ?? []) {
+        if (typeof row.id === 'string') ids.push(row.id);
+      }
+      if (!payload.hasMore) break;
+    }
+
+    return ids;
+  }, []);
+
+  const handleMigrateAllPhotos = async () => {
+    if (
+      !confirm(
+        'Move photos to storage for every listing? This can take several minutes — keep this tab open until it finishes.'
+      )
+    ) {
+      return;
+    }
+
+    setMigratingAllPhotos(true);
+    const toastId = 'migrate-all-photos';
+    toast.loading('Listing properties…', { id: toastId });
+
+    let totalMoved = 0;
+    let listingsChanged = 0;
+    const failures: string[] = [];
+
+    try {
+      const ids = await fetchAllPropertyIds();
+
+      for (let i = 0; i < ids.length; i++) {
+        const label = `Listing ${i + 1}/${ids.length}`;
+        toast.loading(`${label} — ${totalMoved} photos moved`, { id: toastId });
+
+        try {
+          const { moved } = await migratePropertyPhotos(ids[i], (done, remaining) => {
+            toast.loading(`${label} — ${totalMoved + done} moved, ${remaining} left here`, {
+              id: toastId,
+            });
+          });
+          totalMoved += moved;
+          if (moved > 0) listingsChanged += 1;
+        } catch (error: unknown) {
+          // One bad listing should not stop the rest of the run.
+          failures.push(ids[i]);
+          console.error('[migrate-all-photos]', ids[i], error);
+        }
+      }
+
+      const summary = `Moved ${totalMoved} photo${totalMoved === 1 ? '' : 's'} across ${listingsChanged} listing${listingsChanged === 1 ? '' : 's'}.`;
+      if (failures.length > 0) {
+        toast.error(`${summary} ${failures.length} listing(s) failed — see console.`, {
+          id: toastId,
+          duration: 10000,
+        });
+      } else {
+        toast.success(summary, { id: toastId, duration: 8000 });
+      }
+      await reloadProperties({ silent: true });
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Photo migration failed', {
+        id: toastId,
+      });
+    } finally {
+      setMigratingAllPhotos(false);
     }
   };
 
@@ -434,14 +602,30 @@ export default function ManageListingsPage() {
               Select a property to edit details, approve listings, or publish team reviews.
             </p>
           </div>
-          <button
-            onClick={handleSyncAllCoordinates}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
-          >
-            {syncing ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
-            Sync All Coordinates
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleMigrateAllPhotos}
+              disabled={migratingAllPhotos}
+              title="Move every listing's base64 photos into Supabase Storage so galleries can show them"
+              className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition disabled:opacity-50"
+            >
+              {migratingAllPhotos ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <ImageIcon size={18} />
+              )}
+              {migratingAllPhotos ? 'Moving photos…' : 'Move All Photos to Storage'}
+            </button>
+            <button
+              onClick={handleSyncAllCoordinates}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+            >
+              {syncing ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
+              Sync All Coordinates
+            </button>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -813,6 +997,23 @@ export default function ManageListingsPage() {
                   className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold"
                 >
                   {savingQuickEdit ? 'Saving…' : 'Save listing changes'}
+                </button>
+              </div>
+
+              <div className="border-t border-gray-200 pt-5 space-y-2">
+                <h3 className="text-sm font-bold text-gray-900">Photos</h3>
+                <p className="text-xs text-gray-500">
+                  Listing galleries only show photos stored as URLs. Use this when a listing shows a
+                  placeholder or just its cover photo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleMigratePhotos(selectedProperty)}
+                  disabled={migratingPhotos}
+                  className="w-full px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 text-sm font-semibold flex items-center justify-center gap-2"
+                >
+                  {migratingPhotos ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {migratingPhotos ? 'Moving photos…' : 'Move photos to storage'}
                 </button>
               </div>
 
