@@ -22,6 +22,7 @@ import {
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { normalizeCancellationPolicy } from '@/lib/cancellationPolicy';
+import { guestCapacityMessage, resolveGuestCapacity } from '@/lib/guestCapacity';
 import { getServiceFeePercent, getHostFeePercent } from '@/lib/platformSettings';
 import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
 import { dispatchAdminNewBookingEmail } from '@/lib/notifications/dispatchAdminNewBookingEmail';
@@ -86,11 +87,12 @@ export async function POST(request: NextRequest) {
     const serviceSupabase = createServiceClient();
 
     // Get property to find host_id
+    const BOOKING_PROPERTY_COLUMNS =
+      'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee, cancellation_policy';
+
     const { data: propertyRow, error: propertyError } = await serviceSupabase
       .from('properties')
-      .select(
-        'host_id, name, images, guest_agreement_url, min_booking_nights, price, cleaning_fee, allow_direct_booking, guests, allow_extra_guests, extra_guest_price, refundable_deposit, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee, cancellation_policy'
-      )
+      .select(BOOKING_PROPERTY_COLUMNS)
       .eq('id', property_id)
       .single();
 
@@ -112,6 +114,16 @@ export async function POST(request: NextRequest) {
     if (String(hostId) === String(userId)) {
       return NextResponse.json(
         { error: 'Hosts cannot create bookings for their own properties' },
+        { status: 400 }
+      );
+    }
+
+    // The host's guest count is a hard ceiling; paid extra guests do not raise it.
+    const guestCapacity = resolveGuestCapacity(propertyRow);
+    const partySize = Math.max(1, Number(guests) || 1) + Math.max(0, Number(kids) || 0);
+    if (partySize > guestCapacity) {
+      return NextResponse.json(
+        { error: `${guestCapacityMessage(guestCapacity)} Reduce your party to continue.` },
         { status: 400 }
       );
     }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { PROPERTY_UPDATE_KEYS } from '@/lib/propertyWritableColumns';
+import { createServiceClient } from '@/lib/supabase/service';
+import { dispatchListingSavedEmail } from '@/lib/notifications/dispatchListingSavedEmail';
 
 type RoomPayload = Record<string, unknown> & { id?: unknown; images?: unknown };
 
@@ -85,6 +87,18 @@ export async function PATCH(
     }
 
     void invalidatePropertyListingCaches(params.id);
+
+    // `notifyHost: false` lets a multi-step save (create, then attach photos) send one email.
+    if (body?.notifyHost !== false) {
+      await dispatchListingSavedEmail({
+        service: createServiceClient(),
+        appUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
+        propertyId: params.id,
+        action: 'updated',
+        actorEmail: access.user.email ?? null,
+        savedByTeam: access.isAdmin && access.property.host_id !== access.user.id,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

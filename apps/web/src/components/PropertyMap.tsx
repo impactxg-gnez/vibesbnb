@@ -14,6 +14,11 @@ interface PropertyMapProps {
   propertyName: string;
   /** Circle radius in meters; defaults to ~450m privacy buffer. */
   approximateRadiusMeters?: number;
+  /**
+   * Leaves only the zoom buttons interactive. On touch screens a pannable map swallows the
+   * page scroll, so the listing drags the map instead of moving down the page.
+   */
+  zoomOnly?: boolean;
 }
 
 function isFiniteCoord(lat: number, lng: number): boolean {
@@ -68,6 +73,7 @@ export function PropertyMap({
   longitude,
   propertyName,
   approximateRadiusMeters = PROPERTY_MAP_APPROX_RADIUS_METERS,
+  zoomOnly = false,
 }: PropertyMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -153,10 +159,10 @@ export function PropertyMap({
           zoomControlOptions: {
             position: window.google.maps.ControlPosition.RIGHT_BOTTOM,
           },
-          gestureHandling: 'greedy',
+          gestureHandling: zoomOnly ? 'none' : 'greedy',
           disableDefaultUI: false,
-          draggable: true,
-          scrollwheel: true,
+          draggable: !zoomOnly,
+          scrollwheel: !zoomOnly,
           disableDoubleClickZoom: false,
           minZoom: 13,
           maxZoom: 18,
@@ -251,7 +257,15 @@ export function PropertyMap({
         mapRef.current.innerHTML = '';
       }
     };
-  }, [latitude, longitude, propertyName, approximateRadiusMeters]);
+  }, [latitude, longitude, propertyName, approximateRadiusMeters, zoomOnly]);
+
+  useEffect(() => {
+    mapInstanceRef.current?.setOptions({
+      gestureHandling: zoomOnly ? 'none' : 'greedy',
+      draggable: !zoomOnly,
+      scrollwheel: !zoomOnly,
+    });
+  }, [zoomOnly]);
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;

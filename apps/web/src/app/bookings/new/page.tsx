@@ -16,7 +16,7 @@ import {
   todayLocalYmd,
 } from '@/lib/dateUtils';
 import { buildGuestAgreementNotice } from '@/lib/guestAgreementCopy';
-import { PROPERTY_DETAIL_CORE_COLUMNS } from '@/lib/propertyPublicSelect';
+import { fetchPropertyDetailRow } from '@/lib/propertyDetailFetch';
 import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import {
@@ -45,6 +45,12 @@ import {
   type WellnessBookingLineItem,
 } from '@/lib/wellnessBookingCart';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import {
+  clampPartyToCapacity,
+  guestCapacityDetail,
+  guestCapacityMessage,
+  resolveGuestCapacity,
+} from '@/lib/guestCapacity';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import type { HostBadge } from '@/lib/hostBadge';
@@ -64,6 +70,8 @@ interface Property {
   refundableDeposit?: number;
   allowExtraGuests?: boolean;
   extraGuestPrice?: number;
+  /** Paid extra guests the host allows above `guests` */
+  maxExtraGuests?: number | null;
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
   checkInOut?: CheckInOutPolicy;
@@ -95,6 +103,12 @@ export default function NewBookingPage() {
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [agreementSignerName, setAgreementSignerName] = useState('');
   const [checkoutBookingId, setCheckoutBookingId] = useState<string | null>(null);
+  const capacityProperty = {
+    guests: property?.guests,
+    allow_extra_guests: property?.allowExtraGuests,
+    max_extra_guests: property?.maxExtraGuests,
+  };
+  const guestCapacity = resolveGuestCapacity(capacityProperty);
 
   // Initialize with URL params if available
   const initialCheckIn = searchParams.get('checkIn') || '';
@@ -158,12 +172,12 @@ export default function NewBookingPage() {
     setHostDisplayBadge(null);
     try {
       const supabase = createClient();
-      const { data: rawProperty, error } = await supabase
-        .from('properties')
-        .select(PROPERTY_DETAIL_CORE_COLUMNS)
-        .eq('id', propertyId)
-        .eq('status', 'active')
-        .single();
+      if (!propertyId) {
+        toast.error('Property not found');
+        router.push('/search');
+        return;
+      }
+      const { data: rawProperty, error } = await fetchPropertyDetailRow(supabase, propertyId);
 
       if (error || !rawProperty) {
         toast.error('Property not found');
@@ -242,6 +256,8 @@ export default function NewBookingPage() {
         refundableDeposit:
           propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
         allowExtraGuests: propertyRow.allow_extra_guests === true,
+        maxExtraGuests:
+          propertyRow.max_extra_guests != null ? Number(propertyRow.max_extra_guests) : null,
         extraGuestPrice:
           propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
         rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
@@ -259,11 +275,11 @@ export default function NewBookingPage() {
         setSelectedUnits(filtered);
       }
 
-      const maxGuests = Number(propertyRow.guests ?? 1) || 1;
-      setFormData((prev) => ({
-        ...prev,
-        guests: Math.min(Math.max(prev.guests, 1), maxGuests),
-      }));
+      const capacity = resolveGuestCapacity(propertyRow);
+      setFormData((prev) => {
+        const party = clampPartyToCapacity({ adults: prev.guests, kids: prev.kids }, capacity);
+        return { ...prev, guests: party.adults, kids: party.kids };
+      });
 
       await loadAvailability(String(propertyRow.id));
     } catch (error) {
@@ -389,11 +405,12 @@ export default function NewBookingPage() {
       return false;
     }
 
-    if (!property.allowExtraGuests && formData.guests > property.guests) {
-      toast.error(`This property can only accommodate ${property.guests} guests`);
+    // The host's guest count caps the party even when paid extra guests are enabled.
+    if (formData.guests + (formData.kids || 0) > guestCapacity) {
+      toast.error(`${guestCapacityMessage(guestCapacity)} Reduce your party to continue.`);
       return false;
     }
-    if (property.allowExtraGuests && formData.guests < 1) {
+    if (formData.guests < 1) {
       toast.error('Please enter at least 1 adult');
       return false;
     }
@@ -764,16 +781,22 @@ export default function NewBookingPage() {
                 <input
                   type="number"
                   min={1}
-                  max={property.allowExtraGuests ? undefined : property.guests}
+                  max={guestCapacity - formData.kids}
                   value={formData.guests}
-                  onChange={(e) => setFormData({ ...formData, guests: parseInt(e.target.value) || 1 })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      guests: clampPartyToCapacity(
+                        { adults: parseInt(e.target.value) || 1, kids: formData.kids },
+                        guestCapacity
+                      ).adults,
+                    })
+                  }
                   required
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  {property.allowExtraGuests
-                    ? `Base rate includes up to ${property.guests} adults; extra guests are charged per night.`
-                    : `Maximum ${property.guests} adults`}
+                  {guestCapacityDetail(capacityProperty)}
                 </p>
               </div>
 
@@ -784,8 +807,17 @@ export default function NewBookingPage() {
                   <input
                     type="number"
                     min={0}
+                    max={guestCapacity - formData.guests}
                     value={formData.kids}
-                    onChange={(e) => setFormData({ ...formData, kids: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        kids: Math.min(
+                          Math.max(0, parseInt(e.target.value) || 0),
+                          guestCapacity - formData.guests
+                        ),
+                      })
+                    }
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
                   />
                 </div>

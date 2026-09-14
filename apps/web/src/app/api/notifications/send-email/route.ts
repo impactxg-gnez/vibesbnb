@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { hostApplicationApprovedEmailHtml } from '@/lib/email/hostApplicationApproved';
+import { listingSavedEmailHtml, type ListingSavedContext } from '@/lib/email/listingSavedEmail';
 import {
   travellerBookingInvoiceEmailHtml,
   hostBookingConfirmationEmailHtml,
@@ -120,7 +121,8 @@ type EmailTemplateData =
   | HostApplicationApprovedData
   | NewMessageData
   | AdminNewBookingData
-  | AdminNewChatData;
+  | AdminNewChatData
+  | ListingSavedContext;
 
 function generateEmailHtml(template: string, data: EmailTemplateData): string {
   const baseStyles = `
@@ -520,6 +522,11 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
       });
     }
 
+    case 'listing_saved': {
+      const d = data as ListingSavedContext;
+      return listingSavedEmailHtml(d);
+    }
+
     case 'booking_invoice_traveller': {
       const d = data as BookingInvoiceContext & { appUrl?: string };
       return travellerBookingInvoiceEmailHtml(d, d.appUrl || appUrl);
@@ -730,7 +737,7 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { to, subject, template, data } = body;
+    const { to, subject, template, data, cc } = body;
 
     if (!to || !subject) {
       return NextResponse.json(
@@ -739,9 +746,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Copies (e.g. admins on a host's listing confirmation) must never duplicate the recipient.
+    const primary = String(to).trim().toLowerCase();
+    const ccList = (Array.isArray(cc) ? cc : cc ? [cc] : [])
+      .map((address: unknown) => String(address || '').trim().toLowerCase())
+      .filter((address: string, index: number, all: string[]) =>
+        address && address !== primary && all.indexOf(address) === index
+      );
+
     // Log the email attempt
     console.log('[Email Notification] Attempting to send:', {
       to,
+      cc: ccList,
       subject,
       template,
       hasResendKey: !!process.env.RESEND_API_KEY,
@@ -767,6 +783,7 @@ export async function POST(request: NextRequest) {
     const { data: emailData, error } = await resend.emails.send({
       from: fromEmail,
       to: [to],
+      ...(ccList.length > 0 ? { cc: ccList } : {}),
       subject,
       html,
     });

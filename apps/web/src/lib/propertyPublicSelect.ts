@@ -117,6 +117,15 @@ const PROPERTY_DETAIL_CORE_FIELD_LIST = [
 
 export const PROPERTY_DETAIL_CORE_COLUMNS = PROPERTY_DETAIL_CORE_FIELD_LIST.join(',');
 
+/**
+ * Columns that may still be missing until their migration runs. Read them through
+ * `fetchPropertyDetailRow`, which drops them and retries when Postgres reports them undefined.
+ */
+export const PROPERTY_DETAIL_OPTIONAL_FIELD_LIST = ['max_extra_guests'] as const;
+
+export const PROPERTY_DETAIL_OPTIONAL_COLUMNS =
+  `${PROPERTY_DETAIL_CORE_COLUMNS},${PROPERTY_DETAIL_OPTIONAL_FIELD_LIST.join(',')}`;
+
 /** @deprecated Prefer PROPERTY_DETAIL_CORE_COLUMNS + gallery API — includes images/rooms. */
 const PROPERTY_DETAIL_FIELD_LIST = [
   ...PROPERTY_DETAIL_CORE_FIELD_LIST,

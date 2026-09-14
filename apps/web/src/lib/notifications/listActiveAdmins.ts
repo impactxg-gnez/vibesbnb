@@ -46,6 +46,7 @@ export async function sendEmailViaExistingEndpoint(
   appUrl: string,
   payload: {
     to: string;
+    cc?: string[];
     subject: string;
     template: string;
     data: Record<string, unknown>;

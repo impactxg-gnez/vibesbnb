@@ -1,6 +1,7 @@
 'use client';
 
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import ReactDatePicker, { ReactDatePickerProps } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseCalendarDate } from '@/lib/dateUtils';
@@ -19,10 +20,60 @@ function ymdToPickerDate(ymd: string): Date | null {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
 }
 
+type TriggerProps = {
+  value?: string;
+  placeholder?: string;
+  className?: string;
+  id?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
+};
+
+/**
+ * Touch devices open the calendar from a button instead of a text field: a focused text input
+ * pops up the on-screen keyboard, which covers the calendar the tap was meant to open.
+ */
+const CalendarTrigger = forwardRef<HTMLButtonElement, TriggerProps>(function CalendarTrigger(
+  { value, placeholder, className, id, disabled, onClick, onKeyDown },
+  ref
+) {
+  return (
+    <button
+      type="button"
+      ref={ref}
+      id={id}
+      disabled={disabled}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      className={`text-left ${className ?? ''}`}
+    >
+      {value || <span className="opacity-60">{placeholder || 'Select date'}</span>}
+    </button>
+  );
+});
+
+/** True on phones/tablets, where a virtual keyboard would appear. */
+function useTouchInput(): boolean {
+  const [touch, setTouch] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const query = window.matchMedia('(hover: none) and (pointer: coarse)');
+    const sync = () => setTouch(query.matches);
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+
+  return touch;
+}
+
 export const DatePicker = forwardRef<any, DatePickerProps>(
   ({ value, onChange, className, min, ...props }, ref) => {
     const selectedDate = useMemo(() => (value ? ymdToPickerDate(value) : null), [value]);
     const minDate = useMemo(() => (min ? ymdToPickerDate(min) ?? undefined : undefined), [min]);
+    const isTouch = useTouchInput();
 
     const handleChange = (date: Date | null) => {
       let dateStr = '';
@@ -109,6 +160,7 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
           placeholderText="Select date"
           popperPlacement="bottom-start"
           showPopperArrow={false}
+          {...(isTouch ? { customInput: <CalendarTrigger /> } : {})}
           {...props}
         />
       </div>

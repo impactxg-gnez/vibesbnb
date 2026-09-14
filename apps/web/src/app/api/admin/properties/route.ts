@@ -13,6 +13,7 @@ import {
 } from '@/lib/adminPropertySelect';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { PROPERTY_CREATE_KEYS, pickWritableProperty } from '@/lib/propertyWritableColumns';
+import { dispatchListingSavedEmail } from '@/lib/notifications/dispatchListingSavedEmail';
 
 function accessTokenFromRequest(request: NextRequest): string {
   return request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
@@ -173,6 +174,15 @@ export async function POST(request: NextRequest) {
     }
 
     void invalidatePropertyListingCaches(propertyId);
+
+    await dispatchListingSavedEmail({
+      service: serviceSupabase,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
+      propertyId,
+      action: 'created',
+      actorEmail: auth.user.email ?? null,
+      savedByTeam: true,
+    });
 
     return NextResponse.json({
       success: true,

@@ -464,7 +464,8 @@ export default function NewPropertyPage() {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'same-origin',
-              body: JSON.stringify({ images: stored }),
+              // The create step already emailed the host; this is the same save.
+              body: JSON.stringify({ images: stored, notifyHost: false }),
             });
             if (!patch.ok) {
               const patchError = await patch.json().catch(() => ({}));
@@ -509,6 +510,17 @@ export default function NewPropertyPage() {
 
         try {
           await fetch(`/api/host/properties/${propertyId}/invalidate-cache`, { method: 'POST' });
+        } catch {
+          /* non-blocking */
+        }
+
+        try {
+          await fetch(`/api/host/properties/${propertyId}/notify-saved`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ action: 'created' }),
+          });
         } catch {
           /* non-blocking */
         }

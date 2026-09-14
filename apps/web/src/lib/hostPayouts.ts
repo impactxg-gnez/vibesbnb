@@ -53,6 +53,7 @@ type PayoutBookingContext = {
   early_check_in_requested?: boolean | null;
   late_check_out_requested?: boolean | null;
   selected_units?: Array<{ price?: unknown }> | null;
+  special_offer_nightly?: number | null;
 };
 
 type PayoutPropertyContext = {
@@ -112,7 +113,10 @@ export function computeHostPayoutAmounts(params: {
     });
 
     let hostNightlyRate = Number(property.price) || 0;
-    if (booking?.selected_units?.length) {
+    const offered = Number(booking?.special_offer_nightly);
+    if (Number.isFinite(offered) && offered > 0) {
+      hostNightlyRate = offered;
+    } else if (booking?.selected_units?.length) {
       hostNightlyRate = booking.selected_units.reduce(
         (sum, u) => sum + (Number(u?.price) || 0),
         0
@@ -208,8 +212,11 @@ function guestTotalForStay(params: {
 }): number {
   const property = params.property;
   if (property && params.checkIn && params.checkOut) {
+    const offered = Number(params.booking?.special_offer_nightly);
+    const nightly =
+      Number.isFinite(offered) && offered > 0 ? offered : Number(property.price) || 0;
     const { grandTotal } = computeBookingGrandTotal({
-      propertyNightlyPrice: Number(property.price) || 0,
+      propertyNightlyPrice: nightly,
       cleaningFee: property.cleaning_fee != null ? Number(property.cleaning_fee) || 0 : 0,
       checkInYmd: params.checkIn,
       checkOutYmd: params.checkOut,
@@ -245,12 +252,7 @@ export function withPayoutPreviewMeta(
 const PAYOUT_PROPERTY_SELECT =
   'price, cleaning_fee, guests, allow_extra_guests, extra_guest_price, refundable_deposit, allow_direct_booking, check_in_time, check_out_time, early_check_in_allowed, earliest_early_check_in_time, early_check_in_fee, late_check_out_allowed, latest_late_check_out_time, late_check_out_fee';
 
-const PAYOUT_BOOKING_SELECT =
-  'id, host_id, property_id, property_name, check_in, check_out, total_price, status, payment_status, guests, kids, pets, wellness_line_items, early_check_in_requested, late_check_out_requested, selected_units';
-
-/**
- * Estimated host payout for a booking (used when accepting, before payment creates a ledger row).
- */
+/** Estimated host payout for a booking (used when accepting, before payment creates a ledger row). */
 export async function previewHostPayoutForBooking(
   service: SupabaseClient,
   bookingId: string,
@@ -259,11 +261,22 @@ export async function previewHostPayoutForBooking(
   | { ok: true; preview: HostPayoutPreview; hostId: string }
   | { ok: false; error: string; status: number }
 > {
-  const { data: booking, error: bookingError } = await service
+  const PAYOUT_BOOKING_SELECT_CORE =
+    'id, host_id, property_id, property_name, check_in, check_out, total_price, status, payment_status, guests, kids, pets, wellness_line_items, early_check_in_requested, late_check_out_requested, selected_units';
+
+  let { data: booking, error: bookingError } = await service
     .from('bookings')
-    .select(PAYOUT_BOOKING_SELECT)
+    .select(`${PAYOUT_BOOKING_SELECT_CORE}, special_offer_nightly`)
     .eq('id', bookingId)
     .maybeSingle();
+
+  if (bookingError && (bookingError.code === '42703' || bookingError.code === 'PGRST204')) {
+    ({ data: booking, error: bookingError } = await service
+      .from('bookings')
+      .select(PAYOUT_BOOKING_SELECT_CORE)
+      .eq('id', bookingId)
+      .maybeSingle());
+  }
 
   if (bookingError || !booking) {
     return { ok: false, error: 'Booking not found', status: 404 };
@@ -340,6 +353,7 @@ type BookingRow = {
   early_check_in_requested?: boolean | null;
   late_check_out_requested?: boolean | null;
   selected_units?: Array<{ price?: unknown }> | null;
+  special_offer_nightly?: number | null;
 };
 
 /**

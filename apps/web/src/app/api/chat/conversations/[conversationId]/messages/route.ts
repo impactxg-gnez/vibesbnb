@@ -8,6 +8,8 @@ import {
 } from '@/lib/utils/contactFilter';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
 import { dispatchNewMessageNotification } from '@/lib/notifications/dispatchNewMessageNotification';
+import { getHostFeePercent, getServiceFeePercent } from '@/lib/platformSettings';
+import { stayNightsFromDates, type SpecialOfferContext } from '@/lib/specialOffer';
 
 type BookingRow = {
   id: string;
@@ -89,11 +91,27 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: conversation, error: conversationError } = await supabase
+    let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
-      .select('id, host_id, traveller_id, booking_id, property_id')
+      .select(
+        'id, host_id, traveller_id, booking_id, property_id, inquiry_check_in, inquiry_check_out'
+      )
       .eq('id', params.conversationId)
       .single();
+
+    if (
+      conversationError &&
+      (conversationError.code === '42703' ||
+        /inquiry_check_in|inquiry_check_out/i.test(conversationError.message || ''))
+    ) {
+      const retry = await supabase
+        .from('conversations')
+        .select('id, host_id, traveller_id, booking_id, property_id')
+        .eq('id', params.conversationId)
+        .single();
+      conversation = retry.data as typeof conversation;
+      conversationError = retry.error;
+    }
 
     if (conversationError || !conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
@@ -150,9 +168,57 @@ export async function GET(
       sender_profile: profiles[msg.sender_id] || null,
     }));
 
+    let specialOfferContext: SpecialOfferContext | null = null;
+    if (conversation.host_id === user.id && conversation.property_id) {
+      const { data: property } = await serviceSupabase
+        .from('properties')
+        .select('price, cleaning_fee')
+        .eq('id', conversation.property_id)
+        .maybeSingle();
+
+      const conv = conversation as {
+        inquiry_check_in?: string | null;
+        inquiry_check_out?: string | null;
+        booking_id?: string | null;
+      };
+      let checkIn =
+        typeof conv.inquiry_check_in === 'string' ? conv.inquiry_check_in.slice(0, 10) : null;
+      let checkOut =
+        typeof conv.inquiry_check_out === 'string' ? conv.inquiry_check_out.slice(0, 10) : null;
+      if (conv.booking_id) {
+        const { data: booking } = await serviceSupabase
+          .from('bookings')
+          .select('check_in, check_out')
+          .eq('id', conv.booking_id)
+          .maybeSingle();
+        if (booking?.check_in) checkIn = String(booking.check_in).slice(0, 10);
+        if (booking?.check_out) checkOut = String(booking.check_out).slice(0, 10);
+      }
+
+      const listedNightly = Number(property?.price) || 0;
+      if (listedNightly > 0) {
+        const [serviceFeePercent, hostFeePercent] = await Promise.all([
+          getServiceFeePercent(serviceSupabase),
+          getHostFeePercent(serviceSupabase),
+        ]);
+        specialOfferContext = {
+          listedNightly,
+          cleaningFee: Number(property?.cleaning_fee) || 0,
+          nights: stayNightsFromDates(checkIn, checkOut),
+          checkIn,
+          checkOut,
+          bookingId: conversation.booking_id || null,
+          serviceFeePercent,
+          hostFeePercent,
+        };
+      }
+    }
+
     return NextResponse.json({
       messages: messagesWithProfiles,
       contactSharingAllowed,
+      viewerIsHost: conversation.host_id === user.id,
+      specialOfferContext,
     });
   } catch (error: any) {
     return NextResponse.json(

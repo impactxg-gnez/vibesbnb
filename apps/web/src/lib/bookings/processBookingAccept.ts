@@ -122,8 +122,13 @@ export async function processBookingAccept(params: {
     }));
 
   const cleaning = propertyRow.cleaning_fee != null ? Number(propertyRow.cleaning_fee) : 0;
+  const offeredNightly = Number(booking.special_offer_nightly);
+  const nightlyRate =
+    Number.isFinite(offeredNightly) && offeredNightly > 0
+      ? offeredNightly
+      : Number(propertyRow.price) || 0;
   const { grandTotal: newTotal } = computeBookingGrandTotal({
-    propertyNightlyPrice: Number(propertyRow.price) || 0,
+    propertyNightlyPrice: nightlyRate,
     cleaningFee: cleaning,
     checkInYmd: finalCheckIn,
     checkOutYmd: finalCheckOut,

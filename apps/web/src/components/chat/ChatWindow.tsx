@@ -8,8 +8,11 @@ import {
   getContactBlockUserMessage,
 } from '@/lib/utils/contactFilter';
 import toast from 'react-hot-toast';
-import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { formatCalendarDate } from '@/lib/dateUtils';
+import { parseSpecialOffer, type SpecialOfferContext } from '@/lib/specialOffer';
+import { SpecialOfferCard } from '@/components/chat/SpecialOfferCard';
+import { SpecialOfferComposer } from '@/components/chat/SpecialOfferComposer';
 
 interface Message {
   id: string;
@@ -62,6 +65,10 @@ export default function ChatWindow({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [contactSharingAllowed, setContactSharingAllowed] = useState(false);
+  const [viewerIsHost, setViewerIsHost] = useState(false);
+  const [offerContext, setOfferContext] = useState<SpecialOfferContext | null>(null);
+  const [offerComposerOpen, setOfferComposerOpen] = useState(false);
+  const [sendingOffer, setSendingOffer] = useState(false);
   const [blockBanner, setBlockBanner] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const onMessagesReadRef = useRef(onMessagesRead);
@@ -73,6 +80,12 @@ export default function ChatWindow({
   useEffect(() => {
     onMessagesReadRef.current = onMessagesRead;
   }, [onMessagesRead]);
+
+  useEffect(() => {
+    setOfferComposerOpen(false);
+    setViewerIsHost(false);
+    setOfferContext(null);
+  }, [conversationId]);
 
   useEffect(() => {
     if (!supabaseRef.current) {
@@ -105,6 +118,8 @@ export default function ChatWindow({
           throw new Error(data.error || 'Failed to load messages');
         }
         setContactSharingAllowed(Boolean(data.contactSharingAllowed));
+        setViewerIsHost(Boolean(data.viewerIsHost));
+        setOfferContext(data.specialOfferContext || null);
         setMessages((prev) => {
           const serverMessages = data.messages || [];
           // Keep in-thread policy notices only on soft refresh; reset on full reload
@@ -300,6 +315,39 @@ export default function ChatWindow({
     }
   };
 
+  const handleSendOffer = async (offerNightly: number, _discountPercent: number) => {
+    setSendingOffer(true);
+    try {
+      const supabase = supabaseRef.current || createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch(
+        `/api/chat/conversations/${conversationId}/special-offer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ offerNightly }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send special offer');
+      if (data.message) {
+        setMessages((prev) => [...prev, data.message]);
+      }
+      setOfferComposerOpen(false);
+      toast.success('Special offer sent');
+      scrollToBottom();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to send special offer');
+    } finally {
+      setSendingOffer(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-gray-900 border-0 rounded-none lg:border lg:border-gray-800 lg:rounded-xl">
       <div className="shrink-0 px-3 py-2 lg:px-4 lg:py-3 border-b border-gray-800">
@@ -375,32 +423,53 @@ export default function ChatWindow({
             }
 
             const isOwn = message.sender_id === user?.id;
+            const offer = parseSpecialOffer(message.body);
             return (
               <div
                 key={message.id}
                 className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm ${
-                    isOwn
-                      ? 'bg-emerald-600 text-white rounded-br-none'
-                      : 'bg-gray-800 text-gray-100 rounded-bl-none'
-                  }`}
+                  className={
+                    offer
+                      ? 'max-w-xs md:max-w-md'
+                      : `max-w-xs md:max-w-md px-4 py-2 rounded-2xl text-sm ${
+                          isOwn
+                            ? 'bg-emerald-600 text-white rounded-br-none'
+                            : 'bg-gray-800 text-gray-100 rounded-bl-none'
+                        }`
+                  }
                 >
-                  {!isOwn && message.sender_profile && (
-                    <p className="text-xs font-semibold text-gray-200 mb-1">
-                      {message.sender_profile.name}
-                    </p>
+                  {offer ? (
+                    <>
+                      <SpecialOfferCard offer={offer} isHostViewer={viewerIsHost} />
+                      <span className="block mt-1 text-[10px] lg:text-xs text-gray-400 text-right">
+                        {new Date(message.created_at).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {!isOwn && message.sender_profile && (
+                        <p className="text-xs font-semibold text-gray-200 mb-1">
+                          {message.sender_profile.name}
+                        </p>
+                      )}
+                      <p className="whitespace-pre-line break-words">{message.body}</p>
+                      <span className="block mt-1 text-[10px] lg:text-xs text-gray-200/70">
+                        {new Date(message.created_at).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </>
                   )}
-                  <p className="whitespace-pre-line break-words">{message.body}</p>
-                  <span className="block mt-1 text-[10px] lg:text-xs text-gray-200/70">
-                    {new Date(message.created_at).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </span>
                 </div>
               </div>
             );
@@ -423,6 +492,14 @@ export default function ChatWindow({
             </button>
           </div>
         )}
+        {offerComposerOpen && viewerIsHost && offerContext ? (
+          <SpecialOfferComposer
+            context={offerContext}
+            sending={sendingOffer}
+            onCancel={() => setOfferComposerOpen(false)}
+            onSend={handleSendOffer}
+          />
+        ) : null}
         <div className="flex items-end gap-2">
           <textarea
             rows={1}
@@ -441,6 +518,17 @@ export default function ChatWindow({
             }
             className="flex-1 min-h-[44px] max-h-24 lg:max-h-none px-3 py-2.5 lg:px-4 lg:py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white placeholder-gray-500 resize-none lg:min-h-[5.5rem]"
           />
+          {viewerIsHost && offerContext && !offerComposerOpen ? (
+            <button
+              type="button"
+              onClick={() => setOfferComposerOpen(true)}
+              className="shrink-0 h-11 px-3 lg:h-auto lg:px-3 lg:py-2 rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 text-sm font-semibold inline-flex items-center gap-1.5"
+              title="Send a special offer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Offer</span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleSend}

@@ -31,7 +31,7 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import PropertyChatButton from '@/components/chat/PropertyChatButton';
-import { PropertyMap } from '@/components/PropertyMap';
+import { ListingLocationCard } from '@/components/properties/ListingLocationCard';
 import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
 import { saveWellnessCartForBooking } from '@/lib/wellnessBookingCart';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -45,13 +45,18 @@ import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { resolveConsumptionPolicy, resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
-import { PROPERTY_DETAIL_CORE_COLUMNS } from '@/lib/propertyPublicSelect';
+import { fetchPropertyDetailRow } from '@/lib/propertyDetailFetch';
 import {
   listingCardImagesFromRow,
   listingGalleryImageUrl,
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import {
+  clampPartyToCapacity,
+  guestCapacityDetail,
+  resolveGuestCapacity,
+} from '@/lib/guestCapacity';
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
@@ -101,6 +106,8 @@ interface Property {
   refundableDeposit?: number;
   allowExtraGuests?: boolean;
   extraGuestPrice?: number;
+  /** Paid extra guests the host allows above `guests` */
+  maxExtraGuests?: number | null;
   /** When set, stay must be at least this many nights */
   minBookingNights?: number | null;
   allowDirectBooking?: boolean;
@@ -265,6 +272,24 @@ export default function ListingDetailPage() {
     }
   }, [stayHydrated, urlCheckIn, urlCheckOut, urlGuests, urlKids, urlPets]);
 
+  const capacityProperty = {
+    guests: property?.guests,
+    allow_extra_guests: property?.allowExtraGuests,
+    max_extra_guests: property?.maxExtraGuests,
+  };
+  const guestCapacity = resolveGuestCapacity(capacityProperty);
+
+  // A party carried over from search (or a stale URL) can exceed what this listing takes.
+  useEffect(() => {
+    if (!property) return;
+    const clamped = clampPartyToCapacity(
+      { adults: partyAdults, kids: partyKids },
+      guestCapacity
+    );
+    if (clamped.adults !== partyAdults) setPartyAdults(clamped.adults);
+    if (clamped.kids !== partyKids) setPartyKids(clamped.kids);
+  }, [property, guestCapacity, partyAdults, partyKids]);
+
   // Persist edits on the listing so other cards keep the same stay
   useEffect(() => {
     if (!stayHydrated) return;
@@ -331,12 +356,7 @@ export default function ListingDetailPage() {
 
         // Fast first paint: slim row (cover_image, no images[] / rooms).
         if (isSupabaseConfigured) {
-          const { data, error } = await supabase
-            .from('properties')
-            .select(PROPERTY_DETAIL_CORE_COLUMNS)
-            .eq('id', params.id as string)
-            .eq('status', 'active')
-            .single();
+          const { data, error } = await fetchPropertyDetailRow(supabase, params.id as string);
 
           if (!error && data) {
             const d = data as unknown as Record<string, unknown>;
@@ -471,6 +491,10 @@ export default function ListingDetailPage() {
                 ? Number(propertyData.refundable_deposit)
                 : 0,
             allowExtraGuests: propertyData.allow_extra_guests === true,
+            maxExtraGuests:
+              propertyData.max_extra_guests != null
+                ? Number(propertyData.max_extra_guests)
+                : null,
             extraGuestPrice:
               propertyData.extra_guest_price != null
                 ? Number(propertyData.extra_guest_price)
@@ -998,23 +1022,13 @@ export default function ListingDetailPage() {
               property.id
             );
             return (
-            <div className="h-96 md:h-[500px] rounded-xl overflow-hidden border border-gray-800 relative">
-              <PropertyMap
+              <ListingLocationCard
                 key={property.id}
                 latitude={approx.latitude}
                 longitude={approx.longitude}
                 propertyName={property.name}
                 approximateRadiusMeters={PUBLIC_MAP_APPROX_RADIUS_METERS}
               />
-              <div className="absolute bottom-4 left-4 right-4 bg-gray-900/90 backdrop-blur-sm rounded-lg px-4 py-3 border border-gray-700">
-                <p className="text-sm text-gray-300 flex items-center gap-2">
-                  <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
-                  <span>
-                    Approximate area only. Exact address is shared after booking confirmation.
-                  </span>
-                </p>
-              </div>
-            </div>
             );
           })()}
         </div>
@@ -1602,9 +1616,15 @@ export default function ListingDetailPage() {
                   <input
                     type="number"
                     min={1}
+                    max={guestCapacity - partyKids}
                     value={partyAdults}
                     onChange={(e) =>
-                      setPartyAdults(Math.max(1, parseInt(e.target.value, 10) || 1))
+                      setPartyAdults(
+                        clampPartyToCapacity(
+                          { adults: parseInt(e.target.value, 10) || 1, kids: partyKids },
+                          guestCapacity
+                        ).adults
+                      )
                     }
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
                   />
@@ -1616,9 +1636,15 @@ export default function ListingDetailPage() {
                   <input
                     type="number"
                     min={0}
+                    max={guestCapacity - partyAdults}
                     value={partyKids}
                     onChange={(e) =>
-                      setPartyKids(Math.max(0, parseInt(e.target.value, 10) || 0))
+                      setPartyKids(
+                        Math.min(
+                          Math.max(0, parseInt(e.target.value, 10) || 0),
+                          guestCapacity - partyAdults
+                        )
+                      )
                     }
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
                   />
@@ -1638,6 +1664,13 @@ export default function ListingDetailPage() {
                   />
                 </div>
               </div>
+
+              <p className="mb-4 text-xs text-gray-400">
+                {guestCapacityDetail(capacityProperty)}
+                {partyAdults + partyKids >= guestCapacity
+                  ? ' You have reached the limit for this stay.'
+                  : ''}
+              </p>
 
               <button
                 onClick={handleBooking}
