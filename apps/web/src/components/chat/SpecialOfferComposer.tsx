@@ -51,16 +51,16 @@ export function SpecialOfferComposer({
   };
 
   return (
-    <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-3 space-y-3">
+    <div className="mb-3 rounded-xl border border-emerald-800/25 bg-[#D1FAE5] p-3 space-y-3 dark:border-emerald-500/30 dark:bg-emerald-950/30">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+        <p className="text-xs font-bold uppercase tracking-wider text-[#14532D] flex items-center gap-1.5 dark:text-emerald-300">
           <Sparkles className="w-3.5 h-3.5" />
           Special offer
         </p>
         <button
           type="button"
           onClick={onCancel}
-          className="text-emerald-200/70 hover:text-white"
+          className="text-[#166534] hover:text-[#14532D] dark:text-emerald-200/70 dark:hover:text-white"
           aria-label="Close special offer"
         >
           <X className="w-4 h-4" />
@@ -69,11 +69,11 @@ export function SpecialOfferComposer({
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex-1 min-w-[140px]">
-          <span className="block text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+          <span className="block text-[10px] uppercase tracking-wide text-[#3F6212] mb-1 dark:text-gray-400">
             Price for this guest / night
           </span>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B5346] text-sm dark:text-gray-400">$</span>
             <input
               type="number"
               min={1}
@@ -81,21 +81,21 @@ export function SpecialOfferComposer({
               step={1}
               value={offerNightly}
               onChange={(e) => applyAmount(parseFloat(e.target.value) || 0)}
-              className="w-full pl-7 pr-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-white text-sm"
+              className="w-full pl-7 pr-3 py-2 rounded-lg bg-[#FAF3EA] border border-[#51372B]/20 text-[#51372B] text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-white"
             />
           </div>
-          <span className="mt-1 block text-[10px] text-gray-500">
+          <span className="mt-1 block text-[10px] text-[#3F6212] dark:text-gray-500">
             Listed {listed.toFixed(0)}/night
           </span>
         </label>
 
         <label className="flex-[1.4] min-w-[180px]">
-          <span className="flex items-center justify-between text-[10px] uppercase tracking-wide text-gray-400 mb-1">
+          <span className="flex items-center justify-between text-[10px] uppercase tracking-wide text-[#3F6212] mb-1 dark:text-gray-400">
             <span className="inline-flex items-center gap-1">
               <Percent className="w-3 h-3" />
               Discount
             </span>
-            <span className="text-emerald-300 font-bold normal-case tracking-normal text-sm">
+            <span className="text-[#14532D] font-bold normal-case tracking-normal text-sm dark:text-emerald-300">
               {discountPercent}%
             </span>
           </span>
@@ -106,7 +106,7 @@ export function SpecialOfferComposer({
             step={1}
             value={discountPercent}
             onChange={(e) => applyDiscount(Number(e.target.value))}
-            className="w-full accent-emerald-500 h-2"
+            className="w-full accent-emerald-700 h-2 dark:accent-emerald-500"
           />
         </label>
       </div>

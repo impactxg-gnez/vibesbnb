@@ -24,13 +24,15 @@ export function HostPayoutBreakdown({
   className = '',
 }: HostPayoutBreakdownProps) {
   const isLight = variant === 'light';
+  // Theme-aware: cream + espresso ink in light mode (avoids dark-panel + remapped
+  // espresso text). Dark mode keeps the original gray panel.
   const panel = isLight
-    ? 'rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1.5'
-    : 'rounded-lg border border-gray-700 bg-gray-800/80 p-3 space-y-1.5';
-  const label = isLight ? 'text-gray-600' : 'text-gray-400';
-  const value = isLight ? 'text-gray-900' : 'text-white';
-  const fee = isLight ? 'text-amber-700' : 'text-amber-300';
-  const payout = isLight ? 'text-emerald-800' : 'text-emerald-400';
+    ? 'rounded-lg border border-[#51372B]/18 bg-[#FAF3EA] p-3 space-y-1.5'
+    : 'rounded-lg border border-[#51372B]/20 bg-[#FAF3EA] p-3 space-y-1.5 dark:border-gray-700 dark:bg-gray-800/80';
+  const label = isLight ? 'text-[#6B5346]' : 'text-[#6B5346] dark:text-gray-400';
+  const value = isLight ? 'text-[#51372B]' : 'text-[#51372B] dark:text-white';
+  const fee = isLight ? 'text-[#9A3412]' : 'text-[#9A3412] dark:text-amber-300';
+  const payout = isLight ? 'text-[#14532D]' : 'text-[#14532D] dark:text-emerald-400';
 
   if (loading && !preview) {
     return (
@@ -63,7 +65,7 @@ export function HostPayoutBreakdown({
       </div>
       <div
         className={`flex justify-between gap-3 text-sm font-semibold pt-1.5 border-t ${
-          isLight ? 'border-gray-200' : 'border-gray-700'
+          isLight ? 'border-[#51372B]/15' : 'border-[#51372B]/15 dark:border-gray-700'
         }`}
       >
         <span className={payout}>You'll receive</span>
