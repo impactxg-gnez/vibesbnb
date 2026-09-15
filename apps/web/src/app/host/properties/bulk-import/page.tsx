@@ -27,34 +27,22 @@ import {
 } from '@/lib/adminHostImpersonation';
 import { unwrapProxiedImageUrl } from '@/lib/propertyImageUrls';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
-
-interface BulkProperty {
-  name: string;
-  type: string;
-  guestAccessType: string;
-  location: string;
-  guests: number;
-  bedrooms: number;
-  beds: number;
-  bathrooms: number;
-  price: number;
-  cleaningFee?: number;
-  description?: string;
-  amenities?: string;
-  wellnessFriendly?: boolean;
-  smokeFriendly?: boolean; // ignored — cigarette smoking removed from product
-  imageUrls?: string[];
-  sourceUrl?: string;
-  latitude?: number;
-  longitude?: number;
-  googleMapsUrl?: string;
-}
-
-interface ParsedResult {
-  success: boolean;
-  properties: BulkProperty[];
-  errors: string[];
-}
+import {
+  BULK_CSV_FILENAME,
+  BULK_CSV_MAX_BYTES,
+  NUMERIC_BOUNDS,
+  OPTIONAL_BULK_CSV_COLUMNS,
+  REQUIRED_BULK_CSV_COLUMNS,
+  type BulkCountField,
+  type BulkProperty,
+  type ParsedBulkCsvResult,
+  buildTemplateCsv,
+  getBulkPropertyWarnings,
+  isCountSuspicious,
+  joinAmenities,
+  parseAmenitiesList,
+  parseBulkPropertyCsv,
+} from '@/lib/bulkPropertyCsv';
 
 interface UrlEntry {
   id: string;
@@ -191,7 +179,7 @@ function scrapedListingToBulkProperty(scraped: ScrapeApiProperty, sourceUrl: str
   const name = scraped.name?.trim() || 'Imported listing';
   const amenitiesArr = Array.isArray(scraped.amenities) ? scraped.amenities : [];
   const coords = coordsFromScrape(scraped);
-  return {
+  const property: BulkProperty = {
     name,
     type: inferPropertyType(name),
     guestAccessType: 'An entire place',
@@ -203,22 +191,31 @@ function scrapedListingToBulkProperty(scraped: ScrapeApiProperty, sourceUrl: str
     price: scraped.price && scraped.price > 0 ? scraped.price : 100,
     cleaningFee: 0,
     description: scraped.description || '',
-    amenities: amenitiesArr.join(';'),
+    amenities: joinAmenities(amenitiesArr),
     wellnessFriendly: Boolean(scraped.wellnessFriendly),
-    smokeFriendly: false,
     imageUrls: (scraped.images || [])
       .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
       .map((u) => unwrapProxiedImageUrl(u)),
     sourceUrl,
     ...coords,
   };
+  property.warnings = getBulkPropertyWarnings(property);
+  return property;
 }
+
+const REVIEW_COUNT_FIELDS: { field: BulkCountField; label: string }[] = [
+  { field: 'guests', label: 'Guests' },
+  { field: 'bedrooms', label: 'Bedrooms' },
+  { field: 'beds', label: 'Beds' },
+  { field: 'bathrooms', label: 'Bathrooms' },
+  { field: 'price', label: 'Price / night' },
+];
 
 export default function BulkImportPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [importing, setImporting] = useState(false);
-  const [parsedData, setParsedData] = useState<ParsedResult | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedBulkCsvResult | null>(null);
   const [step, setStep] = useState<'upload' | 'review' | 'importing' | 'complete'>('upload');
   const [importResults, setImportResults] = useState<{ success: number; failed: number }>({ success: 0, failed: 0 });
   const [importMode, setImportMode] = useState<'csv' | 'url'>('csv');
@@ -226,126 +223,55 @@ export default function BulkImportPage() {
   const [fetchingUrls, setFetchingUrls] = useState(false);
   const [expandedReviewIndex, setExpandedReviewIndex] = useState<number | null>(null);
 
-  const parseAmenitiesField = (value?: string): string[] =>
-    value
-      ? value
-          .split(/[;,|]/)
-          .map((a) => a.trim())
-          .filter(Boolean)
-      : [];
-
-  const updateReviewPropertyAmenities = (index: number, amenities: string[]) => {
+  const updateReviewProperty = (index: number, patch: Partial<BulkProperty>) => {
     setParsedData((prev) => {
       if (!prev) return prev;
       const properties = [...prev.properties];
-      properties[index] = {
-        ...properties[index],
-        amenities: amenities.join(';'),
-      };
+      const next = { ...properties[index], ...patch };
+      next.warnings = getBulkPropertyWarnings(next);
+      properties[index] = next;
       return { ...prev, properties };
     });
   };
 
+  const updateReviewPropertyAmenities = (index: number, amenities: string[]) => {
+    updateReviewProperty(index, { amenities: joinAmenities(amenities) });
+  };
+
+  const updateReviewCount = (index: number, field: BulkCountField, raw: string) => {
+    const bounds = field === 'price' ? NUMERIC_BOUNDS.price : NUMERIC_BOUNDS[field];
+    const n = bounds.integer ? Number.parseInt(raw, 10) : Number.parseFloat(raw);
+    if (!Number.isFinite(n) || n < bounds.min || n > bounds.max) return;
+    updateReviewProperty(index, { [field]: n });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
+
+    if (file.size > BULK_CSV_MAX_BYTES) {
+      toast.error('CSV files must be 1MB or smaller');
+      input.value = '';
+      setParsedData({
+        success: false,
+        properties: [],
+        errors: ['File is larger than 1MB. Split the spreadsheet or remove extra columns.'],
+      });
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       const text = event.target?.result as string;
-      const result = parseCSV(text);
+      const result = parseBulkPropertyCsv(text);
       setParsedData(result);
       if (result.success && result.properties.length > 0) {
         setStep('review');
       }
     };
     reader.readAsText(file);
-  };
-
-  const parseCSV = (text: string, sourceUrl?: string): ParsedResult => {
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) {
-      return { success: false, properties: [], errors: ['File must have a header row and at least one data row'] };
-    }
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-    const properties: BulkProperty[] = [];
-    const errors: string[] = [];
-
-    const requiredHeaders = ['name', 'type', 'location', 'price', 'guests'];
-    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-    if (missingHeaders.length > 0) {
-      return { success: false, properties: [], errors: [`Missing required columns: ${missingHeaders.join(', ')}`] };
-    }
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-      if (values.length < headers.length) {
-        errors.push(`Row ${i + 1}: Not enough columns`);
-        continue;
-      }
-
-      const row: Record<string, string> = {};
-      headers.forEach((h, idx) => {
-        row[h] = values[idx] || '';
-      });
-
-      if (!row.name || !row.location || !row.price) {
-        errors.push(`Row ${i + 1}: Missing required fields (name, location, or price)`);
-        continue;
-      }
-
-      // Parse image URLs if present (pipe-separated)
-      const imageUrlsStr = row.image_urls || row.imageurls || row.images || '';
-      const imageUrls = imageUrlsStr
-        .split('|')
-        .map((url) => url.trim())
-        .filter((url) => url && (url.startsWith('http://') || url.startsWith('https://')))
-        .map((url) => unwrapProxiedImageUrl(url))
-        .filter(Boolean);
-
-      const latitude = parseFiniteCoord(row.latitude || row.lat);
-      const longitude = parseFiniteCoord(row.longitude || row.lng || row.lon);
-      const hasCoords =
-        latitude != null &&
-        longitude != null &&
-        latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180;
-      const googleMapsUrl =
-        row.google_maps_url ||
-        row.googlemapsurl ||
-        (hasCoords
-          ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
-          : undefined);
-
-      properties.push({
-        name: row.name,
-        type: row.type || 'House',
-        guestAccessType: row.guestaccesstype || row['guest access type'] || 'An entire place',
-        location: row.location,
-        guests: parseInt(row.guests) || 2,
-        bedrooms: parseInt(row.bedrooms) || 1,
-        beds: parseInt(row.beds) || 1,
-        bathrooms: parseInt(row.bathrooms) || 1,
-        price: parseFloat(row.price) || 100,
-        cleaningFee: parseFloat(row.cleaningfee || row.cleaning_fee || row['cleaning fee'] || '0') || 0,
-        description: row.description || '',
-        amenities: row.amenities || '',
-        wellnessFriendly: row.wellnessfriendly?.toLowerCase() === 'true' || row.wellnessfriendly === '1',
-        // smokeFriendly CSV column ignored (cigarette smoking removed)
-        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-        sourceUrl,
-        ...(hasCoords ? { latitude, longitude, googleMapsUrl } : {}),
-      });
-    }
-
-    return {
-      success: properties.length > 0,
-      properties,
-      errors
-    };
+    input.value = '';
   };
 
   const addUrlEntry = () => {
@@ -444,7 +370,7 @@ export default function BulkImportPage() {
           }
 
           const text = await response.text();
-          const result = parseCSV(text, resolvedUrl);
+          const result = parseBulkPropertyCsv(text, { sourceUrl: resolvedUrl });
 
           if (result.success && result.properties.length > 0) {
             allProperties.push(...result.properties);
@@ -524,9 +450,7 @@ export default function BulkImportPage() {
             : getHostScopeUserIdFromAuthOnly(user) || user.id;
         const propertyId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        const amenitiesArray = property.amenities 
-          ? property.amenities.split(';').map(a => a.trim()).filter(Boolean)
-          : [];
+        const amenitiesArray = parseAmenitiesList(property.amenities);
 
         const propertyData = {
           id: propertyId,
@@ -592,16 +516,11 @@ export default function BulkImportPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ['name', 'type', 'guestAccessType', 'location', 'guests', 'bedrooms', 'beds', 'bathrooms', 'price', 'cleaningFee', 'description', 'amenities', 'wellnessFriendly', 'image_urls'];
-    const exampleRow = ['Mountain View Cabin', 'Cabin', 'An entire place', 'Aspen, Colorado', '4', '2', '3', '1', '250', '75', 'A cozy cabin with stunning mountain views', 'WiFi;Kitchen;Parking;Fireplace', 'true', 'false', 'https://images.unsplash.com/photo-1587061949409-02df41d5e562?w=800|https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=800'];
-    
-    const csvContent = [headers.join(','), exampleRow.join(',')].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([buildTemplateCsv()], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'vibesbnb-property-template.csv';
+    a.download = BULK_CSV_FILENAME;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -627,7 +546,9 @@ export default function BulkImportPage() {
             Back to New Property
           </Link>
           <h1 className="text-4xl font-bold text-white mb-2">Bulk Import Properties</h1>
-          <p className="text-gray-400">Import multiple properties at once from a CSV file</p>
+          <p className="text-gray-400">
+            Download our spreadsheet template, fill in listings from any site, then upload. Use listing page links for Airbnb or your own site.
+          </p>
         </div>
 
         {/* Upload Step */}
@@ -673,7 +594,7 @@ export default function BulkImportPage() {
                 <div className="flex-1">
                   <h3 className="text-white font-semibold text-lg mb-1">Download CSV Template</h3>
                   <p className="text-gray-400 text-sm mb-4">
-                    Start with our template to ensure your data is formatted correctly. Now supports image URLs!
+                    Use this VibesBnB format for every listing, whether the data comes from Airbnb, Booking, VRBO, or your own site. Do not upload marketplace CSV exports — copy values into this template instead. Quote locations like &quot;Aspen, Colorado&quot; so commas stay in the right column.
                   </p>
                   <button
                     onClick={downloadTemplate}
@@ -731,9 +652,9 @@ export default function BulkImportPage() {
                   </span>
                 </div>
                 <p className="text-gray-400 text-sm mb-4">
-                  Paste <strong className="text-gray-200">Airbnb, Booking.com, VRBO, Ammos</strong>, or other listing
-                  links (one property per URL), or use a <strong className="text-gray-200">direct CSV</strong> link (e.g.
-                  Google Sheets publish). Listing links are scraped on the server — large batches run one URL at a time.
+                  Paste <strong className="text-gray-200">Airbnb, Booking.com, VRBO</strong>, or your own listing
+                  page links (one property per URL). We scrape those pages. For a spreadsheet, download our template
+                  and either upload the file or publish it as CSV (Google Sheets) using the same columns.
                 </p>
                 
                 <div className="space-y-3 mb-4">
@@ -817,12 +738,14 @@ export default function BulkImportPage() {
                   <p className="text-blue-200 text-sm font-medium mb-2">Tips for external URLs:</p>
                   <ul className="text-blue-200/70 text-xs space-y-1 list-disc list-inside">
                     <li>
-                      <strong>Airbnb / Booking / VRBO:</strong> paste the full listing URL — we scrape one property per
-                      link (same engine as “Import from URL” on your properties page).
+                      <strong>Listing pages:</strong> paste the full Airbnb / Booking / VRBO / your-site URL — we scrape
+                      one property per link.
                     </li>
-                    <li><strong>Google Sheets:</strong> File → Share → Publish to web → CSV format</li>
+                    <li>
+                      <strong>Published CSV:</strong> must use the VibesBnB template columns (Google Sheets: File → Share
+                      → Publish to web → CSV).
+                    </li>
                     <li><strong>Dropbox:</strong> Use the direct download link (change dl=0 to dl=1)</li>
-                    <li><strong>Direct:</strong> Any publicly accessible CSV file URL</li>
                   </ul>
                 </div>
 
@@ -848,7 +771,7 @@ export default function BulkImportPage() {
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
               <h3 className="text-white font-semibold mb-4">Required CSV Columns</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {['name', 'type', 'location', 'price', 'guests'].map((col) => (
+                {REQUIRED_BULK_CSV_COLUMNS.map((col) => (
                   <div key={col} className="flex items-center gap-2">
                     <CheckCircle2 size={16} className="text-emerald-500" />
                     <span className="text-gray-300 text-sm">{col}</span>
@@ -858,10 +781,14 @@ export default function BulkImportPage() {
               <div className="mt-4 pt-4 border-t border-gray-800">
                 <h4 className="text-gray-400 text-sm font-medium mb-2">Optional Columns</h4>
                 <p className="text-gray-500 text-sm">
-                  bedrooms, beds, bathrooms, cleaningFee (once per stay, USD), description, amenities (separated by ;), wellnessFriendly (outdoor wellness allowed)
+                  {OPTIONAL_BULK_CSV_COLUMNS.join(', ')}
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Amenities and image URLs are pipe-separated (e.g. WiFi|Kitchen|Parking). Bathrooms may be decimals
+                  (2.5) and must be between 0 and 20.
                 </p>
                 <p className="text-emerald-400/80 text-sm mt-2">
-                  <strong>image_urls</strong> - Pipe-separated image URLs (e.g., https://url1.jpg|https://url2.jpg)
+                  <strong>image_urls</strong> — pipe-separated HTTPS URLs (e.g. https://url1.jpg|https://url2.jpg)
                 </p>
               </div>
             </div>
@@ -886,7 +813,7 @@ export default function BulkImportPage() {
                 <div>
                   <h3 className="text-white font-semibold text-lg">Review Properties</h3>
                   <p className="text-gray-400 text-sm">
-                    {parsedData.properties.length} properties ready to import
+                    {parsedData.properties.length} properties ready to import. Confirm bathrooms, bedrooms, and price — highlighted values look unusually high.
                   </p>
                 </div>
                 <button
@@ -904,7 +831,7 @@ export default function BulkImportPage() {
               {parsedData.errors.length > 0 && (
                 <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                   <p className="text-amber-400 font-medium text-sm mb-2">
-                    {parsedData.errors.length} rows skipped due to errors:
+                    {parsedData.errors.length} issue{parsedData.errors.length === 1 ? '' : 's'} with this file:
                   </p>
                   <ul className="text-amber-400/80 text-xs list-disc list-inside max-h-24 overflow-auto">
                     {parsedData.errors.map((err, i) => (
@@ -916,39 +843,71 @@ export default function BulkImportPage() {
 
               <div className="space-y-4 max-h-[70vh] overflow-auto">
                 {parsedData.properties.map((prop, index) => {
-                  const amenityList = parseAmenitiesField(prop.amenities);
+                  const amenityList = parseAmenitiesList(prop.amenities);
                   const isExpanded = expandedReviewIndex === index;
+                  const hasWarnings = (prop.warnings?.length || 0) > 0;
 
                   return (
-                  <div key={index} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                    <div className="flex items-start justify-between">
+                  <div
+                    key={index}
+                    className={`p-4 bg-gray-800/50 rounded-lg border ${
+                      hasWarnings ? 'border-amber-500/40' : 'border-gray-700/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
                       <div>
                         <h4 className="text-white font-medium">{prop.name}</h4>
                         <p className="text-gray-400 text-sm">{prop.location}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-emerald-400 font-medium">${prop.price}/night</p>
+                      <div className="text-right shrink-0">
                         {(prop.cleaningFee ?? 0) > 0 && (
                           <p className="text-gray-400 text-xs">+ ${prop.cleaningFee} cleaning / stay</p>
                         )}
                         <p className="text-gray-500 text-xs">{prop.type}</p>
                       </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
-                      <span>{prop.guests} guests</span>
-                      <span>•</span>
-                      <span>{prop.bedrooms} bedrooms</span>
-                      <span>•</span>
-                      <span>{prop.beds} beds</span>
-                      <span>•</span>
-                      <span>{prop.bathrooms} bath</span>
+
+                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {REVIEW_COUNT_FIELDS.map(({ field, label }) => {
+                        const bounds = NUMERIC_BOUNDS[field];
+                        const value = prop[field];
+                        const suspicious = isCountSuspicious(field, value);
+                        return (
+                          <label key={field} className="flex flex-col gap-1">
+                            <span className="text-[11px] uppercase tracking-wide text-gray-500">{label}</span>
+                            <input
+                              type="number"
+                              min={bounds.min}
+                              max={bounds.max}
+                              step={field === 'bathrooms' || field === 'price' ? 0.5 : 1}
+                              value={value}
+                              onChange={(e) => updateReviewCount(index, field, e.target.value)}
+                              className={`w-full px-2 py-1.5 rounded-md bg-gray-900 border text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                                suspicious
+                                  ? 'border-amber-500 text-amber-300'
+                                  : 'border-gray-700 text-white'
+                              }`}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    {hasWarnings && (
+                      <ul className="mt-3 text-amber-300/90 text-xs space-y-1">
+                        {prop.warnings!.map((warning) => (
+                          <li key={warning} className="flex items-start gap-1.5">
+                            <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                            <span>{warning}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-400">
                       {prop.imageUrls && prop.imageUrls.length > 0 && (
-                        <>
-                          <span>•</span>
-                          <span className="text-emerald-400">{prop.imageUrls.length} images</span>
-                        </>
+                        <span className="text-emerald-400">{prop.imageUrls.length} images</span>
                       )}
-                      <span>•</span>
                       <span className="text-emerald-400/80">{amenityList.length} amenities</span>
                     </div>
 
