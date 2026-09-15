@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
-import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { recomputePropertyReviewAggregates } from '@/lib/reviews/aggregates';
 
 type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
@@ -48,10 +48,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'Review not found' }, { status: 404 });
   }
 
-  try {
-    await invalidatePropertyListingCaches(review.property_id);
-  } catch {
-    /* non-blocking */
+  if (review.property_id) {
+    try {
+      await recomputePropertyReviewAggregates(supabase, review.property_id);
+    } catch (e) {
+      console.warn('[admin/reviews PATCH] aggregate', e);
+    }
   }
 
   return NextResponse.json({ review });
@@ -86,9 +88,9 @@ export async function DELETE(
 
   if (existing?.property_id) {
     try {
-      await invalidatePropertyListingCaches(existing.property_id);
-    } catch {
-      /* non-blocking */
+      await recomputePropertyReviewAggregates(supabase, existing.property_id);
+    } catch (e) {
+      console.warn('[admin/reviews DELETE] aggregate', e);
     }
   }
 

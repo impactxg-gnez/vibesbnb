@@ -6,6 +6,8 @@ import {
   sortReviewsForDisplay,
 } from '@/lib/reviews/enrichReviews';
 import { getReviewEligibility } from '@/lib/reviews/eligibility';
+import { getReviewInviteByToken } from '@/lib/reviews/invites';
+import { recomputePropertyReviewAggregates } from '@/lib/reviews/aggregates';
 
 export async function GET(
   _request: NextRequest,
@@ -61,7 +63,7 @@ export async function POST(
     return NextResponse.json({ error: 'Sign in to leave a review' }, { status: 401 });
   }
 
-  let body: { rating?: number; comment?: string };
+  let body: { rating?: number; comment?: string; inviteToken?: string };
   try {
     body = await request.json();
   } catch {
@@ -70,6 +72,7 @@ export async function POST(
 
   const rating = Number(body.rating);
   const comment = String(body.comment ?? '').trim();
+  const inviteToken = String(body.inviteToken ?? '').trim();
 
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
     return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
@@ -78,22 +81,31 @@ export async function POST(
     return NextResponse.json({ error: 'Please write a review comment' }, { status: 400 });
   }
 
-  const eligibility = await getReviewEligibility(
-    createServiceClient(),
-    user.id,
-    propertyId
-  );
-  if (!eligibility.eligible) {
-    return NextResponse.json(
-      { error: eligibility.reason || 'You cannot review this property' },
-      { status: 403 }
-    );
+  const service = createServiceClient();
+
+  let viaInvite = false;
+  if (inviteToken) {
+    const invite = await getReviewInviteByToken(service, inviteToken);
+    if (!invite || invite.property_id !== propertyId) {
+      return NextResponse.json(
+        { error: 'This review link is invalid or has been disabled.' },
+        { status: 403 }
+      );
+    }
+    viaInvite = true;
+  } else {
+    const eligibility = await getReviewEligibility(service, user.id, propertyId);
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        { error: eligibility.reason || 'You cannot review this property' },
+        { status: 403 }
+      );
+    }
   }
 
-  const service = createServiceClient();
   const { data: property, error: propertyError } = await service
     .from('properties')
-    .select('id')
+    .select('id, host_id, status')
     .eq('id', propertyId)
     .maybeSingle();
 
@@ -105,14 +117,29 @@ export async function POST(
     return NextResponse.json({ error: 'Property not found' }, { status: 404 });
   }
 
-  const { data: review, error: insertError } = await supabase
+  if (viaInvite && property.status && property.status !== 'active') {
+    return NextResponse.json(
+      { error: 'This listing is not currently accepting reviews.' },
+      { status: 403 }
+    );
+  }
+
+  if (viaInvite && property.host_id && String(property.host_id) === user.id) {
+    return NextResponse.json(
+      { error: 'Hosts cannot review their own listing with an invite link.' },
+      { status: 403 }
+    );
+  }
+
+  const insertClient = viaInvite ? service : supabase;
+  const { data: review, error: insertError } = await insertClient
     .from('reviews')
     .insert({
       property_id: propertyId,
       user_id: user.id,
       rating: Math.round(rating),
       comment,
-      status: 'pending',
+      status: viaInvite ? 'approved' : 'pending',
       is_team_review: false,
     })
     .select(
@@ -131,10 +158,20 @@ export async function POST(
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  if (viaInvite) {
+    try {
+      await recomputePropertyReviewAggregates(service, propertyId);
+    } catch (e) {
+      console.warn('[POST /api/properties/[id]/reviews] invite aggregate', e);
+    }
+  }
+
   return NextResponse.json(
     {
       review,
-      message: 'Thanks! Your review was submitted and is pending approval.',
+      message: viaInvite
+        ? 'Thanks! Your review is now visible on this listing.'
+        : 'Thanks! Your review was submitted and is pending approval.',
     },
     { status: 201 }
   );

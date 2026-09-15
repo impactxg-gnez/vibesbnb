@@ -57,6 +57,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     // Keep Admin Reviews open when working in that section
     if (
       pathname.startsWith('/admin/reviews/add') ||
+      pathname.startsWith('/admin/reviews/invite') ||
       pathname.startsWith('/admin/reviews/all') ||
       pathname.startsWith('/admin/reviews/pending')
     ) {
@@ -142,6 +143,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       icon: <Star className="w-5 h-5" />,
       children: [
         { label: 'Add VibesBNB Review', href: '/admin/reviews/add', icon: <Star className="w-4 h-4" /> },
+        { label: 'Invite guest review', href: '/admin/reviews/invite', icon: <Star className="w-4 h-4" /> },
         { label: 'All Reviews', href: '/admin/reviews/all', icon: <Star className="w-4 h-4" /> },
         { label: 'Pending Reviews', href: '/admin/reviews/pending', icon: <Star className="w-4 h-4" /> },
       ],

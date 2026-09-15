@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
-import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { createServiceClient } from '@/lib/supabase/service';
+import { recomputePropertyReviewAggregates } from '@/lib/reviews/aggregates';
 
 /** List all reviews (admin). */
 export async function GET(request: NextRequest) {
@@ -103,37 +103,9 @@ export async function POST(request: NextRequest) {
 
   // Recompute property aggregates so cards/search reflect VibesBNB reviews immediately.
   try {
-    const { data: approvedRows, error: aggErr } = await supabase
-      .from('reviews')
-      .select('rating,is_team_review')
-      .eq('property_id', propertyId)
-      .eq('status', 'approved');
-    if (!aggErr && approvedRows) {
-      const count = approvedRows.length;
-      const avg =
-        count > 0
-          ? approvedRows.reduce((sum, r: any) => sum + (Number(r.rating) || 0), 0) / count
-          : 0;
-      const hasTeam = approvedRows.some((r: any) => r.is_team_review === true);
-      await supabase
-        .from('properties')
-        .update({
-          rating: Number.isFinite(avg) ? Number(avg.toFixed(1)) : 0,
-          reviews_count: count,
-          has_team_review: hasTeam,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', propertyId);
-    }
+    await recomputePropertyReviewAggregates(supabase, propertyId);
   } catch (e) {
     console.warn('[admin/reviews] aggregate update failed', e);
-  }
-
-  // Bust cached browse payload so card lists update quickly.
-  try {
-    await invalidatePropertyListingCaches(propertyId);
-  } catch {
-    /* ignore */
   }
 
   return NextResponse.json({ review }, { status: 201 });

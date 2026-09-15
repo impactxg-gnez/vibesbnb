@@ -10,6 +10,8 @@ type PropertyReviewFormProps = {
   propertyName?: string;
   onSubmitted?: () => void;
   className?: string;
+  /** When set, skip stay eligibility and submit as an invited guest review. */
+  inviteToken?: string;
 };
 
 type EligibilityState = {
@@ -25,6 +27,7 @@ export function PropertyReviewForm({
   propertyName,
   onSubmitted,
   className = '',
+  inviteToken,
 }: PropertyReviewFormProps) {
   const { user } = useAuth();
   const [eligibility, setEligibility] = useState<EligibilityState>({
@@ -63,16 +66,25 @@ export function PropertyReviewForm({
       })
       .then((data) => {
         if (cancelled) return;
+        const eligible = Boolean(inviteToken) ? !data.hasReview : data.eligible;
         setEligibility({
           loading: false,
-          eligible: data.eligible,
+          eligible,
           hasReview: data.hasReview,
-          reason: data.reason,
+          reason: data.hasReview
+            ? data.reason
+            : inviteToken
+              ? undefined
+              : data.reason,
           existingStatus: data.existingReview?.status,
         });
       })
       .catch(() => {
         if (!cancelled) {
+          if (inviteToken) {
+            setEligibility({ loading: false, eligible: true, hasReview: false });
+            return;
+          }
           setEligibility({
             loading: false,
             eligible: false,
@@ -85,7 +97,7 @@ export function PropertyReviewForm({
     return () => {
       cancelled = true;
     };
-  }, [user, propertyId]);
+  }, [user, propertyId, inviteToken]);
 
   if (!user) return null;
 
@@ -131,7 +143,11 @@ export function PropertyReviewForm({
       const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, comment: comment.trim() }),
+        body: JSON.stringify({
+          rating,
+          comment: comment.trim(),
+          ...(inviteToken ? { inviteToken } : {}),
+        }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -141,15 +157,19 @@ export function PropertyReviewForm({
       toast.success(
         typeof payload.message === 'string'
           ? payload.message
-          : 'Review submitted for approval'
+          : inviteToken
+            ? 'Review published on the listing.'
+            : 'Review submitted for approval'
       );
       setComment('');
       setEligibility({
         loading: false,
         eligible: false,
         hasReview: true,
-        reason: 'Your review is pending approval.',
-        existingStatus: 'pending',
+        reason: inviteToken
+          ? 'You have already reviewed this property.'
+          : 'Your review is pending approval.',
+        existingStatus: inviteToken ? 'approved' : 'pending',
       });
       onSubmitted?.();
     } catch (err: unknown) {
@@ -167,8 +187,10 @@ export function PropertyReviewForm({
       <h3 className="text-white font-bold mb-1">Share your experience</h3>
       <p className="text-gray-400 text-sm mb-4">
         {propertyName
-          ? `How was your stay at ${propertyName}?`
-          : 'Tell future guests about your stay.'}
+          ? inviteToken
+            ? `How was ${propertyName}?`
+            : `How was your stay at ${propertyName}?`
+          : 'Tell future guests about this stay.'}
       </p>
 
       <div className="flex items-center gap-2 mb-4">

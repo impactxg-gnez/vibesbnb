@@ -94,6 +94,7 @@ export default function LoginPage() {
         returnTo.startsWith('/bookings?pay=') ||
         returnTo.includes('pay='))
   );
+  const isReviewReturn = Boolean(returnTo && returnTo.startsWith('/review/'));
 
   if (authLoading || continuingExistingSession) {
     return (
@@ -102,7 +103,11 @@ export default function LoginPage() {
         <div className="text-center relative">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
           <p className="text-muted font-medium">
-            {isPayReturn ? 'Taking you to checkout…' : 'Checking your session…'}
+            {isPayReturn
+              ? 'Taking you to checkout…'
+              : isReviewReturn
+                ? 'Taking you back to your review…'
+                : 'Checking your session…'}
           </p>
         </div>
       </div>
@@ -126,13 +131,43 @@ export default function LoginPage() {
           <p className="mt-4 text-muted font-medium">
             {isPayReturn
               ? 'Sign in to complete payment and confirm your stay.'
-              : 'Sign in to continue your wellness journey.'}
+              : isReviewReturn
+                ? 'Continue with Google to leave your guest review.'
+                : 'Sign in to continue your wellness journey.'}
           </p>
         </div>
 
         {/* Login Form */}
         <div className="bg-surface shadow-[0_30px_60px_rgba(0,0,0,0.5)] rounded-[2.5rem] p-10 border border-white/5 relative overflow-hidden">
            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-500/5 blur-3xl rounded-full" />
+          {isReviewReturn ? (
+            <div className="relative mb-8">
+              <button
+                onClick={handleGoogleSignIn}
+                type="button"
+                disabled={isGoogleLoading || isLoading}
+                className="w-full flex items-center justify-center px-4 py-4 bg-white text-gray-900 rounded-2xl hover:bg-gray-100 transition-all group disabled:opacity-60 disabled:cursor-not-allowed font-bold"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <span className="ml-3 text-sm">
+                  {isGoogleLoading ? 'Redirecting to Google…' : 'Continue with Google'}
+                </span>
+              </button>
+              <div className="mt-8 relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/5"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-4 bg-surface text-muted font-bold uppercase tracking-widest">Or email</span>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <form onSubmit={handleSubmit} className="space-y-8 relative">
             {/* Email */}
             <div className="space-y-2">
@@ -205,7 +240,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
+          {!isReviewReturn ? (
           <div className="mt-10">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -236,6 +271,7 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+          ) : null}
         </div>
 
         {/* Sign Up Link */}
