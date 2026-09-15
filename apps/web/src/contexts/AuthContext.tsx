@@ -97,6 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hostPendingPromotedRef = useRef(false);
   const profileSyncedRef = useRef(false);
   const hydratingSessionRef = useRef(true);
+  /** Bumped to cancel in-flight session recovery when the user signs in. */
+  const sessionInitGenRef = useRef(0);
+  const recoverInFlightRef = useRef<Promise<unknown> | null>(null);
+  const ignoreSignedOutRef = useRef(false);
 
   const gateUnverifiedSession = async (sessionUser: User) => {
     if (!requiresEmailVerification(sessionUser)) return true;
@@ -150,102 +154,147 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (useSupabase) {
       // Get initial session from Supabase with retry logic
+      const isInvalidRefreshError = (message?: string) =>
+        Boolean(message && /refresh token/i.test(message));
+
       const initializeSession = async () => {
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-          try {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
-            if (session && !error) {
-              if (session.user && !(await gateUnverifiedSession(session.user))) {
-                setSession(null);
-                setUser(null);
+        const initId = sessionInitGenRef.current;
+        const run = (async () => {
+          let retries = 0;
+          const maxRetries = 3;
+          let sawInvalidRefresh = false;
+
+          while (retries < maxRetries) {
+            if (initId !== sessionInitGenRef.current) return;
+            try {
+              const {
+                data: { session },
+                error,
+              } = await supabase.auth.getSession();
+              if (initId !== sessionInitGenRef.current) return;
+
+              if (error && isInvalidRefreshError(error.message)) {
+                console.log(
+                  '[AuthContext] Session error (attempt',
+                  retries + 1,
+                  '):',
+                  error.message
+                );
+                sawInvalidRefresh = true;
+                break;
+              }
+
+              if (session && !error) {
+                if (session.user && !(await gateUnverifiedSession(session.user))) {
+                  if (initId !== sessionInitGenRef.current) return;
+                  setSession(null);
+                  setUser(null);
+                  hydratingSessionRef.current = false;
+                  setLoading(false);
+                  return;
+                }
+                let resolvedUser = session.user;
+                // JWTs can lag behind admin phone confirmation; fetch the live user
+                // before showing the verify-phone banner.
+                if (travellerNeedsPhoneVerification(resolvedUser)) {
+                  const { data: fresh, error: freshError } = await supabase.auth.getUser();
+                  if (!freshError && fresh.user) {
+                    resolvedUser = fresh.user;
+                  }
+                }
+                if (initId !== sessionInitGenRef.current) return;
+                setSession(
+                  resolvedUser && resolvedUser !== session.user
+                    ? { ...session, user: resolvedUser }
+                    : session
+                );
+                setUser(resolvedUser);
+                persistSavedSession(session);
+
+                // Sync roles from user metadata to localStorage
+                if (session?.user?.user_metadata?.role) {
+                  const role = session.user.user_metadata.role;
+                  const rolesStr = localStorage.getItem('userRoles');
+                  const roles = rolesStr ? JSON.parse(rolesStr) : [];
+                  if (!roles.includes(role)) {
+                    roles.push(role);
+                    localStorage.setItem('userRoles', JSON.stringify(roles));
+                  }
+                }
+
+                console.log('[AuthContext] Session initialized:', session.user?.id);
+                void syncProfileContact();
                 hydratingSessionRef.current = false;
                 setLoading(false);
                 return;
               }
-              let resolvedUser = session.user;
-              // JWTs can lag behind admin phone confirmation; fetch the live user
-              // before showing the verify-phone banner.
-              if (travellerNeedsPhoneVerification(resolvedUser)) {
-                const { data: fresh, error: freshError } = await supabase.auth.getUser();
-                if (!freshError && fresh.user) {
-                  resolvedUser = fresh.user;
-                }
-              }
-              setSession(
-                resolvedUser && resolvedUser !== session.user
-                  ? { ...session, user: resolvedUser }
-                  : session
-              );
-              setUser(resolvedUser);
-              persistSavedSession(session);
-              
-              // Sync roles from user metadata to localStorage
-              if (session?.user?.user_metadata?.role) {
-                const role = session.user.user_metadata.role;
-                const rolesStr = localStorage.getItem('userRoles');
-                const roles = rolesStr ? JSON.parse(rolesStr) : [];
-                if (!roles.includes(role)) {
-                  roles.push(role);
-                  localStorage.setItem('userRoles', JSON.stringify(roles));
-                }
-              }
-              
-              console.log('[AuthContext] Session initialized:', session.user?.id);
-              void syncProfileContact();
-              hydratingSessionRef.current = false;
-              setLoading(false);
-              return;
-            }
-            
-            if (error) {
-              console.log('[AuthContext] Session error (attempt', retries + 1, '):', error.message);
-            }
 
-            // Cookies in a brand-new tab can lag a tick; retry briefly.
-            // Don't wait a full second when there is simply no session.
-            if (retries < maxRetries - 1) {
-              await new Promise((resolve) => setTimeout(resolve, error ? 1000 : 250));
-            }
-            retries++;
-          } catch (error: any) {
-            console.error('[AuthContext] Error initializing session:', error);
-            retries++;
-            if (retries < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              if (error) {
+                console.log(
+                  '[AuthContext] Session error (attempt',
+                  retries + 1,
+                  '):',
+                  error.message
+                );
+              }
+
+              // Cookies in a brand-new tab can lag a tick; retry briefly.
+              // Don't wait a full second when there is simply no session.
+              if (retries < maxRetries - 1) {
+                await new Promise((resolve) => setTimeout(resolve, error ? 1000 : 250));
+              }
+              retries++;
+            } catch (error: any) {
+              console.error('[AuthContext] Error initializing session:', error);
+              retries++;
+              if (retries < maxRetries) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+              }
             }
           }
-        }
-        
-        // Cookies can land after getSession() missed them (full load of /admin).
-        try {
-          const { data: late } = await supabase.auth.getUser();
-          if (late.user) {
-            if (!(await gateUnverifiedSession(late.user))) {
-              setSession(null);
-              setUser(null);
-              hydratingSessionRef.current = false;
-              setLoading(false);
-              return;
-            }
-            const { data: lateSession } = await supabase.auth.getSession();
-            setSession(lateSession.session);
-            setUser(late.user);
-            persistSavedSession(lateSession.session);
-            void syncProfileContact();
-            hydratingSessionRef.current = false;
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.warn('[AuthContext] getUser after session miss:', e);
-        }
 
-        // If no session after retries, set loading to false
-        console.warn('[AuthContext] No session found after', maxRetries, 'attempts');
+          if (initId !== sessionInitGenRef.current) return;
+
+          if (sawInvalidRefresh) {
+            try {
+              await supabase.auth.signOut({ scope: 'local' });
+            } catch {
+              /* broken cookies are already unusable */
+            }
+            if (initId !== sessionInitGenRef.current) return;
+          } else {
+            // Cookies can land after getSession() missed them (full load of /admin).
+            try {
+              const { data: late } = await supabase.auth.getUser();
+              if (initId !== sessionInitGenRef.current) return;
+              if (late.user) {
+                if (!(await gateUnverifiedSession(late.user))) {
+                  if (initId !== sessionInitGenRef.current) return;
+                  setSession(null);
+                  setUser(null);
+                  hydratingSessionRef.current = false;
+                  setLoading(false);
+                  return;
+                }
+                const { data: lateSession } = await supabase.auth.getSession();
+                if (initId !== sessionInitGenRef.current) return;
+                setSession(lateSession.session);
+                setUser(late.user);
+                persistSavedSession(lateSession.session);
+                void syncProfileContact();
+                hydratingSessionRef.current = false;
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.warn('[AuthContext] getUser after session miss:', e);
+            }
+          }
+
+          if (initId !== sessionInitGenRef.current) return;
+
+          // If no session after retries, set loading to false
+          console.warn('[AuthContext] No session found after', maxRetries, 'attempts');
 
         const demoRaw =
           typeof window !== 'undefined' ? localStorage.getItem('demoUser') : null;
@@ -272,11 +321,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        hydratingSessionRef.current = false;
-        setLoading(false);
+          hydratingSessionRef.current = false;
+          setLoading(false);
+        })();
+        recoverInFlightRef.current = run;
+        try {
+          await run;
+        } finally {
+          if (recoverInFlightRef.current === run) {
+            recoverInFlightRef.current = null;
+          }
+        }
       };
       
-      initializeSession();
+      void initializeSession();
 
       // Listen for auth changes
       const {
@@ -290,9 +348,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'INITIAL_SESSION' && !session?.user) {
           return;
         }
-        // Admin pages call refreshSession on mount; a miss during hydration can
-        // emit SIGNED_OUT before cookies are applied. Ignore that until init finishes.
-        if (event === 'SIGNED_OUT' && hydratingSessionRef.current) {
+        // Admin pages used to call refreshSession on mount; a miss during
+        // hydration (or an in-flight recover of a broken cookie) can emit
+        // SIGNED_OUT. Ignore until recovery finishes so a successful sign-in
+        // is not wiped by that stale refresh.
+        if (
+          event === 'SIGNED_OUT' &&
+          (hydratingSessionRef.current ||
+            recoverInFlightRef.current ||
+            ignoreSignedOutRef.current)
+        ) {
           return;
         }
 
@@ -436,6 +501,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     options?: { returnTo?: string | null }
   ) => {
+    sessionInitGenRef.current += 1;
+    hydratingSessionRef.current = false;
+    ignoreSignedOutRef.current = true;
+    try {
+    if (recoverInFlightRef.current) {
+      try {
+        await recoverInFlightRef.current;
+      } catch {
+        /* stale recover may reject after we cancelled it */
+      }
+    }
+
     // Check if this is a demo account first (even if Supabase is configured)
     const demoAccount = DEMO_ACCOUNTS[email as keyof typeof DEMO_ACCOUNTS];
     
@@ -510,14 +587,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
     
-    // If there's a current session with a different email, sign out first
-    // This ensures clean account switching
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (currentSession && currentSession.user?.email !== email) {
-      console.log('[Auth] Switching accounts - signing out current user first');
+    // Clear a leftover/broken browser session before password sign-in so a
+    // failed refresh of a stale cookie cannot delete the new tokens.
+    try {
       await supabase.auth.signOut({ scope: 'local' });
-      // Small delay to ensure signout is processed
-      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (e) {
+      console.warn('[Auth] Could not clear leftover session before sign-in', e);
     }
     
     // Supabase authentication for non-demo accounts
@@ -541,14 +616,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('demoUser');
       }
 
-      // Ensure session is properly set
       if (data.session) {
-        // Session is already available from signInWithPassword
+        setSession(data.session);
+        setUser(data.user);
+        persistSavedSession(data.session);
         console.log('[Auth] Session established after sign-in');
       } else {
-        // If no session in response, get it explicitly
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (session) {
+          setSession(session);
+          setUser(session.user);
+          persistSavedSession(session);
           console.log('[Auth] Session retrieved after sign-in');
         }
       }
@@ -588,6 +668,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return { error };
+    } finally {
+      window.setTimeout(() => {
+        ignoreSignedOutRef.current = false;
+      }, 500);
+    }
   };
 
   const signUp = async (
@@ -801,10 +886,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { data: refreshed } = await supabase.auth.refreshSession();
-    if (refreshed.session) {
-      setSession(refreshed.session);
-      setUser(refreshed.session.user);
+    const {
+      data: { session: current },
+    } = await supabase.auth.getSession();
+    if (current?.refresh_token) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (refreshed.session) {
+        setSession(refreshed.session);
+        setUser(refreshed.session.user);
+      }
     }
 
     const { data, error } = await supabase.auth.getUser();

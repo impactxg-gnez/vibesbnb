@@ -41,7 +41,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -86,10 +86,10 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (user && isAdminUser(user)) {
+    if (user && isAdminUser(user) && session?.access_token) {
       fetchStats();
     }
-  }, [user?.id, fetchStats]);
+  }, [user?.id, session?.access_token, fetchStats]);
 
   useEffect(() => {
     if (!user || !isAdminUser(user)) return;

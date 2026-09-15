@@ -27,22 +27,17 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
+        // Set every cookie on one response. Recreating NextResponse inside the
+        // loop drops earlier chunks (sb-*-auth-token.0, .1, …) and the next
+        // request then looks like “Invalid Refresh Token”.
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        response = NextResponse.next({
+          request,
+        });
         cookiesToSet.forEach(({ name, value, options }) => {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          response.cookies.set(name, value, options);
         });
       },
     },

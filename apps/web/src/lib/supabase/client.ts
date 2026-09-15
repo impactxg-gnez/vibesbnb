@@ -23,9 +23,6 @@ export function createClient(): SupabaseClient {
   if (typeof window !== 'undefined') {
     if (!browserClient) {
       browserClient = createBrowserClient(supabaseUrl, supabaseKey, { cookieOptions });
-      browserClient.auth.getSession().catch((error: Error) => {
-        console.debug('[Supabase Client] Session check:', error.message);
-      });
     }
     return browserClient;
   }

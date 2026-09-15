@@ -49,21 +49,27 @@ function readDemoAdminEmailFromStorage(): string | null {
 
 async function resolveAdminFetchAuth(): Promise<Record<string, string>> {
   const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    return { Authorization: `Bearer ${session.access_token}` };
-  }
-  // Only refresh when we already have a refresh token. Calling refreshSession()
-  // with no session signs the user out and bounces /admin → /login on load.
-  if (session?.refresh_token) {
-    const { data, error } = await supabase.auth.refreshSession();
-    if (data.session?.access_token) {
-      return { Authorization: `Bearer ${data.session.access_token}` };
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
     }
-    if (error) {
-      console.warn('[adminSession] refreshSession failed:', error.message);
+    // Only refresh when we already have a refresh token. Calling refreshSession()
+    // with no session signs the user out and bounces /admin → /login on load.
+    if (session?.refresh_token) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (data.session?.access_token) {
+        return { Authorization: `Bearer ${data.session.access_token}` };
+      }
+      if (error) {
+        console.warn('[adminSession] refreshSession failed:', error.message);
+        if (/refresh token/i.test(error.message)) break;
+      }
+    }
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 150));
     }
   }
 
