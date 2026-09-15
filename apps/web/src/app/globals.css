@@ -25,6 +25,23 @@
   --focus-ring: #193f25;
   --scrollbar-track: #ecd5bb;
   --scrollbar-thumb: rgba(25, 63, 37, 0.45);
+
+  /* Alert banners: dark-theme pastels fail on cream. These inks meet AA on the tints below. */
+  --alert-warning-bg: #fef3c7;
+  --alert-warning-bg-strong: #fde68a;
+  --alert-warning-ink: #7c2d12;
+  --alert-warning-ink-soft: #9a3412;
+  --alert-warning-border: color-mix(in srgb, #b45309 50%, transparent);
+  --alert-danger-bg: #fee2e2;
+  --alert-danger-bg-strong: #fecaca;
+  --alert-danger-ink: #9f1d1d;
+  --alert-danger-ink-soft: #b91c1c;
+  --alert-danger-border: color-mix(in srgb, #b91c1c 48%, transparent);
+  --alert-info-bg: #e0f2fe;
+  --alert-info-bg-strong: #bae6fd;
+  --alert-info-ink: #0c4a6e;
+  --alert-info-ink-soft: #075985;
+  --alert-info-border: color-mix(in srgb, #0369a1 48%, transparent);
 }
 
 html.dark {
@@ -237,6 +254,143 @@ html:not(.dark) .to-gray-950 {
 
 html:not(.dark) .via-white\/5 {
   --tw-gradient-via: color-mix(in srgb, var(--espresso) 12%, transparent);
+}
+
+html:not(.dark) .from-amber-500\/20 {
+  --tw-gradient-from: var(--alert-warning-bg) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(254 243 199 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+html:not(.dark) .via-orange-500\/20 {
+  --tw-gradient-to: rgb(255 237 213 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), #ffedd5 var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+
+html:not(.dark) .to-red-500\/20 {
+  --tw-gradient-to: var(--alert-danger-bg) var(--tw-gradient-to-position);
+}
+
+/* Warning / error / info banners were authored for dark surfaces (amber-200 on
+   amber-500/10). On cream those pastels vanish — remap to solid tints + dark ink. */
+html:not(.dark) .text-amber-100,
+html:not(.dark) .text-amber-200,
+html:not(.dark) .text-amber-200\/60,
+html:not(.dark) .text-amber-200\/70,
+html:not(.dark) .text-amber-200\/80,
+html:not(.dark) .text-amber-200\/90,
+html:not(.dark) .text-amber-100\/75,
+html:not(.dark) .text-amber-300,
+html:not(.dark) .hover\:text-amber-200:hover,
+html:not(.dark) .hover\:text-amber-300:hover {
+  color: var(--alert-warning-ink) !important;
+}
+
+html:not(.dark) .text-amber-400,
+html:not(.dark) .text-amber-400\/60,
+html:not(.dark) .text-amber-500,
+html:not(.dark) .text-amber-500\/50 {
+  color: var(--alert-warning-ink-soft) !important;
+}
+
+html:not(.dark) .hover\:text-amber-400:hover {
+  color: var(--alert-warning-ink) !important;
+}
+
+html:not(.dark) .text-red-200,
+html:not(.dark) .text-red-200\/70,
+html:not(.dark) .text-red-300,
+html:not(.dark) .text-red-300\/80,
+html:not(.dark) .text-red-300\/90,
+html:not(.dark) .hover\:text-red-300:hover {
+  color: var(--alert-danger-ink) !important;
+}
+
+html:not(.dark) .text-red-400,
+html:not(.dark) .text-red-400\/50,
+html:not(.dark) .text-red-500,
+html:not(.dark) .hover\:text-red-400:hover {
+  color: var(--alert-danger-ink-soft) !important;
+}
+
+html:not(.dark) .text-sky-100,
+html:not(.dark) .text-sky-100\/75,
+html:not(.dark) .text-sky-200,
+html:not(.dark) .text-sky-200\/60,
+html:not(.dark) .hover\:text-sky-200:hover {
+  color: var(--alert-info-ink) !important;
+}
+
+html:not(.dark) .text-sky-300,
+html:not(.dark) .hover\:text-sky-300:hover {
+  color: var(--alert-info-ink-soft) !important;
+}
+
+html:not(.dark) .bg-amber-500\/5,
+html:not(.dark) .bg-amber-500\/10,
+html:not(.dark) .bg-amber-500\/15,
+html:not(.dark) .bg-amber-900\/30,
+html:not(.dark) .bg-amber-950\/20,
+html:not(.dark) .bg-amber-950\/40,
+html:not(.dark) .bg-yellow-500\/10,
+html:not(.dark) .bg-yellow-950\/20 {
+  background-color: var(--alert-warning-bg) !important;
+}
+
+html:not(.dark) .bg-amber-500\/20,
+html:not(.dark) .hover\:bg-amber-500\/20:hover,
+html:not(.dark) .hover\:bg-amber-800\/50:hover {
+  background-color: var(--alert-warning-bg-strong) !important;
+}
+
+html:not(.dark) .hover\:bg-amber-500\/30:hover {
+  background-color: color-mix(in srgb, var(--alert-warning-bg-strong) 80%, #d97706) !important;
+}
+
+html:not(.dark) .bg-red-500\/10,
+html:not(.dark) .bg-red-950\/40,
+html:not(.dark) .bg-red-950\/50 {
+  background-color: var(--alert-danger-bg) !important;
+}
+
+html:not(.dark) .bg-red-500\/20,
+html:not(.dark) .hover\:bg-red-500\/20:hover,
+html:not(.dark) .hover\:bg-red-950\/50:hover {
+  background-color: var(--alert-danger-bg-strong) !important;
+}
+
+html:not(.dark) .hover\:bg-red-500\/30:hover {
+  background-color: color-mix(in srgb, var(--alert-danger-bg-strong) 70%, #dc2626) !important;
+}
+
+html:not(.dark) .bg-sky-500\/10 {
+  background-color: var(--alert-info-bg) !important;
+}
+
+html:not(.dark) .bg-sky-500\/20 {
+  background-color: var(--alert-info-bg-strong) !important;
+}
+
+html:not(.dark) .border-amber-500\/20,
+html:not(.dark) .border-amber-500\/30,
+html:not(.dark) .border-amber-500\/35,
+html:not(.dark) .border-amber-500\/40,
+html:not(.dark) .border-amber-500\/50,
+html:not(.dark) .border-amber-400\/35,
+html:not(.dark) .border-amber-700\/50 {
+  border-color: var(--alert-warning-border) !important;
+}
+
+html:not(.dark) .border-red-500\/20,
+html:not(.dark) .border-red-500\/30,
+html:not(.dark) .border-red-500\/40,
+html:not(.dark) .border-red-500\/50 {
+  border-color: var(--alert-danger-border) !important;
+}
+
+html:not(.dark) .border-sky-500\/35,
+html:not(.dark) .border-sky-500\/30 {
+  border-color: var(--alert-info-border) !important;
 }
 
 html:not(.dark) .shadow-\[0_15px_40px_rgba\(0\,0\,0\,0\.4\)\],

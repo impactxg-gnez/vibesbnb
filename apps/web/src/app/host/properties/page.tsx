@@ -1485,7 +1485,7 @@ export default function HostPropertiesPage() {
                     {incompleteProperties.slice(0, 5).map(p => {
                       const validation = validateProperty(p);
                       return (
-                        <div key={p.id} className="bg-red-500/10 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div key={p.id} className="bg-red-500/20 rounded-lg p-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
                           <div>
                             <span className="text-white font-medium">{p.name}</span>
                             <p className="text-red-300/80 text-xs mt-1">
