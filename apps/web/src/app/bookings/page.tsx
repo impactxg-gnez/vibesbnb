@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
 import { isBookingEligibleForReview } from '@/lib/reviews/eligibility';
+import { bookingPayPath } from '@/lib/bookings/payUrl';
+import { loginUrlWithNext } from '@/lib/auth/safeReturnPath';
 
 /** Guest booking list — avoid select('*') on wide booking rows */
 const BOOKING_GUEST_LIST_COLUMNS = [
@@ -62,10 +64,14 @@ export default function BookingsPage() {
   const [tab, setTab] = useState<'upcoming' | 'cancelled'>('upcoming');
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
+    if (payBookingId) {
+      router.replace(bookingPayPath(payBookingId));
+      return;
     }
-  }, [user, loading, router]);
+    if (!loading && !user) {
+      router.replace(loginUrlWithNext('/bookings'));
+    }
+  }, [user, loading, router, payBookingId]);
 
   useEffect(() => {
     if (user) {
@@ -209,6 +215,21 @@ export default function BookingsPage() {
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
   };
+
+  if (payBookingId) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white">
+        <div className="container mx-auto px-4 py-16">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+              <p className="text-gray-400">Taking you to checkout...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || loadingBookings) {
     return (

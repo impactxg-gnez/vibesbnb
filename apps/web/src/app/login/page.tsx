@@ -2,27 +2,46 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import { loginErrorMessage } from '@/lib/auth/loginErrorMessages';
 import toast from 'react-hot-toast';
+import type { User } from '@supabase/supabase-js';
+
+function defaultHomeForUser(user: User): string {
+  const role = user.user_metadata?.role;
+  if (role === 'admin') return '/admin';
+  if (role === 'host' || role === 'host_pending') return '/host/properties';
+  if (role === 'dispensary') return '/dispensary/dashboard';
+  return '/';
+}
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const returnTo = useMemo(
     () => safeInternalReturnPath(searchParams.get('next')),
     [searchParams]
   );
+  const isSwitching = searchParams.get('switch') === 'true';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn, signInWithGoogle } = useAuth();
   const hasProcessedSwitch = useRef(false);
   const hasShownAuthError = useRef(false);
+  const hasContinuedSession = useRef(false);
+
+  // Already signed in (including another tab in this browser): skip the form.
+  useEffect(() => {
+    if (authLoading || !user || isSwitching || hasContinuedSession.current) return;
+    hasContinuedSession.current = true;
+    router.replace(returnTo || defaultHomeForUser(user));
+  }, [authLoading, user, isSwitching, returnTo, router]);
 
   // Handle account switching - just pre-fill email, don't sign out
   // The new sign-in will automatically replace the current session
@@ -68,6 +87,28 @@ export default function LoginPage() {
     }
   };
 
+  const continuingExistingSession = Boolean(user) && !isSwitching;
+  const isPayReturn = Boolean(
+    returnTo &&
+      (returnTo.startsWith('/bookings/pay/') ||
+        returnTo.startsWith('/bookings?pay=') ||
+        returnTo.includes('pay='))
+  );
+
+  if (authLoading || continuingExistingSession) {
+    return (
+      <div className="min-h-screen bg-surface-dark flex items-center justify-center px-6 py-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-primary-500/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
+        <div className="text-center relative">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
+          <p className="text-muted font-medium">
+            {isPayReturn ? 'Taking you to checkout…' : 'Checking your session…'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface-dark flex items-center justify-center px-6 py-12 relative overflow-hidden">
       <div className="absolute inset-0 bg-primary-500/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
@@ -83,7 +124,9 @@ export default function LoginPage() {
             Welcome Back
           </h2>
           <p className="mt-4 text-muted font-medium">
-            Sign in to continue your wellness journey.
+            {isPayReturn
+              ? 'Sign in to complete payment and confirm your stay.'
+              : 'Sign in to continue your wellness journey.'}
           </p>
         </div>
 

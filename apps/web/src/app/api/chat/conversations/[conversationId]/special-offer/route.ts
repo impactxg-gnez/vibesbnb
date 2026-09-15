@@ -7,6 +7,7 @@ import { dispatchNewMessageNotification } from '@/lib/notifications/dispatchNewM
 import { getHostFeePercent, getServiceFeePercent } from '@/lib/platformSettings';
 import {
   encodeSpecialOfferMessage,
+  fetchLatestSpecialOffer,
   previewSpecialOfferPayout,
   stayNightsFromDates,
   type SpecialOfferPayload,
@@ -33,6 +34,42 @@ async function getAuthedUser(request: NextRequest) {
  * Host sends a discounted nightly rate to the guest. The payout preview is stored
  * in the message so both parties see the same numbers in the thread.
  */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { conversationId: string } }
+) {
+  try {
+    const { user, supabase } = await getAuthedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: conversation, error } = await supabase
+      .from('conversations')
+      .select('id, host_id, traveller_id, property_id, booking_id')
+      .eq('id', params.conversationId)
+      .single();
+
+    if (error || !conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    if (conversation.host_id !== user.id && conversation.traveller_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const offer = await fetchLatestSpecialOffer(supabase, params.conversationId);
+    return NextResponse.json({
+      offer,
+      propertyId: conversation.property_id,
+      bookingId: conversation.booking_id,
+    });
+  } catch (error: unknown) {
+    console.error('[special-offer GET]', error);
+    const message = error instanceof Error ? error.message : 'Failed to load special offer';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { conversationId: string } }

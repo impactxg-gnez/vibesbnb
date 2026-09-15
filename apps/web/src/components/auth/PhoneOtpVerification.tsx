@@ -8,7 +8,7 @@ import {
   signInWithPhoneNumber,
   type ConfirmationResult,
 } from 'firebase/auth';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 import { normalizePhoneE164 } from '@/lib/auth/phone';
 import { getFirebaseAuth, isFirebaseWebConfigured } from '@/lib/firebase/client';
@@ -62,6 +62,7 @@ export function PhoneOtpVerification({
   onVerified,
   submitLabel = 'Verify & continue',
 }: PhoneOtpVerificationProps) {
+  const { refreshUser } = useAuth();
   const [phoneInput, setPhoneInput] = useState(initialPhone);
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -204,6 +205,7 @@ export function PhoneOtpVerification({
           };
           localStorage.setItem('demoUser', JSON.stringify(updated));
         }
+        await refreshUser();
         toast.success('Phone verified!');
         onVerified?.();
         return;
@@ -248,8 +250,7 @@ export function PhoneOtpVerification({
         /* non-fatal — Supabase remains the app session */
       }
 
-      const supabase = createClient();
-      await supabase.auth.refreshSession();
+      await refreshUser();
 
       toast.success('Phone verified!');
       onVerified?.();

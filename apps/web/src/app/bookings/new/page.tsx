@@ -54,6 +54,7 @@ import {
 import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import type { HostBadge } from '@/lib/hostBadge';
+import type { SpecialOfferPayload } from '@/lib/specialOffer';
 
 interface Property {
   id: string;
@@ -93,6 +94,7 @@ export default function NewBookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const propertyId = searchParams.get('propertyId');
+  const conversationId = searchParams.get('conversationId');
   const selectedUnitsParam = searchParams.get('selectedUnits');
   const [selectedUnits, setSelectedUnits] = useState<any[]>([]);
 
@@ -131,6 +133,7 @@ export default function NewBookingPage() {
   });
   const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
+  const [specialOffer, setSpecialOffer] = useState<SpecialOfferPayload | null>(null);
   const bookingPropertyReloadRef = useRef<string | null>(null);
   const agreementSignerSeedRef = useRef<string | null>(null);
 
@@ -141,6 +144,30 @@ export default function NewBookingPage() {
     }
     setWellnessLineItems(loadWellnessCartForBooking(propertyId));
   }, [propertyId]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      setSpecialOffer(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/chat/conversations/${encodeURIComponent(conversationId)}/special-offer`
+        );
+        const data = await response.json();
+        if (!cancelled && response.ok && data?.offer?.offerNightly) {
+          setSpecialOffer(data.offer as SpecialOfferPayload);
+        }
+      } catch {
+        if (!cancelled) setSpecialOffer(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -349,7 +376,7 @@ export default function NewBookingPage() {
     property && formData.checkIn && formData.checkOut
       ? buildBookingQuoteFromProperty({
           property: {
-            price: property.price,
+            price: specialOffer?.offerNightly ?? property.price,
             cleaning_fee: property.cleaningFee,
             guests: property.guests,
             allow_extra_guests: property.allowExtraGuests,
@@ -538,6 +565,7 @@ export default function NewBookingPage() {
           selected_units: selectedUnits.length > 0 ? selectedUnits : null,
           guest_agreement_accepted: true,
           guest_agreement_signer_name: signed,
+          conversation_id: conversationId || undefined,
         }),
       });
 
@@ -946,6 +974,16 @@ export default function NewBookingPage() {
           <div className="lg:col-span-1">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
               <h3 className="text-xl font-bold text-white mb-6">Reservation Quote</h3>
+
+              {specialOffer ? (
+                <p className="mb-4 text-sm rounded-xl px-3 py-2 bg-[#D1FAE5] text-[#14532D] border border-[#166534]/30 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/30">
+                  Special offer applied: ${Number(specialOffer.offerNightly).toFixed(0)}/night
+                  {specialOffer.discountPercent > 0
+                    ? ` (${specialOffer.discountPercent}% off listed rate)`
+                    : ''}
+                  .
+                </p>
+              ) : null}
 
               {bookingQuote && property ? (
                 <ReservationQuote

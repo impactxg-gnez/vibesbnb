@@ -25,6 +25,7 @@ import { normalizeCancellationPolicy } from '@/lib/cancellationPolicy';
 import { guestCapacityMessage, resolveGuestCapacity } from '@/lib/guestCapacity';
 import { getServiceFeePercent, getHostFeePercent } from '@/lib/platformSettings';
 import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
+import { fetchLatestSpecialOffer } from '@/lib/specialOffer';
 import { dispatchAdminNewBookingEmail } from '@/lib/notifications/dispatchAdminNewBookingEmail';
 import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
 
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       requested_early_check_in_time,
       late_check_out_requested,
       requested_late_check_out_time,
+      conversation_id,
     } = body;
 
     // Validate required fields
@@ -236,8 +238,30 @@ export async function POST(request: NextRequest) {
 
     const cleaning = propertyRow.cleaning_fee != null ? Number(propertyRow.cleaning_fee) : 0;
     const serviceFeePercent = await getServiceFeePercent(serviceSupabase);
+
+    let offeredNightly: number | null = null;
+    const conversationId =
+      typeof conversation_id === 'string' && conversation_id.trim() ? conversation_id.trim() : '';
+    if (conversationId) {
+      const { data: offerConversation } = await serviceSupabase
+        .from('conversations')
+        .select('id, property_id, traveller_id')
+        .eq('id', conversationId)
+        .maybeSingle();
+      if (
+        offerConversation &&
+        String(offerConversation.property_id) === String(property_id) &&
+        String(offerConversation.traveller_id) === String(userId)
+      ) {
+        const offer = await fetchLatestSpecialOffer(serviceSupabase, conversationId);
+        if (offer && offer.offerNightly >= 1) {
+          offeredNightly = offer.offerNightly;
+        }
+      }
+    }
+
     const { grandTotal: expectedGrandTotal } = computeBookingGrandTotal({
-      propertyNightlyPrice: Number(propertyRow.price) || 0,
+      propertyNightlyPrice: offeredNightly ?? (Number(propertyRow.price) || 0),
       cleaningFee: cleaning,
       checkInYmd: String(check_in),
       checkOutYmd: String(check_out),
@@ -342,6 +366,7 @@ export async function POST(request: NextRequest) {
         cancellation_policy: normalizeCancellationPolicy(
           (propertyRow as { cancellation_policy?: string }).cancellation_policy
         ),
+        ...(offeredNightly != null ? { special_offer_nightly: offeredNightly } : {}),
       })
       .select()
       .single();

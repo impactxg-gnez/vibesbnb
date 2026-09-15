@@ -168,6 +168,17 @@ export async function GET(
       sender_profile: profiles[msg.sender_id] || null,
     }));
 
+    let linkedBooking: { status?: string | null; payment_status?: string | null; check_in?: string | null; check_out?: string | null } | null =
+      null;
+    if (conversation.booking_id) {
+      const { data: booking } = await serviceSupabase
+        .from('bookings')
+        .select('status, payment_status, check_in, check_out')
+        .eq('id', conversation.booking_id)
+        .maybeSingle();
+      linkedBooking = booking;
+    }
+
     let specialOfferContext: SpecialOfferContext | null = null;
     if (conversation.host_id === user.id && conversation.property_id) {
       const { data: property } = await serviceSupabase
@@ -185,15 +196,8 @@ export async function GET(
         typeof conv.inquiry_check_in === 'string' ? conv.inquiry_check_in.slice(0, 10) : null;
       let checkOut =
         typeof conv.inquiry_check_out === 'string' ? conv.inquiry_check_out.slice(0, 10) : null;
-      if (conv.booking_id) {
-        const { data: booking } = await serviceSupabase
-          .from('bookings')
-          .select('check_in, check_out')
-          .eq('id', conv.booking_id)
-          .maybeSingle();
-        if (booking?.check_in) checkIn = String(booking.check_in).slice(0, 10);
-        if (booking?.check_out) checkOut = String(booking.check_out).slice(0, 10);
-      }
+      if (linkedBooking?.check_in) checkIn = String(linkedBooking.check_in).slice(0, 10);
+      if (linkedBooking?.check_out) checkOut = String(linkedBooking.check_out).slice(0, 10);
 
       const listedNightly = Number(property?.price) || 0;
       if (listedNightly > 0) {
@@ -219,6 +223,10 @@ export async function GET(
       contactSharingAllowed,
       viewerIsHost: conversation.host_id === user.id,
       specialOfferContext,
+      propertyId: conversation.property_id || null,
+      bookingId: conversation.booking_id || null,
+      bookingStatus: linkedBooking?.status || null,
+      paymentStatus: linkedBooking?.payment_status || null,
     });
   } catch (error: any) {
     return NextResponse.json(

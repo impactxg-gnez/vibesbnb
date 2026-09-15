@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
     const appUrl = (
       process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
     ).replace(/\/$/, '');
-    const returnUrl = `${appUrl}/bookings`;
-    const cancelUrl = `${appUrl}/bookings`;
+    const returnUrl = `${appUrl}/bookings/pay/${encodeURIComponent(booking.id)}`;
+    const cancelUrl = `${appUrl}/bookings/pay/${encodeURIComponent(booking.id)}`;
 
     const order = await createPayPalOrder({
       bookingId: booking.id,

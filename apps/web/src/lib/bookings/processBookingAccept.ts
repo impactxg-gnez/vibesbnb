@@ -10,14 +10,10 @@ import {
 import { dispatchPushToUser } from '@/lib/pushDispatch';
 import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { bookingPayUrl } from '@/lib/bookings/payUrl';
 
 function ymd(d: string): string {
   return String(d).slice(0, 10);
-}
-
-export function bookingPayUrl(appUrl: string, bookingId: string): string {
-  const base = appUrl.replace(/\/$/, '');
-  return `${base}/bookings?pay=${encodeURIComponent(bookingId)}`;
 }
 
 export type AcceptBookingResult =

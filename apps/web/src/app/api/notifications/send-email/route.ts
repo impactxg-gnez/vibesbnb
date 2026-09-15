@@ -286,7 +286,9 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
       const d = data as BookingConfirmationData;
       const payHref =
         d.payUrl ||
-        (d.bookingId ? `${appUrl}/bookings?pay=${encodeURIComponent(d.bookingId)}` : `${appUrl}/bookings`);
+        (d.bookingId
+          ? `${appUrl.replace(/\/$/, '')}/bookings/pay/${encodeURIComponent(d.bookingId)}`
+          : `${appUrl}/bookings`);
       return `
         <div style="${baseStyles}">
           <div style="${cardStyles}">

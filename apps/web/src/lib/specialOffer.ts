@@ -113,3 +113,21 @@ export function parseSpecialOffer(body: string): SpecialOfferPayload | null {
     return null;
   }
 }
+
+/** Newest special-offer payload in a conversation, if any. */
+export async function fetchLatestSpecialOffer(
+  client: { from: (table: string) => any },
+  conversationId: string
+): Promise<SpecialOfferPayload | null> {
+  const { data } = await client
+    .from('messages')
+    .select('body')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  for (const row of data || []) {
+    const parsed = parseSpecialOffer(String(row.body || ''));
+    if (parsed) return parsed;
+  }
+  return null;
+}

@@ -1,6 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import { phoneFromAuthMetadata } from '@/lib/supabase/profileContactFromUser';
 
+function isVerifiedFlag(value: unknown): boolean {
+  return value === true || value === 'true';
+}
+
 /** True when Supabase auth has a confirmed phone (OTP verified). */
 export function hasVerifiedPhone(user: User | null | undefined): boolean {
   if (!user) return false;
@@ -9,9 +13,24 @@ export function hasVerifiedPhone(user: User | null | undefined): boolean {
   if (authPhone && user.phone_confirmed_at) return true;
 
   const meta = (user.user_metadata || {}) as Record<string, unknown>;
-  if (meta.phone_verified === true && phoneFromAuthMetadata(meta)) return true;
+  if (isVerifiedFlag(meta.phone_verified) && (phoneFromAuthMetadata(meta) || authPhone)) {
+    return true;
+  }
 
   return false;
+}
+
+/** Phone / verification claims that should replace a cached auth user on token refresh. */
+export function authUserPhoneClaimsChanged(prev: User, next: User): boolean {
+  const prevMeta = (prev.user_metadata || {}) as Record<string, unknown>;
+  const nextMeta = (next.user_metadata || {}) as Record<string, unknown>;
+  return (
+    hasVerifiedPhone(prev) !== hasVerifiedPhone(next) ||
+    prev.phone !== next.phone ||
+    prev.phone_confirmed_at !== next.phone_confirmed_at ||
+    prevMeta.phone_verified !== nextMeta.phone_verified ||
+    prevMeta.phone !== nextMeta.phone
+  );
 }
 
 /** Phone to pre-fill OTP UI — auth phone or metadata fallback. */

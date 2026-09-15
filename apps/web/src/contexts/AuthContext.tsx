@@ -13,11 +13,17 @@ import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import { isDemoAuthEmail, requiresEmailVerification } from '@/lib/auth/emailVerification';
 import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
 import { getAuthRedirectOrigin } from '@/lib/supabase/authRedirect';
+import {
+  authUserPhoneClaimsChanged,
+  hasVerifiedPhone,
+  travellerNeedsPhoneVerification,
+} from '@/lib/auth/hasVerifiedPhone';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
   signIn: (
     email: string,
     password: string,
@@ -155,8 +161,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setLoading(false);
                 return;
               }
-              setSession(session);
-              setUser(session?.user ?? null);
+              let resolvedUser = session.user;
+              // JWTs can lag behind admin phone confirmation; fetch the live user
+              // before showing the verify-phone banner.
+              if (travellerNeedsPhoneVerification(resolvedUser)) {
+                const { data: fresh, error: freshError } = await supabase.auth.getUser();
+                if (!freshError && fresh.user) {
+                  resolvedUser = fresh.user;
+                }
+              }
+              setSession(
+                resolvedUser && resolvedUser !== session.user
+                  ? { ...session, user: resolvedUser }
+                  : session
+              );
+              setUser(resolvedUser);
               persistSavedSession(session);
               
               // Sync roles from user metadata to localStorage
@@ -179,10 +198,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (error) {
               console.log('[AuthContext] Session error (attempt', retries + 1, '):', error.message);
             }
-            
-            // Wait before retry
+
+            // Cookies in a brand-new tab can lag a tick; retry briefly.
+            // Don't wait a full second when there is simply no session.
             if (retries < maxRetries - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise((resolve) => setTimeout(resolve, error ? 1000 : 250));
             }
             retries++;
           } catch (error: any) {
@@ -233,6 +253,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
 
+        // A new tab from an email link often emits INITIAL_SESSION with no user
+        // before cookies are read. Treating that as signed-out sends travellers
+        // to /login even though another tab is already authenticated.
+        if (event === 'INITIAL_SESSION' && !session?.user) {
+          return;
+        }
+
         if (session?.user) {
           if (!(await gateUnverifiedSession(session.user))) {
             setSession(null);
@@ -242,11 +269,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session);
           // Tab focus often emits TOKEN_REFRESHED / SIGNED_IN with a new user object.
           // Keep a stable reference for the same id so host/admin forms do not refetch
-          // and wipe unsaved edits. Allow USER_UPDATED (and other events) through.
+          // and wipe unsaved edits. Still apply phone / role claim updates so the
+          // verify-phone banner hides after OTP confirmation.
           setUser((prev) => {
+            if (!prev || prev.id !== session.user.id) {
+              return session.user;
+            }
+            // getUser() can confirm a phone before the JWT includes it.
+            // Don't let INITIAL_SESSION / TOKEN_REFRESHED revert that.
+            if (hasVerifiedPhone(prev) && !hasVerifiedPhone(session.user)) {
+              return prev;
+            }
             if (
-              prev?.id === session.user.id &&
-              (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')
+              (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') &&
+              prev.user_metadata?.role === session.user.user_metadata?.role &&
+              !authUserPhoneClaimsChanged(prev, session.user)
             ) {
               return prev;
             }
@@ -710,10 +747,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    if (!useSupabase) {
+      if (typeof window === 'undefined') return;
+      const demoRaw = localStorage.getItem('demoUser');
+      if (!demoRaw) return;
+      try {
+        const parsedUser = JSON.parse(demoRaw) as User;
+        setUser(parsedUser);
+        if (isDemoAdminPersistedUser(parsedUser)) {
+          setSession(buildDemoAdminSession(parsedUser));
+        }
+      } catch {
+        /* ignore malformed demo session */
+      }
+      return;
+    }
+
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) {
+      setSession(refreshed.session);
+      setUser(refreshed.session.user);
+    }
+
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data.user) {
+      setUser(data.user);
+    }
+  };
+
   const value = {
     user,
     session,
     loading,
+    refreshUser,
     signIn,
     signUp,
     signOut,

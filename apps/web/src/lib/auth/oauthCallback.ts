@@ -49,7 +49,7 @@ export function resolvePostAuthRedirectPath(
   }
 
   if (next) {
-    if (travellerNeedsPhoneVerification(user) && next.startsWith('/bookings')) {
+    if (travellerNeedsPhoneVerification(user) && next.startsWith('/bookings/new')) {
       return `/verify-phone?next=${encodeURIComponent(next)}`;
     }
     return next;

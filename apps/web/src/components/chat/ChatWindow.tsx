@@ -70,6 +70,10 @@ export default function ChatWindow({
   const [offerComposerOpen, setOfferComposerOpen] = useState(false);
   const [sendingOffer, setSendingOffer] = useState(false);
   const [blockBanner, setBlockBanner] = useState<string | null>(null);
+  const [chatPropertyId, setChatPropertyId] = useState<string | null>(null);
+  const [chatBookingId, setChatBookingId] = useState<string | null>(null);
+  const [chatBookingStatus, setChatBookingStatus] = useState<string | null>(null);
+  const [chatPaymentStatus, setChatPaymentStatus] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const onMessagesReadRef = useRef(onMessagesRead);
   const hasMarkedRead = useRef(false);
@@ -85,6 +89,10 @@ export default function ChatWindow({
     setOfferComposerOpen(false);
     setViewerIsHost(false);
     setOfferContext(null);
+    setChatPropertyId(null);
+    setChatBookingId(null);
+    setChatBookingStatus(null);
+    setChatPaymentStatus(null);
   }, [conversationId]);
 
   useEffect(() => {
@@ -120,6 +128,10 @@ export default function ChatWindow({
         setContactSharingAllowed(Boolean(data.contactSharingAllowed));
         setViewerIsHost(Boolean(data.viewerIsHost));
         setOfferContext(data.specialOfferContext || null);
+        setChatPropertyId(data.propertyId || null);
+        setChatBookingId(data.bookingId || null);
+        setChatBookingStatus(data.bookingStatus || null);
+        setChatPaymentStatus(data.paymentStatus || null);
         setMessages((prev) => {
           const serverMessages = data.messages || [];
           // Keep in-thread policy notices only on soft refresh; reset on full reload
@@ -442,7 +454,15 @@ export default function ChatWindow({
                 >
                   {offer ? (
                     <>
-                      <SpecialOfferCard offer={offer} isHostViewer={viewerIsHost} />
+                      <SpecialOfferCard
+                        offer={offer}
+                        isHostViewer={viewerIsHost}
+                        propertyId={chatPropertyId}
+                        conversationId={conversationId}
+                        bookingId={chatBookingId}
+                        bookingStatus={chatBookingStatus}
+                        paymentStatus={chatPaymentStatus}
+                      />
                       <span className="block mt-1 text-[10px] lg:text-xs text-gray-400 text-right">
                         {new Date(message.created_at).toLocaleString(undefined, {
                           month: 'short',

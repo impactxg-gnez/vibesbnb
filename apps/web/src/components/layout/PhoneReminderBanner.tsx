@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
+import { hasVerifiedPhone, travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 
 /** Prompt travellers without a verified phone to complete OTP verification. */
 export function PhoneReminderBanner() {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
 
   if (loading || !user) return null;
-  if (!travellerNeedsPhoneVerification(user)) return null;
+  if (hasVerifiedPhone(session?.user) || !travellerNeedsPhoneVerification(user)) return null;
 
   return (
     <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5">
