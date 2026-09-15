@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requiresEmailVerification } from '@/lib/auth/emailVerification';
 import { pathRequiresVerifiedEmail } from '@/lib/auth/protectedRoutes';
+import { supabaseAuthCookieOptions } from '@/lib/supabase/authCookieOptions';
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -19,6 +20,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookieOptions: supabaseAuthCookieOptions(),
     cookies: {
       getAll() {
         return request.cookies.getAll();

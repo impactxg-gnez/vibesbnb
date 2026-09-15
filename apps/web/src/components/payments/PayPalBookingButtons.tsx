@@ -8,9 +8,11 @@ type Props = {
   onPaid: () => void;
   /** Overrides default toast after successful capture */
   successMessage?: string;
+  /** Signed email-link token so checkout works without a browser session. */
+  claim?: string | null;
 };
 
-export function PayPalBookingButtons({ bookingId, onPaid, successMessage }: Props) {
+export function PayPalBookingButtons({ bookingId, onPaid, successMessage, claim }: Props) {
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim() || '';
 
   if (!clientId) {
@@ -18,6 +20,13 @@ export function PayPalBookingButtons({ bookingId, onPaid, successMessage }: Prop
       <p className="text-sm text-red-400">PayPal is not configured (missing client ID).</p>
     );
   }
+
+  const payload = (extra: Record<string, string>) =>
+    JSON.stringify({
+      bookingId,
+      ...(claim ? { claim } : {}),
+      ...extra,
+    });
 
   return (
     <PayPalScriptProvider
@@ -33,7 +42,7 @@ export function PayPalBookingButtons({ bookingId, onPaid, successMessage }: Prop
           const res = await fetch('/api/paypal/create-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookingId }),
+            body: payload({}),
             credentials: 'same-origin',
           });
           const data = await res.json();
@@ -46,7 +55,7 @@ export function PayPalBookingButtons({ bookingId, onPaid, successMessage }: Prop
           const res = await fetch('/api/paypal/capture-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderID: data.orderID, bookingId }),
+            body: payload({ orderID: data.orderID }),
             credentials: 'same-origin',
           });
           const out = await res.json();

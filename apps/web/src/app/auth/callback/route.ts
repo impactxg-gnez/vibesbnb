@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { syncProfileFromAuthUser } from '@/lib/supabase/syncProfileFromAuthUser';
 import { getAuthRedirectOrigin } from '@/lib/supabase/authRedirect';
 import { resolvePostAuthRedirectPath, safeOAuthNextPath } from '@/lib/auth/oauthCallback';
+import { supabaseAuthCookieOptions } from '@/lib/supabase/authCookieOptions';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
   const sessionCookies: { name: string; value: string; options: CookieOptions }[] = [];
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookieOptions: supabaseAuthCookieOptions(),
     cookies: {
       getAll() {
         return request.cookies.getAll();

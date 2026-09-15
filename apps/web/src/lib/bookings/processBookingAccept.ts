@@ -243,7 +243,7 @@ export async function processBookingAccept(params: {
             totalPrice: newTotal,
             bookingId: booking.id,
             location: booking.location,
-            payUrl: bookingPayUrl(appUrl, booking.id),
+            payUrl: bookingPayUrl(appUrl, booking.id, String(booking.user_id)),
           },
         }),
       });

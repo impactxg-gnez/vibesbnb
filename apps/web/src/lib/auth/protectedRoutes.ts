@@ -31,6 +31,10 @@ export function pathRequiresVerifiedEmail(pathname: string): boolean {
   if (AUTH_PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return false;
   }
+  // Email pay links must stay reachable even if the session is unverified.
+  if (pathname === '/bookings/pay' || pathname.startsWith('/bookings/pay/')) {
+    return false;
+  }
   return VERIFIED_EMAIL_REQUIRED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
