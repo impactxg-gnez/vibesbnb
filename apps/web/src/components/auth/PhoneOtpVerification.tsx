@@ -103,7 +103,7 @@ export function PhoneOtpVerification({
     if (!container) {
       throw new Error('reCAPTCHA container is missing. Refresh the page and try again.');
     }
-    container.innerHTML = '';
+    container.replaceChildren();
     const verifier = new RecaptchaVerifier(auth, RECAPTCHA_CONTAINER_ID, {
       size: 'invisible',
       callback: () => {
@@ -113,7 +113,6 @@ export function PhoneOtpVerification({
         toast.error('Security check expired. Request a new code.');
       },
     });
-    await verifier.render();
     recaptchaVerifierRef.current = verifier;
     return verifier;
   };
@@ -263,7 +262,11 @@ export function PhoneOtpVerification({
 
   return (
     <div className="space-y-5">
-      <div id={RECAPTCHA_CONTAINER_ID} className="hidden" aria-hidden />
+      <div
+        id={RECAPTCHA_CONTAINER_ID}
+        className="pointer-events-none fixed bottom-0 left-0 h-px w-px overflow-hidden opacity-0"
+        aria-hidden
+      />
 
       {step === 'phone' ? (
         <form onSubmit={handleSendCode} className="space-y-5">

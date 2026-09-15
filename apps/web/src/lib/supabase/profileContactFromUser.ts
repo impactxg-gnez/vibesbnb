@@ -14,7 +14,11 @@ export function profileContactPayloadFromAuthUser(user: User) {
   const metaPhone = phoneFromAuthMetadata(meta);
   const authPhone = typeof user.phone === 'string' ? user.phone.trim() : '';
   const phone =
-    authPhone && user.phone_confirmed_at ? authPhone : metaPhone;
+    meta.phone_verified === true && metaPhone
+      ? metaPhone
+      : authPhone && user.phone_confirmed_at
+        ? authPhone
+        : metaPhone;
   const whatsapp =
     typeof meta.whatsapp === 'string' && meta.whatsapp.trim()
       ? meta.whatsapp.trim()
