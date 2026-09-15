@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const nextStatus = booking.status === 'accepted' ? 'confirmed' : booking.status;
 
-    const { data: updatedRows, error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await auth.db
       .from('bookings')
       .update({
         payment_status: 'paid',
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         status: nextStatus,
       })
       .eq('id', bookingId)
-      .eq('user_id', user.id)
+      .eq('user_id', auth.userId)
       .eq('payment_status', 'pending')
       .select('id');
 
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     const transitioned = Array.isArray(updatedRows) && updatedRows.length > 0;
 
     if (transitioned && booking.host_id) {
-      await supabase.from('notifications').insert({
+      await auth.db.from('notifications').insert({
         user_id: booking.host_id,
         type: 'payment_received',
         title: 'Payment received',

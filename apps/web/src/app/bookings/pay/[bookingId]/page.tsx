@@ -54,6 +54,7 @@ export default async function PayBookingPage({
   const auth = await authorizeGuestBookingPayment(bookingId, claim);
   if (!auth) {
     redirect(nextPath);
+    return null;
   }
 
   const { data, error } = await auth.db
@@ -68,6 +69,9 @@ export default async function PayBookingPage({
   }
 
   return (
-    <PayBookingClient booking={toView(data as Record<string, unknown>)} claim={claim || null} />
+    <PayBookingClient
+      booking={toView(data as unknown as Record<string, unknown>)}
+      claim={claim || null}
+    />
   );
 }
