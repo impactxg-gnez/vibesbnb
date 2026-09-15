@@ -240,20 +240,20 @@ export async function POST(request: NextRequest) {
     const serviceFeePercent = await getServiceFeePercent(serviceSupabase);
 
     let offeredNightly: number | null = null;
-    const conversationId =
+    const offerConversationId =
       typeof conversation_id === 'string' && conversation_id.trim() ? conversation_id.trim() : '';
-    if (conversationId) {
+    if (offerConversationId) {
       const { data: offerConversation } = await serviceSupabase
         .from('conversations')
         .select('id, property_id, traveller_id')
-        .eq('id', conversationId)
+        .eq('id', offerConversationId)
         .maybeSingle();
       if (
         offerConversation &&
         String(offerConversation.property_id) === String(property_id) &&
         String(offerConversation.traveller_id) === String(userId)
       ) {
-        const offer = await fetchLatestSpecialOffer(serviceSupabase, conversationId);
+        const offer = await fetchLatestSpecialOffer(serviceSupabase, offerConversationId);
         if (offer && offer.offerNightly >= 1) {
           offeredNightly = offer.offerNightly;
         }
