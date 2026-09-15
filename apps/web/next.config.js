@@ -73,6 +73,8 @@ const nextConfig = {
         'puppeteer-core',
         'puppeteer',
         'firebase-admin',
+        'firebase-admin/app',
+        'firebase-admin/auth',
       ];
     }
     
