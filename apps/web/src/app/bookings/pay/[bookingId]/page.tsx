@@ -28,6 +28,22 @@ const BOOKING_PAY_COLUMNS = [
   'payment_status',
 ].join(',');
 
+type PayBookingRow = {
+  id: string;
+  property_id: string;
+  property_name: string;
+  property_image: string | null;
+  location: string;
+  check_in: string;
+  check_out: string;
+  guests: number;
+  kids: number | null;
+  pets: number | null;
+  total_price: number | string | null;
+  status: string;
+  payment_status: string | null;
+};
+
 type PayBooking = {
   id: string;
   propertyId: string;
@@ -89,20 +105,21 @@ export default function PayBookingPage() {
 
           if (cancelled) return;
           if (!error && data) {
+            const row = data as unknown as PayBookingRow;
             setBooking({
-              id: data.id,
-              propertyId: data.property_id,
-              propertyName: data.property_name,
-              propertyImage: data.property_image,
-              location: data.location,
-              checkIn: data.check_in,
-              checkOut: data.check_out,
-              guests: data.guests,
-              kids: data.kids || 0,
-              pets: data.pets || 0,
-              totalPrice: Number(data.total_price) || 0,
-              status: data.status,
-              paymentStatus: data.payment_status || 'pending',
+              id: row.id,
+              propertyId: row.property_id,
+              propertyName: row.property_name,
+              propertyImage: row.property_image,
+              location: row.location,
+              checkIn: row.check_in,
+              checkOut: row.check_out,
+              guests: row.guests,
+              kids: row.kids || 0,
+              pets: row.pets || 0,
+              totalPrice: Number(row.total_price) || 0,
+              status: row.status,
+              paymentStatus: row.payment_status || 'pending',
             });
             setLoadState('ready');
             return;
