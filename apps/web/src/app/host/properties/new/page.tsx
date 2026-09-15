@@ -594,19 +594,19 @@ export default function NewPropertyPage() {
         </div>
 
         {/* Bulk Upload Option */}
-        <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-purple-500/30 rounded-2xl p-6 mb-8">
+        <div className="bg-[#EDE9FE] border border-[#6D28D9]/40 rounded-2xl p-6 mb-8 dark:bg-gradient-to-r dark:from-purple-900/40 dark:to-blue-900/40 dark:border-purple-500/30">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-              <FileSpreadsheet className="text-purple-400" size={24} />
+            <div className="w-12 h-12 bg-[#DDD6FE] rounded-xl flex items-center justify-center flex-shrink-0 dark:bg-purple-500/20">
+              <FileSpreadsheet className="text-[#5B21B6] dark:text-purple-400" size={24} />
             </div>
             <div className="flex-1">
-              <h3 className="text-white font-semibold text-lg mb-1">Have multiple properties?</h3>
-              <p className="text-gray-400 text-sm mb-4">
+              <h3 className="text-[#3B0764] font-semibold text-lg mb-1 dark:text-white">Have multiple properties?</h3>
+              <p className="text-[#5B21B6] text-sm mb-4 dark:text-gray-400">
                 Use our bulk upload feature to import multiple properties at once from a spreadsheet or external listing.
               </p>
               <Link
                 href="/host/properties/bulk-import"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold text-sm transition"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-800 text-[#FAF3EA] rounded-lg font-semibold text-sm transition dark:bg-purple-600 dark:hover:bg-purple-500 dark:text-white"
               >
                 <Upload size={16} />
                 Bulk Upload Properties
@@ -616,10 +616,10 @@ export default function NewPropertyPage() {
         </div>
 
         {/* Listing quality */}
-        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4 mb-8">
+        <div className="bg-[#D1FAE5] border border-[#166534]/35 rounded-xl p-4 mb-8 dark:bg-emerald-500/10 dark:border-emerald-500/25">
           <div className="flex items-center gap-3">
-            <Sparkles className="text-emerald-400 flex-shrink-0" size={20} />
-            <p className="text-emerald-100/90 text-sm">
+            <Sparkles className="text-[#166534] flex-shrink-0 dark:text-emerald-400" size={20} />
+            <p className="text-[#14532D] text-sm dark:text-emerald-100/90">
               Add as many listings as you need. Complete the required fields, then publish from your dashboard whenever
               you are ready — no admin wait.
             </p>

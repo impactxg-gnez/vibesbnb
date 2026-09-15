@@ -389,7 +389,7 @@ export default function ChatWindow({
           </p>
         ) : null}
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 lg:p-4 space-y-3 lg:space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 lg:p-4 space-y-3 lg:space-y-4" data-chat-scroll>
         {loading ? (
           <div className="text-gray-400 text-center">Loading messages...</div>
         ) : messages.length === 0 ? (
@@ -504,6 +504,7 @@ export default function ChatWindow({
           <textarea
             rows={1}
             value={input}
+            enterKeyHint="send"
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {

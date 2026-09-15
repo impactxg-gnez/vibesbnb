@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -30,7 +30,7 @@ import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import PropertyChatButton from '@/components/chat/PropertyChatButton';
+import PropertyChatButton, { type PropertyChatHandle } from '@/components/chat/PropertyChatButton';
 import { ListingLocationCard } from '@/components/properties/ListingLocationCard';
 import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
 import { saveWellnessCartForBooking } from '@/lib/wellnessBookingCart';
@@ -236,6 +236,7 @@ export default function ListingDetailPage() {
   );
   const [checkOutDate, setCheckOutDate] = useState<string>(urlCheckOut);
   const [openBookingChat, setOpenBookingChat] = useState(false);
+  const hostChatRef = useRef<PropertyChatHandle>(null);
   const [stayHydrated, setStayHydrated] = useState(false);
 
   // Prefill from URL (or last stay selection) once on the client
@@ -1488,13 +1489,14 @@ export default function ListingDetailPage() {
                         Check Profile
                       </button>
                     )}
-                  <Link 
-                    href="/messages"
-                    className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
+                  <button
+                    type="button"
+                    onClick={() => hostChatRef.current?.open()}
+                    className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all touch-manipulation"
                   >
-                  <MessageSquare size={18} />
-                  Message Host
-                </Link>
+                    <MessageSquare size={18} />
+                    Message Host
+                  </button>
                 </div>
               </div>
             </div>
@@ -1503,7 +1505,7 @@ export default function ListingDetailPage() {
 
           {/* Booking Card */}
           <div className="lg:col-span-1">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 sticky top-8">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 lg:sticky lg:top-8">
               <div className="mb-6">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
                   <span className="text-3xl font-bold text-white">${displayNightlyRate}</span>
@@ -1686,6 +1688,7 @@ export default function ListingDetailPage() {
               </button>
 
               <PropertyChatButton
+                ref={hostChatRef}
                 propertyId={property.id}
                 propertyName={property.name}
                 checkIn={checkInDate || undefined}

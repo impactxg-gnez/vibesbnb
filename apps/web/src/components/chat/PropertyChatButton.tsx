@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { lockBodyScroll } from '@/lib/lockBodyScroll';
 import ChatWindow from './ChatWindow';
 import { ConversationBookingPanel } from './ConversationBookingPanel';
 
@@ -20,15 +21,23 @@ interface PropertyChatButtonProps {
   onAutoOpenConsumed?: () => void;
 }
 
-export default function PropertyChatButton({
-  propertyId,
-  propertyName,
-  checkIn,
-  checkOut,
-  selectedUnitIds,
-  autoOpen = false,
-  onAutoOpenConsumed,
-}: PropertyChatButtonProps) {
+export type PropertyChatHandle = {
+  open: () => void;
+};
+
+const PropertyChatButton = forwardRef<PropertyChatHandle, PropertyChatButtonProps>(
+  function PropertyChatButton(
+    {
+      propertyId,
+      propertyName,
+      checkIn,
+      checkOut,
+      selectedUnitIds,
+      autoOpen = false,
+      onAutoOpenConsumed,
+    },
+    ref
+  ) {
   const { user } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -39,6 +48,8 @@ export default function PropertyChatButton({
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const openChatRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     setMounted(true);
@@ -46,12 +57,38 @@ export default function PropertyChatButton({
 
   useEffect(() => {
     if (!isOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    return lockBodyScroll();
+  }, [isOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const overlay = overlayRef.current;
+    const vv = window.visualViewport;
+    const sync = () => {
+      if (!overlay) return;
+      const top = vv?.offsetTop ?? 0;
+      const height = vv?.height ?? window.innerHeight;
+      overlay.style.top = `${top}px`;
+      overlay.style.height = `${height}px`;
+      overlay.style.left = '0px';
+      overlay.style.width = '100%';
+    };
+    sync();
+    vv?.addEventListener('resize', sync);
+    vv?.addEventListener('scroll', sync);
+    window.addEventListener('orientationchange', sync);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      vv?.removeEventListener('resize', sync);
+      vv?.removeEventListener('scroll', sync);
+      window.removeEventListener('orientationchange', sync);
     };
   }, [isOpen]);
+
+  useImperativeHandle(ref, () => ({
+    open: () => {
+      void openChatRef.current();
+    },
+  }));
 
   const openChat = async () => {
     if (!user) {
@@ -90,6 +127,7 @@ export default function PropertyChatButton({
       setLoading(false);
     }
   };
+  openChatRef.current = openChat;
 
   const loadConversationDetails = async (id: string) => {
     try {
@@ -159,8 +197,9 @@ export default function PropertyChatButton({
   return (
     <>
       <button
-        onClick={openChat}
-        className="w-full px-6 py-4 bg-[#F4E6D4] text-[#193F25] border border-[#193F25]/30 rounded-lg hover:bg-[#ECD5BB] hover:border-[#193F25]/50 transition font-semibold text-lg flex items-center justify-center gap-2 mb-4 dark:bg-white/5 dark:text-white dark:border-white/15 dark:hover:bg-white/10"
+        type="button"
+        onClick={() => void openChat()}
+        className="w-full px-6 py-4 bg-[#F4E6D4] text-[#193F25] border border-[#193F25]/30 rounded-lg hover:bg-[#ECD5BB] hover:border-[#193F25]/50 transition font-semibold text-lg flex items-center justify-center gap-2 mb-4 touch-manipulation dark:bg-white/5 dark:text-white dark:border-white/15 dark:hover:bg-white/10"
       >
         <MessageCircle size={20} />
         Message Host
@@ -170,19 +209,20 @@ export default function PropertyChatButton({
         isOpen &&
         createPortal(
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 isolate"
+            ref={overlayRef}
+            className="fixed left-0 top-0 z-[200] flex h-[100dvh] w-full items-stretch sm:items-center justify-center sm:p-4 isolate overscroll-none"
             role="dialog"
             aria-modal="true"
             aria-labelledby="property-chat-title"
           >
             <div className="absolute inset-0 bg-black/95" aria-hidden />
-            <div className="relative z-10 bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-3xl h-[80vh] flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-              <div>
-                <h3 id="property-chat-title" className="text-xl font-semibold text-white">
+            <div className="relative z-10 bg-gray-950 border-0 sm:border sm:border-gray-800 rounded-none sm:rounded-2xl w-full max-w-3xl h-full sm:h-[min(80dvh,44rem)] flex flex-col shadow-2xl min-h-0 pb-[env(safe-area-inset-bottom,0px)]">
+            <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-800 gap-2 shrink-0">
+              <div className="min-w-0 flex-1">
+                <h3 id="property-chat-title" className="text-base sm:text-xl font-semibold text-white truncate">
                   Chat about {propertyName}
                 </h3>
-                <p className="text-sm text-gray-400">
+                <p className="hidden sm:block text-sm text-gray-400">
                   Send your request here first. Complete the booking form when you&apos;re ready.
                 </p>
                 {(checkIn && checkOut) ||
@@ -206,7 +246,7 @@ export default function PropertyChatButton({
                       }
                       router.push(bookingPath);
                     }}
-                    className="px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold"
+                    className="hidden sm:inline-flex px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-semibold"
                   >
                     Request to book
                   </button>
@@ -222,14 +262,15 @@ export default function PropertyChatButton({
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-400 hover:text-white shrink-0 min-h-11 min-w-11 px-2 touch-manipulation"
                 >
                   Close
                 </button>
               </div>
             </div>
-            <div className="flex-1 p-4 flex flex-col min-h-0">
+            <div className="flex-1 p-2 sm:p-4 flex flex-col min-h-0">
               {conversationId && conversationDetails && (
                 <ConversationBookingPanel
                   key={`${conversationDetails.booking_id}-${bookingRefreshKey}`}
@@ -316,5 +357,9 @@ export default function PropertyChatButton({
         )}
     </>
   );
-}
+});
+
+PropertyChatButton.displayName = 'PropertyChatButton';
+
+export default PropertyChatButton;
 
