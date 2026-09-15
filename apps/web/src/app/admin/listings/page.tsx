@@ -64,7 +64,7 @@ function propertyCoverSrc(property: Pick<Property, 'cover_image' | 'images'>): s
 }
 
 export default function ManageListingsPage() {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [properties, setProperties] = useState<Property[]>([]);
@@ -125,7 +125,7 @@ export default function ManageListingsPage() {
 
   const loadProperties = useCallback(async () => {
     try {
-      const headers = await getHeadersForAdminFetch();
+      const headers = await getHeadersForAdminFetch(session);
       if (!headers.Authorization)
         throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties?limit=100', {
@@ -165,11 +165,11 @@ export default function ManageListingsPage() {
       setLoadError(message);
       toast.error(message);
     }
-  }, []);
+  }, [session]);
 
   const { initialLoading: loadingProperties, reload: reloadProperties } = useAdminDataLoad(
     user?.id,
-    Boolean(user && isAdminUser(user)),
+    Boolean(user && isAdminUser(user) && session?.access_token),
     loadProperties
   );
 
@@ -205,7 +205,7 @@ export default function ManageListingsPage() {
     });
 
     try {
-      const headers = await getHeadersForAdminFetch();
+      const headers = await getHeadersForAdminFetch(session);
       if (!headers.Authorization) return;
       const response = await fetch(
         `/api/admin/properties?propertyId=${encodeURIComponent(property.id)}`,
@@ -239,7 +239,7 @@ export default function ManageListingsPage() {
     }
     setSavingQuickEdit(true);
     try {
-      const authHeaders = await getHeadersForAdminFetch();
+      const authHeaders = await getHeadersForAdminFetch(session);
       if (!authHeaders.Authorization) throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties', {
         method: 'PATCH',
@@ -362,7 +362,7 @@ export default function ManageListingsPage() {
 
   /** Every listing id, paged, so the bulk pass also covers listings not in the current filter. */
   const fetchAllPropertyIds = useCallback(async (): Promise<string[]> => {
-    const headers = await getHeadersForAdminFetch();
+    const headers = await getHeadersForAdminFetch(session);
     if (!headers.Authorization) throw new Error('No valid session — please sign in again.');
 
     const ids: string[] = [];
@@ -459,7 +459,7 @@ export default function ManageListingsPage() {
     }
     setDeletingId(property.id);
     try {
-      const authHeaders = await getHeadersForAdminFetch();
+      const authHeaders = await getHeadersForAdminFetch(session);
       if (!authHeaders.Authorization) throw new Error('No valid session — please sign in again.');
       const response = await fetch(
         `/api/admin/properties?propertyId=${encodeURIComponent(property.id)}`,
@@ -483,7 +483,7 @@ export default function ManageListingsPage() {
   const handleApproveProperty = async (propertyId: string) => {
     setApprovingId(propertyId);
     try {
-      const authHeaders = await getHeadersForAdminFetch();
+      const authHeaders = await getHeadersForAdminFetch(session);
       if (!authHeaders.Authorization)
         throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties', {
@@ -519,7 +519,7 @@ export default function ManageListingsPage() {
     
     setApprovingId(propertyId);
     try {
-      const authHeaders = await getHeadersForAdminFetch();
+      const authHeaders = await getHeadersForAdminFetch(session);
       if (!authHeaders.Authorization)
         throw new Error('No valid session — please sign in again.');
       const response = await fetch('/api/admin/properties', {
@@ -1023,7 +1023,7 @@ export default function ManageListingsPage() {
                   propertyName={selectedProperty.name || selectedProperty.title}
                   onSubmitted={async () => {
                     await reloadProperties({ silent: true });
-                    const headers = await getHeadersForAdminFetch();
+                    const headers = await getHeadersForAdminFetch(session);
                     const res = await fetch(
                       `/api/admin/properties?propertyId=${encodeURIComponent(selectedProperty.id)}`,
                       { headers: { ...headers } }

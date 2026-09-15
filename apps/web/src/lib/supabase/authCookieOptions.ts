@@ -11,6 +11,10 @@ export function supabaseAuthCookieDomain(): string | undefined {
     ) {
       return undefined;
     }
+    // Middleware already redirects www ↔ apex. Host-only cookies on the
+    // canonical host round-trip more reliably than Domain=.apex, which the
+    // browser client can fail to persist (admin then has a user but no JWT).
+    if (!host.startsWith('www.')) return undefined;
     const apex = host.replace(/^www\./, '');
     if (!apex.includes('.')) return undefined;
     return `.${apex}`;

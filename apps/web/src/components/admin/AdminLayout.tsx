@@ -45,7 +45,7 @@ interface NavItem {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, loading, signOut } = useAuth();
+  const { user, session, loading, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
@@ -79,7 +79,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const fetchPendingCounts = useCallback(async () => {
     try {
-      const headers = await getHeadersForAdminFetch();
+      const headers = await getHeadersForAdminFetch(session);
       if (!headers.Authorization) return;
 
       const response = await fetch('/api/admin/pending-counts', {
@@ -98,17 +98,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     } catch (error) {
       console.error('Error fetching pending counts:', error);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
-    if (!user || !isAdminUser(user)) return;
+    if (!user || !isAdminUser(user) || !session?.access_token) return;
     void fetchPendingCounts();
     const tick = () => {
       if (document.visibilityState === 'visible') void fetchPendingCounts();
     };
     const interval = setInterval(tick, 60000);
     return () => clearInterval(interval);
-  }, [user, fetchPendingCounts]);
+  }, [user, session?.access_token, fetchPendingCounts]);
 
   useEffect(() => {
     if (!user || !isAdminUser(user)) return;

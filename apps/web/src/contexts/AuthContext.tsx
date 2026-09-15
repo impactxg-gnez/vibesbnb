@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import {
   buildDemoAdminSession,
   isDemoAdminPersistedUser,
+  rememberAdminAuthSession,
+  getHeadersForAdminFetch,
 } from '@/lib/supabase/adminSession';
 import { useRouter } from 'next/navigation';
 import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
@@ -126,13 +128,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (profileSyncedRef.current || typeof window === 'undefined') return;
     profileSyncedRef.current = true;
     try {
-      await fetch('/api/profile/sync', { method: 'POST' });
+      const headers = await getHeadersForAdminFetch();
+      await fetch('/api/profile/sync', { method: 'POST', headers });
     } catch {
       profileSyncedRef.current = false;
     }
   };
 
   const persistSavedSession = (session: Session | null) => {
+    rememberAdminAuthSession(session);
     if (!session?.user?.email || typeof window === 'undefined') return;
     if (requiresEmailVerification(session.user)) return;
 
@@ -496,6 +500,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, [useSupabase, supabase, user?.id, user?.user_metadata?.role]);
 
+  useEffect(() => {
+    if (loading) return;
+    rememberAdminAuthSession(session);
+  }, [session, loading]);
+
   const signIn = async (
     email: string,
     password: string,
@@ -545,7 +554,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(mockUser as any);
       if (isDemoAdminPersistedUser(mockUser)) {
-        setSession(buildDemoAdminSession(mockUser));
+        const demoSession = buildDemoAdminSession(mockUser);
+        setSession(demoSession);
+        rememberAdminAuthSession(demoSession);
       } else {
         setSession(null);
       }
@@ -587,15 +598,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
     
-    // Clear a leftover/broken browser session before password sign-in so a
-    // failed refresh of a stale cookie cannot delete the new tokens.
-    try {
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (e) {
-      console.warn('[Auth] Could not clear leftover session before sign-in', e);
-    }
-    
-    // Supabase authentication for non-demo accounts
+    // Sign in replaces the browser session. Do not signOut first — that races
+    // and can delete the new tokens before cookies are written.
     const { error, data } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
@@ -617,6 +621,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.session) {
+        rememberAdminAuthSession(data.session);
         setSession(data.session);
         setUser(data.user);
         persistSavedSession(data.session);
@@ -815,6 +820,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async (options?: { preserveSavedAccounts?: boolean }) => {
     const preserveAccounts = options?.preserveSavedAccounts ?? false;
+    rememberAdminAuthSession(null);
     
     if (!useSupabase) {
       // Demo mode - clear localStorage

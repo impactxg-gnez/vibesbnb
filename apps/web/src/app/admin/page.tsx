@@ -62,7 +62,7 @@ export default function AdminDashboard() {
   const fetchStats = useCallback(async () => {
     try {
       setStatsError(null);
-      const headers = await getHeadersForAdminFetch();
+      const headers = await getHeadersForAdminFetch(session);
       if (!headers.Authorization) {
         throw new Error('No valid session — please sign in again.');
       }
@@ -83,7 +83,7 @@ export default function AdminDashboard() {
     } finally {
       setLoadingStats(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (user && isAdminUser(user) && session?.access_token) {
