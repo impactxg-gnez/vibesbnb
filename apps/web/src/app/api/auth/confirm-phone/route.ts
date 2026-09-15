@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { User, UserResponse } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
 import {
@@ -42,11 +42,11 @@ async function updateAuthUser(
   service: ReturnType<typeof createServiceClient>,
   userId: string,
   attributes: Parameters<typeof service.auth.admin.updateUserById>[1]
-): Promise<UserResponse> {
+): Promise<{ data: { user: User | null }; error: { message?: string } | null }> {
   try {
     return await service.auth.admin.updateUserById(userId, attributes);
   } catch (error) {
-    return { data: { user: null }, error: error as UserResponse['error'] };
+    return { data: { user: null }, error: { message: authErrorMessage(error) } };
   }
 }
 
