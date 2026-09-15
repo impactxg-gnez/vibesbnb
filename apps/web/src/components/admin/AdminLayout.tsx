@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { loginUrlWithNext } from '@/lib/auth/safeReturnPath';
 import {
   LayoutDashboard,
   Users,
@@ -44,7 +45,7 @@ interface NavItem {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
@@ -52,6 +53,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingHostCount, setPendingHostCount] = useState(0);
   const [pendingPictureCount, setPendingPictureCount] = useState(0);
   const [pendingDispensaryCount, setPendingDispensaryCount] = useState(0);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace(loginUrlWithNext(pathname || '/admin'));
+      return;
+    }
+    if (!isAdminUser(user)) {
+      router.replace('/');
+    }
+  }, [user, loading, router, pathname]);
 
   useEffect(() => {
     // Keep Admin Reviews open when working in that section
@@ -89,13 +101,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, []);
 
   useEffect(() => {
+    if (!user || !isAdminUser(user)) return;
     void fetchPendingCounts();
     const tick = () => {
       if (document.visibilityState === 'visible') void fetchPendingCounts();
     };
     const interval = setInterval(tick, 60000);
     return () => clearInterval(interval);
-  }, [fetchPendingCounts]);
+  }, [user, fetchPendingCounts]);
 
   useEffect(() => {
     if (!user || !isAdminUser(user)) return;

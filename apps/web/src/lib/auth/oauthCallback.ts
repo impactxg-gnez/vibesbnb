@@ -1,4 +1,5 @@
 import type { User } from '@supabase/supabase-js';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 
 const OAUTH_PROVIDERS = new Set(['google', 'apple', 'github', 'azure', 'facebook', 'discord']);
@@ -56,6 +57,9 @@ export function resolvePostAuthRedirectPath(
   }
 
   const userRole = user?.user_metadata?.role;
+  if (isAdminUser(user)) {
+    return '/admin';
+  }
   if (userRole === 'host_pending' || userRole === 'host') {
     return '/host/properties';
   }

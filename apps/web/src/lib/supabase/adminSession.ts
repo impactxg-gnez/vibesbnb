@@ -55,12 +55,16 @@ async function resolveAdminFetchAuth(): Promise<Record<string, string>> {
   if (session?.access_token) {
     return { Authorization: `Bearer ${session.access_token}` };
   }
-  const { data, error } = await supabase.auth.refreshSession();
-  if (data.session?.access_token) {
-    return { Authorization: `Bearer ${data.session.access_token}` };
-  }
-  if (error) {
-    console.warn('[adminSession] refreshSession failed:', error.message);
+  // Only refresh when we already have a refresh token. Calling refreshSession()
+  // with no session signs the user out and bounces /admin → /login on load.
+  if (session?.refresh_token) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (data.session?.access_token) {
+      return { Authorization: `Bearer ${data.session.access_token}` };
+    }
+    if (error) {
+      console.warn('[adminSession] refreshSession failed:', error.message);
+    }
   }
 
   const demoEmail = readDemoAdminEmailFromStorage();

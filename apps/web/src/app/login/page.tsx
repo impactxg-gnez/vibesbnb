@@ -5,14 +5,15 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import { loginErrorMessage } from '@/lib/auth/loginErrorMessages';
 import toast from 'react-hot-toast';
 import type { User } from '@supabase/supabase-js';
 
 function defaultHomeForUser(user: User): string {
+  if (isAdminUser(user)) return '/admin';
   const role = user.user_metadata?.role;
-  if (role === 'admin') return '/admin';
   if (role === 'host' || role === 'host_pending') return '/host/properties';
   if (role === 'dispensary') return '/dispensary/dashboard';
   return '/';

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requiresEmailVerification } from '@/lib/auth/emailVerification';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { pathRequiresVerifiedEmail } from '@/lib/auth/protectedRoutes';
 import { supabaseAuthCookieOptions } from '@/lib/supabase/authCookieOptions';
 
@@ -52,7 +53,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  if (user && pathRequiresVerifiedEmail(pathname) && requiresEmailVerification(user)) {
+  if (
+    user &&
+    pathRequiresVerifiedEmail(pathname) &&
+    requiresEmailVerification(user) &&
+    !isAdminUser(user)
+  ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/verify-email';
     redirectUrl.searchParams.set('email', user.email ?? '');

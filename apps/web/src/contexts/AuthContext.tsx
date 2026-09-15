@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { formatAuthErrorMessage } from '@/lib/auth/formatAuthErrorMessage';
 import { safeInternalReturnPath } from '@/lib/auth/safeReturnPath';
 import { isDemoAuthEmail, requiresEmailVerification } from '@/lib/auth/emailVerification';
+import { isAdminUser } from '@/lib/auth/isAdmin';
 import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
 import { getAuthRedirectOrigin } from '@/lib/supabase/authRedirect';
 import {
@@ -95,13 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Auto-promote legacy host_pending → host in JWT (no admin approval). */
   const hostPendingPromotedRef = useRef(false);
   const profileSyncedRef = useRef(false);
+  const hydratingSessionRef = useRef(true);
 
   const gateUnverifiedSession = async (sessionUser: User) => {
     if (!requiresEmailVerification(sessionUser)) return true;
+    if (isAdminUser(sessionUser)) return true;
     const path = typeof window !== 'undefined' ? window.location.pathname : '';
     const allowed =
       path.startsWith('/verify-email') ||
       path.startsWith('/auth/') ||
+      path.startsWith('/admin') ||
       path === '/signup' ||
       path === '/login' ||
       path === '/forgot-password' ||
@@ -158,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (session.user && !(await gateUnverifiedSession(session.user))) {
                 setSession(null);
                 setUser(null);
+                hydratingSessionRef.current = false;
                 setLoading(false);
                 return;
               }
@@ -191,6 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               console.log('[AuthContext] Session initialized:', session.user?.id);
               void syncProfileContact();
+              hydratingSessionRef.current = false;
               setLoading(false);
               return;
             }
@@ -214,6 +220,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
+        // Cookies can land after getSession() missed them (full load of /admin).
+        try {
+          const { data: late } = await supabase.auth.getUser();
+          if (late.user) {
+            if (!(await gateUnverifiedSession(late.user))) {
+              setSession(null);
+              setUser(null);
+              hydratingSessionRef.current = false;
+              setLoading(false);
+              return;
+            }
+            const { data: lateSession } = await supabase.auth.getSession();
+            setSession(lateSession.session);
+            setUser(late.user);
+            persistSavedSession(lateSession.session);
+            void syncProfileContact();
+            hydratingSessionRef.current = false;
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn('[AuthContext] getUser after session miss:', e);
+        }
+
         // If no session after retries, set loading to false
         console.warn('[AuthContext] No session found after', maxRetries, 'attempts');
 
@@ -242,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        hydratingSessionRef.current = false;
         setLoading(false);
       };
       
@@ -259,8 +290,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'INITIAL_SESSION' && !session?.user) {
           return;
         }
+        // Admin pages call refreshSession on mount; a miss during hydration can
+        // emit SIGNED_OUT before cookies are applied. Ignore that until init finishes.
+        if (event === 'SIGNED_OUT' && hydratingSessionRef.current) {
+          return;
+        }
 
         if (session?.user) {
+          hydratingSessionRef.current = false;
           if (!(await gateUnverifiedSession(session.user))) {
             setSession(null);
             setUser(null);
@@ -537,7 +574,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const role = data.user.user_metadata?.role;
-      if (role === 'admin') {
+      if (isAdminUser(data.user)) {
         router.push('/admin');
       } else if (role === 'host') {
         router.push('/host/properties');
