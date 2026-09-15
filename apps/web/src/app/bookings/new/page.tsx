@@ -576,7 +576,7 @@ export default function NewBookingPage() {
       }
 
       const newId = data.booking?.id as string | undefined;
-      const conversationId = data.conversationId as string | undefined;
+      const createdConversationId = data.conversationId as string | undefined;
       if (!newId) {
         throw new Error('Booking created but no id returned');
       }
@@ -590,8 +590,8 @@ export default function NewBookingPage() {
       }
 
       toast.success('Request sent! Message the host while you wait for approval.');
-      const messagesUrl = conversationId
-        ? `/messages?conversationId=${conversationId}&submitted=1`
+      const messagesUrl = createdConversationId
+        ? `/messages?conversationId=${createdConversationId}&submitted=1`
         : '/messages?submitted=1';
       router.push(messagesUrl);
     } catch (error: unknown) {
