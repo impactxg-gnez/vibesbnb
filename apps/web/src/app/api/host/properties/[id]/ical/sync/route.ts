@@ -35,6 +35,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
       const r = await syncOnePropertyIcalSource({
         service,
         calendar: source,
+        force: true,
       });
       results.push({
         id: source.id,

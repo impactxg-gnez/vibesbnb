@@ -28,6 +28,22 @@ export type ParsedIcsStay = {
   summary?: string;
 };
 
+function coerceIcsDate(value: unknown): Date | undefined {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
+  if (value && typeof value === 'object') {
+    const row = value as { toJSDate?: () => Date };
+    if (typeof row.toJSDate === 'function') {
+      const converted = row.toJSDate();
+      if (converted instanceof Date && Number.isFinite(converted.getTime())) return converted;
+    }
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsedDate = new Date(value);
+    if (Number.isFinite(parsedDate.getTime())) return parsedDate;
+  }
+  return undefined;
+}
+
 /**
  * Parse ICS and return blocked stays overlapping [windowStart, windowEndExclusive).
  * Only VEVENT components; recurring rules are ignored in v1 for predictable IO.
@@ -52,8 +68,8 @@ export function parseIcsStaysInWindow(
     const rawUid = String(ev.uid ?? '').trim();
     const uid = rawUid || `${dedupeKeyPrefix}${k}-${ev.start}-${ev.end}`;
 
-    const start: Date | undefined = ev.start instanceof Date ? ev.start : undefined;
-    let endExclusive: Date | undefined = ev.end instanceof Date ? ev.end : undefined;
+    const start = coerceIcsDate(ev.start);
+    let endExclusive = coerceIcsDate(ev.end);
 
     if (!start) continue;
 

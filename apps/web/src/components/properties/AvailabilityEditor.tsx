@@ -601,7 +601,11 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
                         </p>
                       )}
                       {source.sync_error && (
-                        <p className="text-xs text-red-400 mt-1">{source.sync_error}</p>
+                        <p className="text-xs text-red-400 mt-1">
+                          {typeof source.sync_error === 'string'
+                            ? source.sync_error
+                            : JSON.stringify(source.sync_error)}
+                        </p>
                       )}
                     </div>
                     <button

@@ -207,14 +207,6 @@ BEGIN
       WHERE x.property_id = p_property
         AND x.day = g.d::date
         AND x.room_id IS NULL
-        AND x.status = 'booked'
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM property_availability x2
-      WHERE x2.property_id = p_property
-        AND x2.day = g.d::date
-        AND x2.room_id IS NULL
-        AND x2.booking_id IS NOT NULL
     );
 END;
 $$;

@@ -4,7 +4,14 @@ import {
   inferCalendarSource,
   parseIcsStaysInWindow,
   formatYmdUtc,
+  type ParsedIcsStay,
 } from '@/lib/calendar/icsParseIncoming';
+import { fetchIcsBody } from '@/lib/calendar/icsFetch';
+import {
+  formatUnknownError,
+  isMissingRelationOrFunction,
+  isUniqueViolation,
+} from '@/lib/calendar/icsError';
 import { getRedis } from '@/lib/cache/redis';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
@@ -42,19 +49,7 @@ export async function syncOnePropertyIcalSource(opts: {
   let lockHeld = false;
 
   try {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 25000);
-    const res = await fetch(calendar.ical_url, {
-      headers: { 'User-Agent': 'VibesBNB-CalendarSync/2.0' },
-      signal: ctl.signal,
-    });
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      throw new Error(`ICS HTTP ${res.status}`);
-    }
-
-    const body = await res.text();
+    const body = await fetchIcsBody(calendar.ical_url);
     const hash = await sha256Hex(body);
 
     if (!force && calendar.last_hash && calendar.last_hash === hash) {
@@ -80,31 +75,60 @@ export async function syncOnePropertyIcalSource(opts: {
       external_id: s.uid,
     }));
 
-    for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
-      const slice = rows.slice(i, i + UPSERT_CHUNK);
-      const { error: upErr } = await service.from('calendar_import_bookings').upsert(slice, {
-        onConflict: 'external_calendar_id,external_id',
+    let wroteImportBookings = false;
+    try {
+      for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
+        const slice = rows.slice(i, i + UPSERT_CHUNK);
+        const { error: upErr } = await service.from('calendar_import_bookings').upsert(slice, {
+          onConflict: 'external_calendar_id,external_id',
+        });
+        if (upErr) throw upErr;
+      }
+      wroteImportBookings = true;
+
+      const uidList = [...new Set(stays.map((s) => s.uid))];
+      const { error: delErr } = await service.rpc('calendar_delete_import_orphans', {
+        p_calendar_id: calendar.id,
+        p_window_start: windowStartStr,
+        p_window_end: windowEndStr,
+        p_uids: uidList.length > 0 ? uidList : null,
       });
-      if (upErr) throw upErr;
+      if (delErr && !isMissingRelationOrFunction(formatUnknownError(delErr))) {
+        throw delErr;
+      }
+    } catch (importErr) {
+      const importMsg = formatUnknownError(importErr);
+      if (!isMissingRelationOrFunction(importMsg)) throw importErr;
     }
 
-    const uidList = [...new Set(stays.map((s) => s.uid))];
-    const { error: delErr } = await service.rpc('calendar_delete_import_orphans', {
-      p_calendar_id: calendar.id,
-      p_window_start: windowStartStr,
-      p_window_end: windowEndStr,
-      p_uids: uidList.length > 0 ? uidList : null,
-    });
-    if (delErr) throw delErr;
+    const { error: refreshErr } = wroteImportBookings
+      ? await service.rpc('calendar_refresh_ical_availability', {
+          p_property: calendar.property_id,
+          p_calendar: calendar.id,
+          p_host: calendar.host_id,
+          p_from: windowStartStr,
+          p_to: windowEndStr,
+        })
+      : { error: { message: 'calendar_refresh_ical_availability skipped' } };
 
-    const { error: refreshErr } = await service.rpc('calendar_refresh_ical_availability', {
-      p_property: calendar.property_id,
-      p_calendar: calendar.id,
-      p_host: calendar.host_id,
-      p_from: windowStartStr,
-      p_to: windowEndStr,
-    });
-    if (refreshErr) throw refreshErr;
+    if (refreshErr) {
+      const refreshMsg = formatUnknownError(refreshErr);
+      if (
+        wroteImportBookings &&
+        !isUniqueViolation(refreshErr, refreshMsg) &&
+        !isMissingRelationOrFunction(refreshMsg)
+      ) {
+        throw refreshErr;
+      }
+      await refreshIcalAvailabilityClientSide(service, {
+        propertyId: calendar.property_id,
+        hostId: calendar.host_id,
+        calendarId: calendar.id,
+        windowStartStr,
+        windowEndStr,
+        stays,
+      });
+    }
 
     const { error: metaErr } = await service
       .from('property_ical_sources')
@@ -122,7 +146,7 @@ export async function syncOnePropertyIcalSource(opts: {
 
     return { skipped: false, events: stays.length };
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = formatUnknownError(e);
     await service
       .from('property_ical_sources')
       .update({
@@ -136,6 +160,80 @@ export async function syncOnePropertyIcalSource(opts: {
     if (lockHeld && redis) {
       await redis.del(`cal:lock:v1:${calendar.id}`);
     }
+  }
+}
+
+function addDaysYmd(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return formatYmdUtc(dt);
+}
+
+function nightsInStay(startInclusive: string, endExclusive: string): string[] {
+  const nights: string[] = [];
+  for (let cursor = startInclusive; cursor < endExclusive; cursor = addDaysYmd(cursor, 1)) {
+    nights.push(cursor);
+  }
+  return nights;
+}
+
+async function refreshIcalAvailabilityClientSide(
+  service: SupabaseClient,
+  opts: {
+    propertyId: string;
+    hostId: string;
+    calendarId: string;
+    windowStartStr: string;
+    windowEndStr: string;
+    stays: ParsedIcsStay[];
+  }
+) {
+  const desired = new Set<string>();
+  for (const stay of opts.stays) {
+    for (const night of nightsInStay(stay.startInclusive, stay.endExclusive)) {
+      if (night >= opts.windowStartStr && night < opts.windowEndStr) desired.add(night);
+    }
+  }
+
+  await service
+    .from('property_availability')
+    .delete()
+    .eq('property_id', opts.propertyId)
+    .eq('ical_source_id', opts.calendarId)
+    .eq('source', 'ical_sync')
+    .is('room_id', null)
+    .gte('day', opts.windowStartStr)
+    .lt('day', opts.windowEndStr);
+
+  if (desired.size === 0) return;
+
+  const { data: existing, error: existingErr } = await service
+    .from('property_availability')
+    .select('day')
+    .eq('property_id', opts.propertyId)
+    .is('room_id', null)
+    .in('day', [...desired]);
+  if (existingErr) throw existingErr;
+
+  const taken = new Set((existing || []).map((row) => row.day));
+  const inserts = [...desired]
+    .filter((day) => !taken.has(day))
+    .map((day) => ({
+      property_id: opts.propertyId,
+      host_id: opts.hostId,
+      day,
+      status: 'blocked',
+      source: 'ical_sync',
+      ical_source_id: opts.calendarId,
+      note: 'External calendar',
+      room_id: null,
+    }));
+
+  for (let i = 0; i < inserts.length; i += UPSERT_CHUNK) {
+    const slice = inserts.slice(i, i + UPSERT_CHUNK);
+    const { error: insErr } = await service.from('property_availability').insert(slice);
+    if (insErr) throw insErr;
   }
 }
 
