@@ -35,13 +35,14 @@ import { toTravelerPrice } from '@/lib/platformPricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
 import {
+  PREFER_WELLNESS_CHANGE_EVENT,
   PREFER_WELLNESS_DEFAULT,
   PREFER_WELLNESS_META_KEY,
   PREFER_WELLNESS_STORAGE_KEY,
   VIBE_FIRST_QUERY_KEY,
-  compareWellnessPreference,
-  listingHasVibeGlow,
+  compareWellnessPreferenceRank,
   resolvePreferWellnessFriendly,
+  wellnessPreferenceRank,
   writeLocalPreferWellnessFriendly,
 } from '@/lib/preferWellnessFriendly';
 import {
@@ -203,16 +204,18 @@ function sortSearchListings(
       if (a.isAvailable && !b.isAvailable) return -1;
       if (!a.isAvailable && b.isAvailable) return 1;
     }
-    // Green (Full Vibe) + gold (Balcony Vibe) first when toggle is on
-    const wellness = compareWellnessPreference(
-      listingHasVibeGlow(
-        a.wellnessConsumptionIndoorAllowed,
-        a.wellnessConsumptionOutdoorAllowed
-      ),
-      listingHasVibeGlow(
-        b.wellnessConsumptionIndoorAllowed,
-        b.wellnessConsumptionOutdoorAllowed
-      ),
+    // Wellness-friendly first when toggle is on: Full/Balcony Vibe, then other wellness stays
+    const wellness = compareWellnessPreferenceRank(
+      wellnessPreferenceRank({
+        indoor: a.wellnessConsumptionIndoorAllowed,
+        outdoor: a.wellnessConsumptionOutdoorAllowed,
+        wellnessFriendly: a.wellnessFriendly,
+      }),
+      wellnessPreferenceRank({
+        indoor: b.wellnessConsumptionIndoorAllowed,
+        outdoor: b.wellnessConsumptionOutdoorAllowed,
+        wellnessFriendly: b.wellnessFriendly,
+      }),
       preferWellnessFriendly
     );
     if (wellness !== 0) return wellness;
@@ -234,7 +237,7 @@ function sortSearchListings(
 }
 
 /** Bump when browse payload fields change so stale tabs pick up vibe flags / full catalog. */
-const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v11';
+const SEARCH_CATALOG_STORAGE_KEY = 'vbnb_search_catalog_v12';
 const SEARCH_CATALOG_TTL_MS = 300_000;
 const SEARCH_CATALOG_PAGE_SIZE = 40;
 /** First paint: enough cards for above-the-fold without waiting on full catalog. */
@@ -290,6 +293,8 @@ const SEARCH_CATALOG_NO_COVER_SELECT = [
   'bathrooms',
   'beds',
   'wellness_friendly',
+  'wellness_consumption_indoor_allowed',
+  'wellness_consumption_outdoor_allowed',
   'latitude',
   'longitude',
   'min_booking_nights',
@@ -310,6 +315,9 @@ const SEARCH_CATALOG_MINIMAL_SELECT = [
   'bedrooms',
   'bathrooms',
   'beds',
+  'wellness_friendly',
+  'wellness_consumption_indoor_allowed',
+  'wellness_consumption_outdoor_allowed',
   'latitude',
   'longitude',
 ].join(',');
@@ -1101,12 +1109,6 @@ export default function SearchPage() {
           isAvailable: !unavailablePropertyIds.has(listing.id),
         }));
 
-        merged.sort((a, b) => {
-          if (a.isAvailable && !b.isAvailable) return -1;
-          if (!a.isAvailable && b.isAvailable) return 1;
-          return 0;
-        });
-
         setBaseListings(merged);
       } catch (e) {
         console.warn('[Search] Error checking availability:', e);
@@ -1194,6 +1196,15 @@ export default function SearchPage() {
       cancelled = true;
     };
   }, [user?.id, user?.user_metadata?.[PREFER_WELLNESS_META_KEY], vibeFirstParam]);
+
+  useEffect(() => {
+    const onPref = (event: Event) => {
+      const detail = (event as CustomEvent<boolean>).detail;
+      if (typeof detail === 'boolean') setPreferWellnessFriendly(detail);
+    };
+    window.addEventListener(PREFER_WELLNESS_CHANGE_EVENT, onPref);
+    return () => window.removeEventListener(PREFER_WELLNESS_CHANGE_EVENT, onPref);
+  }, []);
 
   const setVibeFirstPreference = useCallback(
     (next: boolean) => {

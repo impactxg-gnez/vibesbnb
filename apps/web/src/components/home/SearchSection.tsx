@@ -10,6 +10,7 @@ import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
 import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 import { writeStaySearch } from '@/lib/staySearchParams';
 import {
+  PREFER_WELLNESS_CHANGE_EVENT,
   PREFER_WELLNESS_DEFAULT,
   VIBE_FIRST_QUERY_KEY,
   readLocalPreferWellnessFriendly,
@@ -76,6 +77,15 @@ export function SearchSection({
       setVibeFirst(PREFER_WELLNESS_DEFAULT);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const onPref = (event: Event) => {
+      const detail = (event as CustomEvent<boolean>).detail;
+      if (typeof detail === 'boolean') setVibeFirst(detail);
+    };
+    window.addEventListener(PREFER_WELLNESS_CHANGE_EVENT, onPref);
+    return () => window.removeEventListener(PREFER_WELLNESS_CHANGE_EVENT, onPref);
+  }, []);
 
   // Sync from URL/search props when those *values* change — not when the parent passes a new
   // `initialValues` object reference each render (that was resetting location/dates on every re-render).
@@ -204,7 +214,11 @@ export function SearchSection({
   }, [showLocationDropdown]);
 
   /** Merge current form state into query params (preserves unrelated keys like `sort`). */
-  const applySearchFormToParams = (params: URLSearchParams, categories: string[]) => {
+  const applySearchFormToParams = (
+    params: URLSearchParams,
+    categories: string[],
+    vibeFirstOverride?: boolean
+  ) => {
     if (selectedLocation) params.set('location', selectedLocation);
     else params.delete('location');
     if (checkIn) params.set('checkIn', checkIn);
@@ -220,7 +234,20 @@ export function SearchSection({
     if (categories.length > 0) params.set('categories', categories.join(','));
     else params.delete('categories');
     if (hostId) params.set('host', hostId);
-    params.set(VIBE_FIRST_QUERY_KEY, vibeFirst ? '1' : '0');
+    params.set(VIBE_FIRST_QUERY_KEY, (vibeFirstOverride ?? vibeFirst) ? '1' : '0');
+  };
+
+  const applyVibeFirstAndGo = (next: boolean) => {
+    setVibeFirst(next);
+    writeLocalPreferWellnessFriendly(next);
+    const params = new URLSearchParams(window.location.search);
+    applySearchFormToParams(params, selectedCategories, next);
+    const href = `/search?${params.toString()}`;
+    if (pathname === '/search') {
+      router.replace(href, { scroll: false });
+    } else {
+      router.push(href);
+    }
   };
 
   const toggleCategory = (id: string) => {
@@ -281,7 +308,7 @@ export function SearchSection({
         : 'Find Your Perfect Stay');
 
   return (
-    <div className={`container mx-auto px-3 md:px-6 max-w-full ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-30 pb-12 md:pb-20 ${className}`}>
+    <div className={`container mx-auto px-3 md:px-6 max-w-full ${enableNegativeMargin ? '-mt-8 sm:-mt-12 md:-mt-16 lg:-mt-20' : ''} relative z-40 pb-12 md:pb-20 ${className}`}>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -298,18 +325,8 @@ export function SearchSection({
                 aria-checked={vibeFirst}
                 aria-label="Show Full Vibe and Balcony Vibe stays first"
                 title="Prioritize Full Vibe (green) and Balcony Vibe (gold) listings"
-                onClick={() => {
-                  const next = !vibeFirst;
-                  setVibeFirst(next);
-                  writeLocalPreferWellnessFriendly(next);
-                  if (pathname === '/search') {
-                    const params = new URLSearchParams(window.location.search);
-                    applySearchFormToParams(params, selectedCategories);
-                    params.set(VIBE_FIRST_QUERY_KEY, next ? '1' : '0');
-                    router.replace(`/search?${params.toString()}`, { scroll: false });
-                  }
-                }}
-                className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-2 transition-all border ${
+                onClick={() => applyVibeFirstAndGo(!vibeFirst)}
+                className={`relative z-40 pointer-events-auto text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-2 transition-all border ${
                   vibeFirst
                     ? 'bg-[#193F25]/12 border-[#193F25]/45 text-[#193F25] dark:bg-emerald-500/20 dark:border-emerald-400/50 dark:text-emerald-200 dark:shadow-[0_0_14px_rgba(16,185,129,0.3)]'
                     : 'border-[#51372B]/20 text-[#51372B] hover:text-[#193F25] dark:border-white/10 dark:text-muted dark:hover:text-white'
