@@ -65,8 +65,8 @@ export function PropertySeoFacts({ property }: Props) {
   ].filter(([, value]) => Boolean(value)) as [string, string][];
 
   return (
-    <section className="bg-gray-950 text-white border-b border-white/10">
-      <div className="container mx-auto px-4 pt-6 pb-2 max-w-6xl">
+    <section className="bg-gray-950 text-white border-t border-white/10">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
         <nav aria-label="Breadcrumb" className="text-sm text-gray-400 mb-4 flex flex-wrap gap-2">
           <Link href="/" className="hover:text-primary-400">
             VibesBNB

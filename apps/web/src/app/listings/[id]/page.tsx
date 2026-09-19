@@ -61,8 +61,8 @@ export default async function ListingPage({ params }: Props) {
   return (
     <>
       {property ? <JsonLd data={vacationRentalJsonLd(property)} /> : null}
-      {property ? <PropertySeoFacts property={property} /> : null}
       <ListingPageClient />
+      {property ? <PropertySeoFacts property={property} /> : null}
     </>
   );
 }
