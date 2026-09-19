@@ -120,12 +120,41 @@ function applyKind(url: string, kind: 'thumb' | 'cardMain' | 'gallery'): string 
   return url;
 }
 
+/** Same-origin cover proxy used when browse/catalog omit the real photo URL. */
+export function isPropertyCoverProxyUrl(url: string): boolean {
+  const path = url.trim().split(/[?#]/)[0];
+  return /^\/api\/properties\/[^/]+\/cover\/?$/i.test(path);
+}
+
+/**
+ * Identity for gallery dedupe. Collapses cover vs images[0] when they are the same
+ * file at different query strings, render vs object URLs, or the /cover proxy.
+ */
+export function propertyImageIdentityKey(url: string): string {
+  const raw = unwrapProxiedImageUrl(url);
+  if (!raw) return '';
+  if (isPropertyCoverProxyUrl(raw)) return '__cover_proxy__';
+  try {
+    const absolute = raw.startsWith('//') ? `https:${raw}` : raw;
+    const u = new URL(absolute, raw.startsWith('/') ? 'https://local.invalid' : undefined);
+    let pathname = decodeURIComponent(u.pathname).replace(/\/+$/, '').toLowerCase();
+    pathname = pathname.replace(
+      '/storage/v1/render/image/public/',
+      '/storage/v1/object/public/'
+    );
+    if (raw.startsWith('/') && !raw.startsWith('//')) return pathname;
+    return `${u.hostname.toLowerCase()}${pathname}`;
+  } catch {
+    return raw.split(/[?#]/)[0].toLowerCase();
+  }
+}
+
 /**
  * Clean property image arrays for display.
  * - Unwraps Next.js `/_next/image?url=` proxies (bulk-import source sites)
  * - Drops blanks / non-image hosts (e.g. YouTube)
  * - Prefers remote http(s) URLs before huge data: URLs (common after scrapes)
- * - Dedupes exact matches after unwrap
+ * - Dedupes the same photo when cover_image is also the first gallery image
  */
 export function normalizePropertyImages(
   images: Array<string | null | undefined> | null | undefined,
@@ -140,19 +169,19 @@ export function normalizePropertyImages(
   for (const raw of images) {
     if (typeof raw !== 'string') continue;
     const url = unwrapProxiedImageUrl(raw);
-    if (!url || seen.has(url)) continue;
+    if (!url) continue;
+    const key = propertyImageIdentityKey(url);
+    if (!key || seen.has(key)) continue;
 
     // Same-origin cover proxy (browse uses this when cover_image is missing).
-    if (url.startsWith('/api/properties/') && url.includes('/cover')) {
-      if (!seen.has(url)) {
-        seen.add(url);
-        remote.push(url);
-      }
+    if (isPropertyCoverProxyUrl(url)) {
+      seen.add(key);
+      remote.push(url);
       continue;
     }
 
     if (!isLikelyDisplayableImageUrl(url)) continue;
-    seen.add(url);
+    seen.add(key);
 
     if (url.startsWith('data:image/')) {
       // Scraped listings often store huge base64 blobs that break next/image on cards.
@@ -164,7 +193,20 @@ export function normalizePropertyImages(
   }
 
   const ordered = [...remote, ...embedded];
-  return ordered.length > 0 ? ordered : [fallback];
+  const hasHttp = ordered.some((u) => /^https?:\/\//i.test(u));
+  const withoutProxy = hasHttp ? ordered.filter((u) => !isPropertyCoverProxyUrl(u)) : ordered;
+  return withoutProxy.length > 0 ? withoutProxy : [fallback];
+}
+
+/** Put cover first without repeating it when it is already images[0]. */
+export function mergeCoverAndGallery(
+  cover: unknown,
+  images: unknown,
+  fallback: string = PLACEHOLDER
+): string[] {
+  const list = Array.isArray(images) ? images : [];
+  const coverUrl = typeof cover === 'string' && cover.trim() ? cover.trim() : '';
+  return normalizePropertyImages(coverUrl ? [coverUrl, ...list] : list, fallback);
 }
 
 /** First usable listing image (after normalize), or placeholder. */
@@ -185,16 +227,7 @@ export function listingCardImagesFromRow(row: {
   cover_image?: unknown;
 }): string[] {
   const id = typeof row.id === 'string' ? row.id : '';
-  const candidates: string[] = [];
-  if (typeof row.cover_image === 'string' && row.cover_image.trim()) {
-    candidates.push(row.cover_image.trim());
-  }
-  if (Array.isArray(row.images)) {
-    for (const raw of row.images) {
-      if (typeof raw === 'string' && raw.trim()) candidates.push(raw.trim());
-    }
-  }
-  const normalized = normalizePropertyImages(candidates, PLACEHOLDER).filter(
+  const normalized = mergeCoverAndGallery(row.cover_image, row.images, PLACEHOLDER).filter(
     (u) => u !== PLACEHOLDER && !u.startsWith('data:')
   );
   if (normalized.length > 0) return normalized.slice(0, 3);

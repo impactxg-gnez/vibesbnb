@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createBrowserClient } from '@supabase/supabase-js';
-import {
-  normalizePropertyImages,
-  unwrapProxiedImageUrl,
-} from '@/lib/propertyImageUrls';
+import { mergeCoverAndGallery } from '@/lib/propertyImageUrls';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -72,24 +69,10 @@ export async function GET(
     }
 
     const raw = Array.isArray(full?.images) ? (full!.images as unknown[]) : [];
-    const httpOnly: string[] = [];
-    const seen = new Set<string>();
-    if (cover) {
-      seen.add(cover);
-      httpOnly.push(cover);
-    }
-    for (const item of raw) {
-      if (typeof item !== 'string') continue;
-      const unwrapped = unwrapProxiedImageUrl(item.trim());
-      if (!isHttpUrl(unwrapped) || seen.has(unwrapped)) continue;
-      seen.add(unwrapped);
-      httpOnly.push(unwrapped);
-      if (httpOnly.length >= MAX_GALLERY) break;
-    }
-
+    const merged = mergeCoverAndGallery(cover, raw).filter((u) => isHttpUrl(u));
     const images =
-      httpOnly.length > 0
-        ? normalizePropertyImages(httpOnly).filter((u) => isHttpUrl(u)).slice(0, MAX_GALLERY)
+      merged.length > 0
+        ? merged.slice(0, MAX_GALLERY)
         : [`/api/properties/${encodeURIComponent(id)}/cover`];
 
     return NextResponse.json(

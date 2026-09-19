@@ -190,6 +190,7 @@ export default function ManageListingsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [migratingPhotos, setMigratingPhotos] = useState(false);
   const [migratingAllPhotos, setMigratingAllPhotos] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
 
   const openPropertyManagement = async (property: Property) => {
     setSelectedProperty(property);
@@ -389,27 +390,51 @@ export default function ManageListingsPage() {
     }
 
     return ids;
-  }, []);
+  }, [session]);
 
-  const handleMigrateAllPhotos = async () => {
-    if (
-      !confirm(
-        'Move photos to storage for every listing? This can take several minutes — keep this tab open until it finishes.'
-      )
-    ) {
-      return;
-    }
+  const togglePhotoSelection = (id: string) => {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
+  const visibleIds = filteredProperties.map((p) => p.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedPhotoIds.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selectedPhotoIds.has(id));
+
+  const toggleSelectAllVisible = () => {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const migratePhotosForIds = async (ids: string[]) => {
     setMigratingAllPhotos(true);
-    const toastId = 'migrate-all-photos';
-    toast.loading('Listing properties…', { id: toastId });
-
-    let totalMoved = 0;
-    let listingsChanged = 0;
-    const failures: string[] = [];
+    const toastId = 'migrate-photos-bulk';
 
     try {
-      const ids = await fetchAllPropertyIds();
+      if (ids.length === 0) {
+        toast.error('Select at least one listing first', { id: toastId });
+        return;
+      }
+
+      toast.loading(`Moving photos for ${ids.length} listing${ids.length === 1 ? '' : 's'}…`, {
+        id: toastId,
+      });
+
+      let totalMoved = 0;
+      let listingsChanged = 0;
+      const failures: string[] = [];
 
       for (let i = 0; i < ids.length; i++) {
         const label = `Listing ${i + 1}/${ids.length}`;
@@ -424,9 +449,8 @@ export default function ManageListingsPage() {
           totalMoved += moved;
           if (moved > 0) listingsChanged += 1;
         } catch (error: unknown) {
-          // One bad listing should not stop the rest of the run.
           failures.push(ids[i]);
-          console.error('[migrate-all-photos]', ids[i], error);
+          console.error('[migrate-photos-bulk]', ids[i], error);
         }
       }
 
@@ -445,6 +469,46 @@ export default function ManageListingsPage() {
         id: toastId,
       });
     } finally {
+      setMigratingAllPhotos(false);
+    }
+  };
+
+  const handleMigrateSelectedPhotos = async () => {
+    const ids = [...selectedPhotoIds];
+    if (ids.length === 0) {
+      toast.error('Select at least one listing first');
+      return;
+    }
+    if (
+      !confirm(
+        `Move photos to storage for ${ids.length} selected listing${ids.length === 1 ? '' : 's'}? Keep this tab open until it finishes.`
+      )
+    ) {
+      return;
+    }
+    await migratePhotosForIds(ids);
+  };
+
+  const handleMigrateAllPhotos = async () => {
+    if (
+      !confirm(
+        'Move photos to storage for every listing? This can take several minutes — keep this tab open until it finishes.'
+      )
+    ) {
+      return;
+    }
+
+    const toastId = 'migrate-photos-bulk';
+    setMigratingAllPhotos(true);
+    toast.loading('Listing properties…', { id: toastId });
+
+    try {
+      const ids = await fetchAllPropertyIds();
+      await migratePhotosForIds(ids);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Photo migration failed', {
+        id: toastId,
+      });
       setMigratingAllPhotos(false);
     }
   };
@@ -599,15 +663,15 @@ export default function ManageListingsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Property Management</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Select a property to edit details, approve listings, or publish team reviews.
+              Check listings to move only those photos to storage, or open a listing to edit it.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <button
               type="button"
-              onClick={handleMigrateAllPhotos}
-              disabled={migratingAllPhotos}
-              title="Move every listing's base64 photos into Supabase Storage so galleries can show them"
+              onClick={handleMigrateSelectedPhotos}
+              disabled={migratingAllPhotos || selectedPhotoIds.size === 0}
+              title="Move base64 photos into storage for the listings you checked"
               className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition disabled:opacity-50"
             >
               {migratingAllPhotos ? (
@@ -615,7 +679,20 @@ export default function ManageListingsPage() {
               ) : (
                 <ImageIcon size={18} />
               )}
-              {migratingAllPhotos ? 'Moving photos…' : 'Move All Photos to Storage'}
+              {migratingAllPhotos
+                ? 'Moving photos…'
+                : selectedPhotoIds.size > 0
+                  ? `Move photos for ${selectedPhotoIds.size} selected`
+                  : 'Move photos for selected'}
+            </button>
+            <button
+              type="button"
+              onClick={handleMigrateAllPhotos}
+              disabled={migratingAllPhotos}
+              title="Move every listing's base64 photos into Supabase Storage so galleries can show them"
+              className="flex items-center gap-2 px-4 py-2 border border-sky-200 bg-sky-50 text-sky-800 rounded-lg hover:bg-sky-100 transition disabled:opacity-50"
+            >
+              {migratingAllPhotos ? 'Moving photos…' : 'Move all photos'}
             </button>
             <button
               onClick={handleSyncAllCoordinates}
@@ -677,6 +754,36 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3 mb-6 flex flex-wrap items-center justify-between gap-3">
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              disabled={filteredProperties.length === 0}
+              onChange={toggleSelectAllVisible}
+              ref={(el) => {
+                if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected;
+              }}
+              className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+            />
+            Select all shown ({filteredProperties.length})
+          </label>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-gray-600">
+              {selectedPhotoIds.size} listing{selectedPhotoIds.size === 1 ? '' : 's'} selected
+            </span>
+            {selectedPhotoIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoIds(new Set())}
+                className="text-sky-700 hover:text-sky-900 font-medium"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="flex flex-col xl:flex-row gap-6 items-start">
         {/* Properties Grid */}
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${selectedProperty ? 'xl:flex-1' : 'w-full lg:grid-cols-3'}`}>
@@ -708,12 +815,26 @@ export default function ManageListingsPage() {
                 className={`bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition cursor-pointer ${
                   selectedProperty?.id === property.id
                     ? 'border-purple-500 ring-2 ring-purple-200'
-                    : 'border-gray-200'
+                    : selectedPhotoIds.has(property.id)
+                      ? 'border-sky-400 ring-2 ring-sky-100'
+                      : 'border-gray-200'
                 }`}
                 onClick={() => openPropertyManagement(property)}
               >
                 {/* Image */}
                 <div className="relative h-48 bg-gray-200">
+                  <div
+                    className="absolute top-2 left-2 z-10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPhotoIds.has(property.id)}
+                      onChange={() => togglePhotoSelection(property.id)}
+                      aria-label={`Select ${property.name || property.title || 'listing'} to move photos`}
+                      className="h-5 w-5 rounded border-gray-300 text-sky-600 focus:ring-sky-500 bg-white shadow"
+                    />
+                  </div>
                   {(() => {
                     const coverSrc = propertyCoverSrc(property);
                     return coverSrc ? (
