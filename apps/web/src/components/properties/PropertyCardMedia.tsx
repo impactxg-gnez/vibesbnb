@@ -9,9 +9,11 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  isFragileCdnImageUrl,
   listingCardMainImageUrl,
   listingThumbImageUrl,
   normalizePropertyImages,
+  preferDurablePropertyImages,
 } from '@/lib/propertyImageUrls';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
@@ -29,17 +31,66 @@ const MAIN_BLUR =
 
 const THUMB_COUNT = 4;
 const SWIPE_THRESHOLD = 42;
+/** Cards only need a short preview reel — full galleries belong on the listing page. */
+const CARD_GALLERY_LIMIT = 8;
 
 function mergeGalleryUrls(seed: string[], extra: string[]): string[] {
-  return normalizePropertyImages([...seed, ...extra], PLACEHOLDER).filter(
-    (url) => url !== PLACEHOLDER || seed.length === 0
-  );
+  const cover = seed[0];
+  const rest = preferDurablePropertyImages([...seed.slice(1), ...extra]);
+  const durable = rest.filter((url) => !isFragileCdnImageUrl(url));
+  const fragile = rest.filter((url) => isFragileCdnImageUrl(url));
+  // Airbnb CDN extras often 403/404 on cards — only use them when nothing else exists.
+  const ordered = cover
+    ? [cover, ...durable]
+    : durable.length > 0
+      ? durable
+      : fragile.slice(0, CARD_GALLERY_LIMIT);
+  return normalizePropertyImages(ordered, PLACEHOLDER)
+    .filter((url) => url !== PLACEHOLDER || seed.length === 0)
+    .slice(0, CARD_GALLERY_LIMIT);
 }
 
 function thumbWindowStart(index: number, total: number, size = THUMB_COUNT): number {
   if (total <= size) return 0;
   const maxStart = total - size;
   return Math.min(maxStart, Math.max(0, index - 1));
+}
+
+function CardThumb({
+  url,
+  onDead,
+}: {
+  url: string;
+  onDead: (url: string) => void;
+}) {
+  const isLocal = url.startsWith('/') || url.startsWith('data:');
+  const [src, setSrc] = useState(() => (isLocal ? url : listingThumbImageUrl(url)));
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setSrc(isLocal ? url : listingThumbImageUrl(url));
+    setReady(false);
+  }, [url, isLocal]);
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      className={`h-full w-full object-cover transition-opacity ${ready ? 'opacity-100' : 'opacity-0'}`}
+      onLoad={() => setReady(true)}
+      onError={() => {
+        if (!isLocal && src !== url) {
+          setSrc(url);
+          return;
+        }
+        onDead(url);
+      }}
+    />
+  );
 }
 
 export type PropertyCardMediaProps = {
@@ -267,6 +318,16 @@ export function PropertyCardMedia({
     if (index > slides.length - 1) setIndex(Math.max(0, slides.length - 1));
   }, [index, slides.length]);
 
+  const markSlideDead = useCallback((url: string) => {
+    if (url === PLACEHOLDER) return;
+    setFailedSrcs((prev) => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  }, []);
+
   const handleMainImageError = useCallback(() => {
     // Prefer original object URL when a resized/transform URL fails.
     if (!mainUseOriginal && mainDisplaySrc !== mainSrc && !mainSrc.startsWith('data:')) {
@@ -274,16 +335,9 @@ export function PropertyCardMedia({
       return;
     }
     // Dead remote URLs (e.g. expired Airbnb CDN) — skip to next usable slide.
-    if (mainSrc !== PLACEHOLDER) {
-      setFailedSrcs((prev) => {
-        if (prev.has(mainSrc)) return prev;
-        const next = new Set(prev);
-        next.add(mainSrc);
-        return next;
-      });
-      setMainUseOriginal(false);
-    }
-  }, [mainDisplaySrc, mainSrc, mainUseOriginal]);
+    markSlideDead(mainSrc);
+    setMainUseOriginal(false);
+  }, [mainDisplaySrc, mainSrc, mainUseOriginal, markSlideDead]);
 
   const handlePrevious = useCallback(
     (e?: React.MouseEvent) => {
@@ -366,6 +420,7 @@ export function PropertyCardMedia({
           blurDataURL={MAIN_BLUR}
           onError={handleMainImageError}
           className="object-cover pointer-events-none"
+          referrerPolicy="no-referrer"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
 
@@ -439,8 +494,6 @@ export function PropertyCardMedia({
           {thumbs.map((url, offset) => {
             const slideIndex = thumbStart + offset;
             const active = slideIndex === safeIndex;
-            const thumbSrc = listingThumbImageUrl(url);
-            const isLocal = url.startsWith('/') || url.startsWith('data:');
             return (
               <button
                 key={`${url}-${slideIndex}`}
@@ -450,20 +503,13 @@ export function PropertyCardMedia({
                   e.stopPropagation();
                   setIndex(slideIndex);
                 }}
-                className={`relative h-14 sm:h-16 overflow-hidden rounded-md ring-offset-0 ${
+                className={`relative h-14 sm:h-16 overflow-hidden rounded-md bg-white/10 ring-offset-0 ${
                   active ? 'ring-2 ring-white' : 'ring-1 ring-white/20 opacity-80 hover:opacity-100'
                 }`}
                 aria-label={`Show photo ${slideIndex + 1}`}
                 aria-current={active ? 'true' : undefined}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={isLocal ? url : thumbSrc}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
+                <CardThumb url={url} onDead={markSlideDead} />
               </button>
             );
           })}

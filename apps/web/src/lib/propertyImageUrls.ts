@@ -67,6 +67,16 @@ function isLikelyDisplayableImageUrl(url: string): boolean {
   }
 }
 
+function isOurSupabaseOrigin(origin: string): boolean {
+  const configured = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!configured) return false;
+  try {
+    return origin.toLowerCase() === new URL(configured).origin.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 function supabaseRenderUrl(
   url: string,
   opts: { width: number; height: number; quality: number; resize: 'cover' | 'contain' }
@@ -74,6 +84,8 @@ function supabaseRenderUrl(
   if (!TRANSFORMS_ENABLED) return null;
   const m = url.trim().match(SUPABASE_OBJECT_PUBLIC);
   if (!m) return null;
+  // Imported Ionica / host-owned buckets often 403 FeatureNotEnabled on /render/image.
+  if (!isOurSupabaseOrigin(m[1])) return null;
   const origin = m[1];
   const pathAfterPublic = m[2];
   const qs = new URLSearchParams({
@@ -233,6 +245,37 @@ export function listingCardImagesFromRow(row: {
   if (normalized.length > 0) return normalized.slice(0, 3);
   if (id) return [`/api/properties/${encodeURIComponent(id)}/cover`];
   return [PLACEHOLDER];
+}
+
+/** Scraped Airbnb CDN URLs frequently 403/404 after import. */
+export function isFragileCdnImageUrl(url: string): boolean {
+  try {
+    const host = new URL(url.startsWith('//') ? `https:${url}` : url).hostname.toLowerCase();
+    return host.endsWith('muscache.com') || host.includes('airbnb');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prefer durable hosts on listing cards. Scraped Airbnb (`muscache`) URLs
+ * often 403/404 after import; migrated Supabase photos should lead the strip.
+ */
+export function preferDurablePropertyImages(urls: string[]): string[] {
+  const rank = (url: string): number => {
+    try {
+      const host = new URL(url.startsWith('//') ? `https:${url}` : url).hostname.toLowerCase();
+      if (host.endsWith('.supabase.co')) return 0;
+      if (host === 'images.unsplash.com') return 1;
+      if (isFragileCdnImageUrl(url)) return 5;
+    } catch {
+      /* relative / invalid */
+    }
+    if (url.startsWith('/api/properties/')) return 4;
+    if (/^https?:\/\//i.test(url)) return 2;
+    return 3;
+  };
+  return [...urls].sort((a, b) => rank(a) - rank(b));
 }
 
 /** Thumbnail strip (~200px wide sources). */
