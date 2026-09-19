@@ -1,0 +1,1749 @@
+'use client';
+
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import {
+  MapPin,
+  Users,
+  Bed,
+  Bath,
+  Heart,
+  Share2,
+  Star,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Sparkles,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Brain,
+  ShieldCheck,
+  ArrowRight,
+  Leaf,
+  Building2,
+  Clock,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import Image from 'next/image';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import PropertyChatButton, { type PropertyChatHandle } from '@/components/chat/PropertyChatButton';
+import { ListingLocationCard } from '@/components/properties/ListingLocationCard';
+import NearbyDispensaries, { InventoryItem } from '@/components/NearbyDispensaries';
+import { saveWellnessCartForBooking } from '@/lib/wellnessBookingCart';
+import { DatePicker } from '@/components/ui/DatePicker';
+import {
+  formatCalendarDate,
+  nightsBetweenYmd,
+  todayLocalYmd,
+} from '@/lib/dateUtils';
+import { toTravelerPrice } from '@/lib/platformPricing';
+import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
+import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
+import { resolveConsumptionPolicy, resolveVibeMarker } from '@/lib/consumptionPolicy';
+import { propertyHasBalcony } from '@/lib/propertyAmenities';
+import { fetchPropertyDetailRow } from '@/lib/propertyDetailFetch';
+import {
+  listingCardImagesFromRow,
+  listingGalleryImageUrl,
+  normalizePropertyImages,
+} from '@/lib/propertyImageUrls';
+import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import {
+  clampPartyToCapacity,
+  guestCapacityDetail,
+  resolveGuestCapacity,
+} from '@/lib/guestCapacity';
+import { ReservationQuote } from '@/components/booking/ReservationQuote';
+import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
+import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
+import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
+import { ConsumptionPolicyPanel } from '@/components/properties/ConsumptionPolicyPanel';
+import { PropertyListingRating } from '@/components/properties/PropertyListingRating';
+import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
+import { PropertyReviewForm } from '@/components/properties/PropertyReviewForm';
+import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
+import type { HostBadge } from '@/lib/hostBadge';
+import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import {
+  formatEffectiveCheckInForViewer,
+  formatEffectiveCheckOutForViewer,
+  formatPropertyClockForViewer,
+  policyFromDbRow,
+} from '@/lib/checkInOutPolicy';
+import {
+  cancellationSafetyFromDbRow,
+  type CancellationPolicyId,
+  type SafetyFlags,
+  DEFAULT_SAFETY_FLAGS,
+} from '@/lib/cancellationPolicy';
+import {
+  approximateMapCenter,
+  formatPublicLocation,
+  PUBLIC_MAP_APPROX_RADIUS_METERS,
+} from '@/lib/propertyLocationPrivacy';
+import { ThingsToKnowSection } from '@/components/properties/ThingsToKnowSection';
+import { AmenityIcon } from '@/lib/amenityIcons';
+import { ListingAccessibilitySection } from '@/components/listings/ListingAccessibilitySection';
+import { altForImageUrl, normalizeImageAlts } from '@/lib/accessibility';
+
+const GALLERY_HERO_BLUR =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P8/AwAI/AL+Xqz2AAAAAElFTkSuQmCC';
+
+const PDP_IMAGE_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=1400&h=1050&fit=crop';
+
+interface Property {
+  id: string;
+  name: string;
+  location: string;
+  description: string;
+  price: number;
+  cleaningFee?: number;
+  refundableDeposit?: number;
+  allowExtraGuests?: boolean;
+  extraGuestPrice?: number;
+  /** Paid extra guests the host allows above `guests` */
+  maxExtraGuests?: number | null;
+  /** When set, stay must be at least this many nights */
+  minBookingNights?: number | null;
+  allowDirectBooking?: boolean;
+  checkInOut?: import('@/lib/checkInOutPolicy').CheckInOutPolicy;
+  cancellationPolicy?: CancellationPolicyId;
+  partiesAllowed?: boolean;
+  safety?: SafetyFlags;
+  bedrooms: number;
+  /** Total beds when set (may exceed bedroom count) */
+  beds?: number | null;
+  bathrooms: number;
+  guests: number;
+  images: string[];
+  imageAlts?: import('@/lib/accessibility').ImageAltEntry[];
+  amenities: string[];
+  accessibilityDescription?: string | null;
+  adaptedStatus?: string | null;
+  wellnessFriendly: boolean;
+  wellnessConsumptionIndoorAllowed: boolean;
+  wellnessConsumptionOutdoorAllowed: boolean;
+  rating: number;
+  reviews: number;
+  createdAt?: string | null;
+  latitude?: number;
+  longitude?: number;
+  hostId: string;
+  hostName: string;
+  hostImage: string;
+  hostBio?: string;
+  hostJoinedDate?: string;
+  type?: string;
+  vibesbnb_take?: string;
+  rooms?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    guests: number;
+    images: string[];
+  }>;
+}
+
+// Guest-facing area + city (no street)
+const getGeneralLocation = (location: string): string => formatPublicLocation(location);
+
+export default function ListingDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const [property, setProperty] = useState<Property | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [galleryUseOriginal, setGalleryUseOriginal] = useState(false);
+  const [failedGallerySrcs, setFailedGallerySrcs] = useState<Set<string>>(() => new Set());
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [loadingFavorite, setLoadingFavorite] = useState(false);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const [reviewsData, setReviewsData] = useState<any[]>([]);
+  const [isReviewsModalOpen, setIsReviewsModalOpen] = useState(false);
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false);
+  const [aboutTab, setAboutTab] = useState<'description' | 'vibesbnb'>('description');
+  const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
+  const [wellnessCart, setWellnessCart] = useState<InventoryItem[]>([]);
+  const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
+
+  const openReviewsModal = () => {
+    setIsReviewsModalOpen(true);
+  };
+
+  const refreshReviews = useCallback(async (propertyId: string) => {
+    try {
+      const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/reviews`);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+      setReviewsData(reviews);
+      setProperty((prev) => {
+        if (!prev) return prev;
+        const avg =
+          reviews.length > 0
+            ? Number(
+                (
+                  reviews.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) /
+                  reviews.length
+                ).toFixed(1)
+              )
+            : 0;
+        return {
+          ...prev,
+          rating: avg,
+          reviews: reviews.length,
+        };
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
+
+  const scrollToReviews = () => {
+    setIsAboutExpanded(true);
+    setAboutTab('description');
+    setTimeout(() => {
+      const element = document.getElementById('reviews-section');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 200);
+  };
+  
+  // Date selection — URL from search, with sessionStorage fallback from home stay picker
+  const urlCheckIn = searchParams.get('checkIn') || '';
+  const urlCheckOut = searchParams.get('checkOut') || '';
+  const urlGuests = searchParams.get('guests');
+  const urlKids = searchParams.get('kids');
+  const urlPets = searchParams.get('pets');
+
+  const [checkInDate, setCheckInDate] = useState<string>(urlCheckIn);
+  const [partyAdults, setPartyAdults] = useState(
+    Math.max(1, parseInt(urlGuests || '1', 10) || 1)
+  );
+  const [partyKids, setPartyKids] = useState(
+    Math.max(0, parseInt(urlKids || '0', 10) || 0)
+  );
+  const [partyPets, setPartyPets] = useState(
+    Math.max(0, parseInt(urlPets || '0', 10) || 0)
+  );
+  const [checkOutDate, setCheckOutDate] = useState<string>(urlCheckOut);
+  const [openBookingChat, setOpenBookingChat] = useState(false);
+  const hostChatRef = useRef<PropertyChatHandle>(null);
+  const [stayHydrated, setStayHydrated] = useState(false);
+
+  // Prefill from URL (or last stay selection) once on the client
+  useEffect(() => {
+    const stay = resolveStaySearch({
+      checkIn: urlCheckIn || undefined,
+      checkOut: urlCheckOut || undefined,
+      guests: urlGuests ? parseInt(urlGuests, 10) : undefined,
+      kids: urlKids ? parseInt(urlKids, 10) : undefined,
+      pets: urlPets ? parseInt(urlPets, 10) : undefined,
+    });
+    if (stay.checkIn) setCheckInDate(stay.checkIn);
+    if (stay.checkOut) setCheckOutDate(stay.checkOut);
+    if (stay.guests) setPartyAdults(stay.guests);
+    if (stay.kids != null) setPartyKids(stay.kids);
+    if (stay.pets != null) setPartyPets(stay.pets);
+    setStayHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once from arrival URL/storage
+  }, []);
+
+  // Keep in sync when URL stay params change (e.g. client nav from search)
+  useEffect(() => {
+    if (!stayHydrated) return;
+    if (urlCheckIn) setCheckInDate(urlCheckIn);
+    if (urlCheckOut) setCheckOutDate(urlCheckOut);
+    if (urlGuests != null && urlGuests !== '') {
+      setPartyAdults(Math.max(1, parseInt(urlGuests, 10) || 1));
+    }
+    if (urlKids != null && urlKids !== '') {
+      setPartyKids(Math.max(0, parseInt(urlKids, 10) || 0));
+    }
+    if (urlPets != null && urlPets !== '') {
+      setPartyPets(Math.max(0, parseInt(urlPets, 10) || 0));
+    }
+  }, [stayHydrated, urlCheckIn, urlCheckOut, urlGuests, urlKids, urlPets]);
+
+  const capacityProperty = {
+    guests: property?.guests,
+    allow_extra_guests: property?.allowExtraGuests,
+    max_extra_guests: property?.maxExtraGuests,
+  };
+  const guestCapacity = resolveGuestCapacity(capacityProperty);
+
+  // A party carried over from search (or a stale URL) can exceed what this listing takes.
+  useEffect(() => {
+    if (!property) return;
+    const clamped = clampPartyToCapacity(
+      { adults: partyAdults, kids: partyKids },
+      guestCapacity
+    );
+    if (clamped.adults !== partyAdults) setPartyAdults(clamped.adults);
+    if (clamped.kids !== partyKids) setPartyKids(clamped.kids);
+  }, [property, guestCapacity, partyAdults, partyKids]);
+
+  // Persist edits on the listing so other cards keep the same stay
+  useEffect(() => {
+    if (!stayHydrated) return;
+    writeStaySearch({
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      guests: partyAdults,
+      kids: partyKids,
+      pets: partyPets,
+    });
+  }, [stayHydrated, checkInDate, checkOutDate, partyAdults, partyKids, partyPets]);
+  
+  // Calculate number of nights
+  const calculateNights = (): number => nightsBetweenYmd(checkInDate, checkOutDate);
+  
+  const stayDuration = calculateNights();
+
+  const primaryTeamReview = useMemo(
+    () => reviewsData.find((r) => r.is_team_review),
+    [reviewsData]
+  );
+  const guestReviews = useMemo(
+    () => reviewsData.filter((r) => !r.is_team_review),
+    [reviewsData]
+  );
+
+  useEffect(() => {
+    if (!primaryTeamReview && aboutTab === 'vibesbnb') {
+      setAboutTab('description');
+    }
+  }, [primaryTeamReview, aboutTab]);
+
+  useEffect(() => {
+    setGalleryUseOriginal(false);
+  }, [currentImageIndex, property?.id]);
+
+  useEffect(() => {
+    setFailedGallerySrcs(new Set());
+    setCurrentImageIndex(0);
+  }, [property?.id]);
+
+  const galleryImages = useMemo(() => {
+    if (!property?.images?.length) return [PDP_IMAGE_PLACEHOLDER];
+    const usable = property.images.filter((url) => !failedGallerySrcs.has(url));
+    return usable.length > 0 ? usable : [PDP_IMAGE_PLACEHOLDER];
+  }, [property?.images, failedGallerySrcs]);
+
+  useEffect(() => {
+    if (currentImageIndex > galleryImages.length - 1) {
+      setCurrentImageIndex(Math.max(0, galleryImages.length - 1));
+    }
+  }, [currentImageIndex, galleryImages.length]);
+  useEffect(() => {
+    const loadProperty = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const isSupabaseConfigured = supabaseUrl &&
+          supabaseUrl !== '' &&
+          supabaseUrl !== 'https://placeholder.supabase.co';
+
+        let propertyData: any = null;
+
+        // Fast first paint: slim row (cover_image, no images[] / rooms).
+        if (isSupabaseConfigured) {
+          const { data, error } = await fetchPropertyDetailRow(supabase, params.id as string);
+
+          if (!error && data) {
+            const d = data as unknown as Record<string, unknown>;
+            const cardImages = listingCardImagesFromRow(d);
+            propertyData = {
+              ...d,
+              images: cardImages,
+              rooms: [],
+              wellnessFriendly: d.wellness_friendly,
+              hostId: d.host_id,
+              vibesbnb_take: d.vibesbnb_take,
+            };
+          }
+        }
+
+        // Fallback to localStorage if Supabase is not configured or query failed
+        if (!propertyData) {
+          console.log('[Listing Detail] Loading property from localStorage fallback');
+          const allProperties: any[] = [];
+
+          // Check all localStorage keys for properties
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.startsWith('properties_')) {
+              try {
+                const userProperties = JSON.parse(localStorage.getItem(key) || '[]');
+                // Include active properties or properties without status
+                const activeProperties = userProperties.filter((p: any) =>
+                  p.status === 'active' || !p.status
+                );
+                allProperties.push(...activeProperties);
+              } catch (e) {
+                console.error('[Listing Detail] Error parsing localStorage properties:', e);
+              }
+            }
+          });
+
+          // Find the property by ID
+          propertyData = allProperties.find((p: any) => p.id === params.id);
+
+          if (propertyData) {
+            console.log('[Listing Detail] Found property in localStorage:', propertyData.id);
+          }
+        }
+
+        if (!propertyData) {
+          setProperty(null);
+          setLoading(false);
+          return;
+        }
+
+        const defaultHostName = 'Property Host';
+        const defaultHostImage = `https://api.dicebear.com/7.x/initials/svg?seed=${propertyData.host_id || 'host'}`;
+        const consumption = resolveWellnessConsumptionFlags(propertyData as Record<string, unknown>);
+
+        const buildProperty = (
+          reviews: any[],
+          host: { hostName: string; hostImage: string; hostBio: string; hostJoinedDate: string }
+        ): Property => {
+          const avgRating =
+            reviews.length > 0
+              ? Number(
+                  (reviews.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) /
+                    reviews.length).toFixed(1)
+                )
+              : 0;
+          return {
+            id: propertyData.id,
+            name: propertyData.name || propertyData.title || 'Untitled Property',
+            location: propertyData.location || '',
+            description: propertyData.description || 'No description available.',
+            price: propertyData.price ? Number(propertyData.price) : 0,
+            cleaningFee:
+              propertyData.cleaning_fee != null
+                ? Number(propertyData.cleaning_fee)
+                : propertyData.cleaningFee != null
+                  ? Number(propertyData.cleaningFee)
+                  : 0,
+            bedrooms: propertyData.bedrooms || 0,
+            beds:
+              propertyData.beds != null && propertyData.beds !== ''
+                ? Number(propertyData.beds)
+                : null,
+            bathrooms: propertyData.bathrooms || 0,
+            guests: propertyData.guests || 0,
+            images: normalizePropertyImages(propertyData.images || [], PDP_IMAGE_PLACEHOLDER),
+            imageAlts: normalizeImageAlts(propertyData.image_alts),
+            amenities: propertyData.amenities || [],
+            accessibilityDescription: propertyData.accessibility_description || null,
+            adaptedStatus: propertyData.adapted_status || null,
+            wellnessFriendly:
+              propertyData.wellness_friendly || propertyData.wellnessFriendly || false,
+            wellnessConsumptionIndoorAllowed: consumption.indoor,
+            wellnessConsumptionOutdoorAllowed: consumption.outdoor,
+            rating: avgRating || Number(propertyData.rating || 0),
+            reviews: reviews.length,
+            createdAt:
+              typeof propertyData.created_at === 'string'
+                ? propertyData.created_at
+                : null,
+            hostId: propertyData.host_id || '',
+            hostName: host.hostName,
+            hostImage: host.hostImage,
+            hostBio: host.hostBio,
+            hostJoinedDate: host.hostJoinedDate,
+            latitude: (() => {
+              const n = Number(propertyData.latitude);
+              return Number.isFinite(n) ? n : undefined;
+            })(),
+            longitude: (() => {
+              const n = Number(propertyData.longitude);
+              return Number.isFinite(n) ? n : undefined;
+            })(),
+            type: propertyData.type || 'Retreat',
+            rooms: propertyData.rooms || [],
+            vibesbnb_take: propertyData.vibesbnb_take,
+            minBookingNights: normalizeMinBookingNights(
+              propertyData.min_booking_nights ?? propertyData.minBookingNights
+            ),
+            allowDirectBooking: propertyData.allow_direct_booking === true,
+            checkInOut: policyFromDbRow(propertyData),
+            ...(() => {
+              const cs = cancellationSafetyFromDbRow(propertyData);
+              return {
+                cancellationPolicy: cs.cancellationPolicy,
+                partiesAllowed: cs.partiesAllowed,
+                safety: cs.safety,
+              };
+            })(),
+            refundableDeposit:
+              propertyData.refundable_deposit != null
+                ? Number(propertyData.refundable_deposit)
+                : 0,
+            allowExtraGuests: propertyData.allow_extra_guests === true,
+            maxExtraGuests:
+              propertyData.max_extra_guests != null
+                ? Number(propertyData.max_extra_guests)
+                : null,
+            extraGuestPrice:
+              propertyData.extra_guest_price != null
+                ? Number(propertyData.extra_guest_price)
+                : 0,
+          };
+        };
+
+        // Paint the page from the property row first; host + reviews hydrate in parallel (no waterfall).
+        const initialHost = {
+          hostName: defaultHostName,
+          hostImage: defaultHostImage,
+          hostBio: '',
+          hostJoinedDate: '2024',
+        };
+        setProperty(buildProperty([], initialHost));
+        setReviewsData([]);
+        setLoading(false);
+
+        if (isSupabaseConfigured) {
+          const propertyId = params.id as string;
+          // Hydrate gallery (http URLs only) without blocking first paint.
+          void fetch(`/api/properties/${encodeURIComponent(propertyId)}/gallery`)
+            .then(async (res) => {
+              if (!res.ok) return;
+              const payload = await res.json().catch(() => null);
+              const gallery = Array.isArray(payload?.images)
+                ? normalizePropertyImages(payload.images, PDP_IMAGE_PLACEHOLDER)
+                : [];
+              if (gallery.length === 0) return;
+              setProperty((prev) => (prev ? { ...prev, images: gallery } : prev));
+            })
+            .catch(() => {
+              /* non-blocking */
+            });
+
+          try {
+            const [profileResult, reviewsResult] = await Promise.all([
+              propertyData.host_id
+                ? supabase
+                    .from('profiles')
+                    .select('id, full_name, avatar_url, bio, created_at, role, host_badge')
+                    .eq('id', propertyData.host_id)
+                    .single()
+                : Promise.resolve({ data: null as { full_name?: string | null; avatar_url?: string | null; bio?: string | null; created_at?: string } | null }),
+              fetch(`/api/properties/${encodeURIComponent(propertyId)}/reviews`).then(async (res) => {
+                const payload = await res.json().catch(() => ({}));
+                return {
+                  data: res.ok && Array.isArray(payload.reviews) ? payload.reviews : [],
+                };
+              }),
+            ]);
+
+            // Also pull rooms on a deferred slim select (no images[]).
+            void (async () => {
+              try {
+                const { data: roomRow } = await supabase
+                  .from('properties')
+                  .select('rooms')
+                  .eq('id', propertyId)
+                  .maybeSingle();
+                if (roomRow?.rooms && Array.isArray(roomRow.rooms)) {
+                  setProperty((prev) =>
+                    prev ? { ...prev, rooms: roomRow.rooms as any[] } : prev
+                  );
+                }
+              } catch {
+                /* non-blocking */
+              }
+            })();
+
+            const profile = 'data' in profileResult ? profileResult.data : null;
+            const rawReviews = 'data' in reviewsResult ? reviewsResult.data : [];
+            const reviews = [...rawReviews].sort((a, b) => {
+              if (a.is_team_review && !b.is_team_review) return -1;
+              if (!a.is_team_review && b.is_team_review) return 1;
+              return 0;
+            });
+
+            const host = {
+              hostName: profile?.full_name || defaultHostName,
+              hostImage: profile?.avatar_url || defaultHostImage,
+              hostBio: profile?.bio || '',
+              hostJoinedDate: profile?.created_at
+                ? new Date(profile.created_at).getFullYear().toString()
+                : '2024',
+            };
+
+            setProperty((prev) => {
+              if (!prev) return buildProperty(reviews, host);
+              return {
+                ...buildProperty(reviews, host),
+                images: prev.images,
+                rooms: prev.rooms,
+              };
+            });
+            setReviewsData(reviews);
+
+            if (propertyData.host_id) {
+              fetch('/api/hosts/badge-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hostId: propertyData.host_id }),
+              })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((payload) => {
+                  if (payload?.badge === 'superbud' || payload?.badge === 'vibesetter') {
+                    setHostDisplayBadge(payload.badge);
+                  }
+                })
+                .catch(() => {
+                  /* non-blocking */
+                });
+            }
+          } catch (e) {
+            console.error('[Listing Detail] Error loading host profile or reviews:', e);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading property:', error);
+        setProperty(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProperty();
+  }, [params.id]);
+
+  const nextImage = () => {
+    if (galleryImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (galleryImages.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
+    }
+  };
+
+  useEffect(() => {
+    if (!user || !property?.id) {
+      setIsFavorite(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('property_id', property.id)
+          .maybeSingle();
+        if (!cancelled) setIsFavorite(Boolean(data) && !error);
+      } catch {
+        if (!cancelled) setIsFavorite(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, property?.id]);
+
+  const handleFavorite = async () => {
+    if (!property?.id) return;
+    if (!user) {
+      toast.error('Please login to save favorites');
+      router.push('/login');
+      return;
+    }
+
+    setLoadingFavorite(true);
+    const next = !isFavorite;
+    try {
+      const supabase = createClient();
+      if (!next) {
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('property_id', property.id);
+        if (error) throw error;
+        setIsFavorite(false);
+        toast.success('Removed from favorites');
+      } else {
+        const { error } = await supabase.from('favorites').insert({
+          user_id: user.id,
+          property_id: property.id,
+        });
+        if (error) throw error;
+        setIsFavorite(true);
+        toast.success('Added to favorites');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error('Failed to update favorite');
+    } finally {
+      setLoadingFavorite(false);
+    }
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success('Link copied to clipboard!');
+  };
+
+  const handleViewHostProfile = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (!property?.hostId) {
+      toast.error('Host profile unavailable');
+      return;
+    }
+    // Ensure we land at the top of the host profile (listing page is usually scrolled mid-page)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    router.push(`/users/${property.hostId}`, { scroll: true });
+  };
+
+  const buildBookingPath = () => {
+    const selectedRoomsParam =
+      selectedRoomIds.length > 0 ? `&selectedUnits=${selectedRoomIds.join(',')}` : '';
+    const dateParams = `${checkInDate ? `&checkIn=${checkInDate}` : ''}${checkOutDate ? `&checkOut=${checkOutDate}` : ''}`;
+    const partyParams = `&guests=${partyAdults}&kids=${partyKids}&pets=${partyPets}`;
+    return `/bookings/new?propertyId=${params.id}${selectedRoomsParam}${dateParams}${partyParams}`;
+  };
+
+  const handleBooking = () => {
+    if (!property) return;
+
+    if (!checkInDate || !checkOutDate || stayDuration <= 0) {
+      toast.error('Select available check-in and check-out dates first.');
+      return;
+    }
+
+    const minN = property.minBookingNights;
+    if (minN != null && stayDuration < minN) {
+      toast.error(`Minimum stay is ${minN} night${minN === 1 ? '' : 's'} for this property.`);
+      return;
+    }
+
+    saveWellnessCartForBooking(
+      params.id as string,
+      wellnessCart.map((i) => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        price: Number(i.price) || 0,
+        image: i.image ?? null,
+      }))
+    );
+
+    const bookingPath = buildBookingPath();
+
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
+      return;
+    }
+
+    if (property.allowDirectBooking) {
+      router.push(bookingPath);
+      return;
+    }
+
+    setOpenBookingChat(true);
+  };
+
+  const toggleRoomSelection = (roomId: string) => {
+    setSelectedRoomIds(prev =>
+      prev.includes(roomId)
+        ? prev.filter(id => id !== roomId)
+        : [...prev, roomId]
+    );
+  };
+
+  const calculateTotalPrice = () => {
+    if (!property) return 0;
+    if (property.rooms && property.rooms.length > 0 && selectedRoomIds.length > 0) {
+      return property.rooms
+        .filter(room => selectedRoomIds.includes(room.id))
+        .reduce((sum, room) => sum + room.price, 0);
+    }
+    return property.price;
+  }
+
+  const handleAddToWellnessCart = (item: InventoryItem) => {
+    setWellnessCart(prev => [...prev, item]);
+    toast.success(`Added ${item.name} to wellness supplies`);
+  };
+
+  const handleRemoveWellnessItem = (index: number) => {
+    setWellnessCart((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearWellnessItems = () => {
+    setWellnessCart([]);
+    toast.success('Wellness supplies removed');
+  };
+
+  const hostNightlyRate = calculateTotalPrice();
+  const displayNightlyRate = toTravelerPrice(hostNightlyRate);
+  const stayLodgingTotal = stayDuration > 0 ? displayNightlyRate * stayDuration : 0;
+  const selectedRoomsForQuote =
+    property?.rooms?.filter((room) => selectedRoomIds.includes(room.id)) ?? [];
+  const listingQuote =
+    property && checkInDate && checkOutDate && stayDuration > 0
+      ? buildBookingQuoteFromProperty({
+          property: {
+            price: property.price,
+            cleaning_fee: property.cleaningFee,
+            guests: property.guests,
+            allow_extra_guests: property.allowExtraGuests,
+            extra_guest_price: property.extraGuestPrice,
+            refundable_deposit: property.refundableDeposit,
+          },
+          checkInYmd: checkInDate,
+          checkOutYmd: checkOutDate,
+          selectedUnits: selectedRoomsForQuote,
+          adults: partyAdults,
+          kids: partyKids,
+          pets: partyPets,
+          wellnessLineItems: wellnessCart,
+          applyCardFee: property.allowDirectBooking === true,
+        })
+      : null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!property) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">Property not found</h2>
+          <Link href="/" className="text-emerald-500 hover:text-emerald-400">
+            Back to home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const displayReviewCount = Math.max(property.reviews, reviewsData.length);
+  const displayRating =
+    reviewsData.length > 0
+      ? Number(
+          (
+            reviewsData.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0) /
+            reviewsData.length
+          ).toFixed(1)
+        )
+      : property.rating;
+
+  const heroRaw =
+    galleryImages[currentImageIndex] ??
+    galleryImages[0] ??
+    PDP_IMAGE_PLACEHOLDER;
+  const heroDisplaySrc =
+    galleryUseOriginal || heroRaw.startsWith('data:') ? heroRaw : listingGalleryImageUrl(heroRaw);
+
+  const hasBalcony = propertyHasBalcony(property.amenities);
+  const vibeMarker = resolveVibeMarker({
+    cannabisInside: property.wellnessConsumptionIndoorAllowed,
+    cannabisOutside: property.wellnessConsumptionOutdoorAllowed,
+    hasBalcony,
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-950 py-8">
+      <div className="container mx-auto px-4">
+        {/* Back Button */}
+        <Link
+          href="/search"
+          className="text-emerald-500 hover:text-emerald-400 mb-6 inline-flex items-center gap-2"
+        >
+          <ChevronLeft size={20} />
+          Back to search
+        </Link>
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <h1 className="text-4xl font-bold text-white">{property.name}</h1>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
+              <p className="text-emerald-400 font-semibold tracking-wide">
+                {property.type ? `${property.type} in ` : ''}{getGeneralLocation(property.location)}
+              </p>
+              <span className="hidden md:block text-gray-700">•</span>
+              <PropertyListingRating
+                rating={displayRating}
+                reviewCount={displayReviewCount}
+                createdAt={property.createdAt}
+                onClick={openReviewsModal}
+                starSize={18}
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleShare}
+              className="p-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+            >
+              <Share2 size={20} />
+            </button>
+            <button
+              onClick={handleFavorite}
+              disabled={loadingFavorite}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Save to favorites'}
+              className={`p-3 rounded-lg transition disabled:opacity-50 ${isFavorite
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-800 text-white hover:bg-gray-700'
+                }`}
+            >
+              <Heart size={20} className={isFavorite ? 'fill-white' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Image Gallery and Map Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Image Gallery — glow on outer shell so overflow-hidden does not clip it */}
+          <div className={`rounded-xl ${vibeMarker ? vibeMarker.glowClass : ''}`}>
+          <div className="relative z-0 h-96 md:h-[500px] rounded-xl overflow-hidden bg-gray-900">
+            <Image
+              key={`${property.id}-${currentImageIndex}`}
+              src={heroDisplaySrc}
+              alt={altForImageUrl(
+                galleryImages[currentImageIndex],
+                property.imageAlts,
+                `${property.name} — photo ${currentImageIndex + 1}`
+              )}
+              fill
+              priority={currentImageIndex === 0}
+              fetchPriority={currentImageIndex === 0 ? 'high' : 'low'}
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              quality={78}
+              className="object-cover"
+              placeholder="blur"
+              blurDataURL={GALLERY_HERO_BLUR}
+              unoptimized={heroRaw.startsWith('data:')}
+              onError={() => {
+                if (
+                  !galleryUseOriginal &&
+                  heroDisplaySrc !== heroRaw &&
+                  !heroRaw.startsWith('data:')
+                ) {
+                  setGalleryUseOriginal(true);
+                  return;
+                }
+                // Skip dead remote URLs without collapsing the gallery back to slide 1.
+                if (heroRaw === PDP_IMAGE_PLACEHOLDER) return;
+                setFailedGallerySrcs((prev) => {
+                  if (prev.has(heroRaw)) return prev;
+                  const next = new Set(prev);
+                  next.add(heroRaw);
+                  return next;
+                });
+                setGalleryUseOriginal(false);
+              }}
+            />
+
+            <div className="absolute top-4 left-4 z-[15] flex flex-col gap-2 items-start max-w-[min(100%,18rem)]">
+              {vibeMarker ? <VibeMarkerBadge marker={vibeMarker} /> : null}
+              {!vibeMarker && hasBalcony ? <BalconyAvailableTag /> : null}
+              {property.wellnessFriendly && (
+                <div className="bg-emerald-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg">
+                  🧘 Wellness-Friendly
+                </div>
+              )}
+              <WellnessConsumptionPill
+                indoor={property.wellnessConsumptionIndoorAllowed}
+                outdoor={property.wellnessConsumptionOutdoorAllowed}
+              />
+            </div>
+
+            {galleryImages.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-4 top-1/2 z-[5] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-4 top-1/2 z-[5] -translate-y-1/2 p-3 bg-black/50 backdrop-blur-sm text-white rounded-full hover:bg-black/70 transition"
+                >
+                  <ChevronRight size={24} />
+                </button>
+                <div className="absolute bottom-4 left-1/2 z-[5] -translate-x-1/2 flex gap-2 max-w-[90%] overflow-hidden">
+                  {galleryImages.slice(0, 20).map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`w-2 h-2 rounded-full transition shrink-0 ${index === currentImageIndex ? 'bg-white w-8' : 'bg-white/50'
+                        }`}
+                    />
+                  ))}
+                  {galleryImages.length > 20 ? (
+                    <span className="text-white/70 text-xs self-center ml-1">
+                      {currentImageIndex + 1}/{galleryImages.length}
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </div>
+          </div>
+
+          {/* Map — approximate area (jittered center, ~450m); exact address after booking */}
+          {Number.isFinite(property.latitude) &&
+            Number.isFinite(property.longitude) &&
+            (() => {
+            const approx = approximateMapCenter(
+              property.latitude as number,
+              property.longitude as number,
+              property.id
+            );
+            return (
+              <ListingLocationCard
+                key={property.id}
+                latitude={approx.latitude}
+                longitude={approx.longitude}
+                propertyName={property.name}
+                approximateRadiusMeters={PUBLIC_MAP_APPROX_RADIUS_METERS}
+              />
+            );
+          })()}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Quick Info — host, property type, capacity */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between min-w-0">
+                <div className="flex gap-4 min-w-0 flex-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={property.hostImage}
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 shrink-0 rounded-full object-cover border border-gray-700 bg-gray-800"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Hosted by</p>
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <p className="text-white font-semibold text-lg leading-tight truncate">{property.hostName}</p>
+                      {hostDisplayBadge ? (
+                        <HostStatusBadge badge={hostDisplayBadge} size="sm" />
+                      ) : null}
+                    </div>
+                    {property.hostBio?.trim() ? (
+                      <p className="text-sm text-gray-400 mt-2 leading-relaxed line-clamp-3">{property.hostBio.trim()}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 w-full min-w-0 xl:max-w-xl">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white font-medium truncate">{property.type || 'Property'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Users size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white">{property.guests} guests</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Bed size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white">{property.bedrooms} bedrooms</span>
+                  </div>
+                  {typeof property.beds === 'number' && property.beds >= 1 && (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Bed size={20} className="text-emerald-500/80 shrink-0" />
+                      <span className="text-white">{property.beds} beds total</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Bath size={20} className="text-gray-400 shrink-0" />
+                    <span className="text-white">{property.bathrooms} bathrooms</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <ConsumptionPolicyPanel
+              policy={resolveConsumptionPolicy({
+                wellness_consumption_indoor_allowed: property.wellnessConsumptionIndoorAllowed,
+                wellness_consumption_outdoor_allowed: property.wellnessConsumptionOutdoorAllowed,
+              })}
+              hasBalcony={hasBalcony}
+            />
+
+            {/* Amenities - Moved to top */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h2 className="text-2xl font-bold text-white mb-6">Amenities</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {property.amenities.map((amenity) => (
+                  <div key={amenity} className="flex items-center gap-3 text-gray-300">
+                    <AmenityIcon label={amenity} size={20} className="text-emerald-500 shrink-0" />
+                    <span>{amenity}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <ListingAccessibilitySection
+              amenities={property.amenities}
+              description={property.accessibilityDescription}
+              adaptedStatus={property.adaptedStatus}
+            />
+
+            {/* Room/Unit Selection — only when the listing has multiple bookable units */}
+            {property.rooms && property.rooms.length > 1 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold text-white mb-2">Available Units</h2>
+                <p className="text-sm text-gray-400 mb-6">
+                  Optional — select specific units or continue without selection to use the listing&apos;s base nightly rate.
+                </p>
+                <div className="space-y-4">
+                  {property.rooms.map((room) => (
+                    <div
+                      key={room.id}
+                      onClick={() => toggleRoomSelection(room.id)}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition cursor-pointer ${selectedRoomIds.includes(room.id)
+                          ? 'bg-emerald-600/10 border-emerald-500'
+                          : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'
+                        }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition ${selectedRoomIds.includes(room.id)
+                            ? 'bg-emerald-500 border-emerald-500'
+                            : 'bg-transparent border-gray-600'
+                          }`}>
+                          {selectedRoomIds.includes(room.id) && <Check size={16} className="text-white" />}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-semibold">{room.name}</h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-400">
+                            <Users size={14} />
+                            <span>Up to {room.guests} guests</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white font-bold">${room.price}</div>
+                        <div className="text-xs text-gray-400">per night</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* About this place */}
+            <div id="about-section" className="bg-gray-900 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+              <div
+                className="p-6 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                onClick={() => setIsAboutExpanded(!isAboutExpanded)}
+              >
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  About this place
+                  {primaryTeamReview ? (
+                    <span className="bg-primary-500/10 text-primary-400 text-xs px-2 py-1 rounded-full border border-primary-500/20">
+                      Official
+                    </span>
+                  ) : null}
+                </h2>
+                {isAboutExpanded ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
+              </div>
+
+              <div className={`transition-all duration-500 overflow-hidden ${isAboutExpanded ? 'max-h-[2400px] border-t border-white/5' : 'max-h-0'}`}>
+                {primaryTeamReview ? (
+                  <div className="px-6 pt-4 flex gap-2 border-b border-white/5" role="tablist" aria-label="About this place">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={aboutTab === 'description'}
+                      onClick={() => setAboutTab('description')}
+                      className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                        aboutTab === 'description'
+                          ? 'text-white border-primary-500 bg-white/5'
+                          : 'text-gray-400 border-transparent hover:text-gray-200'
+                      }`}
+                    >
+                      Description
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={aboutTab === 'vibesbnb'}
+                      onClick={() => setAboutTab('vibesbnb')}
+                      className={`px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors inline-flex items-center gap-2 ${
+                        aboutTab === 'vibesbnb'
+                          ? 'text-purple-300 border-purple-500 bg-purple-500/10'
+                          : 'text-gray-400 border-transparent hover:text-gray-200'
+                      }`}
+                    >
+                      <ShieldCheck size={14} />
+                      VibesBNB review
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="p-6 py-2 space-y-6">
+                  {aboutTab === 'vibesbnb' && primaryTeamReview ? (
+                    <div className="my-4 space-y-6">
+                      <div className="bg-purple-500/5 border border-purple-500/20 rounded-2xl p-6 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                          <ShieldCheck size={64} className="text-purple-400" />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 mb-4 relative z-10">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-primary-500 flex items-center justify-center border border-purple-400/30">
+                            <span className="text-white text-sm font-bold">VB</span>
+                          </div>
+                          <div>
+                            <p className="text-white font-semibold">
+                              {primaryTeamReview.reviewer_name || 'VibesBNB Team'}
+                            </p>
+                            <p className="text-purple-400/80 text-xs font-medium">
+                              Official VibesBNB review · Trust &amp; Safety
+                            </p>
+                          </div>
+                          <span className="ml-auto px-2 py-1 text-[10px] font-bold bg-purple-500/20 text-purple-300 rounded">
+                            VERIFIED
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 mb-4 relative z-10">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              size={18}
+                              className={
+                                i < (primaryTeamReview.rating || 5)
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-gray-600'
+                              }
+                            />
+                          ))}
+                          <span className="text-gray-400 text-sm ml-2">
+                            {primaryTeamReview.rating}/5
+                          </span>
+                          {primaryTeamReview.created_at ? (
+                            <span className="text-gray-500 text-xs ml-auto">
+                              {new Date(primaryTeamReview.created_at).toLocaleDateString()}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-gray-200 text-base leading-relaxed relative z-10 whitespace-pre-wrap">
+                          {primaryTeamReview.comment}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                  {/* Two Categories Summary */}
+                  <div className="grid grid-cols-1 gap-4 my-6 md:grid-cols-2">
+                    {/* Category 1: AI Summary */}
+                    <div className="bg-primary-500/5 border border-primary-500/20 rounded-2xl p-5 relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Brain size={48} className="text-primary-500" />
+                      </div>
+                      <div className="flex items-center gap-2 mb-3 text-primary-400 font-bold text-sm uppercase tracking-wider">
+                        <Sparkles size={16} />
+                        AI Summary
+                      </div>
+                      <p className="text-gray-300 text-sm leading-relaxed relative z-10">
+                        {property.description.length > 100 
+                          ? `${property.description.substring(0, 120)}... This ${property.type?.toLowerCase() || 'retreat'} offers a blend of comfort and style, perfect for those seeking a unique ${property.wellnessFriendly ? 'wellness-oriented' : ''} stay in ${getGeneralLocation(property.location).split(',')[0]}.`
+                          : "This property is highly recommended for its excellent location and premium amenities."}
+                      </p>
+                    </div>
+
+                    {/* Category 2: Reviews Summary */}
+                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-5 relative group overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <MessageSquare size={48} className="text-blue-500" />
+                      </div>
+                      <div className="flex items-center gap-2 mb-3 text-blue-400 font-bold text-sm uppercase tracking-wider">
+                        <Star size={16} />
+                        Guest Sentiment
+                      </div>
+                      <div className="text-gray-300 text-sm leading-relaxed relative z-10">
+                        {guestReviews.length > 0 ? (
+                          <>
+                            Guests generally praise the <span className="text-white font-medium">cleanliness</span> and{' '}
+                            <span className="text-white font-medium">amenities</span>. The average rating of{' '}
+                            <span className="text-white font-medium">{displayRating}★</span> suggests an exceptional stay
+                            experience based on {guestReviews.length} recent{' '}
+                            {guestReviews.length === 1 ? 'review' : 'reviews'}.
+                          </>
+                        ) : primaryTeamReview ? (
+                          <>
+                            This listing is{' '}
+                            <span className="text-white font-medium">verified by VibesBNB Trust &amp; Safety</span>.
+                            Open the <span className="text-purple-300 font-medium">VibesBNB review</span> tab for the
+                            official write-up.
+                          </>
+                        ) : (
+                          <span className="text-gray-400 italic">There aren&apos;t many user reviews for this property yet. Be one of the first to share your experience!</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Category 3: VibesBNB Take */}
+                    {property.vibesbnb_take && (
+                      <div className="md:col-span-2 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 relative group overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <Leaf size={48} className="text-emerald-500" />
+                        </div>
+                        <div className="flex items-center gap-2 mb-4 text-emerald-400 font-bold text-sm uppercase tracking-wider">
+                          <Sparkles size={18} />
+                          VibesBNB Take
+                        </div>
+                        <div className="text-gray-300 text-base leading-relaxed relative z-10 italic">
+                          &quot;{property.vibesbnb_take}&quot;
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Full Description with local collapse */}
+                  <div className="relative">
+                    <div className={`text-gray-300 leading-relaxed space-y-4 ${isDescriptionCollapsed ? 'line-clamp-4' : ''}`}>
+                      {property.description.split('\n\n').map((para, i) => (
+                        <p key={i}>{para}</p>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => setIsDescriptionCollapsed(!isDescriptionCollapsed)}
+                      className="mt-4 text-primary-400 hover:text-primary-300 font-bold text-sm flex items-center gap-1 group"
+                    >
+                      {isDescriptionCollapsed ? 'Show more' : 'Show less'}
+                      <ArrowRight size={14} className={`transition-transform ${isDescriptionCollapsed ? '' : '-rotate-90'}`} />
+                    </button>
+                  </div>
+
+                  {/* Reviews List */}
+                  <div id="reviews-section" className="mt-8 pt-8 border-t border-white/5 pb-6">
+                    <h3 className="text-xl font-bold text-white mb-6">Recent Guest Reviews</h3>
+                    {property && (
+                      <PropertyReviewForm
+                        propertyId={property.id}
+                        propertyName={property.name}
+                        onSubmitted={() => refreshReviews(property.id)}
+                        className="mb-6"
+                      />
+                    )}
+                    {guestReviews.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {guestReviews.slice(0, 4).map((review) => (
+                            <div key={review.id} className="bg-white/5 border border-white/5 rounded-2xl p-5">
+                              <div className="flex items-center gap-3 mb-3">
+                                  <img 
+                                    src={review.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${review.user_id}`} 
+                                    className="w-10 h-10 rounded-full border border-white/10" 
+                                    alt="reviewer"
+                                  />
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-sm text-white">
+                                      {review.profiles?.full_name || 'Guest'}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-500 text-xs">{new Date(review.created_at).toLocaleDateString()}</div>
+                                </div>
+                                <div className="ml-auto flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg">
+                                  <span className="text-primary-500 text-[10px]">★</span>
+                                  <span className="text-white text-[10px] font-bold">{review.rating}</span>
+                                </div>
+                              </div>
+                              <p className="text-gray-400 text-sm italic">&quot;{review.comment}&quot;</p>
+                            </div>
+                          ))}
+                        </div>
+                        {guestReviews.length > 4 && (
+                          <button
+                            type="button"
+                            onClick={openReviewsModal}
+                            className="mt-6 w-full py-3 border border-white/10 rounded-xl text-white font-bold text-sm hover:bg-white/5 transition-colors"
+                          >
+                            Show all {guestReviews.length} reviews
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center text-gray-500">
+                        <MessageSquare size={32} className="mx-auto mb-3 opacity-20" />
+                        <p>No reviews for this property yet.</p>
+                      </div>
+                    )}
+                  </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Wellness supplies / nearby dispensaries — needs lat/lng to match delivery radius */}
+            {property.location &&
+              Number.isFinite(property.latitude) &&
+              Number.isFinite(property.longitude) && (
+                <NearbyDispensaries
+                  propertyLocation={getGeneralLocation(property.location)}
+                  propertyCoordinates={{
+                    lat: property.latitude as number,
+                    lng: property.longitude as number,
+                  }}
+                  propertyId={property.id}
+                  propertyName={property.name}
+                  onAddItem={handleAddToWellnessCart}
+                />
+              )}
+
+            <ThingsToKnowSection
+              checkInTime={property.checkInOut?.checkInTime ?? null}
+              checkOutTime={property.checkInOut?.checkOutTime ?? null}
+              guests={property.guests}
+              petsAllowed={property.amenities.some((a) =>
+                /pets?\s*allowed/i.test(a)
+              )}
+              smokingAllowed={
+                property.wellnessConsumptionIndoorAllowed ||
+                property.wellnessConsumptionOutdoorAllowed
+              }
+              partiesAllowed={property.partiesAllowed === true}
+              cancellationPolicy={property.cancellationPolicy || 'flexible'}
+              safety={property.safety || DEFAULT_SAFETY_FLAGS}
+            />
+
+            {/* Host Info */}
+            <div className="bg-gray-900 border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <ShieldCheck size={80} className="text-primary-500" />
+              </div>
+              
+              <h2 className="text-2xl font-bold text-white mb-6">Meet your Host</h2>
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
+                <div className="relative">
+                  <img
+                    src={property.hostImage}
+                    alt={property.hostName}
+                    className="w-24 h-24 rounded-full border-4 border-primary-500/20"
+                  />
+                  <div className="absolute -bottom-1 -right-1 bg-primary-500 text-black p-1.5 rounded-full shadow-lg border-2 border-gray-900">
+                    <ShieldCheck size={14} />
+                  </div>
+                </div>
+                
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-xl font-bold text-white mb-1">{property.hostName}</h3>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-gray-400 text-sm mb-3">
+                    {hostDisplayBadge ? (
+                      <HostStatusBadge badge={hostDisplayBadge} size="md" />
+                    ) : null}
+                    {property.hostJoinedDate ? (
+                      <>
+                        {hostDisplayBadge ? <span className="text-gray-600">•</span> : null}
+                        <span>Joined in {property.hostJoinedDate}</span>
+                      </>
+                    ) : null}
+                  </div>
+                  <p className="text-gray-400 text-sm line-clamp-2 mb-4 leading-relaxed">
+                    {property.hostBio || "Hi, I'm your host! I love sharing my unique spaces and helping travelers feel at home while exploring the vibes of the city."}
+                  </p>
+                  
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4">
+                    {property.hostId ? (
+                      <Link
+                        href={`/users/${property.hostId}`}
+                        scroll
+                        className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
+                      >
+                        Check Profile
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleViewHostProfile}
+                        className="px-6 py-2.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-primary-500 transition-all shadow-lg"
+                      >
+                        Check Profile
+                      </button>
+                    )}
+                  <button
+                    type="button"
+                    onClick={() => hostChatRef.current?.open()}
+                    className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all touch-manipulation"
+                  >
+                    <MessageSquare size={18} />
+                    Message Host
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          {/* Booking Card */}
+          <div className="lg:col-span-1">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 lg:sticky lg:top-8">
+              <div className="mb-6">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-4">
+                  <span className="text-3xl font-bold text-white">${displayNightlyRate}</span>
+                  <span className="text-gray-400">/ night</span>
+                  {stayDuration > 0 ? (
+                    <>
+                      <span className="text-gray-600" aria-hidden>
+                        ·
+                      </span>
+                      <span className="text-2xl font-bold text-white">${stayLodgingTotal}</span>
+                      <span className="text-gray-400 text-sm">
+                        for {stayDuration} {stayDuration === 1 ? 'night' : 'nights'}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+                <PropertyListingRating
+                  rating={displayRating}
+                  reviewCount={displayReviewCount}
+                  createdAt={property.createdAt}
+                  onClick={openReviewsModal}
+                  starSize={16}
+                  className="text-sm"
+                />
+                {property.minBookingNights != null && (
+                  <p className="text-sm text-amber-200/90 mt-3 flex items-center gap-2">
+                    <Calendar size={14} className="shrink-0" aria-hidden />
+                    {minNightsLabel(property.minBookingNights)}
+                  </p>
+                )}
+                <div className="mt-3 space-y-1.5 text-sm text-gray-300">
+                  <p className="flex items-center gap-2">
+                    <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
+                    Check-in after{' '}
+                    {formatEffectiveCheckInForViewer(property.checkInOut)}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Clock size={14} className="shrink-0 text-emerald-400" aria-hidden />
+                    Check-out before{' '}
+                    {formatEffectiveCheckOutForViewer(property.checkInOut)}
+                  </p>
+                  {property.checkInOut?.earlyCheckInAllowed && (
+                    <p className="text-xs text-gray-400 pl-6">
+                      Early check-in from{' '}
+                      {formatPropertyClockForViewer(property.checkInOut.earliestEarlyCheckInTime)}
+                      {property.checkInOut.earlyCheckInFee > 0
+                        ? ` · $${property.checkInOut.earlyCheckInFee.toFixed(0)}`
+                        : ' · free'}
+                    </p>
+                  )}
+                  {property.checkInOut?.lateCheckOutAllowed && (
+                    <p className="text-xs text-gray-400 pl-6">
+                      Late check-out until{' '}
+                      {formatPropertyClockForViewer(property.checkInOut.latestLateCheckOutTime)}
+                      {property.checkInOut.lateCheckOutFee > 0
+                        ? ` · $${property.checkInOut.lateCheckOutFee.toFixed(0)}`
+                        : ' · free'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Date Selection */}
+              <div className="mb-4 border border-gray-700 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-2 divide-x divide-gray-700">
+                  <div className="p-3">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-in</label>
+                    <DatePicker
+                      value={checkInDate}
+                      onChange={(dateStr: string) => setCheckInDate(dateStr)}
+                      min={todayLocalYmd()}
+                      className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-out</label>
+                    <DatePicker
+                      value={checkOutDate}
+                      onChange={(dateStr: string) => setCheckOutDate(dateStr)}
+                      min={checkInDate || todayLocalYmd()}
+                      className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+                {/* Selected dates display */}
+                {checkInDate && checkOutDate && stayDuration > 0 && (
+                  <div className="bg-emerald-900/30 border-t border-gray-700 px-3 py-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-emerald-400 font-medium flex items-center gap-2">
+                        <Calendar size={14} />
+                        {formatCalendarDate(checkInDate, { month: 'short', day: 'numeric' })} - {formatCalendarDate(checkOutDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <span className="text-emerald-400 font-semibold">{stayDuration} {stayDuration === 1 ? 'night' : 'nights'}</span>
+                    </div>
+                    {property.minBookingNights != null &&
+                      stayDuration < property.minBookingNights && (
+                        <p className="text-xs text-amber-300 mt-2">
+                          {minNightsLabel(property.minBookingNights)} — adjust your dates to continue.
+                        </p>
+                      )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                    Adults
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={guestCapacity - partyKids}
+                    value={partyAdults}
+                    onChange={(e) =>
+                      setPartyAdults(
+                        clampPartyToCapacity(
+                          { adults: parseInt(e.target.value, 10) || 1, kids: partyKids },
+                          guestCapacity
+                        ).adults
+                      )
+                    }
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                    Kids
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={guestCapacity - partyAdults}
+                    value={partyKids}
+                    onChange={(e) =>
+                      setPartyKids(
+                        Math.min(
+                          Math.max(0, parseInt(e.target.value, 10) || 0),
+                          guestCapacity - partyAdults
+                        )
+                      )
+                    }
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                    Pets
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={partyPets}
+                    onChange={(e) =>
+                      setPartyPets(Math.max(0, parseInt(e.target.value, 10) || 0))
+                    }
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                </div>
+              </div>
+
+              <p className="mb-4 text-xs text-gray-400">
+                {guestCapacityDetail(capacityProperty)}
+                {partyAdults + partyKids >= guestCapacity
+                  ? ' You have reached the limit for this stay.'
+                  : ''}
+              </p>
+
+              <button
+                onClick={handleBooking}
+                disabled={!!(user && property?.hostId && String(property.hostId) === String(user.id))}
+                className="w-full px-6 py-4 bg-[#193F25] text-[#FAF3EA] rounded-lg hover:bg-[#234F30] disabled:bg-[#B8A487] disabled:text-[#FAF3EA] disabled:cursor-not-allowed transition font-semibold text-lg mb-4 dark:bg-emerald-600 dark:text-white dark:hover:bg-emerald-700 dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
+              >
+                <Calendar size={20} className="inline mr-2" />
+                {user && property?.hostId && String(property.hostId) === String(user.id)
+                  ? 'You are the host'
+                  : checkInDate && checkOutDate
+                    ? 'Request to book'
+                    : 'Check Availability'}
+              </button>
+
+              <PropertyChatButton
+                ref={hostChatRef}
+                propertyId={property.id}
+                propertyName={property.name}
+                checkIn={checkInDate || undefined}
+                checkOut={checkOutDate || undefined}
+                selectedUnitIds={selectedRoomIds}
+                autoOpen={openBookingChat}
+                onAutoOpenConsumed={() => setOpenBookingChat(false)}
+              />
+
+              <div className="text-center text-sm text-gray-400">
+                {property.allowDirectBooking
+                  ? 'You can complete payment right after submitting your request.'
+                  : 'Message the host first — after they approve, you can pay to secure your stay.'}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-800">
+                {listingQuote && property && checkInDate && checkOutDate ? (
+                  <ReservationQuote
+                    propertyName={property.name}
+                    checkInYmd={checkInDate}
+                    checkOutYmd={checkOutDate}
+                    quote={listingQuote}
+                    host={{
+                      id: property.hostId,
+                      name: property.hostName,
+                      imageUrl: property.hostImage,
+                      badge: hostDisplayBadge,
+                      joinedYear: property.hostJoinedDate,
+                    }}
+                    selectedUnits={
+                      selectedRoomsForQuote.length > 0 ? selectedRoomsForQuote : undefined
+                    }
+                    showCardFee={property.allowDirectBooking === true}
+                    compact
+                    onRemoveWellnessItem={handleRemoveWellnessItem}
+                    onClearWellnessItems={handleClearWellnessItems}
+                  />
+                ) : (
+                  <p className="text-gray-400 text-sm text-center">Select dates to see your quote</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <PropertyReviewsModal
+        open={isReviewsModalOpen}
+        onClose={() => setIsReviewsModalOpen(false)}
+        propertyId={property.id}
+        propertyName={property.name}
+        rating={displayRating}
+        reviewCount={displayReviewCount}
+        initialReviews={reviewsData}
+      />
+    </div>
+  );
+}

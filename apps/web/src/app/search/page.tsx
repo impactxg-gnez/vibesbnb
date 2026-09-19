@@ -99,6 +99,10 @@ type SearchModalFilters = {
   bathrooms: number;
   propertyTypes: string[];
   amenities: string[];
+  /** Host-verified indoor and/or outdoor cannabis consumption. */
+  cannabisFriendly: boolean;
+  /** Host-verified outdoor cannabis consumption. */
+  outdoorCannabis: boolean;
 };
 
 function applyNonPriceListingFilters(
@@ -130,6 +134,18 @@ function applyNonPriceListingFilters(
 
   if (filters.amenities?.length > 0) {
     L = L.filter((listing) => listingHasAllAmenityChips(listing.amenities, filters.amenities));
+  }
+
+  if (filters.cannabisFriendly) {
+    L = L.filter(
+      (listing) =>
+        listing.wellnessConsumptionIndoorAllowed === true ||
+        listing.wellnessConsumptionOutdoorAllowed === true
+    );
+  }
+
+  if (filters.outdoorCannabis) {
+    L = L.filter((listing) => listing.wellnessConsumptionOutdoorAllowed === true);
   }
 
   return L;
@@ -963,7 +979,9 @@ export default function SearchPage() {
     beds: 0,
     bathrooms: 0,
     propertyTypes: searchParams.get('categories')?.split(',').filter(Boolean) || [],
-    amenities: []
+    amenities: [],
+    cannabisFriendly: searchParams.get('cannabis') === '1',
+    outdoorCannabis: searchParams.get('outdoorCannabis') === '1',
   });
   
   // Get selected dates from URL
@@ -999,12 +1017,20 @@ export default function SearchPage() {
     });
   }, [checkIn, checkOut, urlGuests, urlKids, urlPets]);
 
-  // Sync URL categories to activeFilters
+  // Sync URL categories / cannabis flags to activeFilters
   useEffect(() => {
     const categories = searchParams.get('categories')?.split(',').filter(Boolean) || [];
+    const cannabisFriendly = searchParams.get('cannabis') === '1';
+    const outdoorCannabis = searchParams.get('outdoorCannabis') === '1';
     setActiveFilters((prev) => {
-      if (JSON.stringify(categories) === JSON.stringify(prev.propertyTypes)) return prev;
-      return { ...prev, propertyTypes: categories };
+      if (
+        JSON.stringify(categories) === JSON.stringify(prev.propertyTypes) &&
+        cannabisFriendly === prev.cannabisFriendly &&
+        outdoorCannabis === prev.outdoorCannabis
+      ) {
+        return prev;
+      }
+      return { ...prev, propertyTypes: categories, cannabisFriendly, outdoorCannabis };
     });
   }, [searchParams]);
 
@@ -1358,6 +1384,8 @@ export default function SearchPage() {
     (activeFilters.rooms > 0 ? 1 : 0) +
     (activeFilters.beds > 0 ? 1 : 0) +
     (activeFilters.bathrooms > 0 ? 1 : 0) +
+    (activeFilters.cannabisFriendly ? 1 : 0) +
+    (activeFilters.outdoorCannabis ? 1 : 0) +
     (priceFilterActive ? 1 : 0);
   const showFilterChip =
     activeFilters.rooms > 0 ||
@@ -1365,6 +1393,8 @@ export default function SearchPage() {
     activeFilters.bathrooms > 0 ||
     activeFilters.propertyTypes.length > 0 ||
     activeFilters.amenities.length > 0 ||
+    activeFilters.cannabisFriendly ||
+    activeFilters.outdoorCannabis ||
     priceFilterActive;
 
   return (
@@ -1611,9 +1641,18 @@ export default function SearchPage() {
                       const range = next.priceRange;
                       setActiveFilters({
                         ...next,
+                        cannabisFriendly: !!next.cannabisFriendly,
+                        outdoorCannabis: !!next.outdoorCannabis,
                         priceRange:
                           range && isUnconstrainedPriceRange(range, catalogMax) ? null : range ?? null,
                       });
+                      const params = new URLSearchParams(searchParams.toString());
+                      if (next.cannabisFriendly) params.set('cannabis', '1');
+                      else params.delete('cannabis');
+                      if (next.outdoorCannabis) params.set('outdoorCannabis', '1');
+                      else params.delete('outdoorCannabis');
+                      const qs = params.toString();
+                      router.replace(qs ? `/search?${qs}` : '/search', { scroll: false });
                       setShowFiltersModal(false);
                     }}
                   />

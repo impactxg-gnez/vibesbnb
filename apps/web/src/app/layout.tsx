@@ -22,11 +22,11 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+    default: 'VibesBNB — Miami vacation rentals',
     template: '%s | VibesBNB',
   },
   description:
-    'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+    'VibesBNB is a vacation rental marketplace for short-term stays in Miami, with listing-level cannabis and wellness policies instead of one-size-fits-all house rules.',
   applicationName: 'VibesBNB',
   icons: {
     icon: '/logo.png',
@@ -45,24 +45,24 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: siteUrl,
     siteName: 'VibesBNB',
-    title: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+    title: 'VibesBNB — Miami vacation rentals',
     description:
-      'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+      'Short-term stays in Miami with published house rules. Cannabis-friendly listings are only those a host has verified for indoor and/or outdoor consumption.',
     images: [
       {
         url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'VibesBNB — Wellness-friendly vacation rentals',
+        alt: 'VibesBNB — Miami vacation rentals',
         type: 'image/png',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'VibesBNB - Wellness-Friendly Vacation Rentals',
+    title: 'VibesBNB — Miami vacation rentals',
     description:
-      'Find your perfect wellness retreat with wellness-friendly, yoga-inspired, and mindful travel experiences.',
+      'Short-term stays in Miami with published house rules. Cannabis-friendly listings are only those a host has verified for indoor and/or outdoor consumption.',
     images: ['/opengraph-image'],
   },
 };

@@ -20,6 +20,7 @@ import {
   Briefcase,
   Footprints,
   Bed,
+  Leaf,
   Search,
   Accessibility,
 } from 'lucide-react';
@@ -77,6 +78,8 @@ export default function Filters({
 
   const [propertyTypes, setPropertyTypes] = useState<string[]>(initialFilters?.propertyTypes || []);
   const [amenities, setAmenities] = useState<string[]>(initialFilters?.amenities || []);
+  const [cannabisFriendly, setCannabisFriendly] = useState(!!initialFilters?.cannabisFriendly);
+  const [outdoorCannabis, setOutdoorCannabis] = useState(!!initialFilters?.outdoorCannabis);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [hoverBar, setHoverBar] = useState<number | null>(null);
 
@@ -85,6 +88,11 @@ export default function Filters({
     setMinPrice(lo);
     setMaxPrice(hi);
   }, [floor, ceil, initialFilters?.priceRange?.[0], initialFilters?.priceRange?.[1], initialFilters?.priceRange]);
+
+  useEffect(() => {
+    setCannabisFriendly(!!initialFilters?.cannabisFriendly);
+    setOutdoorCannabis(!!initialFilters?.outdoorCannabis);
+  }, [initialFilters?.cannabisFriendly, initialFilters?.outdoorCannabis]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -181,6 +189,8 @@ export default function Filters({
       bathrooms,
       propertyTypes,
       amenities,
+      cannabisFriendly,
+      outdoorCannabis,
     };
   };
 
@@ -195,6 +205,8 @@ export default function Filters({
     bathrooms: 0,
     propertyTypes: [] as string[],
     amenities: [] as string[],
+    cannabisFriendly: false,
+    outdoorCannabis: false,
   });
 
   const hasActiveFilters =
@@ -203,7 +215,9 @@ export default function Filters({
     beds > 0 ||
     bathrooms > 0 ||
     propertyTypes.length > 0 ||
-    amenities.length > 0;
+    amenities.length > 0 ||
+    cannabisFriendly ||
+    outdoorCannabis;
 
   const handleReset = () => {
     const cleared = defaultFilters();
@@ -214,6 +228,8 @@ export default function Filters({
     setBathrooms(0);
     setPropertyTypes([]);
     setAmenities([]);
+    setCannabisFriendly(false);
+    setOutdoorCannabis(false);
     onPriceRangeLive?.(0, ceil);
     return cleared;
   };
@@ -426,6 +442,48 @@ export default function Filters({
                 />
               </div>
             </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+            <span className="w-1.5 h-6 bg-primary-500 rounded-full"></span>
+            Stay policies
+          </h3>
+          <p className="text-muted text-sm mb-6">
+            Cannabis-friendly matches only listings whose host enabled indoor and/or outdoor consumption.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
+            <button
+              type="button"
+              aria-pressed={cannabisFriendly}
+              onClick={() => setCannabisFriendly((v) => !v)}
+              className={`flex items-center justify-between px-6 py-5 rounded-3xl border transition-all ${
+                cannabisFriendly
+                  ? 'bg-primary-500/10 border-primary-500 text-white font-black'
+                  : 'bg-white/5 border-white/5 text-muted hover:border-white/20 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <Leaf size={18} className="text-primary-500" />
+                <span className="text-sm font-bold text-left">Cannabis-friendly</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              aria-pressed={outdoorCannabis}
+              onClick={() => setOutdoorCannabis((v) => !v)}
+              className={`flex items-center justify-between px-6 py-5 rounded-3xl border transition-all ${
+                outdoorCannabis
+                  ? 'bg-primary-500/10 border-primary-500 text-white font-black'
+                  : 'bg-white/5 border-white/5 text-muted hover:border-white/20 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <Leaf size={18} className="text-primary-500" />
+                <span className="text-sm font-bold text-left">Outdoor cannabis allowed</span>
+              </div>
+            </button>
           </div>
         </section>
 

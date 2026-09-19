@@ -1,40 +1,52 @@
-'use client';
+import type { Metadata } from 'next';
+import HomePageClient from './HomePageClient';
+import { HomeEntitySection } from '@/components/seo/HomeEntitySection';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { organizationJsonLd, webSiteJsonLd } from '@/lib/seo/jsonLd';
+import { fetchActiveSeoProperties } from '@/lib/seo/publicProperties';
+import { absoluteUrl } from '@/lib/seo/siteUrl';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { Hero } from '@/components/home/Hero';
-import { SearchSection } from '@/components/home/SearchSection';
-import { FeaturedRetreats } from '@/components/home/FeaturedRetreats';
-import { BrowseByVibe } from '@/components/home/BrowseByVibe';
-import { WhyUs } from '@/components/home/WhyUs';
+const title = 'VibesBNB — Miami vacation rentals';
+const description =
+  'VibesBNB is a vacation rental marketplace for short-term stays in Miami. Browse apartments, condos, and homes with published house rules, including cannabis-friendly listings where a host has verified indoor or outdoor consumption.';
 
-export default function HomePage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+export const metadata: Metadata = {
+  title: { absolute: title },
+  description,
+  alternates: { canonical: absoluteUrl('/') },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/'),
+    title,
+    description,
+    siteName: 'VibesBNB',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'VibesBNB Miami vacation rentals',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/opengraph-image'],
+  },
+};
 
-  useEffect(() => {
-    // Only redirect hosts to their dashboard
-    // Travellers and other roles should stay on the landing page
-    if (!loading && user) {
-      const userRole = user.user_metadata?.role;
-      if (userRole === 'host') {
-        router.push('/host/properties');
-      }
-      // Explicitly do nothing for travellers or other roles - they should see the landing page
-    }
-  }, [user, loading, router]);
+export const dynamic = 'force-dynamic';
 
+export default async function HomePage() {
+  const properties = await fetchActiveSeoProperties();
   return (
-    <div className="bg-surface-dark min-h-screen">
-      <Hero />
-      <div className="relative">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
-        <SearchSection />
-        <FeaturedRetreats />
-        <BrowseByVibe />
-        <WhyUs />
-      </div>
-    </div>
+    <>
+      <JsonLd data={organizationJsonLd()} />
+      <JsonLd data={webSiteJsonLd()} />
+      <HomePageClient />
+      <HomeEntitySection properties={properties} />
+    </>
   );
 }

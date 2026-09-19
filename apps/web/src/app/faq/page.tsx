@@ -1,10 +1,20 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { faqPageJsonLd } from '@/lib/seo/jsonLd';
+import { absoluteUrl } from '@/lib/seo/siteUrl';
 
 export const metadata: Metadata = {
-  title: 'FAQ | VibesBNB',
+  title: 'FAQ',
   description:
     'Frequently asked questions about VibesBNB bookings, cannabis and wellness policies, payments, cancellations, house rules, and hosting.',
+  alternates: { canonical: absoluteUrl('/faq') },
+  openGraph: {
+    title: 'FAQ | VibesBNB',
+    description:
+      'Answers about booking Miami vacation rentals, cannabis policies, payments, and hosting on VibesBNB.',
+    url: absoluteUrl('/faq'),
+  },
 };
 
 type FaqItem = {
@@ -267,8 +277,10 @@ const FAQ_SECTIONS: FaqSection[] = [
 ];
 
 export default function FaqPage() {
+  const faqLd = faqPageJsonLd(FAQ_SECTIONS.flatMap((section) => section.items));
   return (
     <div className="min-h-screen bg-gray-950 px-4 py-12">
+      {faqLd ? <JsonLd data={faqLd} /> : null}
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <Link

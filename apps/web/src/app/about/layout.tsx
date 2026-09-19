@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About Us | VibesBNB',
+  title: 'About Us',
   description:
-    'VibesBNB is the wellness-friendly vacation rental marketplace built to help you catch a vibe. Vetted stays, soulful standards, and travel that puts well-being first.',
+    'VibesBNB is a Miami vacation rental marketplace for short-term stays with published cannabis and wellness policies on each listing.',
+  alternates: { canonical: '/about' },
+  openGraph: {
+    title: 'About VibesBNB',
+    description:
+      'A vacation rental marketplace for short-term stays in Miami, with listing-level cannabis and wellness house rules.',
+    url: '/about',
+  },
 };
 
 export default function AboutLayout({ children }: { children: React.ReactNode }) {

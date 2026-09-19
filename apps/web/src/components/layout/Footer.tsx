@@ -16,21 +16,35 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-muted text-sm mt-3 max-w-sm">
-              Cannabis-friendly, wellness-focused vacation rentals.
+              Miami vacation rentals with listing-level cannabis and wellness policies.
             </p>
           </div>
 
-          <nav aria-label="Company" className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
-            {COMPANY_LINKS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-sm font-semibold text-gray-300 hover:text-primary-400 transition-colors"
-              >
-                {item.label}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
+            <nav aria-label="Explore stays" className="flex flex-col gap-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Explore</p>
+              <Link href="/miami" className="text-sm font-semibold text-gray-300 hover:text-primary-400 transition-colors">
+                Miami vacation rentals
               </Link>
-            ))}
-          </nav>
+              <Link href="/miami/420-friendly" className="text-sm font-semibold text-gray-300 hover:text-primary-400 transition-colors">
+                Cannabis-friendly Miami stays
+              </Link>
+              <Link href="/search" className="text-sm font-semibold text-gray-300 hover:text-primary-400 transition-colors">
+                Search listings
+              </Link>
+            </nav>
+            <nav aria-label="Company" className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
+              {COMPANY_LINKS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm font-semibold text-gray-300 hover:text-primary-400 transition-colors"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
 
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted">

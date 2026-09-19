@@ -27,7 +27,7 @@ export function WhyUs() {
           <div className="max-w-md text-center md:text-left">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">Why <span className="text-primary-500">VibesBNB</span></h2>
             <p className="text-muted leading-relaxed">
-              We're redefining travel by putting your well-being first. Every property is personally vetted to ensure it meets our organic, sustainable, and soulful standards.
+              VibesBNB is a vacation rental marketplace for short-term stays, with current listings concentrated in Miami. Every stay publishes its own house rules — including cannabis consumption only where a host has verified it — instead of leaving guests to guess.
             </p>
           </div>
           

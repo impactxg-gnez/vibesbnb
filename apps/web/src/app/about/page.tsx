@@ -65,9 +65,9 @@ export default function AboutPage() {
               <span className="text-primary-500">catch a vibe</span>
             </h1>
             <p className="text-lg sm:text-xl text-muted leading-relaxed max-w-2xl">
-              VibesBNB is the wellness-friendly vacation rental marketplace for travellers who want more
-              than a place to sleep. A sanctuary that feels good, looks after your well-being, and leaves
-              room to unwind your way.
+              VibesBNB is a vacation rental marketplace for travellers who want more than a place to
+              sleep. Current stays are concentrated in Miami, with listing-level cannabis and wellness
+              policies so guests know the house rules before they book.
             </p>
           </motion.div>
         </div>
