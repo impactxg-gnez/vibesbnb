@@ -1,8 +1,18 @@
 import type { MetadataRoute } from 'next';
+import { isPreviewOrSandbox } from '@/lib/runtimeEnv';
 import { getSiteUrl } from '@/lib/seo/siteUrl';
 
 export default function robots(): MetadataRoute.Robots {
   const baseUrl = getSiteUrl();
+
+  if (isPreviewOrSandbox()) {
+    return {
+      rules: {
+        userAgent: '*',
+        disallow: '/',
+      },
+    };
+  }
 
   return {
     rules: [

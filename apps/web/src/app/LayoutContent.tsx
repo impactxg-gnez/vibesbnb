@@ -10,9 +10,10 @@ import { HostPendingBrowseModal } from '@/components/auth/HostPendingBrowseModal
 
 interface LayoutContentProps {
   children: React.ReactNode;
+  showSandboxBanner?: boolean;
 }
 
-export function LayoutContent({ children }: LayoutContentProps) {
+export function LayoutContent({ children, showSandboxBanner = false }: LayoutContentProps) {
   const pathname = usePathname();
   const isMessages =
     pathname === '/messages' || pathname === '/host/messages';
@@ -23,11 +24,19 @@ export function LayoutContent({ children }: LayoutContentProps) {
         Skip to main content
       </a>
       <HostPendingBrowseModal />
-      <div className="border-b bg-gold/20 border-gold/40 text-espresso dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-200">
-        <div className="container mx-auto px-4 py-2 text-xs md:text-sm font-semibold text-center">
-          This site is currently in beta — some features might not work.
+      {showSandboxBanner ? (
+        <div className="border-b bg-amber-500/20 border-amber-600/40 text-amber-950 dark:bg-amber-500/20 dark:border-amber-400/40 dark:text-amber-100">
+          <div className="container mx-auto px-4 py-2 text-xs md:text-sm font-semibold text-center">
+            Sandbox — not production. Use test payment keys and the sandbox database only.
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="border-b bg-gold/20 border-gold/40 text-espresso dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-200">
+          <div className="container mx-auto px-4 py-2 text-xs md:text-sm font-semibold text-center">
+            This site is currently in beta — some features might not work.
+          </div>
+        </div>
+      )}
       <Header />
       <PhoneReminderBanner />
       <main

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { isPreviewOrSandbox } from '@/lib/runtimeEnv';
 import { fetchActiveSeoProperties } from '@/lib/seo/publicProperties';
 import { indexableLocationPaths } from '@/lib/seo/locationPages';
 import { getSiteUrl } from '@/lib/seo/siteUrl';
@@ -6,6 +7,8 @@ import { getSiteUrl } from '@/lib/seo/siteUrl';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  if (isPreviewOrSandbox()) return [];
+
   const baseUrl = getSiteUrl();
   const lastModified = new Date();
   const properties = await fetchActiveSeoProperties();

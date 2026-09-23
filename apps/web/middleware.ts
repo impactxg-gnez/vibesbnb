@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { isWwwApexAlias } from '@/lib/supabase/authRedirect';
+import { isPreviewOrSandbox } from '@/lib/runtimeEnv';
 
 /**
  * Keep users on the canonical host from NEXT_PUBLIC_APP_URL when the only
@@ -74,6 +75,12 @@ export async function middleware(request: NextRequest) {
   // If on main app (NOT signup subdomain)
   // Both signup pages and main app pages are accessible
   // This allows for flexible testing and future separation if needed
+
+  if (isPreviewOrSandbox()) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  } else {
+    response.headers.set('X-Robots-Tag', 'index, follow');
+  }
 
   return response;
 }

@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import { LayoutContent } from './LayoutContent';
 import Script from 'next/script';
+import { isPreviewOrSandbox } from '@/lib/runtimeEnv';
 
 const inter = Inter({ subsets: ['latin'] });
 const GA_MEASUREMENT_ID = 'G-S7RJJXXRD9';
@@ -18,6 +19,7 @@ export const viewport: Viewport = {
 
 const siteUrl =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://vibesbnb.com';
+const previewOrSandbox = isPreviewOrSandbox();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -32,14 +34,16 @@ export const metadata: Metadata = {
     icon: '/logo.png',
     apple: '/logo.png',
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-    },
-  },
+  robots: previewOrSandbox
+    ? { index: false, follow: false, googleBot: { index: false, follow: false, noimageindex: true } }
+    : {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+        },
+      },
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -125,7 +129,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <Providers>
-          <LayoutContent>{children}</LayoutContent>
+          <LayoutContent showSandboxBanner={previewOrSandbox}>{children}</LayoutContent>
         </Providers>
       </body>
     </html>
