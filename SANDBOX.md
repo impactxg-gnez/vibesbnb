@@ -21,17 +21,19 @@ Do not develop on `main`. Do not point sandbox env vars at production Supabase, 
 
 Production stays on `main` for project `vibesbnb-web` (root directory `apps/web`).
 
-After the first `sandbox` push, Vercel creates a Preview such as:
+After each `sandbox` push, Vercel deploys a Preview. The **stable branch alias** (does not change per commit) is:
 
-`https://vibesbnb-web-git-sandbox-<team>.vercel.app`
+`https://vibesbnb-web-git-sandbox-kevals-projects-6dce5dc6.vercel.app`
 
-Give testers a stable URL:
+Give testers a friendlier URL if you want:
 
-1. Vercel → project → **Settings → Domains**.
-2. Assign `sandbox.vibesbnb.com` (or keep the `*-git-sandbox-*` URL) to the **`sandbox` git branch**, environment **Preview**.
-3. Set Preview `NEXT_PUBLIC_APP_URL` to that exact origin (no trailing slash).
+1. Vercel → `vibesbnb-web` → **Settings → Domains**.
+2. Assign `sandbox.vibesbnb.com` to the **`sandbox` git branch**, environment **Preview**.
+3. Set Preview `NEXT_PUBLIC_APP_URL` to that exact origin (no trailing slash). Until then, use the `*-git-sandbox-*` alias above.
 
-Confirm **Preview deployments** are enabled for the GitHub repo. Do **not** enable the production calendar cron (`/api/cron/calendar-sync-batch` in root `vercel.json`) on Preview. Production-only crons stay on Production.
+Deployment Protection (Vercel SSO) is on. Testers need a Vercel login on this team, or turn protection off for the Preview if you want a public test link.
+
+Confirm **Preview deployments** stay enabled for the GitHub repo. Do **not** enable the production calendar cron (`/api/cron/calendar-sync-batch` in root `vercel.json`) on Preview. Production-only crons stay on Production.
 
 ## Isolated Supabase
 
