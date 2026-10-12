@@ -1574,7 +1574,7 @@ export default function EditPropertyPage() {
           </div>
 
           {formData.id && (
-            <AvailabilityEditor propertyId={formData.id} />
+            <AvailabilityEditor propertyId={formData.id} basePrice={formData.price} />
           )}
 
           {/* Submit Buttons */}

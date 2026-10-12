@@ -89,6 +89,7 @@ function isExternalListingUrl(raw: string): boolean {
 
   const knownHosts =
     h.includes('airbnb.') ||
+    h.includes('abnb.me') ||
     h.includes('booking.com') ||
     h.includes('vrbo.com') ||
     h.includes('homeaway.') ||

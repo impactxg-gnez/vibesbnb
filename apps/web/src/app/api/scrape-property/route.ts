@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import { scrapeWithPuppeteer } from '@/lib/scraper-puppeteer';
+import { scrapeWithPuppeteer, extractAirbnbMuscacheImages } from '@/lib/scraper-puppeteer';
 import { extractCoordinatesFromGoogleMapsUrl, searchPlaceByNameAndLocation } from '@/lib/google-maps-utils';
 import { expandAmenityAliases } from '@/lib/propertyAmenityCatalog';
 
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[Scraper] Starting scrape for:', url);
 
-    // Detect if this is an Airbnb URL
-    const isAirbnb = url.includes('airbnb.com');
+    // Detect if this is an Airbnb URL (handles international airbnb domains & short links)
+    const isAirbnb = /(airbnb\.[a-z.]+|abnb\.me)/i.test(url);
     // Detect if this is an Esca Management URL
     const isEscaManagement = url.includes('esca-management.com');
     // Ammos (WordPress / lazy-loaded galleries) — same rationale as Esca
@@ -223,28 +223,37 @@ export async function POST(request: NextRequest) {
  * Cheerio-based scraping (fallback method)
  */
 async function scrapeWithCheerio(url: string, isAirbnb: boolean): Promise<ScrapedPropertyData> {
-  // Fetch the property page
+  // Fetch the property page with realistic browser headers
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"macOS"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Upgrade-Insecure-Requests': '1',
     },
+    redirect: 'follow',
   });
 
   if (!response.ok) {
-    throw new Error('Failed to fetch property page');
+    throw new Error(`Failed to fetch property page: ${response.status} ${response.statusText}`);
   }
 
   const html = await response.text();
   const $ = cheerio.load(html);
+  const finalUrl = response.url || url;
 
   if (isAirbnb) {
-    return await scrapeAirbnb($, html, url);
+    return await scrapeAirbnb($, html, finalUrl);
   } else if (url.includes('esca-management.com')) {
-    return await scrapeEscaManagement($, html, url);
+    return await scrapeEscaManagement($, html, finalUrl);
   } else {
-    return await scrapeGeneric($, url);
+    return await scrapeGeneric($, finalUrl);
   }
 }
 
@@ -760,24 +769,43 @@ async function scrapeAirbnb($: cheerio.CheerioAPI, html: string, url: string): P
       }
     }
 
-    // Try to extract room info from visible text if not found in JSON
+    // Try to extract room info from visible text and meta tags if not found in JSON
     if (propertyData.guests === 0 || propertyData.bedrooms === 0) {
       const overviewText = $('[data-section-id="OVERVIEW_DEFAULT"]').text() ||
+        $('meta[property="og:description"]').attr('content') ||
+        $('meta[name="description"]').attr('content') ||
         $('._tqmy57').text() ||
         $('body').text();
 
       const guestMatch = overviewText.match(/(\d+)\s+guests?/i);
       const bedroomMatch = overviewText.match(/(\d+)\s+bedrooms?/i);
       const bedMatch = overviewText.match(/(\d+)\s+beds?(?!\s*room)/i);
-      const bathroomMatch = overviewText.match(/(\d+)\s+bathrooms?/i);
+      const bathroomMatch = overviewText.match(/(\d+(?:\.\d+)?)\s+baths?/i);
 
       if (guestMatch && propertyData.guests === 0) propertyData.guests = parseInt(guestMatch[1]);
       if (bedroomMatch && propertyData.bedrooms === 0) propertyData.bedrooms = parseInt(bedroomMatch[1]);
       if (bedMatch && propertyData.beds === 0) propertyData.beds = parseInt(bedMatch[1]);
-      if (bathroomMatch && propertyData.bathrooms === 0) propertyData.bathrooms = parseInt(bathroomMatch[1]);
+      if (bathroomMatch && propertyData.bathrooms === 0) propertyData.bathrooms = parseFloat(bathroomMatch[1]);
     }
 
-    // Extract images from meta tags if not found in JSON
+    // Fallback location from meta description if missing
+    if (!propertyData.location || propertyData.location === 'Location not found') {
+      const ogDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+      const locMatch = ogDesc.match(/in\s+([^.]+?)(?:\.\s*\d+\s*guest|\.|\s*·|$)/i);
+      if (locMatch) {
+        propertyData.location = locMatch[1].trim();
+      }
+    }
+
+    // Always extract direct muscache CDN images from raw HTML & script payloads
+    const directMuscache = extractAirbnbMuscacheImages(html);
+    if (directMuscache.length > 0) {
+      console.log(`[Cheerio Airbnb] Extracted ${directMuscache.length} direct muscache images from HTML`);
+      const mergedImages = new Set([...propertyData.images, ...directMuscache]);
+      propertyData.images = Array.from(mergedImages);
+    }
+
+    // Extract images from meta tags if not found in JSON or muscache
     if (propertyData.images.length === 0) {
       const images = new Set<string>();
 
@@ -1242,7 +1270,7 @@ function isValidImageUrl(url: string): boolean {
 
   // Check for image extensions or image hosting patterns
   const imagePatterns = /\.(jpg|jpeg|png|webp|gif)($|\?|&)/i;
-  const imageHosts = /(images|img|photos|media|cdn|cloudinary|unsplash|airbnb\.com\/pictures)/i;
+  const imageHosts = /(images|img|photos|media|cdn|cloudinary|unsplash|muscache\.com|airbnb\.com\/pictures)/i;
 
   return imagePatterns.test(url) || imageHosts.test(url);
 }

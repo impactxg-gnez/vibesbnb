@@ -82,11 +82,10 @@ export type PushPayload = {
 };
 
 export function parsePushResponse(response: {
-  notification: { request: { content: { data: PushPayload } } };
-} | null): PushPayload | null {
-  if (!response) return null;
-  const data = response.notification.request.content.data as PushPayload;
-  return data ?? null;
+  notification: { request: { content: { data?: unknown } } };
+} | null | undefined): PushPayload | null {
+  if (!response?.notification?.request?.content?.data) return null;
+  return response.notification.request.content.data as PushPayload;
 }
 
 export function addNotificationResponseListener(

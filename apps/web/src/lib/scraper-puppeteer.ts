@@ -23,6 +23,81 @@ interface ScrapedPropertyData {
 let browserInstance: PuppeteerCoreBrowser | any = null;
 
 /**
+ * Sleep helper to replace deprecated/removed page.waitForTimeout in Puppeteer v22+
+ */
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Robust extraction of Airbnb muscache CDN images from raw HTML / script payloads.
+ * Unescapes JSON slashes (\/ -> /) and extracts high-res property photos.
+ */
+export function extractAirbnbMuscacheImages(rawHtml: string): string[] {
+  if (!rawHtml) return [];
+
+  // 1. Unescape forward slashes common in JSON script payloads (\/ -> /)
+  const normalizedHtml = rawHtml.replace(/\\\//g, '/');
+
+  // 2. Match all muscache picture URLs
+  const regex = /https:\/\/[a-z0-9.]*muscache\.com\/(?:im\/)?pictures\/[a-zA-Z0-9_\-./%]+/gi;
+  const matches = normalizedHtml.match(regex) || [];
+
+  const seenCleanUrls = new Set<string>();
+  const results: string[] = [];
+
+  for (const rawUrl of matches) {
+    let cleanUrl = rawUrl.trim();
+
+    // Strip trailing quotes, query strings, slashes, or JSON artifacts
+    cleanUrl = cleanUrl.split('?')[0].split('"')[0].split("'")[0].split('\\')[0].split('<')[0];
+
+    const lower = cleanUrl.toLowerCase();
+
+    // Exclude icons, avatars, user profiles, badges, logos
+    if (
+      lower.includes('user') ||
+      lower.includes('profile') ||
+      lower.includes('avatar') ||
+      lower.includes('logo') ||
+      lower.includes('icon') ||
+      lower.includes('badge') ||
+      lower.includes('static') ||
+      lower.includes('guest') ||
+      lower.includes('host') ||
+      lower.includes('verified')
+    ) {
+      continue;
+    }
+
+    // Must look like an image or picture path
+    const hasImageExt = /\.(jpe?g|png|webp)($|\?|&)/i.test(cleanUrl);
+    const isOriginalPath = cleanUrl.includes('/original/') || cleanUrl.includes('/pictures/');
+
+    if (!hasImageExt && !isOriginalPath) {
+      continue;
+    }
+
+    // Filter tiny dimensions if present in path (e.g. /40x40/, /50x50/, /100x100/)
+    const smallDimMatch = cleanUrl.match(/\/([0-9]{1,3})x([0-9]{1,3})\//);
+    if (smallDimMatch) {
+      const w = parseInt(smallDimMatch[1], 10);
+      const h = parseInt(smallDimMatch[2], 10);
+      if (w < 300 || h < 200) {
+        continue;
+      }
+    }
+
+    if (!seenCleanUrls.has(cleanUrl)) {
+      seenCleanUrls.add(cleanUrl);
+      // Append high-res query parameter (?im_w=1200) for crisp display
+      const highResUrl = `${cleanUrl}?im_w=1200`;
+      results.push(highResUrl);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Get or create a browser instance (reuse for performance)
  * Supports both local development and serverless (Vercel) environments
  */
@@ -37,6 +112,17 @@ async function getBrowser(): Promise<PuppeteerCoreBrowser | any> {
 
   console.log(`[Puppeteer] Environment: ${isProduction ? 'production' : 'development'}, Vercel: ${isVercel}`);
 
+  const commonArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-software-rasterizer',
+    '--disable-extensions',
+    '--disable-blink-features=AutomationControlled',
+    '--window-size=1920,1080',
+  ];
+
   if (isProduction && isVercel) {
     // Serverless environment (Vercel)
     try {
@@ -46,7 +132,7 @@ async function getBrowser(): Promise<PuppeteerCoreBrowser | any> {
       console.log('[Puppeteer] Using @sparticuz/chromium for serverless');
       
       browserInstance = await puppeteerCore.default.launch({
-        args: chromium.default.args,
+        args: [...chromium.default.args, '--disable-blink-features=AutomationControlled'],
         defaultViewport: { width: 1920, height: 1080 },
         executablePath: await chromium.default.executablePath(),
         headless: true,
@@ -57,14 +143,7 @@ async function getBrowser(): Promise<PuppeteerCoreBrowser | any> {
       const puppeteer = await import('puppeteer');
       browserInstance = await puppeteer.default.launch({
         headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-software-rasterizer',
-          '--disable-extensions',
-        ],
+        args: commonArgs,
       });
     }
   } else {
@@ -73,14 +152,7 @@ async function getBrowser(): Promise<PuppeteerCoreBrowser | any> {
     const puppeteer = await import('puppeteer');
     browserInstance = await puppeteer.default.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--disable-extensions',
-      ],
+      args: commonArgs,
     });
   }
 
@@ -124,7 +196,7 @@ async function autoScroll(page: Page): Promise<void> {
   });
   
   // Wait for any lazy-loaded images to finish loading
-  await page.waitForTimeout(1000);
+  await sleep(1000);
   
   // Try to click "Show more photos" or similar buttons if they exist
   try {
@@ -132,8 +204,10 @@ async function autoScroll(page: Page): Promise<void> {
     const buttonSelectors = [
       'button[data-testid*="show"]',
       'button[data-testid*="more"]',
+      'button[data-testid*="photo-modal"]',
       '[aria-label*="show" i]',
       '[aria-label*="more" i]',
+      '[aria-label*="photo" i]',
       'button'
     ];
     
@@ -144,7 +218,7 @@ async function autoScroll(page: Page): Promise<void> {
           const text = await page.evaluate(el => el.textContent?.toLowerCase() || '', button);
           if (text.includes('show') || text.includes('more') || text.includes('photo')) {
             await button.click();
-            await page.waitForTimeout(2000);
+            await sleep(2000);
             await autoScroll(page); // Scroll again after clicking
             break;
           }
@@ -174,16 +248,37 @@ export async function scrapeWithPuppeteer(url: string): Promise<ScrapedPropertyD
     // Set viewport
     await page.setViewport({ width: 1920, height: 1080 });
 
-    // Set realistic user agent
+    // Set realistic modern user agent
     await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
 
-    // Block unnecessary resources for faster loading
+    // Set anti-detection stealth HTTP headers
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"macOS"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Upgrade-Insecure-Requests': '1',
+    });
+
+    // Mask webdriver and automation indicators
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      (window as any).chrome = { runtime: {} };
+    });
+
+    // Block unnecessary resources for faster loading (keep images so lazy loading triggers)
     await page.setRequestInterception(true);
     page.on('request', (req: any) => {
       const resourceType = req.resourceType();
-      // Block videos, fonts, and some other heavy resources      
+      // Block videos, fonts, and heavy resources
       if (['font', 'media', 'websocket'].includes(resourceType)) {
         req.abort();
       } else {
@@ -200,7 +295,7 @@ export async function scrapeWithPuppeteer(url: string): Promise<ScrapedPropertyD
     });
 
     // Wait a bit for initial content
-    await page.waitForTimeout(2000);
+    await sleep(2000);
 
     console.log('[Puppeteer] Scrolling to load images...');
 
@@ -209,8 +304,8 @@ export async function scrapeWithPuppeteer(url: string): Promise<ScrapedPropertyD
 
     console.log('[Puppeteer] Extracting data...');
 
-    // Detect platform and scrape accordingly
-    if (url.includes('airbnb.com')) {
+    // Detect platform and scrape accordingly (handles international airbnb domains & short links)
+    if (/(airbnb\.[a-z.]+|abnb\.me)/i.test(url)) {
       return await scrapeAirbnbWithPuppeteer(page);
     } else {
       return await scrapeGenericWithPuppeteer(page);
@@ -236,12 +331,12 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
     
     // Set realistic user agent
     await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
 
     console.log('[Puppeteer Esca] Navigating to:', url);
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-    await page.waitForTimeout(2000); // Wait for initial content
+    await sleep(2000); // Wait for initial content
     
     // Scroll to load lazy images
     console.log('[Puppeteer Esca] Scrolling to load images...');
@@ -255,11 +350,11 @@ async function scrapeEscaManagementWithPuppeteer(url: string): Promise<ScrapedPr
           const text = await page.evaluate((el: Element) => el.textContent?.toLowerCase() || '', button);
           if (text.includes('show more') || 
               text.includes('view all') || 
-              text.includes('see more') ||
-              text.includes('more photos') ||
+              text.includes('see more') || 
+              text.includes('more photos') || 
               text.includes('all photos')) {
             await button.click();
-            await page.waitForTimeout(2000);
+            await sleep(2000);
             await autoScroll(page); // Scroll again after clicking
             break;
           }
@@ -818,7 +913,7 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
           url.includes('avatar') ||
           url.includes('profile') ||
           url.includes('sprite') ||
-          url.match(/\/\d+x\d+\//)) { // Small dimension images
+          url.match(/\/(?:[1-9]\d?|1\d\d)x(?:[1-9]\d?|1\d\d)\//)) { // Only filter tiny images under 200x200
         return false;
       }
       
@@ -1121,6 +1216,41 @@ async function scrapeAirbnbWithPuppeteer(page: Page): Promise<ScrapedPropertyDat
       wellnessFriendly,
     };
   });
+
+  // Also extract all muscache CDN photos directly from page HTML & script payloads
+  try {
+    const pageHtml = await page.content();
+    const directMuscache = extractAirbnbMuscacheImages(pageHtml);
+    if (directMuscache.length > 0) {
+      console.log(`[Puppeteer Airbnb] Found ${directMuscache.length} muscache images from page HTML`);
+      const existing = new Set(data.images || []);
+      directMuscache.forEach((img) => existing.add(img));
+      data.images = Array.from(existing);
+    }
+
+    // Fallback metadata extraction from og:description if missing
+    if (!data.location || !data.guests || !data.bedrooms) {
+      const descMatch = pageHtml.match(/property="og:description"\s+content="([^"]+)"/i) ||
+                        pageHtml.match(/name="description"\s+content="([^"]+)"/i);
+      if (descMatch) {
+        const desc = descMatch[1];
+        if (!data.location) {
+          const locMatch = desc.match(/in\s+([^.]+?)(?:\.\s*\d+\s*guest|\.|\s*·|$)/i);
+          if (locMatch) data.location = locMatch[1].trim();
+        }
+        const guestMatch = desc.match(/(\d+)\s+guests?/i);
+        const bedroomMatch = desc.match(/(\d+)\s+bedrooms?/i);
+        const bedMatch = desc.match(/(\d+)\s+beds?(?!\s*room)/i);
+        const bathMatch = desc.match(/(\d+(?:\.\d+)?)\s+baths?/i);
+        if (guestMatch && !data.guests) data.guests = parseInt(guestMatch[1], 10);
+        if (bedroomMatch && !data.bedrooms) data.bedrooms = parseInt(bedroomMatch[1], 10);
+        if (bedMatch && !data.beds) data.beds = parseInt(bedMatch[1], 10);
+        if (bathMatch && !data.bathrooms) data.bathrooms = parseFloat(bathMatch[1]);
+      }
+    }
+  } catch (contentErr) {
+    console.warn('[Puppeteer Airbnb] Could not extract raw page content:', contentErr);
+  }
 
   // Try to get coordinates from the page
   const coordinates = await extractCoordinates(page);

@@ -102,6 +102,7 @@ export default function NewBookingPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [availability, setAvailability] = useState<Record<string, string[]>>({});
+  const [customDailyRates, setCustomDailyRates] = useState<Record<string, number>>({});
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [agreementSignerName, setAgreementSignerName] = useState('');
   const [checkoutBookingId, setCheckoutBookingId] = useState<string | null>(null);
@@ -339,12 +340,19 @@ export default function NewBookingPage() {
       if (!response.ok) return;
       const data = await response.json();
       const map: Record<string, string[]> = {};
-      (data.availability || []).forEach((entry: { day: string; status: string; room_id?: string | null }) => {
-        if (!map[entry.day]) map[entry.day] = [];
-        // If room_id is null, the whole property is blocked
-        map[entry.day].push(entry.room_id || 'PROPERTY_WIDE');
-      });
+      const rates: Record<string, number> = {};
+      (data.availability || []).forEach(
+        (entry: { day: string; status: string; room_id?: string | null; price?: number | null }) => {
+          if (!map[entry.day]) map[entry.day] = [];
+          // If room_id is null, the whole property is blocked
+          map[entry.day].push(entry.room_id || 'PROPERTY_WIDE');
+          if (entry.price != null && Number(entry.price) > 0) {
+            rates[entry.day] = Number(entry.price);
+          }
+        }
+      );
       setAvailability(map);
+      setCustomDailyRates(rates);
     } catch (error) {
       console.warn('Failed to load availability', error);
     }
@@ -393,6 +401,7 @@ export default function NewBookingPage() {
           applyCardFee: property.allowDirectBooking === true,
           earlyCheckInFee: earlyLateFees.earlyFee,
           lateCheckOutFee: earlyLateFees.lateFee,
+          customDailyRates: specialOffer ? undefined : customDailyRates,
         })
       : null;
 

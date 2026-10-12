@@ -36,7 +36,7 @@ export async function GET(
 
     let query = supabase
       .from('property_availability')
-      .select('day, status, room_id')
+      .select('day, status, room_id, price')
       .eq('property_id', params.id);
 
     if (roomId) {
@@ -44,7 +44,28 @@ export async function GET(
       query = query.or(`room_id.is.null,room_id.eq.${roomId}`);
     }
 
-    const { data, error } = await query;
+    let data: any[] | null = null;
+    let error: any = null;
+
+    const initialRes = await query;
+
+    // Graceful fallback if price column migration has not yet run in DB
+    if (initialRes.error && (initialRes.error.code === '42703' || initialRes.error.message?.includes('price'))) {
+      let fallbackQuery = supabase
+        .from('property_availability')
+        .select('day, status, room_id')
+        .eq('property_id', params.id);
+
+      if (roomId) {
+        fallbackQuery = fallbackQuery.or(`room_id.is.null,room_id.eq.${roomId}`);
+      }
+      const fallbackRes = await fallbackQuery;
+      data = fallbackRes.data;
+      error = fallbackRes.error;
+    } else {
+      data = initialRes.data;
+      error = initialRes.error;
+    }
 
     if (error) {
       throw error;
@@ -69,5 +90,3 @@ export async function GET(
     );
   }
 }
-
-

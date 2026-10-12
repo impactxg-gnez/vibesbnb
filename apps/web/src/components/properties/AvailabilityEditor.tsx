@@ -1,7 +1,19 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Calendar, Link2, Plus, RefreshCw, Trash2, Copy, ExternalLink } from 'lucide-react';
+import {
+  Calendar,
+  Link2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Copy,
+  ExternalLink,
+  SlidersHorizontal,
+  X,
+  Check,
+  Tag,
+} from 'lucide-react';
 
 type AvailabilityStatus = 'available' | 'blocked' | 'booked';
 
@@ -21,6 +33,7 @@ interface AvailabilityEntry {
   id?: string;
   day: string;
   status: AvailabilityStatus;
+  price?: number | null;
   note?: string | null;
   room_id?: string | null;
   booking_id?: string | null;
@@ -28,6 +41,7 @@ interface AvailabilityEntry {
 
 interface AvailabilityEditorProps {
   propertyId: string;
+  basePrice?: number;
 }
 
 const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -36,24 +50,45 @@ function formatDateKey(date: Date) {
   return date.toISOString().split('T')[0];
 }
 
-export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
+export function AvailabilityEditor({ propertyId, basePrice }: AvailabilityEditorProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [availabilityMap, setAvailabilityMap] = useState<
-    Record<string, AvailabilityStatus>
-  >({});
-  const [initialBlockedDays, setInitialBlockedDays] = useState<Set<string>>(
-    () => new Set()
-  );
+
+  // Property default base price (passed as prop or loaded from API)
+  const [defaultBasePrice, setDefaultBasePrice] = useState<number>(() => Number(basePrice) || 0);
+
+  // Status mapping: dayKey -> 'available' | 'blocked' | 'booked'
+  const [statusMap, setStatusMap] = useState<Record<string, AvailabilityStatus>>({});
+
+  // Custom price mapping: dayKey -> number (null when using default rate)
+  const [priceMap, setPriceMap] = useState<Record<string, number | null>>({});
+
+  // Baseline state tracking for diffing
+  const [initialBlockedDays, setInitialBlockedDays] = useState<Set<string>>(() => new Set());
+  const [initialPriceMap, setInitialPriceMap] = useState<Record<string, number | null>>({});
   const [bookedDays, setBookedDays] = useState<Set<string>>(() => new Set());
   const [removedDays, setRemovedDays] = useState<Set<string>>(() => new Set());
-  
-  // iCal sync panel: default open so hosts see import/sync without hunting past the calendar
-  const [showICalPanel, setShowICalPanel] = useState(true);
+
+  // Single Day Editing modal
+  const [editingDay, setEditingDay] = useState<Date | null>(null);
+  const [editPriceInput, setEditPriceInput] = useState<string>('');
+  const [editStatusInput, setEditStatusInput] = useState<AvailabilityStatus>('available');
+
+  // Bulk Edit drawer / panel
+  const [showBulkPanel, setShowBulkPanel] = useState(false);
+  const [bulkStartDate, setBulkStartDate] = useState('');
+  const [bulkEndDate, setBulkEndDate] = useState('');
+  const [bulkPriceInput, setBulkPriceInput] = useState('');
+  const [bulkStatusInput, setBulkStatusInput] = useState<'available' | 'blocked' | 'keep'>('available');
+  const [bulkDayFilter, setBulkDayFilter] = useState<'all' | 'weekends' | 'weekdays'>('all');
+  const [bulkResetPrice, setBulkResetPrice] = useState(false);
+
+  // iCal sync panel
+  const [showICalPanel, setShowICalPanel] = useState(false);
   const [icalSources, setIcalSources] = useState<ICalSource[]>([]);
   const [icalExportUrl, setIcalExportUrl] = useState('');
   const [loadingIcal, setLoadingIcal] = useState(false);
@@ -63,39 +98,52 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
   const [addingSource, setAddingSource] = useState(false);
 
   useEffect(() => {
+    if (basePrice != null && Number(basePrice) > 0) {
+      setDefaultBasePrice(Number(basePrice));
+    }
+  }, [basePrice]);
+
+  useEffect(() => {
     const loadAvailability = async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          `/api/host/properties/${propertyId}/availability`
-        );
+        const response = await fetch(`/api/host/properties/${propertyId}/availability`);
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.error || 'Failed to load availability');
         }
 
-        const map: Record<string, AvailabilityStatus> = {};
+        if (data.basePrice != null && (!basePrice || basePrice === 0)) {
+          setDefaultBasePrice(Number(data.basePrice) || 0);
+        }
+
+        const statuses: Record<string, AvailabilityStatus> = {};
+        const prices: Record<string, number | null> = {};
         const blocked = new Set<string>();
         const booked = new Set<string>();
+
         (data.availability || []).forEach((entry: AvailabilityEntry) => {
-          // For simplicity, we show property-wide status
-          // In future, we could show per-room status
-          if (!map[entry.day] || entry.status === 'booked') {
-            map[entry.day] = entry.status;
-          }
-          if (entry.status === 'blocked') {
-            blocked.add(entry.day);
-          }
           if (entry.status === 'booked') {
+            statuses[entry.day] = 'booked';
             booked.add(entry.day);
+          } else if (entry.status === 'blocked') {
+            statuses[entry.day] = 'blocked';
+            blocked.add(entry.day);
+          } else if (entry.status === 'available') {
+            statuses[entry.day] = 'available';
+          }
+
+          if (entry.price != null && !isNaN(Number(entry.price)) && Number(entry.price) > 0) {
+            prices[entry.day] = Number(entry.price);
           }
         });
 
-        setAvailabilityMap(map);
+        setStatusMap(statuses);
+        setPriceMap(prices);
         setInitialBlockedDays(blocked);
-        setRemovedDays(new Set());
-        // Store booked days in state (they can't be modified)
+        setInitialPriceMap({ ...prices });
         setBookedDays(booked);
+        setRemovedDays(new Set());
       } catch (error: any) {
         console.error('[AvailabilityEditor] load error', error);
         toast.error(error.message || 'Failed to load availability');
@@ -105,7 +153,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
     };
 
     loadAvailability();
-  }, [propertyId]);
+  }, [propertyId, basePrice]);
 
   // Load iCal sources
   const loadICalData = async () => {
@@ -174,22 +222,28 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
       setNewSourceName('');
       setNewSourceUrl('');
       await loadICalData();
-      
+
       // Reload availability to show newly blocked dates
       const availResponse = await fetch(`/api/host/properties/${propertyId}/availability`);
       const availData = await availResponse.json();
       if (availResponse.ok) {
-        const map: Record<string, AvailabilityStatus> = {};
+        const statuses: Record<string, AvailabilityStatus> = {};
+        const prices: Record<string, number | null> = {};
         const blocked = new Set<string>();
         const booked = new Set<string>();
         (availData.availability || []).forEach((entry: AvailabilityEntry) => {
-          if (!map[entry.day] || entry.status === 'booked') {
-            map[entry.day] = entry.status;
+          if (entry.status === 'booked') {
+            statuses[entry.day] = 'booked';
+            booked.add(entry.day);
+          } else if (entry.status === 'blocked') {
+            statuses[entry.day] = 'blocked';
+            blocked.add(entry.day);
           }
-          if (entry.status === 'blocked') blocked.add(entry.day);
-          if (entry.status === 'booked') booked.add(entry.day);
+          if (entry.price != null && Number(entry.price) > 0) {
+            prices[entry.day] = Number(entry.price);
+          }
         });
-        setAvailabilityMap(map);
+        setStatusMap((prev) => ({ ...prev, ...statuses }));
         setInitialBlockedDays(blocked);
         setBookedDays(booked);
       }
@@ -201,14 +255,19 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
   };
 
   const handleDeleteICalSource = async (sourceId: string) => {
-    if (!confirm('Are you sure you want to remove this calendar source? Any blocked dates from this source will also be removed.')) {
+    if (
+      !confirm(
+        'Are you sure you want to remove this calendar source? Any blocked dates from this source will also be removed.'
+      )
+    ) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/host/properties/${propertyId}/ical?sourceId=${sourceId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/host/properties/${propertyId}/ical?sourceId=${sourceId}`,
+        { method: 'DELETE' }
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -244,22 +303,24 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
       }
 
       await loadICalData();
-      
+
       // Reload availability
       const availResponse = await fetch(`/api/host/properties/${propertyId}/availability`);
       const availData = await availResponse.json();
       if (availResponse.ok) {
-        const map: Record<string, AvailabilityStatus> = {};
+        const statuses: Record<string, AvailabilityStatus> = {};
         const blocked = new Set<string>();
         const booked = new Set<string>();
         (availData.availability || []).forEach((entry: AvailabilityEntry) => {
-          if (!map[entry.day] || entry.status === 'booked') {
-            map[entry.day] = entry.status;
+          if (entry.status === 'booked') {
+            statuses[entry.day] = 'booked';
+            booked.add(entry.day);
+          } else if (entry.status === 'blocked') {
+            statuses[entry.day] = 'blocked';
+            blocked.add(entry.day);
           }
-          if (entry.status === 'blocked') blocked.add(entry.day);
-          if (entry.status === 'booked') booked.add(entry.day);
         });
-        setAvailabilityMap(map);
+        setStatusMap((prev) => ({ ...prev, ...statuses }));
         setInitialBlockedDays(blocked);
         setBookedDays(booked);
       }
@@ -294,42 +355,6 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
     return days;
   }, [currentMonth]);
 
-  const toggleDay = (date: Date | null) => {
-    if (!date) return;
-    const dayKey = formatDateKey(date);
-    const current = availabilityMap[dayKey] || 'available';
-
-    // Prevent modifying booked dates (from guest bookings)
-    if (current === 'booked' || bookedDays.has(dayKey)) {
-      toast.error('Booked dates cannot be changed. Cancel the booking first.');
-      return;
-    }
-
-    setAvailabilityMap((prev) => {
-      const updated = { ...prev };
-      if (current === 'available') {
-        updated[dayKey] = 'blocked';
-        setRemovedDays((prevRemoved) => {
-          const updatedRemoved = new Set(prevRemoved);
-          updatedRemoved.delete(dayKey);
-          return updatedRemoved;
-        });
-      } else if (current === 'blocked') {
-        delete updated[dayKey];
-        setRemovedDays((prevRemoved) => {
-          const updatedRemoved = new Set(prevRemoved);
-          if (initialBlockedDays.has(dayKey)) {
-            updatedRemoved.add(dayKey);
-          } else {
-            updatedRemoved.delete(dayKey);
-          }
-          return updatedRemoved;
-        });
-      }
-      return updated;
-    });
-  };
-
   const changeMonth = (direction: number) => {
     setCurrentMonth((prev) => {
       const next = new Date(prev);
@@ -338,44 +363,238 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
     });
   };
 
+  const handleDayClick = (date: Date | null) => {
+    if (!date) return;
+    const dayKey = formatDateKey(date);
+    const status = statusMap[dayKey] || 'available';
+
+    // Prevent modifying booked dates (from guest bookings)
+    if (status === 'booked' || bookedDays.has(dayKey)) {
+      toast.error('Booked dates cannot be changed. Cancel the booking first.');
+      return;
+    }
+
+    const currentPrice = priceMap[dayKey];
+    setEditingDay(date);
+    setEditStatusInput(status === 'blocked' ? 'blocked' : 'available');
+    setEditPriceInput(currentPrice != null ? String(currentPrice) : '');
+  };
+
+  const handleApplyDayEdit = () => {
+    if (!editingDay) return;
+    const dayKey = formatDateKey(editingDay);
+
+    const parsedPrice =
+      editPriceInput.trim() !== '' ? Number(editPriceInput.trim()) : null;
+
+    if (parsedPrice != null && (isNaN(parsedPrice) || parsedPrice < 0)) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    setStatusMap((prev) => {
+      const next = { ...prev };
+      if (editStatusInput === 'blocked') {
+        next[dayKey] = 'blocked';
+      } else {
+        if (parsedPrice != null && parsedPrice > 0) {
+          next[dayKey] = 'available';
+        } else {
+          delete next[dayKey];
+        }
+      }
+      return next;
+    });
+
+    setPriceMap((prev) => {
+      const next = { ...prev };
+      if (parsedPrice != null && parsedPrice > 0) {
+        next[dayKey] = parsedPrice;
+      } else {
+        delete next[dayKey];
+      }
+      return next;
+    });
+
+    setRemovedDays((prev) => {
+      const next = new Set(prev);
+      if (editStatusInput === 'available' && parsedPrice == null) {
+        if (initialBlockedDays.has(dayKey) || initialPriceMap[dayKey] != null) {
+          next.add(dayKey);
+        } else {
+          next.delete(dayKey);
+        }
+      } else {
+        next.delete(dayKey);
+      }
+      return next;
+    });
+
+    setEditingDay(null);
+    toast.success(
+      `Updated ${editingDay.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`
+    );
+  };
+
+  const handleApplyBulk = () => {
+    if (!bulkStartDate || !bulkEndDate) {
+      toast.error('Please specify both start and end dates');
+      return;
+    }
+    if (bulkStartDate > bulkEndDate) {
+      toast.error('Start date must be before or equal to end date');
+      return;
+    }
+
+    const parsedPrice = bulkResetPrice
+      ? null
+      : bulkPriceInput.trim() !== ''
+        ? Number(bulkPriceInput.trim())
+        : null;
+
+    if (
+      !bulkResetPrice &&
+      bulkPriceInput.trim() !== '' &&
+      (isNaN(Number(parsedPrice)) || Number(parsedPrice) < 0)
+    ) {
+      toast.error('Please enter a valid price');
+      return;
+    }
+
+    const start = new Date(bulkStartDate + 'T12:00:00');
+    const end = new Date(bulkEndDate + 'T12:00:00');
+    let updatedCount = 0;
+
+    const newStatusMap = { ...statusMap };
+    const newPriceMap = { ...priceMap };
+    const newRemovedDays = new Set(removedDays);
+
+    for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      const dayKey = cursor.toISOString().split('T')[0];
+
+      // Skip past dates or booked dates
+      const isPast =
+        new Date(dayKey).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0);
+      if (isPast || bookedDays.has(dayKey)) continue;
+
+      const dayOfWeek = cursor.getDay(); // 0 = Sun, 5 = Fri, 6 = Sat
+      if (bulkDayFilter === 'weekends' && dayOfWeek !== 5 && dayOfWeek !== 6) continue;
+      if (bulkDayFilter === 'weekdays' && (dayOfWeek === 5 || dayOfWeek === 6)) continue;
+
+      // Apply status if not 'keep'
+      if (bulkStatusInput !== 'keep') {
+        if (bulkStatusInput === 'blocked') {
+          newStatusMap[dayKey] = 'blocked';
+          newRemovedDays.delete(dayKey);
+        } else {
+          // available
+          if (parsedPrice != null && parsedPrice > 0) {
+            newStatusMap[dayKey] = 'available';
+            newRemovedDays.delete(dayKey);
+          } else {
+            delete newStatusMap[dayKey];
+            if (initialBlockedDays.has(dayKey) || initialPriceMap[dayKey] != null) {
+              newRemovedDays.add(dayKey);
+            }
+          }
+        }
+      }
+
+      // Apply price
+      if (bulkResetPrice) {
+        delete newPriceMap[dayKey];
+        if (
+          newStatusMap[dayKey] !== 'blocked' &&
+          (initialBlockedDays.has(dayKey) || initialPriceMap[dayKey] != null)
+        ) {
+          newRemovedDays.add(dayKey);
+        }
+      } else if (parsedPrice != null && parsedPrice > 0) {
+        newPriceMap[dayKey] = parsedPrice;
+        newRemovedDays.delete(dayKey);
+        if (newStatusMap[dayKey] !== 'blocked') {
+          newStatusMap[dayKey] = 'available';
+        }
+      }
+
+      updatedCount++;
+    }
+
+    if (updatedCount === 0) {
+      toast.error('No matching dates in the selected range could be updated.');
+      return;
+    }
+
+    setStatusMap(newStatusMap);
+    setPriceMap(newPriceMap);
+    setRemovedDays(newRemovedDays);
+    setShowBulkPanel(false);
+    toast.success(`Updated ${updatedCount} day${updatedCount === 1 ? '' : 's'}!`);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const entries: { day: string; status: 'available' | 'blocked' }[] = [];
+      const entries: {
+        day: string;
+        status: 'available' | 'blocked';
+        price?: number | null;
+      }[] = [];
 
-      Object.entries(availabilityMap).forEach(([day, status]) => {
+      // All blocked days:
+      Object.entries(statusMap).forEach(([day, status]) => {
         if (status === 'blocked') {
-          entries.push({ day, status: 'blocked' });
+          entries.push({
+            day,
+            status: 'blocked',
+            price: priceMap[day] ?? null,
+          });
         }
       });
 
+      // All available days with custom price:
+      Object.entries(priceMap).forEach(([day, price]) => {
+        if (price != null && price > 0 && statusMap[day] !== 'blocked' && !bookedDays.has(day)) {
+          entries.push({
+            day,
+            status: 'available',
+            price,
+          });
+        }
+      });
+
+      // Days reset back to default available without price override:
       removedDays.forEach((day) => {
-        entries.push({ day, status: 'available' });
+        if (statusMap[day] !== 'blocked' && !priceMap[day]) {
+          entries.push({
+            day,
+            status: 'available',
+            price: null,
+          });
+        }
       });
 
-      const response = await fetch(
-        `/api/host/properties/${propertyId}/availability`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entries }),
-        }
-      );
+      const response = await fetch(`/api/host/properties/${propertyId}/availability`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries }),
+      });
 
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to save availability');
       }
 
-      toast.success('Availability updated');
+      toast.success('Calendar pricing and availability saved!');
       setRemovedDays(new Set());
       setInitialBlockedDays(
         new Set(
-          Object.entries(availabilityMap)
+          Object.entries(statusMap)
             .filter(([, status]) => status === 'blocked')
             .map(([day]) => day)
         )
       );
+      setInitialPriceMap({ ...priceMap });
     } catch (error: any) {
       console.error('[AvailabilityEditor] save error', error);
       toast.error(error.message || 'Failed to save availability');
@@ -386,41 +605,84 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
 
   const renderDayButton = (date: Date | null, index: number) => {
     if (!date) {
-      return <div key={`empty-${index}`} className="h-16" />;
+      return <div key={`empty-${index}`} className="h-20" />;
     }
 
     const dayKey = formatDateKey(date);
-    const status = availabilityMap[dayKey] || 'available';
+    const status = statusMap[dayKey] || 'available';
+    const customPrice = priceMap[dayKey];
     const isBooked = status === 'booked' || bookedDays.has(dayKey);
-
-    const colors: Record<AvailabilityStatus, string> = {
-      available:
-        'bg-gray-900 hover:bg-gray-800 text-white border border-gray-800',
-      blocked: 'bg-red-900/60 border border-red-500 text-red-100',
-      booked: 'bg-emerald-900/60 border border-emerald-500 text-emerald-100 cursor-not-allowed',
-    };
+    const isBlocked = status === 'blocked';
+    const hasCustomPrice = customPrice != null && customPrice > 0;
+    const effectivePrice = hasCustomPrice ? customPrice : defaultBasePrice;
 
     const isPast =
-      new Date(dayKey).setHours(0, 0, 0, 0) <
-      new Date().setHours(0, 0, 0, 0);
+      new Date(dayKey).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0);
 
     const isDisabled = isPast || isBooked;
+
+    let tileBg = 'bg-gray-900 hover:bg-gray-800 text-white border-gray-800 hover:border-gray-700';
+    if (isBooked) {
+      tileBg = 'bg-emerald-950/40 border-emerald-500/60 text-emerald-100 cursor-not-allowed';
+    } else if (isBlocked) {
+      tileBg = 'bg-red-950/40 border-red-500/60 text-red-100 hover:border-red-400';
+    } else if (hasCustomPrice) {
+      tileBg = 'bg-amber-950/30 border-amber-500/50 text-white hover:border-amber-400';
+    }
 
     return (
       <button
         key={dayKey}
         type="button"
         disabled={isDisabled}
-        onClick={() => toggleDay(date)}
-        className={`h-16 rounded-lg text-sm font-semibold transition ${
-          colors[status]
-        } ${isPast ? 'opacity-40' : ''} ${isDisabled ? 'cursor-not-allowed' : ''}`}
-        title={isBooked ? 'Guest booking - cannot be changed' : undefined}
+        onClick={() => handleDayClick(date)}
+        className={`h-20 rounded-xl p-2.5 flex flex-col justify-between text-left transition border ${tileBg} ${
+          isPast ? 'opacity-40 cursor-not-allowed' : ''
+        }`}
+        title={
+          isBooked
+            ? 'Guest booking — cannot be changed'
+            : isPast
+              ? 'Past date'
+              : 'Click to edit price and availability'
+        }
       >
-        <div>{date.getDate()}</div>
-        <div className="text-xs capitalize flex items-center justify-center gap-1">
-          {isBooked && <span>🔒</span>}
-          {status}
+        <div className="flex items-center justify-between w-full">
+          <span className="font-semibold text-sm">{date.getDate()}</span>
+          {isBooked ? (
+            <span className="text-[10px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium">
+              Booked
+            </span>
+          ) : isBlocked ? (
+            <span className="text-[10px] px-1 py-0.5 rounded bg-red-500/20 text-red-300 font-medium">
+              Blocked
+            </span>
+          ) : hasCustomPrice ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold flex items-center gap-0.5">
+              ★ ${customPrice}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-auto">
+          {isBooked ? (
+            <div className="text-[11px] text-emerald-300 flex items-center gap-1 font-medium">
+              <span>🔒</span> Reserved
+            </div>
+          ) : isBlocked ? (
+            <div className="text-[11px] text-red-400 font-medium">Blocked</div>
+          ) : (
+            <div className="flex items-baseline justify-between gap-1">
+              <span
+                className={`text-xs font-bold ${
+                  hasCustomPrice ? 'text-amber-400' : 'text-gray-200'
+                }`}
+              >
+                ${effectivePrice > 0 ? effectivePrice : '—'}
+              </span>
+              <span className="text-[10px] text-gray-400">Available</span>
+            </div>
+          )}
         </div>
       </button>
     );
@@ -433,32 +695,57 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
     >
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Availability & calendars</h2>
-          <p className="text-gray-400 text-sm">
-            Block dates manually below, or import Airbnb / Booking / VRBO iCal URLs (sync blocks your calendar here).
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Calendar className="text-emerald-400" size={24} />
+            Availability & custom pricing
+          </h2>
+          <p className="text-gray-400 text-sm mt-0.5">
+            Click any date to set a custom nightly rate or block dates. Or use Bulk Edit to apply prices across date ranges.
           </p>
         </div>
+
         <div className="flex items-center gap-2 flex-wrap">
+          {defaultBasePrice > 0 && (
+            <div className="px-3 py-1.5 bg-gray-800/80 border border-gray-700 rounded-lg text-xs text-gray-300 flex items-center gap-1.5">
+              <Tag size={13} className="text-emerald-400" />
+              Base Rate: <strong className="text-white">${defaultBasePrice}</strong>/night
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={() => setShowICalPanel(!showICalPanel)}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition ${
-              showICalPanel 
-                ? 'bg-blue-600 text-white' 
+            onClick={() => setShowBulkPanel(!showBulkPanel)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
+              showBulkPanel
+                ? 'bg-amber-600 text-white'
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
-            <Link2 size={18} />
+            <SlidersHorizontal size={14} />
+            Bulk Edit Rates
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowICalPanel(!showICalPanel)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
+              showICalPanel
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            <Link2 size={14} />
             iCal Sync
           </button>
+
           <button
             type="button"
             onClick={() => changeMonth(-1)}
-            className="px-3 py-2 bg-gray-800 rounded-lg text-white hover:bg-gray-700"
+            className="px-3 py-1.5 bg-gray-800 rounded-lg text-white hover:bg-gray-700 text-sm"
           >
             ‹
           </button>
-          <div className="text-white font-semibold min-w-[140px] text-center">
+          <div className="text-white font-semibold min-w-[130px] text-center text-sm">
             {currentMonth.toLocaleString('default', {
               month: 'long',
               year: 'numeric',
@@ -467,12 +754,117 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           <button
             type="button"
             onClick={() => changeMonth(1)}
-            className="px-3 py-2 bg-gray-800 rounded-lg text-white hover:bg-gray-700"
+            className="px-3 py-1.5 bg-gray-800 rounded-lg text-white hover:bg-gray-700 text-sm"
           >
             ›
           </button>
         </div>
       </div>
+
+      {/* Bulk Pricing Panel */}
+      {showBulkPanel && (
+        <div className="bg-gray-800/70 border border-gray-700 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <SlidersHorizontal size={16} className="text-amber-400" />
+              Bulk Set Rates & Availability
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowBulkPanel(false)}
+              className="text-gray-400 hover:text-white p-1 rounded-lg"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-300 mb-1">From Date</label>
+              <input
+                type="date"
+                value={bulkStartDate}
+                onChange={(e) => setBulkStartDate(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-300 mb-1">To Date</label>
+              <input
+                type="date"
+                value={bulkEndDate}
+                onChange={(e) => setBulkEndDate(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-300 mb-1">Days of Week</label>
+              <select
+                value={bulkDayFilter}
+                onChange={(e) => setBulkDayFilter(e.target.value as any)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="all">All Days</option>
+                <option value="weekends">Weekends (Fri & Sat)</option>
+                <option value="weekdays">Weekdays (Sun - Thu)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-300 mb-1">Status</label>
+              <select
+                value={bulkStatusInput}
+                onChange={(e) => setBulkStatusInput(e.target.value as any)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="available">Set Available</option>
+                <option value="blocked">Set Blocked</option>
+                <option value="keep">Keep Current Status</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-gray-700/60">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-300">Custom Price:</label>
+              <div className="relative w-36">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">$</span>
+                <input
+                  type="number"
+                  min="1"
+                  disabled={bulkResetPrice}
+                  placeholder={defaultBasePrice > 0 ? String(defaultBasePrice) : 'Price'}
+                  value={bulkPriceInput}
+                  onChange={(e) => setBulkPriceInput(e.target.value)}
+                  className="w-full pl-6 pr-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:border-emerald-500 focus:outline-none disabled:opacity-40"
+                />
+              </div>
+            </div>
+
+            {defaultBasePrice > 0 && (
+              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bulkResetPrice}
+                  onChange={(e) => setBulkResetPrice(e.target.checked)}
+                  className="rounded border-gray-700 text-emerald-600 focus:ring-emerald-500"
+                />
+                Reset to default rate (${defaultBasePrice})
+              </label>
+            )}
+
+            <button
+              type="button"
+              onClick={handleApplyBulk}
+              className="ml-auto px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold shadow transition"
+            >
+              Apply to Selected Range
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* iCal Sync Panel */}
       {showICalPanel && (
@@ -498,7 +890,9 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           {/* Export URL */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">Your Calendar Export URL</label>
-            <p className="text-xs text-gray-500">Share this URL with other platforms (Airbnb, VRBO, etc.) to sync your VibesBNB bookings to them.</p>
+            <p className="text-xs text-gray-500">
+              Share this URL with other platforms (Airbnb, VRBO, etc.) to sync your VibesBNB bookings to them.
+            </p>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -529,8 +923,10 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
           {/* Import Sources */}
           <div className="space-y-3">
             <label className="text-sm font-medium text-gray-300">Import from External Calendars</label>
-            <p className="text-xs text-gray-500">Add iCal URLs from Airbnb, VRBO, or other platforms to auto-block those dates here.</p>
-            
+            <p className="text-xs text-gray-500">
+              Add iCal URLs from Airbnb, VRBO, or other platforms to auto-block those dates here.
+            </p>
+
             {/* Add new source */}
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -569,8 +965,8 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
                   <div
                     key={source.id}
                     className={`flex items-center justify-between p-3 rounded-lg border ${
-                      source.sync_error 
-                        ? 'bg-red-900/20 border-red-500/50' 
+                      source.sync_error
+                        ? 'bg-red-900/20 border-red-500/50'
                         : 'bg-gray-900/50 border-gray-700'
                     }`}
                   >
@@ -625,7 +1021,7 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
       )}
 
       {loading ? (
-        <div className="text-gray-400">Loading availability...</div>
+        <div className="text-gray-400 py-8 text-center">Loading calendar availability & rates...</div>
       ) : (
         <>
           <div className="grid grid-cols-7 gap-2 text-center text-gray-400 text-xs uppercase tracking-wide">
@@ -639,34 +1035,177 @@ export function AvailabilityEditor({ propertyId }: AvailabilityEditorProps) {
         </>
       )}
 
-      <div className="flex items-center gap-6 text-sm text-gray-300">
+      {/* Legend */}
+      <div className="flex items-center flex-wrap gap-6 text-sm text-gray-300 pt-2">
         <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded bg-gray-800 border border-gray-700" />
-          Available
+          <span className="w-4 h-4 rounded bg-gray-900 border border-gray-700" />
+          Available {defaultBasePrice > 0 && <span className="text-xs text-gray-400">(${defaultBasePrice} base)</span>}
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded bg-red-900/60 border border-red-500" />
+          <span className="w-4 h-4 rounded bg-amber-950/40 border border-amber-500/50" />
+          Custom Price <span className="text-xs text-amber-400 font-medium">(★ Override)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-4 h-4 rounded bg-red-950/60 border border-red-500" />
           Blocked
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded bg-emerald-900/60 border border-emerald-500" />
-          Booked
+          <span className="w-4 h-4 rounded bg-emerald-950/60 border border-emerald-500" />
+          Booked 🔒
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-2">
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-emerald-900/30 flex items-center gap-2"
         >
-          {saving ? 'Saving...' : 'Save Availability'}
+          {saving && <RefreshCw size={16} className="animate-spin" />}
+          {saving ? 'Saving...' : 'Save Availability & Pricing'}
         </button>
       </div>
+
+      {/* Single Day Edit Modal */}
+      {editingDay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Calendar size={18} className="text-emerald-400" />
+                  {editingDay.toLocaleDateString('default', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Set a custom nightly price or change availability status
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDay(null)}
+                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Status Selection */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                Availability Status
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditStatusInput('available')}
+                  className={`py-2.5 px-4 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition ${
+                    editStatusInput === 'available'
+                      ? 'bg-emerald-950/60 border-emerald-500 text-emerald-200 ring-2 ring-emerald-500/30'
+                      : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  <Check
+                    size={16}
+                    className={editStatusInput === 'available' ? 'opacity-100' : 'opacity-0'}
+                  />
+                  Available
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditStatusInput('blocked')}
+                  className={`py-2.5 px-4 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition ${
+                    editStatusInput === 'blocked'
+                      ? 'bg-red-950/60 border-red-500 text-red-200 ring-2 ring-red-500/30'
+                      : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  <X
+                    size={16}
+                    className={editStatusInput === 'blocked' ? 'opacity-100' : 'opacity-0'}
+                  />
+                  Blocked
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Price Setting */}
+            {editStatusInput === 'available' && (
+              <div className="space-y-2 pt-2 border-t border-gray-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                    Nightly Price
+                  </label>
+                  {defaultBasePrice > 0 && (
+                    <span className="text-xs text-gray-400">
+                      Default: <strong className="text-white">${defaultBasePrice}</strong>
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-lg">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder={defaultBasePrice > 0 ? String(defaultBasePrice) : 'Enter price'}
+                    value={editPriceInput}
+                    onChange={(e) => setEditPriceInput(e.target.value)}
+                    className="w-full pl-8 pr-4 py-3 bg-gray-950 border border-gray-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl text-white font-semibold text-lg placeholder-gray-600 focus:outline-none transition"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-[11px] text-gray-400">
+                    {editPriceInput.trim() !== '' && Number(editPriceInput) !== defaultBasePrice ? (
+                      <span className="text-amber-300 font-medium">★ Custom price will apply to this night</span>
+                    ) : (
+                      'Leave empty to use listing base price.'
+                    )}
+                  </p>
+                  {editPriceInput.trim() !== '' && defaultBasePrice > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setEditPriceInput('')}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 underline font-medium"
+                    >
+                      Reset to base (${defaultBasePrice})
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-800">
+              <button
+                type="button"
+                onClick={() => setEditingDay(null)}
+                className="px-4 py-2.5 rounded-xl text-gray-300 hover:text-white hover:bg-gray-800 text-sm font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyDayEdit}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-900/40 transition"
+              >
+                Apply to Date
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default AvailabilityEditor;
-

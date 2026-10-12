@@ -78,6 +78,36 @@ interface Room {
   imagePreviewUrls: string[];
 }
 
+function isSupabaseConfigured(): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return Boolean(
+    supabaseUrl &&
+      supabaseUrl !== '' &&
+      supabaseUrl !== 'https://placeholder.supabase.co' &&
+      supabaseKey &&
+      supabaseKey !== '' &&
+      supabaseKey !== 'placeholder-key'
+  );
+}
+
+function upsertHostPropertyCache(userId: string, property: Record<string, unknown>) {
+  let parsed: Record<string, unknown>[] = [];
+  try {
+    const saved = localStorage.getItem(`properties_${userId}`);
+    parsed = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(parsed)) parsed = [];
+  } catch {
+    parsed = [];
+  }
+  const idx = parsed.findIndex(
+    (p) => p && typeof p === 'object' && (p as { id?: string }).id === property.id
+  );
+  if (idx >= 0) parsed[idx] = { ...parsed[idx], ...property };
+  else parsed.unshift(property);
+  writeHostPropertiesCache(userId, parsed);
+}
+
 // Property type options with icons - synced with traveler filters
 const PROPERTY_TYPES = [
   { id: 'house', label: 'Entire House', icon: Home },
@@ -113,6 +143,8 @@ export default function NewPropertyPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [savedPropertyId, setSavedPropertyId] = useState<string | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -261,6 +293,8 @@ export default function NewPropertyPage() {
     } catch (error) {
       console.error('Error processing images:', error);
       toast.error('Failed to process some images.', { id: 'image-toast' });
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -293,6 +327,262 @@ export default function NewPropertyPage() {
     );
   };
 
+  const persistListing = async (status: 'draft' | 'active'): Promise<string> => {
+    if (!user) {
+      throw new Error('You must be logged in to create properties');
+    }
+
+    const supabase = createClient();
+    const configured = isSupabaseConfigured();
+
+    let supabaseUser = null;
+    if (configured) {
+      const maxRetries = 5;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const {
+          data: { user: userData },
+        } = await supabase.auth.getUser();
+        if (userData) {
+          supabaseUser = userData;
+          break;
+        }
+        if (attempt < maxRetries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      }
+    }
+
+    const signedInUserId = (supabaseUser?.id || user.id) as string;
+    const userId = targetHost?.id || signedInUserId;
+
+    if (configured && !supabaseUser) {
+      throw new Error('Still signing you in. Wait a moment, then try again.');
+    }
+
+    const allImageUrls: string[] = [];
+    for (const room of rooms) {
+      allImageUrls.push(...room.imagePreviewUrls);
+    }
+    const remoteImageUrls = allImageUrls.filter((u) => !isDataUrl(u));
+
+    const propertyId = savedPropertyId || `${userId}_${Date.now()}`;
+    const propertyTypeLabel =
+      PROPERTY_TYPES.find((t) => t.id === formData.propertyType)?.label || formData.propertyType;
+    const accessTypeLabel =
+      GUEST_ACCESS_TYPES.find((t) => t.id === formData.guestAccessType)?.label ||
+      formData.guestAccessType;
+    const displayName = formData.name.trim() || formData.location.trim() || 'Untitled listing';
+
+    const propertyData = {
+      id: propertyId,
+      host_id: userId,
+      name: displayName,
+      title: displayName,
+      description: formData.description,
+      location: formData.location,
+      price: formData.price,
+      images: remoteImageUrls,
+      amenities: formData.amenities,
+      bedrooms: formData.bedrooms,
+      bathrooms: formData.bathrooms,
+      beds: formData.beds != null && formData.beds >= 1 ? formData.beds : null,
+      guests: formData.guests,
+      status,
+      type: propertyTypeLabel,
+      guest_access_type: accessTypeLabel,
+      wellness_friendly:
+        formData.wellnessFriendly ||
+        formData.wellnessConsumptionIndoorAllowed ||
+        formData.wellnessConsumptionOutdoorAllowed,
+      wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+      wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
+      smoking_inside_allowed: false,
+      smoking_outside_allowed: false,
+      smoke_friendly: false,
+      allow_extra_guests: formData.allowExtraGuests,
+      extra_guest_price: formData.extraGuestPrice,
+      cleaning_fee: formData.cleaningFee,
+      refundable_deposit: formData.refundableDeposit,
+      min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
+      ...policyToDbColumns(formData.checkInOut),
+      ...cancellationSafetyToDbColumns({
+        cancellationPolicy: formData.cancellationPolicy,
+        partiesAllowed: formData.partiesAllowed,
+        safety: formData.safety,
+      }),
+      latitude: formData.coordinates?.lat,
+      longitude: formData.coordinates?.lng,
+      google_maps_url: formData.coordinates
+        ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
+        : null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const cacheRecord: Record<string, unknown> = {
+      ...propertyData,
+      cleaningFee: formData.cleaningFee,
+      minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
+      wellnessFriendly: formData.wellnessFriendly,
+      wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
+      wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
+      smokingInsideAllowed: false,
+      smokingOutsideAllowed: false,
+      smokeFriendly: false,
+    };
+
+    const attachEmbeddedPhotos = async (id: string): Promise<string[]> => {
+      if (!allImageUrls.some(isDataUrl)) return remoteImageUrls;
+
+      const toastId = toast.loading('Uploading photos…');
+      const upload = await uploadPropertyImages(id, allImageUrls, (done, total) => {
+        toast.loading(`Uploading photos… ${done}/${total}`, { id: toastId });
+      });
+      const stored = upload.urls.filter((u) => !isDataUrl(u));
+
+      if (stored.length > 0) {
+        const patch = await fetch(`/api/host/properties/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ images: stored, notifyHost: false }),
+        });
+        if (!patch.ok) {
+          const patchError = await patch.json().catch(() => ({}));
+          toast.error(patchError.error || 'Listing saved, but photos could not be attached.', {
+            id: toastId,
+          });
+        } else if (upload.error) {
+          toast.error(`Some photos failed to upload: ${upload.error}`, { id: toastId });
+        } else {
+          toast.success('Photos uploaded.', { id: toastId });
+        }
+        return stored;
+      }
+
+      toast.error(upload.error || 'Photos could not be uploaded.', { id: toastId });
+      return remoteImageUrls;
+    };
+
+    if (!configured) {
+      upsertHostPropertyCache(userId, cacheRecord);
+      setSavedPropertyId(propertyId);
+      return propertyId;
+    }
+
+    let listingId = propertyId;
+
+    if (targetHost) {
+      const headers = await getHeadersForAdminFetch();
+      if (!headers.Authorization) {
+        throw new Error('Your admin session expired — please sign in again.');
+      }
+
+      if (savedPropertyId) {
+        const patch = await fetch(`/api/host/properties/${encodeURIComponent(listingId)}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ ...propertyData, notifyHost: false }),
+        });
+        const patchError = await patch.json().catch(() => ({}));
+        if (!patch.ok) {
+          throw new Error(patchError.error || 'Failed to update the listing for this host');
+        }
+      } else {
+        const response = await fetch('/api/admin/properties', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hostId: targetHost.id,
+            property: { ...propertyData, images: remoteImageUrls },
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create the listing for this host');
+        }
+        listingId = data.propertyId || propertyId;
+      }
+    } else if (savedPropertyId) {
+      const updatePayload = { ...propertyData };
+      delete (updatePayload as { id?: string }).id;
+      delete (updatePayload as { host_id?: string }).host_id;
+      const { error: updateError } = await supabase
+        .from('properties')
+        .update(updatePayload)
+        .eq('id', listingId)
+        .eq('host_id', userId);
+
+      if (updateError) {
+        throw updateError;
+      }
+    } else {
+      const { error: insertError } = await supabase.from('properties').insert(propertyData);
+      if (insertError) {
+        throw insertError;
+      }
+    }
+
+    const finalImages = await attachEmbeddedPhotos(listingId);
+
+    if (status === 'active' && !targetHost) {
+      try {
+        await supabase.from('notifications').insert({
+          user_id: supabaseUser!.id,
+          type: 'property_submitted',
+          title: 'Listing published',
+          message: `Your property "${displayName}" is saved and live. Manage it from your dashboard anytime.`,
+          related_property_id: listingId,
+        });
+      } catch (e) {
+        console.warn('Could not create notification:', e);
+      }
+
+      try {
+        await fetch(`/api/host/properties/${listingId}/invalidate-cache`, { method: 'POST' });
+      } catch {
+        /* non-blocking */
+      }
+
+      try {
+        await fetch(`/api/host/properties/${listingId}/notify-saved`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: savedPropertyId ? 'updated' : 'created' }),
+        });
+      } catch {
+        /* non-blocking */
+      }
+    } else {
+      try {
+        await fetch(`/api/host/properties/${listingId}/invalidate-cache`, { method: 'POST' });
+      } catch {
+        /* non-blocking */
+      }
+    }
+
+    upsertHostPropertyCache(userId, { ...cacheRecord, id: listingId, images: finalImages });
+    setSavedPropertyId(listingId);
+    return listingId;
+  };
+
+  const handleSaveAndExit = async () => {
+    if (saving || savingDraft) return;
+    setSavingDraft(true);
+    try {
+      await persistListing('draft');
+      toast.success('Progress saved! Your draft is in My Properties.');
+      router.push('/host/properties');
+    } catch (error: unknown) {
+      console.error('Error saving draft:', error);
+      const message = error instanceof Error ? error.message : 'Failed to save draft. Please try again.';
+      toast.error(message);
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setSaving(true);
 
@@ -315,222 +605,23 @@ export default function NewPropertyPage() {
         return;
       }
 
-      const supabase = createClient();
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      const isSupabaseConfigured = supabaseUrl &&
-        supabaseUrl !== '' &&
-        supabaseUrl !== 'https://placeholder.supabase.co' &&
-        supabaseKey &&
-        supabaseKey !== '' &&
-        supabaseKey !== 'placeholder-key';
+      const listingId = await persistListing('active');
 
-      let supabaseUser = null;
-      if (isSupabaseConfigured) {
-        const maxRetries = 5;
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
-          const {
-            data: { user: userData },
-          } = await supabase.auth.getUser();
-          if (userData) {
-            supabaseUser = userData;
-            break;
-          }
-          if (attempt < maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 400));
-          }
-        }
-      }
-
-      // Listings belong to the host being supported when an admin is in host support mode,
-      // otherwise to the signed-in host.
-      const signedInUserId = (supabaseUser?.id || user.id) as string;
-      const userId = targetHost?.id || signedInUserId;
-
-      if (isSupabaseConfigured && !supabaseUser) {
-        toast.error('Still signing you in. Wait a moment, then tap Publish again.');
-        setSaving(false);
-        return;
-      }
-
-      const allImageUrls: string[] = [];
-      for (const room of rooms) {
-        allImageUrls.push(...room.imagePreviewUrls);
-      }
-
-      const propertyId = `${userId}_${Date.now()}`;
-
-      // Get the display type from property type
-      const propertyTypeLabel = PROPERTY_TYPES.find(t => t.id === formData.propertyType)?.label || formData.propertyType;
-      const accessTypeLabel = GUEST_ACCESS_TYPES.find(t => t.id === formData.guestAccessType)?.label || formData.guestAccessType;
-
-      const propertyData = {
-        id: propertyId,
-        host_id: userId,
-        name: formData.name,
-        title: formData.name,
-        description: formData.description,
-        location: formData.location,
-        price: formData.price,
-        images: allImageUrls,
-        amenities: formData.amenities,
-        bedrooms: formData.bedrooms,
-        bathrooms: formData.bathrooms,
-        beds: formData.beds != null && formData.beds >= 1 ? formData.beds : null,
-        guests: formData.guests,
-        status: 'active',
-        type: propertyTypeLabel,
-        guest_access_type: accessTypeLabel,
-        wellness_friendly:
-          formData.wellnessFriendly ||
-          formData.wellnessConsumptionIndoorAllowed ||
-          formData.wellnessConsumptionOutdoorAllowed,
-        wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
-        wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
-        smoking_inside_allowed: false,
-        smoking_outside_allowed: false,
-        smoke_friendly: false,
-        allow_extra_guests: formData.allowExtraGuests,
-        extra_guest_price: formData.extraGuestPrice,
-        cleaning_fee: formData.cleaningFee,
-        refundable_deposit: formData.refundableDeposit,
-        min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
-        ...policyToDbColumns(formData.checkInOut),
-        ...cancellationSafetyToDbColumns({
-          cancellationPolicy: formData.cancellationPolicy,
-          partiesAllowed: formData.partiesAllowed,
-          safety: formData.safety,
-        }),
-        latitude: formData.coordinates?.lat,
-        longitude: formData.coordinates?.lng,
-        google_maps_url: formData.coordinates
-          ? `https://www.google.com/maps/search/?api=1&query=${formData.coordinates.lat},${formData.coordinates.lng}`
-          : null,
-      };
-
-      if (!isSupabaseConfigured) {
-        const savedProperties = localStorage.getItem(`properties_${userId}`);
-        const parsedProperties = savedProperties ? JSON.parse(savedProperties) : [];
-        parsedProperties.push({
-          ...propertyData,
-          cleaningFee: formData.cleaningFee,
-          min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
-          minBookingNights: normalizeMinBookingNights(formData.minBookingNights),
-          wellnessFriendly: formData.wellnessFriendly,
-          wellnessConsumptionIndoorAllowed: formData.wellnessConsumptionIndoorAllowed,
-          wellnessConsumptionOutdoorAllowed: formData.wellnessConsumptionOutdoorAllowed,
-          smokingInsideAllowed: false,
-          smokingOutsideAllowed: false,
-          smokeFriendly: false,
-        });
-        writeHostPropertiesCache(userId, parsedProperties);
-
-        toast.success('Property published!');
-        router.push('/host/application-submitted');
-      } else if (targetHost) {
-        // RLS only allows inserts where host_id is the caller's own id, so the admin route
-        // creates the listing (and the host's notification) with the service role.
-        const headers = await getHeadersForAdminFetch();
-        if (!headers.Authorization) {
-          throw new Error('Your admin session expired — please sign in again.');
-        }
-
-        // Photos go up after the row exists: embedded photos in the create body would blow
-        // past the serverless request limit and come back as a 413.
-        const response = await fetch('/api/admin/properties', {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            hostId: targetHost.id,
-            property: { ...propertyData, images: allImageUrls.filter((u) => !isDataUrl(u)) },
-          }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to create the listing for this host');
-        }
-
-        const createdId: string = data.propertyId || propertyId;
-
-        if (allImageUrls.some(isDataUrl)) {
-          const toastId = toast.loading('Uploading photos…');
-          const upload = await uploadPropertyImages(createdId, allImageUrls, (done, total) => {
-            toast.loading(`Uploading photos… ${done}/${total}`, { id: toastId });
-          });
-          const stored = upload.urls.filter((u) => !isDataUrl(u));
-
-          if (stored.length > 0) {
-            const patch = await fetch(`/api/host/properties/${encodeURIComponent(createdId)}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              // The create step already emailed the host; this is the same save.
-              body: JSON.stringify({ images: stored, notifyHost: false }),
-            });
-            if (!patch.ok) {
-              const patchError = await patch.json().catch(() => ({}));
-              toast.error(patchError.error || 'Listing created, but photos could not be attached.', {
-                id: toastId,
-              });
-            } else if (upload.error) {
-              toast.error(`Some photos failed to upload: ${upload.error}`, { id: toastId });
-            } else {
-              toast.success('Photos uploaded.', { id: toastId });
-            }
-          } else {
-            toast.error(upload.error || 'Photos could not be uploaded.', { id: toastId });
-          }
-        }
-
+      if (targetHost) {
         toast.success(`Listing created for ${targetHost.label}.`, { duration: 5000 });
-        router.push(`/admin/listings?property=${encodeURIComponent(createdId)}`);
+        router.push(`/admin/listings?property=${encodeURIComponent(listingId)}`);
         return;
-      } else {
-        const { error: insertError } = await supabase
-          .from('properties')
-          .insert(propertyData);
-
-        if (insertError) {
-          console.error('Error saving property:', insertError);
-          toast.error(`Failed to save: ${insertError.message}`);
-          throw insertError;
-        }
-
-        try {
-          await supabase.from('notifications').insert({
-            user_id: supabaseUser!.id,
-            type: 'property_submitted',
-            title: 'Listing published',
-            message: `Your property "${formData.name}" is saved and live. Manage it from your dashboard anytime.`,
-            related_property_id: propertyId,
-          });
-        } catch (e) {
-          console.warn('Could not create notification:', e);
-        }
-
-        try {
-          await fetch(`/api/host/properties/${propertyId}/invalidate-cache`, { method: 'POST' });
-        } catch {
-          /* non-blocking */
-        }
-
-        try {
-          await fetch(`/api/host/properties/${propertyId}/notify-saved`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ action: 'created' }),
-          });
-        } catch {
-          /* non-blocking */
-        }
-
-        toast.success('Property published! You can edit it anytime from your dashboard.', { duration: 5000 });
-        router.push('/host/application-submitted');
       }
-    } catch (error: any) {
+
+      toast.success('Property published! You can edit it anytime from your dashboard.', {
+        duration: 5000,
+      });
+      router.push('/host/application-submitted');
+    } catch (error: unknown) {
       console.error('Error creating property:', error);
-      toast.error(error.message || 'Failed to submit property. Please try again.');
+      const message =
+        error instanceof Error ? error.message : 'Failed to submit property. Please try again.';
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -634,6 +725,12 @@ export default function NewPropertyPage() {
           Get started
           <ChevronRight size={20} />
         </button>
+        <p className="text-center text-sm text-gray-500 mt-4">
+          Already started a listing?{' '}
+          <Link href="/host/properties" className="text-emerald-400 hover:text-emerald-300 underline">
+            Continue a draft from My Properties
+          </Link>
+        </p>
       </div>
     </div>
   );
@@ -996,16 +1093,22 @@ export default function NewPropertyPage() {
       <div className="space-y-6">
         {rooms.map((room) => (
           <div key={room.id} className="border border-gray-700 rounded-xl p-6 bg-gray-900/50">
-            <label className="block border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-500 transition mb-6">
+            <label
+              htmlFor={`property-photos-upload-${room.id}`}
+              className="relative block border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-500 transition mb-6"
+            >
               <Upload size={40} className="mx-auto text-gray-400 mb-3" />
               <p className="text-white font-medium mb-1">Click to upload photos</p>
               <p className="text-gray-500 text-sm">or drag and drop</p>
               <input
+                id={`property-photos-upload-${room.id}`}
+                name="property-photos"
                 type="file"
                 accept="image/*"
                 multiple
+                aria-label="Upload photos"
                 onChange={(e) => handleImageUpload(room.id, e)}
-                className="hidden"
+                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
               />
             </label>
 
@@ -1357,12 +1460,11 @@ export default function NewPropertyPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                toast.success('Progress saved!');
-              }}
-              className="px-4 py-2 border border-gray-700 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+              onClick={handleSaveAndExit}
+              disabled={saving || savingDraft}
+              className="px-4 py-2 border border-gray-700 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium disabled:opacity-50"
             >
-              Save & exit
+              {savingDraft ? 'Saving…' : 'Save & exit'}
             </button>
           </div>
         </header>

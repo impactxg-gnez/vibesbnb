@@ -6,6 +6,7 @@ import { isAdminUser } from '@/lib/auth/isAdmin';
 export type PropertyHostRow = {
   id: string;
   host_id: string;
+  price?: number | null;
 };
 
 /**
@@ -31,7 +32,7 @@ export async function resolveHostPropertyAccess(propertyId: string): Promise<
 
   const { data: property, error } = await reader
     .from('properties')
-    .select('id, host_id')
+    .select('id, host_id, price')
     .eq('id', propertyId)
     .maybeSingle();
 

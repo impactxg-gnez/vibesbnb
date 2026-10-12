@@ -920,6 +920,19 @@ export default function ImportReviewPage() {
               </button>
             </div>
 
+            {rooms.reduce((sum, r) => sum + r.imagePreviewUrls.length, 0) < 2 && (
+              <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm flex items-start gap-3">
+                <span className="text-xl">📸</span>
+                <div>
+                  <p className="font-semibold text-amber-100">Add listing photos</p>
+                  <p className="text-amber-200/80 text-xs mt-1">
+                    Some external platforms (such as Airbnb) occasionally employ bot challenges preventing automatic image extraction. 
+                    You can easily upload your original property photos directly into the room upload boxes below.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-6">
               {rooms.map((room, roomIndex) => (
                 <div key={room.id} className="border border-gray-700 rounded-lg p-4">

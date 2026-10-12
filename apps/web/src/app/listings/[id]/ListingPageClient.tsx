@@ -154,6 +154,7 @@ const getGeneralLocation = (location: string): string => formatPublicLocation(lo
 
 export default function ListingDetailPage() {
   const params = useParams();
+  const propertyId = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : '';
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -238,6 +239,26 @@ export default function ListingDetailPage() {
   const [openBookingChat, setOpenBookingChat] = useState(false);
   const hostChatRef = useRef<PropertyChatHandle>(null);
   const [stayHydrated, setStayHydrated] = useState(false);
+  const [customDailyRates, setCustomDailyRates] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!propertyId) return;
+    fetch(`/api/properties/${encodeURIComponent(propertyId)}/availability`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const rates: Record<string, number> = {};
+        (data.availability || []).forEach(
+          (entry: { day: string; status: string; price?: number | null }) => {
+            if (entry.price != null && Number(entry.price) > 0) {
+              rates[entry.day] = Number(entry.price);
+            }
+          }
+        );
+        setCustomDailyRates(rates);
+      })
+      .catch(() => {});
+  }, [propertyId]);
 
   // Prefill from URL (or last stay selection) once on the client
   useEffect(() => {
@@ -820,6 +841,7 @@ export default function ListingDetailPage() {
           pets: partyPets,
           wellnessLineItems: wellnessCart,
           applyCardFee: property.allowDirectBooking === true,
+          customDailyRates,
         })
       : null;
 

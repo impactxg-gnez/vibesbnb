@@ -26,6 +26,8 @@ export type BookingQuoteInput = {
   feePercent?: number;
   earlyCheckInFee?: number;
   lateCheckOutFee?: number;
+  /** Optional custom nightly rates by date key ('YYYY-MM-DD' => rate). */
+  customDailyRates?: Record<string, number>;
 };
 
 export type BookingQuote = {
@@ -80,9 +82,26 @@ export function computeBookingQuote(input: BookingQuoteInput): BookingQuote | nu
   const nights = nightsBetweenYmd(input.checkInYmd, input.checkOutYmd);
   if (nights <= 0) return null;
 
-  const hostNightlyRate = Math.max(0, Number(input.hostNightlyRate) || 0);
+  const defaultNightlyRate = Math.max(0, Number(input.hostNightlyRate) || 0);
   const feePercent = input.feePercent ?? getPlatformFeePercent();
-  const totalRent = roundMoney(hostNightlyRate * nights);
+
+  let totalRent = 0;
+  if (input.customDailyRates && Object.keys(input.customDailyRates).length > 0) {
+    const start = new Date(input.checkInYmd + 'T12:00:00');
+    const end = new Date(input.checkOutYmd + 'T12:00:00');
+    for (let cursor = new Date(start); cursor < end; cursor.setDate(cursor.getDate() + 1)) {
+      const dayKey = cursor.toISOString().split('T')[0];
+      const rate = input.customDailyRates[dayKey] != null
+        ? Number(input.customDailyRates[dayKey])
+        : defaultNightlyRate;
+      totalRent += Math.max(0, rate);
+    }
+    totalRent = roundMoney(totalRent);
+  } else {
+    totalRent = roundMoney(defaultNightlyRate * nights);
+  }
+
+  const effectiveNightlyRate = nights > 0 ? roundMoney(totalRent / nights) : defaultNightlyRate;
   const platformFee = roundMoney(totalRent * (feePercent / 100));
 
   const adults = Math.max(1, Number(input.adults) || 1);
@@ -126,7 +145,7 @@ export function computeBookingQuote(input: BookingQuoteInput): BookingQuote | nu
 
   return {
     nights,
-    hostNightlyRate,
+    hostNightlyRate: effectiveNightlyRate,
     totalRent,
     platformFee,
     platformFeePercent: feePercent,
@@ -184,6 +203,7 @@ export function buildBookingQuoteFromProperty(params: {
   earlyCheckInFee?: number;
   lateCheckOutFee?: number;
   feePercent?: number;
+  customDailyRates?: Record<string, number>;
 }): BookingQuote | null {
   const cleaning =
     params.property.cleaning_fee != null
@@ -215,5 +235,6 @@ export function buildBookingQuoteFromProperty(params: {
     earlyCheckInFee: params.earlyCheckInFee,
     lateCheckOutFee: params.lateCheckOutFee,
     feePercent: params.feePercent,
+    customDailyRates: params.customDailyRates,
   });
 }
