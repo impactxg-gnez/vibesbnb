@@ -25,6 +25,7 @@ import {
   Leaf,
   Building2,
   Clock,
+  Images,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
@@ -88,6 +89,7 @@ import {
 import { ThingsToKnowSection } from '@/components/properties/ThingsToKnowSection';
 import { AmenityIcon } from '@/lib/amenityIcons';
 import { ListingAccessibilitySection } from '@/components/listings/ListingAccessibilitySection';
+import { ListingPhotosModal } from '@/components/listings/ListingPhotosModal';
 import { altForImageUrl, normalizeImageAlts } from '@/lib/accessibility';
 
 const GALLERY_HERO_BLUR =
@@ -168,6 +170,7 @@ export default function ListingDetailPage() {
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [reviewsData, setReviewsData] = useState<any[]>([]);
   const [isReviewsModalOpen, setIsReviewsModalOpen] = useState(false);
+  const [isPhotosModalOpen, setIsPhotosModalOpen] = useState(false);
   const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [aboutTab, setAboutTab] = useState<'description' | 'vibesbnb'>('description');
   const [isDescriptionCollapsed, setIsDescriptionCollapsed] = useState(true);
@@ -1015,7 +1018,7 @@ export default function ListingDetailPage() {
                 >
                   <ChevronRight size={24} />
                 </button>
-                <div className="absolute bottom-4 left-1/2 z-[5] -translate-x-1/2 flex gap-2 max-w-[90%] overflow-hidden">
+                <div className="absolute bottom-16 left-1/2 z-[5] -translate-x-1/2 flex gap-2 max-w-[70%] overflow-hidden">
                   {galleryImages.slice(0, 20).map((_, index) => (
                     <button
                       key={index}
@@ -1032,6 +1035,15 @@ export default function ListingDetailPage() {
                 </div>
               </>
             )}
+
+            <button
+              type="button"
+              onClick={() => setIsPhotosModalOpen(true)}
+              className="absolute bottom-4 right-4 z-[15] flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-gray-900 text-sm font-semibold shadow-lg hover:bg-gray-100 transition"
+            >
+              <Images size={16} aria-hidden />
+              Show all photos
+            </button>
           </div>
           </div>
 
@@ -1765,6 +1777,14 @@ export default function ListingDetailPage() {
         rating={displayRating}
         reviewCount={displayReviewCount}
         initialReviews={reviewsData}
+      />
+      <ListingPhotosModal
+        open={isPhotosModalOpen}
+        onClose={() => setIsPhotosModalOpen(false)}
+        images={galleryImages}
+        imageAlts={property.imageAlts}
+        propertyName={property.name}
+        initialIndex={currentImageIndex}
       />
     </div>
   );
