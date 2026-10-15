@@ -25,7 +25,7 @@ import {
   Leaf,
   Building2,
   Clock,
-  Images,
+  Image as ImageIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
@@ -1041,7 +1041,7 @@ export default function ListingDetailPage() {
               onClick={() => setIsPhotosModalOpen(true)}
               className="absolute bottom-4 right-4 z-[15] flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-gray-900 text-sm font-semibold shadow-lg hover:bg-gray-100 transition"
             >
-              <Images size={16} aria-hidden />
+              <ImageIcon size={16} aria-hidden />
               Show all photos
             </button>
           </div>
