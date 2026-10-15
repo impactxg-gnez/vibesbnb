@@ -46,6 +46,7 @@ export const PROPERTY_WRITABLE_COLUMNS = [
   'google_maps_url',
   'vibesbnb_take',
   'guest_agreement_url',
+  'custom_slug',
   'status',
   'updated_at',
 ] as const;

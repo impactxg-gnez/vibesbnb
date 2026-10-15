@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, CalendarX, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed, Clock } from 'lucide-react';
+import { Plus, Home, Edit, Trash2, ExternalLink, Upload, Power, Map, CalendarClock, CalendarCheck, CalendarX, History, X, Loader2, Wand2, Share2, MessageSquare, AlertTriangle, CreditCard, ArrowRight, Bed, Clock, Link2, Copy } from 'lucide-react';
 import { validateProperty, getMissingFieldsSummary, canPublish, PropertyValidation } from '@/lib/property-validation';
 import { propertyMissingCheckInOutTimes } from '@/lib/checkInOutPolicy';
 
@@ -31,6 +31,7 @@ import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
 import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
 import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
 import { isCheckInDatePast } from '@/lib/dateUtils';
+import { suggestPropertySlug } from '@/lib/propertySlug';
 
 type HostBookingPanelType = 'new' | 'upcoming' | 'previous' | 'missed';
 
@@ -58,7 +59,13 @@ const HOST_PROPERTY_LIST_COLUMNS = [
   'amenities',
   'cover_image',
   'created_at',
+  'custom_slug',
 ].join(',');
+
+const HOST_PROPERTY_LIST_COLUMNS_NO_SLUG = HOST_PROPERTY_LIST_COLUMNS.replace(
+  ',custom_slug',
+  ''
+);
 
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -96,6 +103,7 @@ interface Property {
   check_out_time?: string | null;
   googleMapsUrl?: string;
   sourceUrl?: string;
+  customSlug?: string | null;
   coordinates?: {
     lat: number;
     lng: number;
@@ -115,6 +123,9 @@ export default function HostPropertiesPage() {
   const [showGoogleLocationModal, setShowGoogleLocationModal] = useState(false);
   const [propertiesForLocation, setPropertiesForLocation] = useState<Array<{ id: string; name: string; url: string }>>([]);
   const [updatingLocations, setUpdatingLocations] = useState(false);
+  const [slugModalProperty, setSlugModalProperty] = useState<Property | null>(null);
+  const [slugDraft, setSlugDraft] = useState('');
+  const [savingSlug, setSavingSlug] = useState(false);
   const [stats, setStats] = useState({
     totalProperties: 0,
     activeListings: 0,
@@ -289,15 +300,30 @@ export default function HostPropertiesPage() {
         const hostScopeId = getHostScopeUserId(user, supabaseUser.id);
         // Fetch properties from Supabase (slim columns — select('*') hangs on base64 galleries)
         console.log('[Properties] Loading properties for host_id:', hostScopeId);
-        const { data: propertiesData, error } = await withTimeout(
-          supabase
-            .from('properties')
-            .select(HOST_PROPERTY_LIST_COLUMNS)
-            .eq('host_id', hostScopeId)
-            .order('created_at', { ascending: false }),
+        let listQuery = supabase
+          .from('properties')
+          .select(HOST_PROPERTY_LIST_COLUMNS)
+          .eq('host_id', hostScopeId)
+          .order('created_at', { ascending: false });
+        let { data: propertiesData, error } = await withTimeout(
+          listQuery,
           20000,
           'Host properties query'
         );
+
+        if (error && /custom_slug/i.test(error.message || '')) {
+          const fallback = await withTimeout(
+            supabase
+              .from('properties')
+              .select(HOST_PROPERTY_LIST_COLUMNS_NO_SLUG)
+              .eq('host_id', hostScopeId)
+              .order('created_at', { ascending: false }),
+            20000,
+            'Host properties query'
+          );
+          propertiesData = fallback.data;
+          error = fallback.error;
+        }
 
         if (error) {
           console.error('[Properties] Error loading properties from Supabase:', error);
@@ -340,6 +366,7 @@ export default function HostPropertiesPage() {
                 check_out_time: p.check_out_time ?? null,
                 googleMapsUrl: p.google_maps_url,
                 sourceUrl: p.source_url,
+                customSlug: typeof p.custom_slug === 'string' && p.custom_slug ? p.custom_slug : null,
                 coordinates: p.latitude && p.longitude ? {
                   lat: p.latitude,
                   lng: p.longitude,
@@ -392,6 +419,7 @@ export default function HostPropertiesPage() {
                     check_out_time: localProp.check_out_time ?? localProp.checkOutTime ?? null,
                     googleMapsUrl: localProp.googleMapsUrl,
                     sourceUrl: localProp.sourceUrl,
+                    customSlug: localProp.customSlug || localProp.custom_slug || null,
                     coordinates: localProp.coordinates,
                     type: localProp.type || '',
                   });
@@ -475,6 +503,7 @@ export default function HostPropertiesPage() {
                     status: (p.status || 'draft') as 'active' | 'draft' | 'inactive' | 'pending_approval',
                     wellnessFriendly: p.wellnessFriendly || p.wellness_friendly || false,
                     googleMapsUrl: p.googleMapsUrl || p.google_maps_url,
+                    customSlug: p.customSlug || p.custom_slug || null,
                     coordinates: p.coordinates || (p.latitude && p.longitude ? { lat: p.latitude, lng: p.longitude } : undefined),
                     type: p.type || '',
                   }));
@@ -1088,6 +1117,57 @@ export default function HostPropertiesPage() {
     } catch (error: any) {
       console.error('Error toggling publish status:', error);
       toast.error(error.message || 'Failed to update property status');
+    }
+  };
+
+  const listingShareUrl = (property: Property) => {
+    if (typeof window === 'undefined') return `/listings/${property.id}`;
+    if (property.customSlug) {
+      return `${window.location.origin}/${property.customSlug}`;
+    }
+    return `${window.location.origin}/listings/${property.id}`;
+  };
+
+  const openSlugModal = (property: Property) => {
+    setSlugModalProperty(property);
+    setSlugDraft(property.customSlug || suggestPropertySlug(property.name));
+  };
+
+  const handleSaveCustomSlug = async (clear = false) => {
+    if (!slugModalProperty) return;
+    setSavingSlug(true);
+    try {
+      const response = await fetch(
+        `/api/host/properties/${encodeURIComponent(slugModalProperty.id)}/slug`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ slug: clear ? '' : slugDraft }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save custom slug');
+      }
+      const nextSlug = typeof data.slug === 'string' && data.slug ? data.slug : null;
+      const updated = properties.map((p) =>
+        p.id === slugModalProperty.id ? { ...p, customSlug: nextSlug } : p
+      );
+      setProperties(updated);
+      if (user) {
+        writeHostPropertiesCache(
+          getHostScopeUserIdFromAuthOnly(user) || user.id,
+          updated as unknown as Record<string, unknown>[]
+        );
+      }
+      setSlugModalProperty(nextSlug ? { ...slugModalProperty, customSlug: nextSlug } : null);
+      if (nextSlug) setSlugDraft(nextSlug);
+      toast.success(nextSlug ? 'Custom slug saved' : 'Custom slug removed');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save custom slug');
+    } finally {
+      setSavingSlug(false);
     }
   };
 
@@ -1945,7 +2025,7 @@ export default function HostPropertiesPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        const url = `${window.location.origin}/listings/${property.id}`;
+                        const url = listingShareUrl(property);
                         navigator.clipboard.writeText(url);
                         toast.success('Property link copied to clipboard!');
                       }}
@@ -2068,7 +2148,7 @@ export default function HostPropertiesPage() {
                         })()}
                       </button>
                       <Link
-                        href={`/listings/${property.id}`}
+                        href={property.customSlug ? `/${property.customSlug}` : `/listings/${property.id}`}
                         className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center justify-center"
                         target="_blank"
                         title="View Live Listing"
@@ -2077,7 +2157,7 @@ export default function HostPropertiesPage() {
                       </Link>
                       <button
                         onClick={() => {
-                          const propertyUrl = `${window.location.origin}/listings/${property.id}`;
+                          const propertyUrl = listingShareUrl(property);
                           navigator.clipboard.writeText(propertyUrl);
                           toast.success('Property link copied to clipboard!');
                         }}
@@ -2102,7 +2182,20 @@ export default function HostPropertiesPage() {
                         <CalendarClock size={17} aria-hidden />
                         Calendar / iCal sync
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => openSlugModal(property)}
+                        className="flex-1 min-w-[10rem] px-4 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
+                      >
+                        <Link2 size={17} aria-hidden />
+                        {property.customSlug ? 'Edit custom slug' : 'Add custom slug'}
+                      </button>
                     </div>
+                    {property.customSlug && (
+                      <p className="mt-2 text-xs text-emerald-400/90 truncate" title={`/${property.customSlug}`}>
+                        vibesbnb.com/{property.customSlug}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -2257,6 +2350,78 @@ export default function HostPropertiesPage() {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {slugModalProperty && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-lg w-full p-6">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h2 className="text-2xl font-bold text-white">Custom slug</h2>
+              <button
+                type="button"
+                onClick={() => setSlugModalProperty(null)}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Share {slugModalProperty.name} as a short link on vibesbnb.com. Visitors are sent to the listing page.
+            </p>
+            <label className="block text-sm font-medium text-gray-300 mb-2" htmlFor="custom-property-slug">
+              Slug
+            </label>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-gray-500 text-sm shrink-0">vibesbnb.com/</span>
+              <input
+                id="custom-property-slug"
+                type="text"
+                value={slugDraft}
+                onChange={(e) => setSlugDraft(e.target.value)}
+                placeholder="villa-dream-vibe"
+                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mb-6">
+              Lowercase letters, numbers, and hyphens. Example: villa-chic-vibe
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => handleSaveCustomSlug(false)}
+                disabled={savingSlug || !slugDraft.trim()}
+                className="flex-1 min-w-[8rem] px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition disabled:opacity-50"
+              >
+                {savingSlug ? 'Saving…' : 'Save slug'}
+              </button>
+              {slugModalProperty.customSlug && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/${slugModalProperty.customSlug}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success('Custom link copied');
+                  }}
+                  className="px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+                >
+                  <Copy size={16} />
+                  Copy link
+                </button>
+              )}
+              {slugModalProperty.customSlug && (
+                <button
+                  type="button"
+                  onClick={() => handleSaveCustomSlug(true)}
+                  disabled={savingSlug}
+                  className="px-4 py-3 bg-gray-800 text-red-300 rounded-lg hover:bg-gray-700 transition"
+                >
+                  Remove
+                </button>
+              )}
             </div>
           </div>
         </div>
