@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
 import { syncOnePropertyIcalSource } from '@/lib/calendar/syncExternalIcal';
+import { getSiteUrl } from '@/lib/seo/siteUrl';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -32,7 +33,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       throw sourcesError;
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = getSiteUrl();
     const token = property.ical_export_token;
     const exportUrl =
       token != null ? `${appUrl}/calendar/${params.id}.ics?token=${encodeURIComponent(token)}` : '';

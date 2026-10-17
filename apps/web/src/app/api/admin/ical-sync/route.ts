@@ -7,6 +7,7 @@ import {
   deriveIcalSyncStatus,
   type IcalSyncExportRow,
 } from '@/lib/icalSyncExcel';
+import { getSiteUrl } from '@/lib/seo/siteUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,11 +31,8 @@ type SourceRow = {
   last_synced_at: string | null;
 };
 
-function appBaseUrl(request: NextRequest): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ||
-    request.nextUrl.origin.replace(/\/$/, '')
-  );
+function appBaseUrl(_request: NextRequest): string {
+  return getSiteUrl();
 }
 
 function exportUrlFor(propertyId: string, token: string, base: string): string {

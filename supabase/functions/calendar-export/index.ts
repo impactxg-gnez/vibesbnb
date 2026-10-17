@@ -2,10 +2,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  const appUrl = (Deno.env.get("NEXT_PUBLIC_APP_URL") || Deno.env.get("APP_ORIGIN") || "").replace(
+  const rawAppUrl = (Deno.env.get("NEXT_PUBLIC_APP_URL") || Deno.env.get("APP_ORIGIN") || "").replace(
     /\/$/,
     "",
   );
+  let appUrl = rawAppUrl;
+  try {
+    const host = rawAppUrl ? new URL(rawAppUrl).hostname.toLowerCase() : "";
+    if (!rawAppUrl || host === "vercel.app" || host.endsWith(".vercel.app")) {
+      appUrl = "https://vibesbnb.com";
+    }
+  } catch {
+    appUrl = "https://vibesbnb.com";
+  }
   if (!appUrl) {
     return new Response(JSON.stringify({ error: "Set NEXT_PUBLIC_APP_URL or APP_ORIGIN" }), {
       status: 501,
