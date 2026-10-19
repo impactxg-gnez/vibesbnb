@@ -7,8 +7,10 @@ import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
 import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
-import { Trash2 } from 'lucide-react';
+import { Sparkles, Trash2 } from 'lucide-react';
 import { hideConversation } from '@/lib/chat/inboxActions';
+import { VibeBotThread } from '@/components/concierge/VibeBotThread';
+import { VIBEBOT_CONVERSATION_ID } from '@/lib/concierge/openVibeBot';
 
 interface Conversation {
   id: string;
@@ -53,6 +55,12 @@ export default function MessagesPage() {
     }
   }, [loading, user, router]);
 
+  useEffect(() => {
+    if (preselectedId === VIBEBOT_CONVERSATION_ID) {
+      setSelectedConversation(VIBEBOT_CONVERSATION_ID);
+    }
+  }, [preselectedId]);
+
   const loadConversations = useCallback(async (showLoading = true) => {
     if (!user) return;
     if (showLoading) setLoadingList(true);
@@ -77,8 +85,8 @@ export default function MessagesPage() {
           typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
         if (preselectedId) {
           setSelectedConversation(preselectedId);
-        } else if (desktop && data.conversations?.length) {
-          setSelectedConversation(data.conversations[0].id);
+        } else if (desktop) {
+          setSelectedConversation(VIBEBOT_CONVERSATION_ID);
         }
         initialLoadDone.current = true;
       }
@@ -205,6 +213,23 @@ export default function MessagesPage() {
             } bg-gray-900 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-xl p-4 h-full overflow-y-auto custom-scrollbar`}
           >
             <h2 className="text-lg font-semibold text-white mb-4">Conversations</h2>
+            <button
+              type="button"
+              onClick={() => setSelectedConversation(VIBEBOT_CONVERSATION_ID)}
+              className={`w-full text-left p-3 rounded-lg transition mb-4 border ${
+                selectedConversation === VIBEBOT_CONVERSATION_ID
+                  ? 'bg-emerald-600 text-white border-emerald-500'
+                  : 'bg-gray-800 text-gray-200 hover:bg-gray-700 border-emerald-500/30'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <div>
+                  <p className="font-semibold">VibeBot</p>
+                  <p className="text-xs opacity-80">Pinned · Ask for stays by dates, guests, and budget</p>
+                </div>
+              </div>
+            </button>
             {loadingList ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -213,8 +238,7 @@ export default function MessagesPage() {
               </div>
             ) : conversations.length === 0 ? (
               <p className="text-gray-500 text-sm">
-                No conversations yet. Start by messaging a host from a property
-                page.
+                No host chats yet. Use VibeBot above, or message a host from a listing.
               </p>
             ) : (
               <div className="space-y-3">
@@ -277,7 +301,11 @@ export default function MessagesPage() {
               threadOpen ? 'flex' : 'hidden lg:flex'
             } lg:col-span-2 h-full flex-col min-h-0 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-xl bg-gray-900 overflow-hidden`}
           >
-            {selectedConversationObj ? (
+            {selectedConversation === VIBEBOT_CONVERSATION_ID ? (
+              <div className="flex-1 min-h-0">
+                <VibeBotThread onBack={() => setSelectedConversation(null)} />
+              </div>
+            ) : selectedConversationObj ? (
               <>
                 <ConversationBookingPanel
                   bookingId={selectedConversationObj.booking_id}
