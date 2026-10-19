@@ -12,6 +12,7 @@ import {
   getServiceFeePercent,
 } from '@/lib/platformSettings';
 import { computeLodgingWithBakedFee } from '@/lib/platformPricing';
+import { guestPaysCardProcessingFee } from '@/lib/p0MasterBuild';
 
 export type HostPayoutStatus = 'pending' | 'paid' | 'cancelled';
 
@@ -231,7 +232,7 @@ function guestTotalForStay(params: {
         property.extra_guest_price != null ? Number(property.extra_guest_price) : 0,
       refundableDeposit:
         property.refundable_deposit != null ? Number(property.refundable_deposit) : 0,
-      applyCardFee: property.allow_direct_booking === true,
+      applyCardFee: guestPaysCardProcessingFee(),
     });
     if (grandTotal > 0) return roundMoney(grandTotal);
   }

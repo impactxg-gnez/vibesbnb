@@ -7,6 +7,7 @@ import {
 } from '@/lib/propertyImageUrls';
 import { createPublicSupabase } from '@/lib/seo/publicSupabase';
 import { isMiamiLocation, parsePropertyPlace, type MiamiNeighborhoodId } from '@/lib/seo/propertyPlace';
+import { listingAllowsDirectBooking } from '@/lib/p0MasterBuild';
 import { resolvePropertyStayPolicies } from '@/lib/seo/propertyStayPolicies';
 
 export const SEO_PROPERTY_PAGE_SIZE = 50;
@@ -122,7 +123,7 @@ export function mapSeoPropertyRow(row: Record<string, unknown>): SeoPropertyCard
     neighborhood: place.neighborhood,
     neighborhoodName: place.neighborhoodName,
     publicLocation: place.publicLocation,
-    allowDirectBooking: row.allow_direct_booking === true,
+    allowDirectBooking: listingAllowsDirectBooking(row.allow_direct_booking === true),
   };
 }
 

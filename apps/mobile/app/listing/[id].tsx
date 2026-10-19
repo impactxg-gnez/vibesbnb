@@ -81,7 +81,7 @@ export default function ListingDetailScreen() {
       includedGuests: Number(property.guests) || 1,
       allowExtraGuests: property.allow_extra_guests === true,
       extraGuestPrice: Number(property.extra_guest_price) || 0,
-      applyCardFee: true,
+      applyCardFee: false,
     });
   }, [property, checkIn, checkOut, guests]);
 

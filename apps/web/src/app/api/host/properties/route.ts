@@ -5,6 +5,12 @@ import {
   PROPERTY_CREATE_KEYS,
   pickWritableProperty,
 } from '@/lib/propertyWritableColumns';
+import {
+  assertCanPublishListing,
+  publishBlockedMessage,
+  withPublishClockDefaults,
+} from '@/lib/listingPublishGate';
+import { REQUEST_TO_BOOK_ONLY } from '@/lib/p0MasterBuild';
 import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
@@ -142,7 +148,27 @@ export async function POST(request: NextRequest) {
       (typeof property.id === 'string' && property.id.trim()) ||
       `${auth.hostId}_${Date.now()}`;
 
+    if (REQUEST_TO_BOOK_ONLY) insertPayload.allow_direct_booking = false;
+
     const db = createServiceClient();
+    const nextStatus = String(insertPayload.status || 'draft');
+    if (nextStatus === 'active') {
+      const row = withPublishClockDefaults({ ...insertPayload, host_id: auth.hostId });
+      insertPayload.check_in_time = row.check_in_time;
+      insertPayload.check_out_time = row.check_out_time;
+      const blockers = await assertCanPublishListing({
+        db,
+        row,
+        hostId: auth.hostId,
+      });
+      if (blockers.length) {
+        return NextResponse.json(
+          { error: publishBlockedMessage(blockers), blockers },
+          { status: 400 }
+        );
+      }
+    }
+
     const savedId = await insertDroppingUnknownColumns(db, {
       ...insertPayload,
       id: propertyId,

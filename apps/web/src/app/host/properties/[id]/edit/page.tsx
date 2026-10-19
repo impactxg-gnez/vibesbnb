@@ -36,6 +36,7 @@ import {
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
+import { listingPublishBlockers, publishBlockedMessage } from '@/lib/listingPublishGate';
 
 const PHOTO_UPLOAD_TOAST = 'property-photo-upload';
 
@@ -572,10 +573,24 @@ export default function EditPropertyPage() {
       return;
     }
 
-    // If trying to publish, require coordinates
-    if (publish && !formData.coordinates) {
-      toast.error('Map coordinates are required to publish a property. Please add location coordinates using the map picker.');
-      return;
+    if (publish) {
+      const publishBlockers = listingPublishBlockers({
+        latitude: formData.coordinates?.lat,
+        longitude: formData.coordinates?.lng,
+        location: formData.location,
+        price: formData.price,
+        check_in_time: formData.checkInOut.checkInTime || '16:00',
+        check_out_time: formData.checkInOut.checkOutTime || '11:00',
+        images: formData.imagePreviewUrls,
+        rooms: rooms.map((r) => ({ images: r.imagePreviewUrls || [] })),
+        wellness_friendly: formData.wellnessFriendly,
+        wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+        wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
+      });
+      if (publishBlockers.length) {
+        toast.error(publishBlockedMessage(publishBlockers));
+        return;
+      }
     }
 
     if (!user) {
@@ -698,7 +713,7 @@ export default function EditPropertyPage() {
           cleaning_fee: formData.cleaningFee,
           refundable_deposit: formData.refundableDeposit,
           min_booking_nights: normalizeMinBookingNights(formData.minBookingNights),
-          allow_direct_booking: formData.allowDirectBooking,
+          allow_direct_booking: false,
           ...policyToDbColumns(formData.checkInOut),
           ...cancellationSafetyToDbColumns({
             cancellationPolicy: formData.cancellationPolicy,
@@ -1292,21 +1307,10 @@ export default function EditPropertyPage() {
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-xl font-semibold text-white mb-1">Booking approval</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              By default, guests send a request in Messages and you approve before they pay. Enable direct booking
-              to let guests pay with PayPal immediately after submitting their request.
+            <p className="text-sm text-gray-400">
+              Request-to-Book only. Guests message you first; they pay after you approve. Instant Book is off
+              for the master build (card processing stays a platform cost, not a guest fee).
             </p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.allowDirectBooking}
-                onChange={(e) =>
-                  setFormData({ ...formData, allowDirectBooking: e.target.checked })
-                }
-                className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="text-gray-300 text-sm">Allow bookings directly (skip message approval)</span>
-            </label>
           </div>
 
           {/* Multi-Unit Configuration */}

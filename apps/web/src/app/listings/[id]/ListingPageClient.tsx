@@ -72,6 +72,7 @@ import { PropertyReviewForm } from '@/components/properties/PropertyReviewForm';
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
 import { minNightsLabel, normalizeMinBookingNights } from '@/lib/minBookingNights';
+import { guestPaysCardProcessingFee, listingAllowsDirectBooking } from '@/lib/p0MasterBuild';
 import {
   formatEffectiveCheckInForViewer,
   formatEffectiveCheckOutForViewer,
@@ -186,7 +187,7 @@ function seedPropertyFromSeo(seo: SeoPropertyCard): Property {
     hostName: 'Property Host',
     hostImage: `https://api.dicebear.com/7.x/initials/svg?seed=${seo.id}`,
     type: seo.type || 'Retreat',
-    allowDirectBooking: seo.allowDirectBooking === true,
+    allowDirectBooking: listingAllowsDirectBooking(seo.allowDirectBooking === true),
   };
 }
 
@@ -545,7 +546,7 @@ export default function ListingDetailPage({
             minBookingNights: normalizeMinBookingNights(
               propertyData.min_booking_nights ?? propertyData.minBookingNights
             ),
-            allowDirectBooking: propertyData.allow_direct_booking === true,
+            allowDirectBooking: listingAllowsDirectBooking(propertyData.allow_direct_booking === true),
             checkInOut: policyFromDbRow(propertyData),
             ...(() => {
               const cs = cancellationSafetyFromDbRow(propertyData);
@@ -887,7 +888,7 @@ export default function ListingDetailPage({
           kids: partyKids,
           pets: partyPets,
           wellnessLineItems: wellnessCart,
-          applyCardFee: property.allowDirectBooking === true,
+          applyCardFee: guestPaysCardProcessingFee(),
           customDailyRates,
         })
       : null;
@@ -1833,7 +1834,7 @@ export default function ListingDetailPage({
                     selectedUnits={
                       selectedRoomsForQuote.length > 0 ? selectedRoomsForQuote : undefined
                     }
-                    showCardFee={property.allowDirectBooking === true}
+                    showCardFee={guestPaysCardProcessingFee()}
                     compact
                     onRemoveWellnessItem={handleRemoveWellnessItem}
                     onClearWellnessItems={handleClearWellnessItems}

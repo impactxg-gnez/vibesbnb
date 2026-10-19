@@ -14,6 +14,7 @@ import {
   policyFromDbRow,
 } from '@/lib/checkInOutPolicy';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
+import { guestPaysCardProcessingFee, listingAllowsDirectBooking } from '@/lib/p0MasterBuild';
 import {
   assertStayDoesNotConflict,
   blockBookingNights,
@@ -278,7 +279,7 @@ export async function POST(request: NextRequest) {
         propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
       refundableDeposit:
         propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
-      applyCardFee: propertyRow.allow_direct_booking === true,
+      applyCardFee: guestPaysCardProcessingFee(),
       earlyCheckInFee: earlyFee,
       lateCheckOutFee: lateFee,
       feePercent: serviceFeePercent,
@@ -316,7 +317,7 @@ export async function POST(request: NextRequest) {
       console.warn('Could not fetch host info with service role:', e);
     }
 
-    const allowDirectBooking = propertyRow.allow_direct_booking === true;
+    const allowDirectBooking = listingAllowsDirectBooking(propertyRow.allow_direct_booking === true);
 
     const conflict = await assertStayDoesNotConflict(serviceSupabase, {
       propertyId: String(property_id),

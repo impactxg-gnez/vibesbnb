@@ -55,6 +55,7 @@ import { ReservationQuote } from '@/components/booking/ReservationQuote';
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import type { HostBadge } from '@/lib/hostBadge';
 import type { SpecialOfferPayload } from '@/lib/specialOffer';
+import { guestPaysCardProcessingFee, listingAllowsDirectBooking } from '@/lib/p0MasterBuild';
 
 interface Property {
   id: string;
@@ -290,7 +291,7 @@ export default function NewBookingPage() {
           propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
         rooms: Array.isArray(propertyRow.rooms) ? propertyRow.rooms : [],
         minBookingNights: normalizeMinBookingNights(propertyRow.min_booking_nights),
-        allowDirectBooking: propertyRow.allow_direct_booking === true,
+        allowDirectBooking: listingAllowsDirectBooking(propertyRow.allow_direct_booking === true),
         checkInOut: policyFromDbRow(propertyRow),
         cancellationPolicy: normalizeCancellationPolicy(propertyRow.cancellation_policy),
       });
@@ -398,7 +399,7 @@ export default function NewBookingPage() {
           kids: formData.kids,
           pets: formData.pets,
           wellnessLineItems: wellnessLineItems,
-          applyCardFee: property.allowDirectBooking === true,
+          applyCardFee: guestPaysCardProcessingFee(),
           earlyCheckInFee: earlyLateFees.earlyFee,
           lateCheckOutFee: earlyLateFees.lateFee,
           customDailyRates: specialOffer ? undefined : customDailyRates,
@@ -1020,7 +1021,7 @@ export default function NewBookingPage() {
                         }))
                       : undefined
                   }
-                  showCardFee={property.allowDirectBooking === true}
+                  showCardFee={guestPaysCardProcessingFee()}
                   onRemoveWellnessItem={(index) => {
                     setWellnessLineItems((prev) => {
                       const next = prev.filter((_, i) => i !== index);

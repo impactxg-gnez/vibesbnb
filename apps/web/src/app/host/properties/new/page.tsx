@@ -68,6 +68,7 @@ import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import {
   cannabisShortLabel,
 } from '@/lib/consumptionPolicy';
+import { listingPublishBlockers, publishBlockedMessage } from '@/lib/listingPublishGate';
 
 interface Room {
   id: string;
@@ -405,7 +406,7 @@ export default function NewPropertyPage() {
       bathrooms: formData.bathrooms,
       beds: formData.beds != null && formData.beds >= 1 ? formData.beds : null,
       guests: formData.guests,
-      status,
+      status: status === 'active' ? 'draft' : status,
       type: propertyTypeLabel,
       guest_access_type: accessTypeLabel,
       wellness_friendly:
@@ -564,6 +565,40 @@ export default function NewPropertyPage() {
 
     const finalImages = await attachEmbeddedPhotos(listingId);
 
+    if (status === 'active') {
+      const publishHeaders = targetHost
+        ? { ...(await getHeadersForAdminFetch()), 'Content-Type': 'application/json' }
+        : await hostApiHeaders();
+      const publish = await fetch(`/api/host/properties/${encodeURIComponent(listingId)}`, {
+        method: 'PATCH',
+        headers: publishHeaders,
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          status: 'active',
+          images: finalImages,
+          latitude: formData.coordinates?.lat,
+          longitude: formData.coordinates?.lng,
+          price: formData.price,
+          location: formData.location,
+          ...policyToDbColumns(formData.checkInOut),
+          wellness_friendly:
+            formData.wellnessFriendly ||
+            formData.wellnessConsumptionIndoorAllowed ||
+            formData.wellnessConsumptionOutdoorAllowed,
+          wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+          wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
+          notifyHost: !targetHost,
+        }),
+      });
+      if (!publish.ok) {
+        const publishError = await publish.json().catch(() => ({}));
+        throw new Error(
+          publishError.error ||
+            'Saved as a draft. Finish the missing publish items, then try again.'
+        );
+      }
+    }
+
     if (status === 'active' && !targetHost) {
       try {
         await supabase.from('notifications').insert({
@@ -644,6 +679,24 @@ export default function NewPropertyPage() {
         return;
       }
 
+      const publishBlockers = listingPublishBlockers({
+        latitude: formData.coordinates?.lat,
+        longitude: formData.coordinates?.lng,
+        location: formData.location,
+        price: formData.price,
+        check_in_time: formData.checkInOut.checkInTime || '16:00',
+        check_out_time: formData.checkInOut.checkOutTime || '11:00',
+        images: rooms.flatMap((r) => r.imagePreviewUrls),
+        wellness_friendly: formData.wellnessFriendly,
+        wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
+        wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
+      });
+      if (publishBlockers.length) {
+        toast.error(publishBlockedMessage(publishBlockers));
+        setSaving(false);
+        return;
+      }
+
       const listingId = await persistListing('active');
 
       if (targetHost) {
@@ -701,7 +754,7 @@ export default function NewPropertyPage() {
             <div className="flex-1">
               <h3 className="text-xl font-semibold text-white mb-1">Make it stand out</h3>
               <p className="text-gray-400">
-                Add 5 or more photos plus a title and description — we'll help you out.
+                Add 8 or more photos plus a title and description — we'll help you out.
               </p>
             </div>
             <div className="w-20 h-20 flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-purple-600/10 rounded-2xl flex items-center justify-center">

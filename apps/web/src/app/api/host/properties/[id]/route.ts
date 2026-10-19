@@ -4,6 +4,12 @@ import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { PROPERTY_UPDATE_KEYS } from '@/lib/propertyWritableColumns';
 import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchListingSavedEmail } from '@/lib/notifications/dispatchListingSavedEmail';
+import {
+  assertCanPublishListing,
+  publishBlockedMessage,
+  withPublishClockDefaults,
+} from '@/lib/listingPublishGate';
+import { REQUEST_TO_BOOK_ONLY } from '@/lib/p0MasterBuild';
 import { isStockPlaceholderImageUrl } from '@/lib/propertyImageUrls';
 
 type RoomPayload = Record<string, unknown> & { id?: unknown; images?: unknown };
@@ -84,13 +90,35 @@ export async function PATCH(
       }
     }
 
+    if (REQUEST_TO_BOOK_ONLY) updatePayload.allow_direct_booking = false;
+
+    const { data: current } = await access.db
+      .from('properties')
+      .select('*')
+      .eq('id', params.id)
+      .maybeSingle();
+
     if (Array.isArray(updatePayload.rooms)) {
-      const { data: current } = await access.db
-        .from('properties')
-        .select('rooms')
-        .eq('id', params.id)
-        .maybeSingle();
       updatePayload.rooms = mergeRoomImages(updatePayload.rooms, current?.rooms);
+    }
+
+    const merged: Record<string, unknown> = { ...(current || {}), ...updatePayload };
+    if (String(merged.status || '') === 'active') {
+      const withClocks = withPublishClockDefaults(merged);
+      updatePayload.check_in_time = withClocks.check_in_time;
+      updatePayload.check_out_time = withClocks.check_out_time;
+      const blockers = await assertCanPublishListing({
+        db: access.db,
+        row: withClocks,
+        hostId: String(current?.host_id || access.property.host_id),
+        skipPayout: access.isAdmin,
+      });
+      if (blockers.length) {
+        return NextResponse.json(
+          { error: publishBlockedMessage(blockers), blockers },
+          { status: 400 }
+        );
+      }
     }
 
     const { error } = await access.db

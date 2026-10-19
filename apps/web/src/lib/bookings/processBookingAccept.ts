@@ -11,6 +11,7 @@ import { dispatchPushToUser } from '@/lib/pushDispatch';
 import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { bookingPayUrl } from '@/lib/bookings/payUrl';
+import { guestPaysCardProcessingFee } from '@/lib/p0MasterBuild';
 
 function ymd(d: string): string {
   return String(d).slice(0, 10);
@@ -139,7 +140,7 @@ export async function processBookingAccept(params: {
       propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
     refundableDeposit:
       propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
-    applyCardFee: propertyRow.allow_direct_booking === true,
+    applyCardFee: guestPaysCardProcessingFee(),
   });
 
   const conflict = await assertStayDoesNotConflict(serviceSupabase, {
