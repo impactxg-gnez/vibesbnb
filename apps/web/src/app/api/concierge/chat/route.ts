@@ -3,10 +3,10 @@ import { runGeminiConcierge } from '@/lib/concierge/geminiConcierge';
 import { heuristicStaySearch, looksLikeStayRequest } from '@/lib/concierge/heuristicSearch';
 import { runMuseConcierge } from '@/lib/concierge/museSpark';
 import { searchStays } from '@/lib/concierge/searchStays';
+import { persistConciergeTurn } from '@/lib/concierge/persistConcierge';
 import type { ConciergeChatMessage, StayCard } from '@/lib/concierge/types';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
-import { createServiceClient } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -31,29 +31,6 @@ async function getUser(request: NextRequest) {
   return data.user;
 }
 
-async function persist(
-  userId: string,
-  role: 'user' | 'assistant',
-  body: string,
-  listings?: StayCard[]
-) {
-  try {
-    const service = createServiceClient();
-    await service.from('vibe_bot_messages').insert({
-      user_id: userId,
-      role,
-      body,
-      listings: listings || null,
-    });
-    await service.from('vibe_bot_threads').upsert({
-      user_id: userId,
-      last_message: body.slice(0, 280),
-      last_message_at: new Date().toISOString(),
-    });
-  } catch (e) {
-    console.warn('[concierge] persist skipped', e);
-  }
-}
 
 function asHistory(raw: unknown): ConciergeChatMessage[] {
   if (!Array.isArray(raw)) return [];
@@ -119,8 +96,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
+    let conversationId =
+      typeof body.conversationId === 'string' && body.conversationId.trim()
+        ? body.conversationId.trim()
+        : null;
+
     if (user) {
-      await persist(user.id, 'user', message);
+      try {
+        conversationId = await persistConciergeTurn({
+          userId: user.id,
+          role: 'user',
+          body: message,
+          conversationId,
+        });
+      } catch (e) {
+        console.warn('[concierge] persist skipped', e);
+      }
     }
 
     let { reply, listings } = await runConcierge(message, asHistory(body.history));
@@ -142,7 +133,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (user) {
-      await persist(user.id, 'assistant', reply, listings);
+      try {
+        conversationId = await persistConciergeTurn({
+          userId: user.id,
+          role: 'assistant',
+          body: reply,
+          listings,
+          conversationId,
+        });
+      } catch (e) {
+        console.warn('[concierge] persist skipped', e);
+      }
     }
 
     const assistant: ConciergeChatMessage = {
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    return NextResponse.json({ message: assistant });
+    return NextResponse.json({ message: assistant, conversationId });
   } catch (error: unknown) {
     console.error('[concierge/chat]', error);
     const err = error instanceof Error ? error.message : 'VibeBot could not reply';

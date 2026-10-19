@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
+import { isUndefinedColumnError } from '@/lib/propertyDetailFetch';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { ConciergeChatMessage } from '@/lib/concierge/types';
 
@@ -31,13 +32,29 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ messages: [] });
     }
+    const conversationId = request.nextUrl.searchParams.get('conversationId')?.trim() || '';
     const service = createServiceClient();
-    const { data, error } = await service
+    let query = service
       .from('vibe_bot_messages')
       .select('id, role, body, listings, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
       .limit(80);
+    if (conversationId) {
+      query = query.eq('conversation_id', conversationId);
+    }
+    let { data, error } = await query;
+
+    if (error && isUndefinedColumnError(error) && conversationId) {
+      const retry = await service
+        .from('vibe_bot_messages')
+        .select('id, role, body, listings, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(80);
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       if (error.code === '42P01') return NextResponse.json({ messages: [] });

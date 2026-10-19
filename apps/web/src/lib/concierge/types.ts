@@ -32,3 +32,10 @@ export type ConciergeChatMessage = {
   listings?: StayCard[];
   createdAt: string;
 };
+
+export type ConciergeChatSummary = {
+  id: string;
+  title: string;
+  lastMessage: string;
+  lastMessageAt: string;
+};
