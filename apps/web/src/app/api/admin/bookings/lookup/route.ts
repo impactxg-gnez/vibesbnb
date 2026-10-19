@@ -9,8 +9,7 @@ export async function GET(request: NextRequest) {
 
     const propertyId = request.nextUrl.searchParams.get('propertyId')?.trim();
     const travellerId = request.nextUrl.searchParams.get('travellerId')?.trim();
-    const status =
-      request.nextUrl.searchParams.get('status')?.trim() || 'pending_approval';
+    const status = request.nextUrl.searchParams.get('status')?.trim();
 
     if (!propertyId || !travellerId) {
       return NextResponse.json(
@@ -20,21 +19,32 @@ export async function GET(request: NextRequest) {
     }
 
     const serviceSupabase = createServiceClient();
-    const { data, error } = await serviceSupabase
+    let query = serviceSupabase
       .from('bookings')
       .select('*')
       .eq('property_id', propertyId)
       .eq('user_id', travellerId)
-      .eq('status', status)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(status ? 1 : 8);
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
     }
 
-    return NextResponse.json({ booking: data ?? null });
+    const rows = data || [];
+    const picked =
+      rows.find((row) => row.status === 'pending_approval') ||
+      rows.find((row) => row.status === 'accepted') ||
+      rows[0] ||
+      null;
+
+    return NextResponse.json({ booking: picked });
   } catch (error: unknown) {
     console.error('Failed to lookup admin booking:', error);
     const message = error instanceof Error ? error.message : 'Failed to lookup booking';

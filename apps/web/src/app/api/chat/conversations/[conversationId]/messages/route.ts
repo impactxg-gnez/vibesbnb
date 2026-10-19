@@ -11,6 +11,13 @@ import { dispatchNewMessageNotification } from '@/lib/notifications/dispatchNewM
 import { getHostFeePercent, getServiceFeePercent } from '@/lib/platformSettings';
 import { stayNightsFromDates, type SpecialOfferContext } from '@/lib/specialOffer';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+};
+
 type BookingRow = {
   id: string;
   status: string | null;
@@ -143,24 +150,42 @@ export async function GET(
     const profiles: Record<string, { name: string; avatar: string }> = {};
 
     if (senderIds.length > 0) {
-      const userResponses = await Promise.all(
-        senderIds.map((id) => serviceSupabase.auth.admin.getUserById(id))
-      );
-      userResponses.forEach((response) => {
-        const u = response.data?.user;
-        if (u) {
-          profiles[u.id] = {
-            name:
-              u.user_metadata?.full_name ||
-              u.user_metadata?.display_name ||
-              u.email ||
-              'User',
-            avatar:
-              u.user_metadata?.avatar_url ||
-              `https://api.dicebear.com/7.x/initials/svg?seed=${u.email || u.id}`,
-          };
-        }
-      });
+      const { data: profileRows } = await serviceSupabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', senderIds);
+
+      for (const row of profileRows || []) {
+        const id = String(row.id);
+        profiles[id] = {
+          name: row.full_name || 'User',
+          avatar:
+            row.avatar_url ||
+            `https://api.dicebear.com/7.x/initials/svg?seed=${row.full_name || id}`,
+        };
+      }
+
+      const missing = senderIds.filter((id) => !profiles[id]);
+      if (missing.length > 0) {
+        const userResponses = await Promise.all(
+          missing.map((id) => serviceSupabase.auth.admin.getUserById(id))
+        );
+        userResponses.forEach((response) => {
+          const u = response.data?.user;
+          if (u) {
+            profiles[u.id] = {
+              name:
+                u.user_metadata?.full_name ||
+                u.user_metadata?.display_name ||
+                u.email ||
+                'User',
+              avatar:
+                u.user_metadata?.avatar_url ||
+                `https://api.dicebear.com/7.x/initials/svg?seed=${u.email || u.id}`,
+            };
+          }
+        });
+      }
     }
 
     const messagesWithProfiles = (data || []).map((msg) => ({
@@ -218,16 +243,19 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
-      messages: messagesWithProfiles,
-      contactSharingAllowed,
-      viewerIsHost: conversation.host_id === user.id,
-      specialOfferContext,
-      propertyId: conversation.property_id || null,
-      bookingId: conversation.booking_id || null,
-      bookingStatus: linkedBooking?.status || null,
-      paymentStatus: linkedBooking?.payment_status || null,
-    });
+    return NextResponse.json(
+      {
+        messages: messagesWithProfiles,
+        contactSharingAllowed,
+        viewerIsHost: conversation.host_id === user.id,
+        specialOfferContext,
+        propertyId: conversation.property_id || null,
+        bookingId: conversation.booking_id || null,
+        bookingStatus: linkedBooking?.status || null,
+        paymentStatus: linkedBooking?.payment_status || null,
+      },
+      { headers: NO_STORE }
+    );
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to load messages' },
@@ -352,15 +380,32 @@ export async function POST(
       ? (conversation.traveller_unread_count || 0) + 1
       : 0;
 
-    await supabase
+    const reopenPatch = isHostSender
+      ? { traveller_hidden_at: null }
+      : { host_hidden_at: null };
+
+    const { error: convoUpdateError } = await supabase
       .from('conversations')
       .update({
         last_message: message,
         last_message_at: new Date().toISOString(),
         host_unread_count: newHostUnread,
         traveller_unread_count: newTravellerUnread,
+        ...reopenPatch,
       })
       .eq('id', params.conversationId);
+
+    if (convoUpdateError && (convoUpdateError.code === '42703' || /hidden_at/i.test(convoUpdateError.message || ''))) {
+      await supabase
+        .from('conversations')
+        .update({
+          last_message: message,
+          last_message_at: new Date().toISOString(),
+          host_unread_count: newHostUnread,
+          traveller_unread_count: newTravellerUnread,
+        })
+        .eq('id', params.conversationId);
+    }
 
     const recipientId = isHostSender ? conversation.traveller_id : conversation.host_id;
 
@@ -407,11 +452,113 @@ export async function POST(
       appUrl,
     });
 
-    return NextResponse.json({ message: data, contactSharingAllowed });
+    return NextResponse.json({ message: data, contactSharingAllowed }, { headers: NO_STORE });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to send message' },
       { status: 500 }
     );
+  }
+}
+
+/** Participants may remove a message from the shared thread. */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { conversationId: string } }
+) {
+  try {
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
+
+    let user = null;
+    let supabase;
+
+    if (token) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data } = await supabase.auth.getUser(token);
+      user = data.user;
+    } else {
+      supabase = createServerClient();
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const messageId =
+      request.nextUrl.searchParams.get('messageId')?.trim() ||
+      ((await request.json().catch(() => null)) as { messageId?: string } | null)?.messageId?.trim();
+
+    if (!messageId) {
+      return NextResponse.json({ error: 'messageId is required' }, { status: 400 });
+    }
+
+    const serviceSupabase = createServiceClient();
+    const { data: conversation, error: conversationError } = await serviceSupabase
+      .from('conversations')
+      .select('id, host_id, traveller_id, last_message')
+      .eq('id', params.conversationId)
+      .maybeSingle();
+
+    if (conversationError || !conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    const isParticipant =
+      conversation.host_id === user.id || conversation.traveller_id === user.id;
+    if (!isParticipant) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { data: message, error: messageError } = await serviceSupabase
+      .from('messages')
+      .select('id, sender_id, body, conversation_id')
+      .eq('id', messageId)
+      .eq('conversation_id', params.conversationId)
+      .maybeSingle();
+
+    if (messageError || !message) {
+      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    }
+
+    const { error: deleteError } = await serviceSupabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+      .eq('conversation_id', params.conversationId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    if (conversation.last_message && conversation.last_message === message.body) {
+      const { data: latest } = await serviceSupabase
+        .from('messages')
+        .select('body, created_at')
+        .eq('conversation_id', params.conversationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      await serviceSupabase
+        .from('conversations')
+        .update({
+          last_message: latest?.body || null,
+          last_message_at: latest?.created_at || null,
+        })
+        .eq('id', params.conversationId);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete message';
+    console.error('[chat DELETE message]', error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

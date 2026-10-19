@@ -53,6 +53,12 @@ export function PropertySeoFacts({ property }: Props) {
     ['Bedrooms', property.bedrooms != null ? String(property.bedrooms) : null],
     ['Beds', property.beds != null ? String(property.beds) : null],
     ['Bathrooms', property.bathrooms != null ? String(property.bathrooms) : null],
+    [
+      'Nightly rate',
+      property.price != null && property.price > 0
+        ? `From $${Math.round(property.price)} per night (before taxes)`
+        : null,
+    ],
     ['Cannabis policy', cannabisPolicyLabel(policies)],
     ['Tobacco smoking', tobaccoPolicyLabel(policies)],
     ['Outdoor space', outdoorSpaceLabel(policies)],

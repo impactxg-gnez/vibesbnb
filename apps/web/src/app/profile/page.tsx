@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle, Camera, Loader2, Clock, Leaf } from 'lucide-react';
+import { useUnreadMessageCount } from '@/lib/chat/unreadMessageCount';
+import { UnreadMessageBadge } from '@/components/chat/UnreadMessageBadge';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -18,6 +21,7 @@ import {
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const unreadMessages = useUnreadMessageCount();
   const userRole = user?.user_metadata?.role || 'traveller';
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -746,9 +750,21 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-950 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">My Profile</h1>
-          <p className="text-gray-400">Manage your account information</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">My Profile</h1>
+            <p className="text-gray-400">Manage your account information</p>
+          </div>
+          <Link
+            href={userRole === 'host' ? '/host/messages' : '/messages'}
+            className="relative inline-flex items-center gap-2 self-start px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white hover:border-emerald-500/50 transition"
+          >
+            <span className="relative inline-flex">
+              <MessageCircle size={20} className="text-emerald-400" />
+              <UnreadMessageBadge count={unreadMessages} className="dark:ring-gray-900" />
+            </span>
+            <span className="font-semibold">Messages</span>
+          </Link>
         </div>
 
         {/* Profile Card */}

@@ -28,6 +28,8 @@ import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
 import { fetchLatestSpecialOffer } from '@/lib/specialOffer';
 import { dispatchAdminNewBookingEmail } from '@/lib/notifications/dispatchAdminNewBookingEmail';
 import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
+import { snapshotGuestContact } from '@/lib/bookings/snapshotGuestContact';
+import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
 
 export async function POST(request: NextRequest) {
   try {
@@ -329,47 +331,73 @@ export async function POST(request: NextRequest) {
 
     const initialStatus = allowDirectBooking ? 'accepted' : 'pending_approval';
 
-    // Create booking
-    const { data: booking, error: bookingError } = await supabase
+    const guestSnapshot = await snapshotGuestContact(serviceSupabase, userId, {
+      name: guest_name,
+      email: guest_email,
+    });
+    let hostWhatsapp: string | null = null;
+    try {
+      const hostContact = await resolveUserContact(serviceSupabase, hostId);
+      hostEmail = hostEmail || hostContact.email || '';
+      hostWhatsapp = hostContact.whatsapp;
+    } catch (e) {
+      console.warn('Could not snapshot host contact:', e);
+    }
+
+    const bookingInsert = {
+      user_id: userId,
+      host_id: hostId,
+      property_id,
+      property_name,
+      property_image,
+      location,
+      check_in: check_in,
+      check_out: check_out,
+      guests,
+      kids: kids || 0,
+      pets: pets || 0,
+      total_price,
+      status: initialStatus,
+      ...(allowDirectBooking ? { host_approved_at: new Date().toISOString() } : {}),
+      guest_name: guestSnapshot.guest_name,
+      guest_email: guestSnapshot.guest_email,
+      guest_phone: guestSnapshot.guest_phone,
+      guest_whatsapp: guestSnapshot.guest_whatsapp,
+      host_email: hostEmail,
+      host_whatsapp: hostWhatsapp,
+      special_requests: special_requests || null,
+      payment_status: 'pending',
+      selected_units: selected_units || null,
+      guest_agreement_accepted_at: new Date().toISOString(),
+      guest_agreement_signer_name: signer,
+      guest_agreement_document_url: propertyRow.guest_agreement_url || null,
+      wellness_line_items:
+        wellnessLineItemsSanitized.length > 0 ? wellnessLineItemsSanitized : [],
+      early_check_in_requested: earlyRequested,
+      requested_early_check_in_time: requestedEarly,
+      late_check_out_requested: lateRequested,
+      requested_late_check_out_time: requestedLate,
+      cancellation_policy: normalizeCancellationPolicy(
+        (propertyRow as { cancellation_policy?: string }).cancellation_policy
+      ),
+      ...(offeredNightly != null ? { special_offer_nightly: offeredNightly } : {}),
+    };
+
+    let { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .insert({
-        user_id: userId,
-        host_id: hostId,
-        property_id,
-        property_name,
-        property_image,
-        location,
-        check_in: check_in,
-        check_out: check_out,
-        guests,
-        kids: kids || 0,
-        pets: pets || 0,
-        total_price,
-        status: initialStatus,
-        ...(allowDirectBooking ? { host_approved_at: new Date().toISOString() } : {}),
-        guest_name,
-        guest_email,
-        host_email: hostEmail,
-        host_whatsapp: null,
-        special_requests: special_requests || null,
-        payment_status: 'pending',
-        selected_units: selected_units || null,
-        guest_agreement_accepted_at: new Date().toISOString(),
-        guest_agreement_signer_name: signer,
-        guest_agreement_document_url: propertyRow.guest_agreement_url || null,
-        wellness_line_items:
-          wellnessLineItemsSanitized.length > 0 ? wellnessLineItemsSanitized : [],
-        early_check_in_requested: earlyRequested,
-        requested_early_check_in_time: requestedEarly,
-        late_check_out_requested: lateRequested,
-        requested_late_check_out_time: requestedLate,
-        cancellation_policy: normalizeCancellationPolicy(
-          (propertyRow as { cancellation_policy?: string }).cancellation_policy
-        ),
-        ...(offeredNightly != null ? { special_offer_nightly: offeredNightly } : {}),
-      })
+      .insert(bookingInsert)
       .select()
       .single();
+
+    if (
+      bookingError &&
+      /guest_phone|guest_whatsapp/i.test(bookingError.message || '')
+    ) {
+      const { guest_phone: _p, guest_whatsapp: _w, ...withoutPhone } = bookingInsert;
+      const retried = await supabase.from('bookings').insert(withoutPhone).select().single();
+      booking = retried.data;
+      bookingError = retried.error;
+    }
 
     if (bookingError) {
       console.error('Error creating booking:', bookingError);

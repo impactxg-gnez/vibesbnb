@@ -48,10 +48,13 @@ import { resolveConsumptionPolicy, resolveVibeMarker } from '@/lib/consumptionPo
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { fetchPropertyDetailRow } from '@/lib/propertyDetailFetch';
 import {
+  isStockPlaceholderImageUrl,
   listingCardImagesFromRow,
   listingGalleryImageUrl,
   normalizePropertyImages,
 } from '@/lib/propertyImageUrls';
+import type { SeoPropertyCard } from '@/lib/seo/publicProperties';
+import { ListingLeadCapture } from '@/components/listings/ListingLeadCapture';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
 import {
   clampPartyToCapacity,
@@ -154,14 +157,53 @@ interface Property {
 // Guest-facing area + city (no street)
 const getGeneralLocation = (location: string): string => formatPublicLocation(location);
 
-export default function ListingDetailPage() {
+function seedPropertyFromSeo(seo: SeoPropertyCard): Property {
+  const images = (seo.images.length ? seo.images : seo.coverImage ? [seo.coverImage] : []).filter(
+    (url) => url && !isStockPlaceholderImageUrl(url)
+  );
+  return {
+    id: seo.id,
+    name: seo.name,
+    location: seo.location,
+    description: seo.description || 'No description available.',
+    price: seo.price || 0,
+    cleaningFee: 0,
+    bedrooms: seo.bedrooms || 0,
+    beds: seo.beds,
+    bathrooms: seo.bathrooms || 0,
+    guests: seo.guests || 0,
+    images: images.length > 0 ? images : [PDP_IMAGE_PLACEHOLDER],
+    amenities: seo.amenities,
+    wellnessFriendly: seo.cannabisAllowed,
+    wellnessConsumptionIndoorAllowed: seo.cannabisIndoor,
+    wellnessConsumptionOutdoorAllowed: seo.cannabisOutdoor,
+    rating: seo.rating || 0,
+    reviews: seo.reviewsCount,
+    createdAt: seo.createdAt,
+    latitude: seo.latitude ?? undefined,
+    longitude: seo.longitude ?? undefined,
+    hostId: '',
+    hostName: 'Property Host',
+    hostImage: `https://api.dicebear.com/7.x/initials/svg?seed=${seo.id}`,
+    type: seo.type || 'Retreat',
+    allowDirectBooking: seo.allowDirectBooking === true,
+  };
+}
+
+export default function ListingDetailPage({
+  initialSeo = null,
+}: {
+  initialSeo?: SeoPropertyCard | null;
+}) {
   const params = useParams();
   const propertyId = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : '';
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const [property, setProperty] = useState<Property | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [property, setProperty] = useState<Property | null>(() =>
+    initialSeo ? seedPropertyFromSeo(initialSeo) : null
+  );
+  const [loading, setLoading] = useState(!initialSeo);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [galleryUseOriginal, setGalleryUseOriginal] = useState(false);
   const [failedGallerySrcs, setFailedGallerySrcs] = useState<Set<string>>(() => new Set());
@@ -358,7 +400,9 @@ export default function ListingDetailPage() {
 
   const galleryImages = useMemo(() => {
     if (!property?.images?.length) return [PDP_IMAGE_PLACEHOLDER];
-    const usable = property.images.filter((url) => !failedGallerySrcs.has(url));
+    const usable = property.images.filter(
+      (url) => !failedGallerySrcs.has(url) && !isStockPlaceholderImageUrl(url)
+    );
     return usable.length > 0 ? usable : [PDP_IMAGE_PLACEHOLDER];
   }, [property?.images, failedGallerySrcs]);
 
@@ -369,7 +413,7 @@ export default function ListingDetailPage() {
   }, [currentImageIndex, galleryImages.length]);
   useEffect(() => {
     const loadProperty = async () => {
-      setLoading(true);
+      if (!initialSeo) setLoading(true);
       try {
         const supabase = createClient();
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -911,6 +955,11 @@ export default function ListingDetailPage() {
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <h1 className="text-4xl font-bold text-white">{property.name}</h1>
+              {property.allowDirectBooking ? (
+                <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  Instant book
+                </span>
+              ) : null}
             </div>
             <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-gray-400">
               <p className="text-emerald-400 font-semibold tracking-wide">
@@ -924,7 +973,34 @@ export default function ListingDetailPage() {
                 onClick={openReviewsModal}
                 starSize={18}
               />
+              <span className="hidden md:block text-gray-700">•</span>
+              <p className="text-white font-semibold">
+                From ${displayNightlyRate}
+                <span className="text-gray-400 font-normal"> / night</span>
+                {property.cleaningFee ? (
+                  <span className="text-gray-400 font-normal">
+                    {' '}
+                    · ${Number(property.cleaningFee).toFixed(0)} cleaning
+                  </span>
+                ) : null}
+              </p>
             </div>
+            {(guestReviews[0]?.comment || primaryTeamReview?.comment) ? (
+              <button
+                type="button"
+                onClick={openReviewsModal}
+                className="mt-3 max-w-2xl text-left text-sm text-gray-300 italic hover:text-white"
+              >
+                “
+                {String(guestReviews[0]?.comment || primaryTeamReview?.comment)
+                  .trim()
+                  .slice(0, 160)}
+                {String(guestReviews[0]?.comment || primaryTeamReview?.comment).trim().length > 160
+                  ? '…'
+                  : ''}
+                ”
+              </button>
+            ) : null}
           </div>
           <div className="flex gap-3">
             <button
@@ -1717,7 +1793,9 @@ export default function ListingDetailPage() {
                 {user && property?.hostId && String(property.hostId) === String(user.id)
                   ? 'You are the host'
                   : checkInDate && checkOutDate
-                    ? 'Request to book'
+                    ? property.allowDirectBooking
+                      ? 'Instant book'
+                      : 'Request to book'
                     : 'Check Availability'}
               </button>
 
@@ -1761,8 +1839,27 @@ export default function ListingDetailPage() {
                     onClearWellnessItems={handleClearWellnessItems}
                   />
                 ) : (
-                  <p className="text-gray-400 text-sm text-center">Select dates to see your quote</p>
+                  <div className="text-sm text-gray-300 space-y-1">
+                    <p className="flex justify-between">
+                      <span>Nightly (guest price)</span>
+                      <span className="text-white font-semibold">${displayNightlyRate}</span>
+                    </p>
+                    {property.cleaningFee ? (
+                      <p className="flex justify-between">
+                        <span>Cleaning fee</span>
+                        <span className="text-white font-semibold">
+                          ${Number(property.cleaningFee).toFixed(0)}
+                        </span>
+                      </p>
+                    ) : null}
+                    <p className="text-gray-500 text-xs pt-1">
+                      Select dates for taxes, nights, and the full stay total.
+                    </p>
+                  </div>
                 )}
+              </div>
+              <div className="mt-4">
+                <ListingLeadCapture propertyId={property.id} propertyName={property.name} />
               </div>
             </div>
           </div>

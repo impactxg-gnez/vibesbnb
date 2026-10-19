@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
 import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
-import { MessageSquare, Calendar, Home, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Calendar, Home, ArrowLeft, Trash2 } from 'lucide-react';
+import { hideConversation } from '@/lib/chat/inboxActions';
 import Link from 'next/link';
 import { getHostScopeUserIdFromAuthOnly } from '@/lib/adminHostImpersonation';
 
@@ -149,6 +150,29 @@ export default function HostMessagesPage() {
     loadConversations(false);
   }, [loadConversations]);
 
+  const handleHideConversation = async (conversationId: string) => {
+    if (!confirm('Remove this conversation from your inbox? The guest will still have it.')) {
+      return;
+    }
+    try {
+      const extra: Record<string, string> = {};
+      if (user) {
+        const hostScopeId = getHostScopeUserIdFromAuthOnly(user) || user.id;
+        if (hostScopeId !== user.id) {
+          extra['x-impersonate-host-id'] = hostScopeId;
+        }
+      }
+      await hideConversation(conversationId, extra);
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+      }
+      toast.success('Conversation removed from your inbox');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not remove conversation');
+    }
+  };
+
   const selectedConversationObj = conversations.find(
     (conv) => conv.id === selectedConversation
   );
@@ -257,10 +281,10 @@ export default function HostMessagesPage() {
                   const isSelected = selectedConversation === conversation.id;
                   
                   return (
+                    <div key={conversation.id} className="relative group">
                     <button
-                      key={conversation.id}
                       onClick={() => setSelectedConversation(conversation.id)}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-200 border ${
+                      className={`w-full text-left p-4 pr-12 rounded-xl transition-all duration-200 border ${
                         isSelected
                           ? 'bg-emerald-600/10 border-emerald-500/50 shadow-lg shadow-emerald-900/20'
                           : 'bg-gray-800/50 border-transparent hover:bg-gray-800 hover:border-gray-700'
@@ -311,6 +335,19 @@ export default function HostMessagesPage() {
                         </div>
                       </div>
                     </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleHideConversation(conversation.id);
+                      }}
+                      className="absolute top-3 right-3 p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-black/30"
+                      aria-label="Remove conversation"
+                      title="Remove from inbox"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    </div>
                   );
                 })
               )}

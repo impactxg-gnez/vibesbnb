@@ -422,6 +422,9 @@ export async function DELETE(request: NextRequest) {
     const guard = assertCanModifyTarget(auth.user, targetUser, userId, 'delete');
     if (guard) return guard;
 
+    // Reservations stay in `bookings` (guest contact is snapshotted on the row).
+    // After SUPABASE_BOOKINGS_RETAIN_GUEST_DETAILS.sql, deleting this auth user
+    // sets bookings.user_id / host_id to null instead of cascading deletes.
     let authDeleted = false;
     if (targetUser) {
       const { error: authDeleteErr } = await service.auth.admin.deleteUser(userId);

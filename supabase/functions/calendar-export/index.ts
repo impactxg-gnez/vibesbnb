@@ -9,11 +9,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let appUrl = rawAppUrl;
   try {
     const host = rawAppUrl ? new URL(rawAppUrl).hostname.toLowerCase() : "";
-    if (!rawAppUrl || host === "vercel.app" || host.endsWith(".vercel.app")) {
-      appUrl = "https://vibesbnb.com";
+    if (
+      !rawAppUrl ||
+      host === "vercel.app" ||
+      host.endsWith(".vercel.app") ||
+      host === "vibesbnb.com"
+    ) {
+      appUrl = "https://www.vibesbnb.com";
     }
   } catch {
-    appUrl = "https://vibesbnb.com";
+    appUrl = "https://www.vibesbnb.com";
   }
   if (!appUrl) {
     return new Response(JSON.stringify({ error: "Set NEXT_PUBLIC_APP_URL or APP_ORIGIN" }), {

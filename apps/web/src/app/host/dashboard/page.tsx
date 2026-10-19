@@ -22,6 +22,8 @@ import {
 import { HostImpersonationBanner } from '@/components/host/HostImpersonationBanner';
 import { useHostAccess } from '@/hooks/useHostAccess';
 import { createClient } from '@/lib/supabase/client';
+import { useUnreadMessageCount } from '@/lib/chat/unreadMessageCount';
+import { UnreadMessageBadge } from '@/components/chat/UnreadMessageBadge';
 import { formatCalendarDate } from '@/lib/dateUtils';
 
 type DashboardPayload = {
@@ -75,6 +77,7 @@ export default function HostDashboardPage() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const { canAccess, checking: accessChecking } = useHostAccess(user, loading);
+  const unreadMessages = useUnreadMessageCount();
 
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
 
@@ -198,7 +201,7 @@ export default function HostDashboardPage() {
             { href: '/host/properties', label: 'Properties', icon: Building2 },
             { href: '/host/bookings', label: 'Bookings', icon: CalendarCheck },
             { href: '/host/payouts', label: 'Payouts', icon: Wallet },
-            { href: '/host/messages', label: 'Messages', icon: MessageSquare },
+            { href: '/host/messages', label: 'Messages', icon: MessageSquare, badge: unreadMessages },
             { href: '/profile#host-payout-settings', label: 'Bank setup', icon: CreditCard },
           ].map((item) => (
             <Link
@@ -206,7 +209,12 @@ export default function HostDashboardPage() {
               href={item.href}
               className="flex items-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:border-primary-500/40 hover:bg-gray-900/80 transition-colors"
             >
-              <item.icon className="w-4 h-4 text-primary-400 shrink-0" />
+              <span className="relative inline-flex shrink-0">
+                <item.icon className="w-4 h-4 text-primary-400" />
+                {'badge' in item && item.badge ? (
+                  <UnreadMessageBadge count={item.badge} className="dark:ring-gray-900" />
+                ) : null}
+              </span>
               <span className="truncate">{item.label}</span>
               <ArrowRight className="w-3.5 h-3.5 text-gray-500 ml-auto shrink-0" />
             </Link>

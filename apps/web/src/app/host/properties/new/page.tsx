@@ -264,38 +264,42 @@ export default function NewPropertyPage() {
     }
   };
 
-  const handleImageUpload = async (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+  const addPhotosToRoom = async (roomId: string, files: File[]) => {
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (!imageFiles.length) return;
 
     const room = rooms.find((r) => r.id === roomId);
     if (!room) return;
 
-    const toastId = toast.loading('Processing images...', { id: 'image-toast' });
+    toast.loading('Processing images...', { id: 'image-toast' });
 
     try {
       const watermarkedPreviews: string[] = [];
-      
-      for (const file of files) {
+
+      for (const file of imageFiles) {
         const watermarkedUrl = await applyWatermark(file);
         watermarkedPreviews.push(watermarkedUrl);
       }
 
       const newPreviews = [...room.imagePreviewUrls, ...watermarkedPreviews];
-      
+
       setRooms(
         rooms.map((r) =>
           r.id === roomId ? { ...r, imagePreviewUrls: newPreviews } : r
         )
       );
-      
+
       toast.success('Images added!', { id: 'image-toast' });
     } catch (error) {
       console.error('Error processing images:', error);
       toast.error('Failed to process some images.', { id: 'image-toast' });
-    } finally {
-      e.target.value = '';
     }
+  };
+
+  const handleImageUpload = async (roomId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    await addPhotosToRoom(roomId, files);
   };
 
   const removeImage = (roomId: string, index: number) => {
@@ -358,6 +362,20 @@ export default function NewPropertyPage() {
     if (configured && !supabaseUser) {
       throw new Error('Still signing you in. Wait a moment, then try again.');
     }
+
+    const hostApiHeaders = async (): Promise<Record<string, string>> => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token || ''}`,
+      };
+      if (targetHost?.id && targetHost.id !== signedInUserId) {
+        headers['x-impersonate-host-id'] = targetHost.id;
+      }
+      return headers;
+    };
 
     const allImageUrls: string[] = [];
     for (const room of rooms) {
@@ -504,22 +522,43 @@ export default function NewPropertyPage() {
         listingId = data.propertyId || propertyId;
       }
     } else if (savedPropertyId) {
-      const updatePayload = { ...propertyData };
+      const updatePayload = { ...propertyData, notifyHost: false };
       delete (updatePayload as { id?: string }).id;
       delete (updatePayload as { host_id?: string }).host_id;
-      const { error: updateError } = await supabase
-        .from('properties')
-        .update(updatePayload)
-        .eq('id', listingId)
-        .eq('host_id', userId);
-
-      if (updateError) {
-        throw updateError;
+      const patch = await fetch(`/api/host/properties/${encodeURIComponent(listingId)}`, {
+        method: 'PATCH',
+        headers: await hostApiHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify(updatePayload),
+      });
+      const patchError = await patch.json().catch(() => ({}));
+      if (!patch.ok) {
+        const dbUpdate = { ...updatePayload };
+        delete (dbUpdate as { notifyHost?: boolean }).notifyHost;
+        const { error: updateError } = await supabase
+          .from('properties')
+          .update(dbUpdate)
+          .eq('id', listingId)
+          .eq('host_id', userId);
+        if (updateError) {
+          throw new Error(patchError.error || updateError.message || 'Failed to update your draft');
+        }
       }
     } else {
-      const { error: insertError } = await supabase.from('properties').insert(propertyData);
-      if (insertError) {
-        throw insertError;
+      const create = await fetch('/api/host/properties', {
+        method: 'POST',
+        headers: await hostApiHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ property: propertyData }),
+      });
+      const created = await create.json().catch(() => ({}));
+      if (create.ok) {
+        listingId = created.propertyId || propertyId;
+      } else {
+        const { error: insertError } = await supabase.from('properties').insert(propertyData);
+        if (insertError) {
+          throw new Error(created.error || insertError.message || 'Failed to save your draft');
+        }
       }
     }
 
@@ -1091,24 +1130,40 @@ export default function NewPropertyPage() {
       </div>
 
       <div className="space-y-6">
-        {rooms.map((room) => (
+        {rooms.map((room, roomIndex) => (
           <div key={room.id} className="border border-gray-700 rounded-xl p-6 bg-gray-900/50">
             <label
-              htmlFor={`property-photos-upload-${room.id}`}
+              htmlFor={roomIndex === 0 ? 'property-photos-upload' : `property-photos-upload-${roomIndex}`}
               className="relative block border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-500 transition mb-6"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void addPhotosToRoom(room.id, Array.from(e.dataTransfer.files || []));
+              }}
             >
-              <Upload size={40} className="mx-auto text-gray-400 mb-3" />
-              <p className="text-white font-medium mb-1">Click to upload photos</p>
+              <Upload size={40} className="mx-auto text-gray-400 mb-3" aria-hidden />
+              <p
+                id={roomIndex === 0 ? 'property-photos-upload-label' : undefined}
+                className="text-white font-medium mb-1"
+              >
+                Click to upload photos
+              </p>
               <p className="text-gray-500 text-sm">or drag and drop</p>
               <input
-                id={`property-photos-upload-${room.id}`}
+                id={roomIndex === 0 ? 'property-photos-upload' : `property-photos-upload-${roomIndex}`}
                 name="property-photos"
                 type="file"
-                accept="image/*"
+                accept="image/*,.jpg,.jpeg,.png,.webp,.heic"
                 multiple
-                aria-label="Upload photos"
+                aria-label="Upload listing photos"
+                title="Upload listing photos"
+                data-testid="property-photos-upload"
                 onChange={(e) => handleImageUpload(room.id, e)}
-                className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                className="sr-only"
               />
             </label>
 

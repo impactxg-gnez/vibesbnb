@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createBrowserClient } from '@supabase/supabase-js';
-import { mergeCoverAndGallery } from '@/lib/propertyImageUrls';
+import { isStockPlaceholderImageUrl, mergeCoverAndGallery } from '@/lib/propertyImageUrls';
+import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -15,7 +16,7 @@ function isHttpUrl(url: string): boolean {
   return (
     (lower.startsWith('https://') || lower.startsWith('http://')) &&
     !lower.startsWith('data:') &&
-    !lower.includes('via.placeholder')
+    !isStockPlaceholderImageUrl(t)
   );
 }
 
@@ -58,7 +59,8 @@ export async function GET(
         ? slim.cover_image.trim()
         : null;
 
-    const { data: full, error } = await supabase
+    let full: { images?: unknown } | null = null;
+    const { data: anonFull, error } = await supabase
       .from('properties')
       .select('images')
       .eq('id', id)
@@ -66,6 +68,20 @@ export async function GET(
 
     if (error) {
       console.warn('[properties/gallery]', id, error.message);
+    }
+    full = anonFull;
+
+    if ((!full || !Array.isArray(full.images) || full.images.length === 0) && hasServiceRoleKey()) {
+      try {
+        const { data: serviceFull } = await createServiceClient()
+          .from('properties')
+          .select('images')
+          .eq('id', id)
+          .maybeSingle();
+        if (serviceFull) full = serviceFull;
+      } catch (e) {
+        console.warn('[properties/gallery] service fallback', id, e);
+      }
     }
 
     const raw = Array.isArray(full?.images) ? (full!.images as unknown[]) : [];

@@ -16,6 +16,8 @@ interface ConversationResponse {
   last_message_at: string | null;
   inquiry_check_in?: string | null;
   inquiry_check_out?: string | null;
+  host_hidden_at?: string | null;
+  traveller_hidden_at?: string | null;
   host_name?: string | null;
   host_avatar?: string | null;
   traveller_name?: string | null;
@@ -36,6 +38,26 @@ function parseInquiryYmd(value: unknown): string | null {
 }
 
 const CONVERSATION_LIST_COLUMNS = `
+  id,
+  property_id,
+  host_id,
+  traveller_id,
+  booking_id,
+  last_message,
+  last_message_at,
+  inquiry_check_in,
+  inquiry_check_out,
+  host_name,
+  host_avatar,
+  traveller_name,
+  traveller_avatar,
+  host_unread_count,
+  traveller_unread_count,
+  host_hidden_at,
+  traveller_hidden_at
+`;
+
+const CONVERSATION_LIST_COLUMNS_NO_HIDE = `
   id,
   property_id,
   host_id,
@@ -181,10 +203,17 @@ export async function GET(request: NextRequest) {
     let { data, error } = await applyListFilters(db.from('conversations'), CONVERSATION_LIST_COLUMNS);
 
     if (error?.code === '42703') {
-      const missingInquiry =
-        String(error.message || '').includes('inquiry_check_in') ||
-        String(error.message || '').includes('inquiry_check_out');
-      if (missingInquiry) {
+      const msg = String(error.message || '');
+      const missingHide = msg.includes('host_hidden_at') || msg.includes('traveller_hidden_at');
+      const missingInquiry = msg.includes('inquiry_check_in') || msg.includes('inquiry_check_out');
+      if (missingHide) {
+        const retry = await applyListFilters(
+          db.from('conversations'),
+          CONVERSATION_LIST_COLUMNS_NO_HIDE
+        );
+        data = retry.data;
+        error = retry.error;
+      } else if (missingInquiry) {
         const retry = await applyListFilters(
           db.from('conversations'),
           CONVERSATION_LIST_COLUMNS_NO_INQUIRY
@@ -203,10 +232,16 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const conversations = await attachPropertySummaries(
-      db,
-      (data as ConversationResponse[] | null) ?? []
-    );
+    const hideFromInbox = scope !== 'admin';
+    const visibleRows = ((data as ConversationResponse[] | null) ?? []).filter((row) => {
+      if (!hideFromInbox) return true;
+      const viewerHost = impersonatingHostId || user.id;
+      if (row.host_id === viewerHost && row.host_hidden_at) return false;
+      if (row.traveller_id === user.id && row.traveller_hidden_at) return false;
+      return true;
+    });
+
+    const conversations = await attachPropertySummaries(db, visibleRows);
 
     return NextResponse.json({
       conversations,

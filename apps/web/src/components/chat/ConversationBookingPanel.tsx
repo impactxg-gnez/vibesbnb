@@ -128,7 +128,6 @@ export function ConversationBookingPanel({
       const params = new URLSearchParams({
         propertyId,
         travellerId,
-        status: 'pending_approval',
       });
       const response = await fetch(`/api/admin/bookings/lookup?${params}`, { headers });
       const data = await response.json();

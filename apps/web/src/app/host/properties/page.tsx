@@ -32,6 +32,8 @@ import { HostPayoutBreakdown } from '@/components/host/HostPayoutBreakdown';
 import { useHostPayoutPreview } from '@/hooks/useHostPayoutPreview';
 import { isCheckInDatePast } from '@/lib/dateUtils';
 import { suggestPropertySlug } from '@/lib/propertySlug';
+import { useUnreadMessageCount } from '@/lib/chat/unreadMessageCount';
+import { UnreadMessageBadge } from '@/components/chat/UnreadMessageBadge';
 
 type HostBookingPanelType = 'new' | 'upcoming' | 'previous' | 'missed';
 
@@ -114,6 +116,7 @@ interface Property {
 export default function HostPropertiesPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const unreadMessages = useUnreadMessageCount();
   const [properties, setProperties] = useState<Property[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
@@ -300,16 +303,57 @@ export default function HostPropertiesPage() {
         const hostScopeId = getHostScopeUserId(user, supabaseUser.id);
         // Fetch properties from Supabase (slim columns — select('*') hangs on base64 galleries)
         console.log('[Properties] Loading properties for host_id:', hostScopeId);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const listHeaders: Record<string, string> = {
+          Authorization: `Bearer ${sessionData.session?.access_token || ''}`,
+        };
+        if (hostScopeId !== supabaseUser.id) {
+          listHeaders['x-impersonate-host-id'] = hostScopeId;
+        }
+
+        let propertiesData: any[] | null = null;
+        let error: { message?: string } | null = null;
+
+        try {
+          const listRes = await withTimeout(
+            fetch('/api/host/properties', {
+              headers: listHeaders,
+              cache: 'no-store',
+              credentials: 'same-origin',
+            }),
+            20000,
+            'Host properties API'
+          );
+          if (listRes.ok) {
+            const payload = await listRes.json().catch(() => ({}));
+            if (Array.isArray(payload.properties)) {
+              propertiesData = payload.properties;
+              error = null;
+            }
+          } else {
+            const payload = await listRes.json().catch(() => ({}));
+            error = { message: payload.error || `Host properties API ${listRes.status}` };
+          }
+        } catch (apiError: unknown) {
+          error = {
+            message: apiError instanceof Error ? apiError.message : 'Host properties API failed',
+          };
+        }
+
+        if (!propertiesData) {
         let listQuery = supabase
           .from('properties')
           .select(HOST_PROPERTY_LIST_COLUMNS)
           .eq('host_id', hostScopeId)
           .order('created_at', { ascending: false });
-        let { data: propertiesData, error } = await withTimeout(
+        const fallback = await withTimeout(
           listQuery,
           20000,
           'Host properties query'
         );
+        propertiesData = fallback.data;
+        error = fallback.error;
+        }
 
         if (error && /custom_slug/i.test(error.message || '')) {
           const fallback = await withTimeout(
@@ -1509,9 +1553,12 @@ export default function HostPropertiesPage() {
             </button>
             <Link
               href="/host/messages"
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+              className="relative px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
             >
-              <MessageSquare size={20} />
+              <span className="relative inline-flex">
+                <MessageSquare size={20} />
+                <UnreadMessageBadge count={unreadMessages} className="dark:ring-gray-800" />
+              </span>
               Messages
             </Link>
             <Link

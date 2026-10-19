@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Search, Eye, Check, X, Phone, Mail, MessageCircle, Loader2 } from 'lucide-react';
+import { Search, Eye, Check, X, Phone, Mail, MessageCircle, Loader2, ChevronDown } from 'lucide-react';
 import { isAdminUser } from '@/lib/auth/isAdmin';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import toast from 'react-hot-toast';
@@ -17,6 +17,9 @@ interface Reservation {
   user_email: string;
   user_phone?: string | null;
   user_whatsapp?: string | null;
+  host_id?: string | null;
+  host_email?: string | null;
+  host_whatsapp?: string | null;
   property_id: string;
   property_name: string;
   property_image?: string;
@@ -27,10 +30,24 @@ interface Reservation {
   kids?: number;
   pets?: number;
   total_price: number;
-  status: 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled';
+  status: 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled' | 'completed';
   payment_status?: 'pending' | 'paid' | 'refunded' | 'failed';
   rating?: number;
   created_at: string;
+  special_requests?: string | null;
+  guest_agreement_signer_name?: string | null;
+  guest_agreement_accepted_at?: string | null;
+  early_check_in_requested?: boolean | null;
+  requested_early_check_in_time?: string | null;
+  late_check_out_requested?: boolean | null;
+  requested_late_check_out_time?: string | null;
+  cancellation_policy?: string | null;
+  rejection_reason?: string | null;
+  wellness_line_items?: unknown;
+  selected_units?: unknown;
+  special_offer_nightly?: number | null;
+  host_approved_at?: string | null;
+  payment_intent_id?: string | null;
 }
 
 function formatGuestParty(guests: number, kids?: number, pets?: number): string {
@@ -63,10 +80,18 @@ export default function ManageReservationsPage() {
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<
-    'all' | 'pending_approval' | 'accepted' | 'rejected' | 'confirmed' | 'pending' | 'cancelled'
+    | 'all'
+    | 'pending_approval'
+    | 'accepted'
+    | 'rejected'
+    | 'confirmed'
+    | 'pending'
+    | 'cancelled'
+    | 'completed'
   >('all');
   const [loadingReservations, setLoadingReservations] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -132,16 +157,19 @@ export default function ManageReservationsPage() {
 
       const reservationsData: Reservation[] = (data.bookings || []).map((booking: Record<string, unknown>) => ({
         id: String(booking.id),
-        user_id: String(booking.user_id),
+        user_id: String(booking.user_id || ''),
         user_name:
           (booking.guest_name as string) ||
-          `User ${String(booking.user_id).substring(0, 8)}`,
+          `User ${String(booking.user_id || '').substring(0, 8)}`,
         user_email:
           (booking.guest_email as string) ||
           (booking.profile_email as string) ||
           '',
         user_phone: (booking.guest_phone as string) || null,
         user_whatsapp: (booking.guest_whatsapp as string) || null,
+        host_id: booking.host_id ? String(booking.host_id) : null,
+        host_email: (booking.host_email as string) || null,
+        host_whatsapp: (booking.host_whatsapp as string) || null,
         property_id: String(booking.property_id),
         property_name: String(booking.property_name || ''),
         property_image: booking.property_image as string | undefined,
@@ -156,6 +184,21 @@ export default function ManageReservationsPage() {
         payment_status: booking.payment_status as Reservation['payment_status'],
         rating: booking.rating != null ? Number(booking.rating) : undefined,
         created_at: String(booking.created_at),
+        special_requests: (booking.special_requests as string) || null,
+        guest_agreement_signer_name: (booking.guest_agreement_signer_name as string) || null,
+        guest_agreement_accepted_at: (booking.guest_agreement_accepted_at as string) || null,
+        early_check_in_requested: Boolean(booking.early_check_in_requested),
+        requested_early_check_in_time: (booking.requested_early_check_in_time as string) || null,
+        late_check_out_requested: Boolean(booking.late_check_out_requested),
+        requested_late_check_out_time: (booking.requested_late_check_out_time as string) || null,
+        cancellation_policy: (booking.cancellation_policy as string) || null,
+        rejection_reason: (booking.rejection_reason as string) || null,
+        wellness_line_items: booking.wellness_line_items,
+        selected_units: booking.selected_units,
+        special_offer_nightly:
+          booking.special_offer_nightly != null ? Number(booking.special_offer_nightly) : null,
+        host_approved_at: (booking.host_approved_at as string) || null,
+        payment_intent_id: (booking.payment_intent_id as string) || null,
       }));
 
       setReservations(reservationsData);
@@ -244,7 +287,12 @@ export default function ManageReservationsPage() {
     <AdminLayout>
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Manage Reservations</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Manage Reservations</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {reservations.length} reservation{reservations.length === 1 ? '' : 's'} stored
+            </p>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -271,6 +319,7 @@ export default function ManageReservationsPage() {
               <option value="pending">Pending</option>
               <option value="rejected">Rejected</option>
               <option value="cancelled">Cancelled</option>
+              <option value="completed">Completed</option>
             </select>
           </div>
         </div>
@@ -323,7 +372,8 @@ export default function ManageReservationsPage() {
                     const rejectLoading = actionLoading === `reject-${reservation.id}`;
 
                     return (
-                      <tr key={reservation.id} className="hover:bg-gray-50 align-top">
+                      <Fragment key={reservation.id}>
+                      <tr className="hover:bg-gray-50 align-top">
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">{reservation.user_name}</div>
                           {reservation.user_email ? (
@@ -448,9 +498,135 @@ export default function ManageReservationsPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </Link>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedId((id) => (id === reservation.id ? null : reservation.id))
+                              }
+                              className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition"
+                              title="All reservation details"
+                            >
+                              <ChevronDown
+                                className={`w-4 h-4 transition ${
+                                  expandedId === reservation.id ? 'rotate-180' : ''
+                                }`}
+                              />
+                            </button>
                           </div>
                         </td>
                       </tr>
+                      {expandedId === reservation.id ? (
+                        <tr className="bg-gray-50">
+                          <td colSpan={9} className="px-6 py-4 text-sm text-gray-700">
+                            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Booking ID
+                                </dt>
+                                <dd className="font-mono text-xs break-all">{reservation.id}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Guest user ID
+                                </dt>
+                                <dd className="font-mono text-xs break-all">
+                                  {reservation.user_id || 'Account removed — contact kept on this reservation'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">Host</dt>
+                                <dd>
+                                  {reservation.host_email || reservation.host_whatsapp || reservation.host_id || '—'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Signer / agreement
+                                </dt>
+                                <dd>
+                                  {reservation.guest_agreement_signer_name || '—'}
+                                  {reservation.guest_agreement_accepted_at
+                                    ? ` · ${formatBookedAt(reservation.guest_agreement_accepted_at)}`
+                                    : ''}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Cancellation policy
+                                </dt>
+                                <dd>{reservation.cancellation_policy || '—'}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Check-in / check-out extras
+                                </dt>
+                                <dd>
+                                  {reservation.early_check_in_requested
+                                    ? `Early ${reservation.requested_early_check_in_time || ''}`.trim()
+                                    : 'Standard check-in'}
+                                  {' · '}
+                                  {reservation.late_check_out_requested
+                                    ? `Late ${reservation.requested_late_check_out_time || ''}`.trim()
+                                    : 'Standard check-out'}
+                                </dd>
+                              </div>
+                              {reservation.special_offer_nightly != null ? (
+                                <div>
+                                  <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                    Special offer nightly
+                                  </dt>
+                                  <dd>${reservation.special_offer_nightly.toFixed(2)}</dd>
+                                </div>
+                              ) : null}
+                              {reservation.rejection_reason ? (
+                                <div>
+                                  <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                    Rejection reason
+                                  </dt>
+                                  <dd>{reservation.rejection_reason}</dd>
+                                </div>
+                              ) : null}
+                              {reservation.payment_intent_id ? (
+                                <div>
+                                  <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                    Payment reference
+                                  </dt>
+                                  <dd className="font-mono text-xs break-all">
+                                    {reservation.payment_intent_id}
+                                  </dd>
+                                </div>
+                              ) : null}
+                              <div className="md:col-span-2">
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Special requests
+                                </dt>
+                                <dd>{reservation.special_requests?.trim() || 'None'}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Wellness line items
+                                </dt>
+                                <dd className="whitespace-pre-wrap break-all text-xs">
+                                  {reservation.wellness_line_items
+                                    ? JSON.stringify(reservation.wellness_line_items, null, 2)
+                                    : 'None'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-gray-500">
+                                  Selected units
+                                </dt>
+                                <dd className="whitespace-pre-wrap break-all text-xs">
+                                  {reservation.selected_units
+                                    ? JSON.stringify(reservation.selected_units, null, 2)
+                                    : 'Entire listing'}
+                                </dd>
+                              </div>
+                            </dl>
+                          </td>
+                        </tr>
+                      ) : null}
+                      </Fragment>
                     );
                   })
                 )}

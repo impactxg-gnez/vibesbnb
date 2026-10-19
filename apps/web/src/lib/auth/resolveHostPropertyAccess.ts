@@ -28,7 +28,8 @@ export async function resolveHostPropertyAccess(propertyId: string): Promise<
   }
 
   const isAdmin = isAdminUser(user);
-  const reader = isAdmin ? createServiceClient() : supabase;
+  // Service role can read drafts even when public SELECT is limited to status=active.
+  const reader = createServiceClient();
 
   const { data: property, error } = await reader
     .from('properties')
@@ -48,8 +49,8 @@ export async function resolveHostPropertyAccess(propertyId: string): Promise<
     ok: true,
     user,
     property: property as PropertyHostRow,
-    // Admins always write via service role (bypass host-only RLS).
-    db: isAdmin ? createServiceClient() : supabase,
+    // Writes use service role so draft listings are not blocked by SELECT/UPDATE RLS.
+    db: reader,
     isAdmin,
   };
 }

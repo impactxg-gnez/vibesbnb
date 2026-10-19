@@ -8,7 +8,9 @@ import {
   getContactBlockUserMessage,
 } from '@/lib/utils/contactFilter';
 import toast from 'react-hot-toast';
-import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { deleteOwnMessage } from '@/lib/chat/inboxActions';
+import { requestUnreadMessagesRefresh } from '@/lib/chat/unreadMessageCount';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { parseSpecialOffer, type SpecialOfferContext } from '@/lib/specialOffer';
 import { SpecialOfferCard } from '@/components/chat/SpecialOfferCard';
@@ -39,6 +41,35 @@ interface ChatWindowProps {
   onMessagesRead?: () => void;
   /** Phone: return to the conversation list. Hidden from lg and up. */
   onBack?: () => void;
+}
+
+function mergeThreadMessages(serverMessages: Message[], prev: Message[]): Message[] {
+  const byId = new Map<string, Message>();
+  for (const message of serverMessages) {
+    if (message?.id) byId.set(message.id, message);
+  }
+  const now = Date.now();
+  for (const message of prev) {
+    if (!message?.id || byId.has(message.id)) continue;
+    if (message.isPolicyNotice) {
+      byId.set(message.id, message);
+      continue;
+    }
+    const created = Date.parse(message.created_at);
+    // Keep a just-sent bubble if a stale GET raced ahead of the insert.
+    if (Number.isFinite(created) && now - created < 120_000) {
+      byId.set(message.id, message);
+    }
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)
+  );
+}
+
+function upsertMessage(prev: Message[], incoming: Message | null | undefined): Message[] {
+  if (!incoming?.id) return prev;
+  if (prev.some((message) => message.id === incoming.id)) return prev;
+  return mergeThreadMessages(prev, [incoming]);
 }
 
 function formatInquiryStay(checkIn?: string | null, checkOut?: string | null): string | null {
@@ -74,10 +105,12 @@ export default function ChatWindow({
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
   const [chatBookingStatus, setChatBookingStatus] = useState<string | null>(null);
   const [chatPaymentStatus, setChatPaymentStatus] = useState<string | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const onMessagesReadRef = useRef(onMessagesRead);
   const hasMarkedRead = useRef(false);
-  const isLoadingRef = useRef(false);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const loadForConversationRef = useRef(conversationId);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const inquiryStayLabel = formatInquiryStay(inquiryCheckIn, inquiryCheckOut);
 
@@ -93,6 +126,10 @@ export default function ChatWindow({
     setChatBookingId(null);
     setChatBookingStatus(null);
     setChatPaymentStatus(null);
+    setMessages([]);
+    setInput('');
+    setBlockBanner(null);
+    setLoading(true);
   }, [conversationId]);
 
   useEffect(() => {
@@ -103,8 +140,11 @@ export default function ChatWindow({
 
   const loadMessages = useCallback(
     async (showLoading = true) => {
-      if (isLoadingRef.current) return;
-      isLoadingRef.current = true;
+      loadAbortRef.current?.abort();
+      const abort = new AbortController();
+      loadAbortRef.current = abort;
+      const requestedId = conversationId;
+      loadForConversationRef.current = requestedId;
 
       if (showLoading) setLoading(true);
       try {
@@ -114,16 +154,22 @@ export default function ChatWindow({
         } = await supabase.auth.getSession();
 
         const response = await fetch(
-          `/api/chat/conversations/${conversationId}/messages`,
+          `/api/chat/conversations/${requestedId}/messages`,
           {
+            cache: 'no-store',
             headers: {
               Authorization: `Bearer ${session?.access_token || ''}`,
+              'Cache-Control': 'no-cache',
             },
+            signal: abort.signal,
           }
         );
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.error || 'Failed to load messages');
+        }
+        if (abort.signal.aborted || loadForConversationRef.current !== requestedId) {
+          return;
         }
         setContactSharingAllowed(Boolean(data.contactSharingAllowed));
         setViewerIsHost(Boolean(data.viewerIsHost));
@@ -132,23 +178,19 @@ export default function ChatWindow({
         setChatBookingId(data.bookingId || null);
         setChatBookingStatus(data.bookingStatus || null);
         setChatPaymentStatus(data.paymentStatus || null);
-        setMessages((prev) => {
-          const serverMessages = data.messages || [];
-          // Keep in-thread policy notices only on soft refresh; reset on full reload
-          if (showLoading) return serverMessages;
-          const notices = prev.filter((m) => m.isPolicyNotice);
-          return [...serverMessages, ...notices];
-        });
+        setMessages((prev) => mergeThreadMessages(data.messages || [], prev));
         if (showLoading) setBlockBanner(null);
       } catch (error: any) {
+        if (error?.name === 'AbortError') return;
         console.error('[ChatWindow] load error', error);
         if (showLoading) {
           toast.error(error.message || 'Failed to load messages');
         }
       } finally {
-        isLoadingRef.current = false;
-        if (showLoading) setLoading(false);
-        scrollToBottom();
+        if (!abort.signal.aborted && loadForConversationRef.current === requestedId) {
+          if (showLoading) setLoading(false);
+          scrollToBottom();
+        }
       }
     },
     [conversationId]
@@ -189,16 +231,33 @@ export default function ChatWindow({
           (payload) => {
             if (!isMounted) return;
             const newMessage = payload.new as Message;
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === newMessage.id)) {
-                return prev;
-              }
-              return [...prev, newMessage];
-            });
+            setMessages((prev) => upsertMessage(prev, newMessage));
             scrollToBottom();
           }
         )
-        .subscribe();
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            if (!isMounted) return;
+            const removedId = (payload.old as { id?: string } | null)?.id;
+            if (!removedId) {
+              void loadMessages(false);
+              return;
+            }
+            setMessages((prev) => prev.filter((message) => message.id !== removedId));
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED' && isMounted) {
+            void loadMessages(false);
+          }
+        });
 
       window.addEventListener('focus', onFocus);
       document.addEventListener('visibilitychange', onVis);
@@ -208,6 +267,7 @@ export default function ChatWindow({
 
     return () => {
       isMounted = false;
+      loadAbortRef.current?.abort();
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVis);
       if (channel) {
@@ -235,6 +295,7 @@ export default function ChatWindow({
         });
         hasMarkedRead.current = true;
         onMessagesReadRef.current?.();
+        requestUnreadMessagesRefresh();
       } catch (error) {
         console.error('Failed to mark as read:', error);
       }
@@ -274,6 +335,22 @@ export default function ChatWindow({
     scrollToBottom();
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Delete this message? It will be removed from the conversation for both of you.')) {
+      return;
+    }
+    setDeletingMessageId(messageId);
+    try {
+      await deleteOwnMessage(conversationId, messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      onMessagesReadRef.current?.();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not delete message');
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -298,6 +375,7 @@ export default function ChatWindow({
         `/api/chat/conversations/${conversationId}/messages`,
         {
           method: 'POST',
+          cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token || ''}`,
@@ -317,7 +395,7 @@ export default function ChatWindow({
         setContactSharingAllowed(data.contactSharingAllowed);
       }
       setInput('');
-      setMessages((prev) => [...prev, data.message]);
+      setMessages((prev) => upsertMessage(prev, data.message));
       scrollToBottom();
     } catch (error: any) {
       console.error('[ChatWindow] send error', error);
@@ -348,7 +426,7 @@ export default function ChatWindow({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to send special offer');
       if (data.message) {
-        setMessages((prev) => [...prev, data.message]);
+        setMessages((prev) => upsertMessage(prev, data.message));
       }
       setOfferComposerOpen(false);
       toast.success('Special offer sent');
@@ -439,8 +517,20 @@ export default function ChatWindow({
             return (
               <div
                 key={message.id}
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                className={`group flex items-end gap-1 ${isOwn ? 'justify-end' : 'justify-start'}`}
               >
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteMessage(message.id)}
+                  disabled={deletingMessageId === message.id}
+                  className={`opacity-70 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 rounded-full text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition disabled:opacity-40 ${
+                    isOwn ? '' : 'order-last'
+                  }`}
+                  aria-label="Delete message"
+                  title="Delete message"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
                 <div
                   className={
                     offer

@@ -172,6 +172,16 @@ export function vacationRentalJsonLd(property: SeoPropertyCard) {
     };
   }
 
+  if (property.price != null && property.price > 0) {
+    node.makesOffer = {
+      '@type': 'Offer',
+      price: property.price,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url,
+    };
+  }
+
   return node;
 }
 

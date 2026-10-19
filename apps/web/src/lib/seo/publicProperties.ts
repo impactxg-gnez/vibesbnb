@@ -1,6 +1,10 @@
 import { PROPERTY_BROWSE_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { fetchPropertyDetailRow } from '@/lib/propertyDetailFetch';
-import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
+import {
+  isStockPlaceholderImageUrl,
+  listingCardImagesFromRow,
+  mergeCoverAndGallery,
+} from '@/lib/propertyImageUrls';
 import { createPublicSupabase } from '@/lib/seo/publicSupabase';
 import { isMiamiLocation, parsePropertyPlace, type MiamiNeighborhoodId } from '@/lib/seo/propertyPlace';
 import { resolvePropertyStayPolicies } from '@/lib/seo/propertyStayPolicies';
@@ -46,6 +50,7 @@ export type SeoPropertyCard = {
   neighborhood: MiamiNeighborhoodId | null;
   neighborhoodName: string | null;
   publicLocation: string;
+  allowDirectBooking: boolean;
 };
 
 function num(value: unknown): number | null {
@@ -69,9 +74,12 @@ export function mapSeoPropertyRow(row: Record<string, unknown>): SeoPropertyCard
   );
   const cover = str(row.cover_image);
   const coverImage =
-    cover && /^https?:\/\//i.test(cover) && !cover.startsWith('data:')
+    cover &&
+    /^https?:\/\//i.test(cover) &&
+    !cover.startsWith('data:') &&
+    !isStockPlaceholderImageUrl(cover)
       ? cover
-      : images.find((u) => /^https?:\/\//i.test(u)) || null;
+      : images.find((u) => /^https?:\/\//i.test(u) && !isStockPlaceholderImageUrl(u)) || null;
 
   return {
     id,
@@ -114,6 +122,7 @@ export function mapSeoPropertyRow(row: Record<string, unknown>): SeoPropertyCard
     neighborhood: place.neighborhood,
     neighborhoodName: place.neighborhoodName,
     publicLocation: place.publicLocation,
+    allowDirectBooking: row.allow_direct_booking === true,
   };
 }
 
@@ -154,7 +163,34 @@ export async function fetchSeoPropertyById(id: string): Promise<SeoPropertyCard 
     if (error) console.warn('[seo] fetchSeoPropertyById', error.message);
     return null;
   }
-  return mapSeoPropertyRow(data);
+  const mapped = mapSeoPropertyRow(data);
+  if (!mapped) return null;
+
+  const needsRealPhoto =
+    !mapped.coverImage ||
+    mapped.images.length === 0 ||
+    mapped.images.every((url) => url.startsWith('/api/properties/'));
+
+  if (needsRealPhoto) {
+    try {
+      const { data: galleryRow } = await supabase
+        .from('properties')
+        .select('images')
+        .eq('id', id)
+        .maybeSingle();
+      const merged = mergeCoverAndGallery(mapped.coverImage, galleryRow?.images).filter(
+        (url) => /^https?:\/\//i.test(url) && !isStockPlaceholderImageUrl(url)
+      );
+      if (merged.length > 0) {
+        mapped.coverImage = merged[0];
+        mapped.images = merged.slice(0, 12);
+      }
+    } catch (e) {
+      console.warn('[seo] fetchSeoPropertyById gallery', e);
+    }
+  }
+
+  return mapped;
 }
 
 export function miamiProperties(list: SeoPropertyCard[]): SeoPropertyCard[] {

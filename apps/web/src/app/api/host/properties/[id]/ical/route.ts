@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
 import { syncOnePropertyIcalSource } from '@/lib/calendar/syncExternalIcal';
-import { getSiteUrl } from '@/lib/seo/siteUrl';
+import { getCalendarExportOrigin } from '@/lib/seo/siteUrl';
+import { isOwnCalendarExportUrl, OWN_ICAL_EXPORT_AS_IMPORT_ERROR } from '@/lib/calendar/icsFetch';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -33,7 +34,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       throw sourcesError;
     }
 
-    const appUrl = getSiteUrl();
+    const appUrl = getCalendarExportOrigin();
     const token = property.ical_export_token;
     const exportUrl =
       token != null ? `${appUrl}/calendar/${params.id}.ics?token=${encodeURIComponent(token)}` : '';
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       new URL(ical_url);
     } catch {
       return NextResponse.json({ error: 'Invalid iCal URL format' }, { status: 400 });
+    }
+    if (isOwnCalendarExportUrl(ical_url)) {
+      return NextResponse.json({ error: OWN_ICAL_EXPORT_AS_IMPORT_ERROR }, { status: 400 });
     }
 
     const service = createServiceClient();

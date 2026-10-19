@@ -6,7 +6,11 @@ import {
   formatYmdUtc,
   type ParsedIcsStay,
 } from '@/lib/calendar/icsParseIncoming';
-import { fetchIcsBody } from '@/lib/calendar/icsFetch';
+import {
+  fetchIcsBody,
+  isOwnCalendarExportUrl,
+  OWN_ICAL_EXPORT_AS_IMPORT_ERROR,
+} from '@/lib/calendar/icsFetch';
 import {
   formatUnknownError,
   isMissingRelationOrFunction,
@@ -49,6 +53,9 @@ export async function syncOnePropertyIcalSource(opts: {
   let lockHeld = false;
 
   try {
+    if (isOwnCalendarExportUrl(calendar.ical_url)) {
+      throw new Error(OWN_ICAL_EXPORT_AS_IMPORT_ERROR);
+    }
     const body = await fetchIcsBody(calendar.ical_url);
     const hash = await sha256Hex(body);
 

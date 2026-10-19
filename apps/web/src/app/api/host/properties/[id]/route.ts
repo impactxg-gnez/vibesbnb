@@ -4,6 +4,7 @@ import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { PROPERTY_UPDATE_KEYS } from '@/lib/propertyWritableColumns';
 import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchListingSavedEmail } from '@/lib/notifications/dispatchListingSavedEmail';
+import { isStockPlaceholderImageUrl } from '@/lib/propertyImageUrls';
 
 type RoomPayload = Record<string, unknown> & { id?: unknown; images?: unknown };
 
@@ -65,6 +66,21 @@ export async function PATCH(
       const status = String(updatePayload.status);
       if (!['active', 'draft', 'inactive', 'pending_approval'].includes(status)) {
         return NextResponse.json({ error: 'Invalid property status' }, { status: 400 });
+      }
+    }
+
+    if (Array.isArray(updatePayload.images)) {
+      const firstReal = (updatePayload.images as unknown[]).find((item) => {
+        if (typeof item !== 'string') return false;
+        const url = item.trim();
+        return (
+          /^https?:\/\//i.test(url) &&
+          !url.toLowerCase().startsWith('data:') &&
+          !isStockPlaceholderImageUrl(url)
+        );
+      });
+      if (typeof firstReal === 'string') {
+        updatePayload.cover_image = firstReal.trim();
       }
     }
 

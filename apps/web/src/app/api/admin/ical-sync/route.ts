@@ -7,7 +7,7 @@ import {
   deriveIcalSyncStatus,
   type IcalSyncExportRow,
 } from '@/lib/icalSyncExcel';
-import { getSiteUrl } from '@/lib/seo/siteUrl';
+import { getCalendarExportOrigin } from '@/lib/seo/siteUrl';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +32,7 @@ type SourceRow = {
 };
 
 function appBaseUrl(_request: NextRequest): string {
-  return getSiteUrl();
+  return getCalendarExportOrigin();
 }
 
 function exportUrlFor(propertyId: string, token: string, base: string): string {

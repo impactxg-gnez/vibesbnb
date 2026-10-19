@@ -7,6 +7,26 @@ const ICS_FETCH_HEADERS: Record<string, string> = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
+/** True if the URL is a VibesBNB export feed (must be pasted into Airbnb, not imported here). */
+export function isOwnCalendarExportUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.toLowerCase();
+    const isOwnHost =
+      host === 'vibesbnb.com' ||
+      host.endsWith('.vibesbnb.com') ||
+      host.endsWith('.vercel.app');
+    const isOwnExport =
+      parsed.pathname.includes('/calendar/') || parsed.pathname.includes('/ical/export');
+    return isOwnHost && isOwnExport;
+  } catch {
+    return false;
+  }
+}
+
+export const OWN_ICAL_EXPORT_AS_IMPORT_ERROR =
+  'That is your VibesBNB export link. Paste it into Airbnb/VRBO instead. Here, add the calendar URL those sites give you to export.';
+
 export function looksLikeIcs(text: string): boolean {
   const normalized = text.replace(/^\uFEFF/, '').trim();
   return /BEGIN\s*:\s*VCALENDAR/i.test(normalized) || /BEGIN\s*:\s*VEVENT/i.test(normalized);

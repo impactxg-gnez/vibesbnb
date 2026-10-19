@@ -26,3 +26,22 @@ export function absoluteUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
+
+/**
+ * Host shown on iCal export links. Production apex (`vibesbnb.com`) 307s to `www`;
+ * Airbnb/VRBO calendar fetchers often do not follow that redirect, so feeds look empty.
+ */
+export function getCalendarExportOrigin(): string {
+  const site = getSiteUrl();
+  try {
+    const u = new URL(site);
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host.endsWith('.localhost')) return site;
+    if (host === 'vibesbnb.com' || isVercelAppHost(host)) {
+      return 'https://www.vibesbnb.com';
+    }
+    return site;
+  } catch {
+    return 'https://www.vibesbnb.com';
+  }
+}

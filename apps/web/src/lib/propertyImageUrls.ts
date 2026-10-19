@@ -24,6 +24,19 @@ const SUPABASE_OBJECT_PUBLIC =
 const PLACEHOLDER =
   'https://images.unsplash.com/photo-1542718610-a1d656d1884c?w=600&h=400&fit=crop';
 
+/** Admin cleanup / empty-state stock art — never treat as a real listing photo. */
+export function isStockPlaceholderImageUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.trim().toLowerCase();
+  if (!lower) return false;
+  return (
+    lower.includes('via.placeholder') ||
+    lower.includes('photo-1542718610') ||
+    lower.includes('placeholder.com') ||
+    lower.includes('text=no+image')
+  );
+}
+
 const NON_IMAGE_HOSTS = new Set([
   'youtube.com',
   'www.youtube.com',
@@ -181,7 +194,7 @@ export function normalizePropertyImages(
   for (const raw of images) {
     if (typeof raw !== 'string') continue;
     const url = unwrapProxiedImageUrl(raw);
-    if (!url) continue;
+    if (!url || isStockPlaceholderImageUrl(url)) continue;
     const key = propertyImageIdentityKey(url);
     if (!key || seen.has(key)) continue;
 
@@ -218,7 +231,8 @@ export function mergeCoverAndGallery(
 ): string[] {
   const list = Array.isArray(images) ? images : [];
   const coverUrl = typeof cover === 'string' && cover.trim() ? cover.trim() : '';
-  return normalizePropertyImages(coverUrl ? [coverUrl, ...list] : list, fallback);
+  const usableCover = coverUrl && !isStockPlaceholderImageUrl(coverUrl) ? coverUrl : '';
+  return normalizePropertyImages(usableCover ? [usableCover, ...list] : list, fallback);
 }
 
 /** First usable listing image (after normalize), or placeholder. */
@@ -240,7 +254,7 @@ export function listingCardImagesFromRow(row: {
 }): string[] {
   const id = typeof row.id === 'string' ? row.id : '';
   const normalized = mergeCoverAndGallery(row.cover_image, row.images, PLACEHOLDER).filter(
-    (u) => u !== PLACEHOLDER && !u.startsWith('data:')
+    (u) => u !== PLACEHOLDER && !u.startsWith('data:') && !isStockPlaceholderImageUrl(u)
   );
   if (normalized.length > 0) return normalized.slice(0, 3);
   if (id) return [`/api/properties/${encodeURIComponent(id)}/cover`];

@@ -13,6 +13,8 @@ import {
   userHasHostCapability,
 } from '@/lib/auth/hostAccess';
 import { MessageCircle, Building, Sparkles, Plane, Briefcase, Plus, X, Check, Wallet } from 'lucide-react';
+import { useUnreadMessageCount } from '@/lib/chat/unreadMessageCount';
+import { UnreadMessageBadge } from '@/components/chat/UnreadMessageBadge';
 import { PropertyNameSearchModal } from '@/components/search/PropertyNameSearchModal';
 import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryChips';
 import { ChooseYourVibeMenu } from '@/components/properties/ChooseYourVibeMenu';
@@ -28,7 +30,7 @@ export function Header() {
   const supabase = createClient();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showGuestMenu, setShowGuestMenu] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const unreadMessages = useUnreadMessageCount();
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState<{ email: string; name: string; role: string }[]>([]);
   const [currentMode, setCurrentMode] = useState<'traveling' | 'hosting'>('traveling');
@@ -132,44 +134,6 @@ export function Header() {
   // For menu display purposes
   const isInHostingMode = currentMode === 'hosting';
   const isTraveller = !hasHostOrSupportAccess && !isAdmin;
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    const fetchUnreadMessages = async () => {
-      try {
-        const response = await fetch('/api/chat/unread-count');
-        if (!response.ok) return;
-        const data = await response.json();
-        setUnreadMessages(data.count || 0);
-      } catch (error) {
-        console.error('Failed to load unread message count', error);
-      }
-    };
-
-    const onVis = () => {
-      if (document.visibilityState === 'visible') void fetchUnreadMessages();
-    };
-
-    if (user) {
-      void fetchUnreadMessages();
-      const tick = () => {
-        if (document.visibilityState === 'visible') {
-          void fetchUnreadMessages();
-        }
-      };
-      interval = setInterval(tick, 90000);
-      document.addEventListener('visibilitychange', onVis);
-      window.addEventListener('focus', onVis);
-    } else {
-      setUnreadMessages(0);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('focus', onVis);
-    };
-  }, [user]);
 
   const switchToTraveler = () => {
     setCurrentMode('traveling');
@@ -397,20 +361,17 @@ export function Header() {
                         <svg className="w-5 h-5 text-[#51372B] dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
-                        {unreadMessages > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-emerald-500 text-black text-[9px] font-bold leading-[14px] text-center">
-                            {unreadMessages > 9 ? '9+' : unreadMessages}
-                          </span>
-                        )}
+                        <UnreadMessageBadge count={unreadMessages} className="dark:ring-[#193F25]" />
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowUserMenu(!showUserMenu)}
-                        className="hidden md:flex items-center space-x-2 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 hover:border-[#193F25]/40 rounded-full p-1 pl-3 transition-all duration-300 group dark:bg-white/5 dark:hover:bg-primary-500/10 dark:border-white/10 dark:hover:border-primary-500/50"
+                        className="hidden md:flex relative items-center space-x-2 bg-[#F4E6D4] hover:bg-[#ECD5BB] border border-[#51372B]/20 hover:border-[#193F25]/40 rounded-full p-1 pl-3 transition-all duration-300 group dark:bg-white/5 dark:hover:bg-primary-500/10 dark:border-white/10 dark:hover:border-primary-500/50"
                         aria-expanded={showUserMenu}
                         aria-haspopup="menu"
                         aria-label="Menu"
                       >
+                        <UnreadMessageBadge count={unreadMessages} className="dark:ring-gray-950" />
                         <svg className="w-5 h-5 text-[#51372B] group-hover:text-[#193F25] transition-colors dark:text-gray-400 dark:group-hover:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
@@ -486,8 +447,11 @@ export function Header() {
                               className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-primary-500/10 hover:text-primary-400 transition-colors"
                               onClick={() => setShowUserMenu(false)}
                             >
+                              <span className="relative inline-flex">
+                                <MessageCircle className="w-4 h-4" />
+                                <UnreadMessageBadge count={unreadMessages} className="dark:ring-gray-950" />
+                              </span>
                               <span>Messages</span>
-                              {unreadMessages > 0 && <span className="bg-emerald-500 text-black text-[10px] font-bold rounded-full px-1.5 py-0.5 ml-auto">{unreadMessages}</span>}
                             </Link>
                             {!isInHostingMode && (
                               <Link

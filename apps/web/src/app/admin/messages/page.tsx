@@ -72,11 +72,11 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (user && isAdminUser(user)) {
-      loadConversations();
+      void loadConversations(preselectedConversationId);
     }
   }, [user?.id]);
 
-  const loadConversations = async () => {
+  const loadConversations = async (conversationId?: string | null) => {
     setLoadingConversations(true);
     try {
       const headers = await getHeadersForAdminFetch();
@@ -84,7 +84,10 @@ export default function MessagesPage() {
         throw new Error('No valid session — please sign in again.');
       }
 
-      const response = await fetch('/api/admin/conversations', {
+      const qs = conversationId
+        ? `?conversationId=${encodeURIComponent(conversationId)}`
+        : '';
+      const response = await fetch(`/api/admin/conversations${qs}`, {
         headers: { ...headers },
       });
       const data = await response.json();
@@ -97,12 +100,10 @@ export default function MessagesPage() {
       const list: Conversation[] = data.conversations || [];
       setConversations(list);
       setSelectedConversation((prev) => {
-        if (preselectedConversationId) {
-          const match = list.find((c) => c.id === preselectedConversationId);
+        const preferred = conversationId || preselectedConversationId || prev?.id;
+        if (preferred) {
+          const match = list.find((c) => c.id === preferred);
           if (match) return match;
-        }
-        if (prev) {
-          return list.find((c) => c.id === prev.id) ?? list[0] ?? null;
         }
         return list[0] ?? null;
       });
@@ -112,6 +113,13 @@ export default function MessagesPage() {
       toast.error(message);
     } finally {
       setLoadingConversations(false);
+    }
+  };
+
+  const selectConversation = (conv: Conversation) => {
+    setSelectedConversation(conv);
+    if (!conv.messages?.length) {
+      void loadConversations(conv.id);
     }
   };
 
@@ -173,7 +181,7 @@ export default function MessagesPage() {
               filteredConversations.map((conv) => (
                 <button
                   key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
+                  onClick={() => selectConversation(conv)}
                   className={`w-full p-4 text-left border-b border-gray-200 hover:bg-gray-50 transition ${
                     selectedConversation?.id === conv.id ? 'bg-purple-50' : ''
                   }`}
@@ -225,7 +233,7 @@ export default function MessagesPage() {
                 isHost={false}
                 isAdmin
                 theme="light"
-                onBookingUpdated={loadConversations}
+                onBookingUpdated={() => void loadConversations(selectedConversation.id)}
               />
               <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
                 {selectedConversation.messages.length === 0 ? (

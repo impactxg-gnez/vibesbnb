@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import { LayoutContent } from './LayoutContent';
 import Script from 'next/script';
+import { MarketingPixels } from '@/components/analytics/MarketingPixels';
 
 const inter = Inter({ subsets: ['latin'] });
 const GA_MEASUREMENT_ID = 'G-S7RJJXXRD9';
@@ -118,6 +119,7 @@ export default function RootLayout({
           `}
         </Script>
         {imageOriginHints()}
+        <MarketingPixels />
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBMockKeyForDevelopment'}&libraries=places`}
           strategy="beforeInteractive"

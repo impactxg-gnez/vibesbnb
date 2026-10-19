@@ -891,7 +891,8 @@ export function AvailabilityEditor({ propertyId, basePrice }: AvailabilityEditor
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">Your Calendar Export URL</label>
             <p className="text-xs text-gray-500">
-              Share this URL with other platforms (Airbnb, VRBO, etc.) to sync your VibesBNB bookings to them.
+              Paste this URL into Airbnb / VRBO → Calendar → Import. Use the www.vibesbnb.com link (not a Vercel URL)
+              so those platforms can fetch it. This blocks those sites when you have a VibesBNB booking.
             </p>
             <div className="flex items-center gap-2">
               <input
@@ -925,6 +926,7 @@ export function AvailabilityEditor({ propertyId, basePrice }: AvailabilityEditor
             <label className="text-sm font-medium text-gray-300">Import from External Calendars</label>
             <p className="text-xs text-gray-500">
               Add iCal URLs from Airbnb, VRBO, or other platforms to auto-block those dates here.
+              Do not paste the VibesBNB export URL above — that is for the other platform to import.
             </p>
 
             {/* Add new source */}

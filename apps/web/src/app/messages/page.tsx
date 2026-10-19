@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client';
 import ChatWindow from '@/components/chat/ChatWindow';
 import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
+import { Trash2 } from 'lucide-react';
+import { hideConversation } from '@/lib/chat/inboxActions';
 
 interface Conversation {
   id: string;
@@ -129,6 +131,22 @@ export default function MessagesPage() {
     loadConversations(false);
   }, [loadConversations]);
 
+  const handleHideConversation = async (conversationId: string) => {
+    if (!confirm('Remove this conversation from your inbox? The other person will still have it.')) {
+      return;
+    }
+    try {
+      await hideConversation(conversationId);
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(null);
+      }
+      toast.success('Conversation removed from your inbox');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not remove conversation');
+    }
+  };
+
   const selectedConversationObj = conversations.find(
     (conv) => conv.id === selectedConversation
   );
@@ -203,10 +221,10 @@ export default function MessagesPage() {
                 {conversations.map((conversation) => {
                   const unreadCount = getUnreadCount(conversation);
                   return (
+                    <div key={conversation.id} className="relative group">
                     <button
-                      key={conversation.id}
                       onClick={() => setSelectedConversation(conversation.id)}
-                      className={`w-full text-left p-3 rounded-lg transition ${
+                      className={`w-full text-left p-3 pr-10 rounded-lg transition ${
                         selectedConversation === conversation.id
                           ? 'bg-emerald-600 text-white'
                           : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
@@ -222,7 +240,7 @@ export default function MessagesPage() {
                           </p>
                         </div>
                         {unreadCount > 0 && (
-                          <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5">
+                          <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5 mr-1">
                             {unreadCount}
                           </span>
                         )}
@@ -236,6 +254,19 @@ export default function MessagesPage() {
                         </p>
                       )}
                     </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleHideConversation(conversation.id);
+                      }}
+                      className="absolute top-2 right-2 p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-black/20"
+                      aria-label="Remove conversation"
+                      title="Remove from inbox"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    </div>
                   );
                 })}
               </div>

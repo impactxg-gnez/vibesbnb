@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     if ('response' in auth) return auth.response;
 
     const serviceSupabase = createSupabaseForAdminApi(accessTokenFromRequest(request));
+    const selectedId = request.nextUrl.searchParams.get('conversationId')?.trim();
+
     const { data: conversations, error } = await serviceSupabase
       .from('conversations')
       .select(
@@ -44,28 +46,27 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const conversationIds = (conversations || []).map((c) => c.id);
-    let messages: Record<string, any[]> = {};
+    const messagesByConversation: Record<string, any[]> = {};
+    const idsToLoad = selectedId
+      ? [selectedId]
+      : (conversations || []).slice(0, 1).map((c) => c.id);
 
-    if (conversationIds.length > 0) {
-      const { data: allMessages } = await serviceSupabase
-        .from('messages')
-        .select('*')
-        .in('conversation_id', conversationIds)
-        .order('created_at', { ascending: true });
-
-      allMessages?.forEach((msg) => {
-        if (!messages[msg.conversation_id]) {
-          messages[msg.conversation_id] = [];
-        }
-        messages[msg.conversation_id].push(msg);
-      });
+    if (idsToLoad.length > 0) {
+      for (const conversationId of idsToLoad) {
+        const { data: thread } = await serviceSupabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true })
+          .range(0, 1999);
+        messagesByConversation[conversationId] = thread || [];
+      }
     }
 
     return NextResponse.json({
       conversations: (conversations || []).map((conv) => ({
         ...conv,
-        messages: messages[conv.id] || [],
+        messages: messagesByConversation[conv.id] || [],
       })),
     });
   } catch (error: any) {

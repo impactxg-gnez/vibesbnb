@@ -84,6 +84,7 @@ function isHttpCoverUrl(url: string): boolean {
   if (lower.startsWith('data:')) return false;
   if (lower.includes('via.placeholder')) return false;
   if (lower.includes('photo-1542718610')) return false;
+  if (lower.includes('placeholder.com')) return false;
   return true;
 }
 

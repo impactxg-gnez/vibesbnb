@@ -39,6 +39,7 @@ export const PROPERTY_WRITABLE_COLUMNS = [
   'amenities',
   'accessibility_description',
   'images',
+  'cover_image',
   'image_alts',
   'rooms',
   'latitude',

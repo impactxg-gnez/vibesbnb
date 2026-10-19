@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: property.name,
     description,
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
     alternates: { canonical: url },
     openGraph: {
       type: 'website',
@@ -61,7 +62,7 @@ export default async function ListingPage({ params }: Props) {
   return (
     <>
       {property ? <JsonLd data={vacationRentalJsonLd(property)} /> : null}
-      <ListingPageClient />
+      <ListingPageClient initialSeo={property} />
       {property ? <PropertySeoFacts property={property} /> : null}
     </>
   );
