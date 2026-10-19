@@ -8,7 +8,7 @@ import ChatWindow from '@/components/chat/ChatWindow';
 import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
 import { Sparkles, Trash2 } from 'lucide-react';
-import { hideConversation } from '@/lib/chat/inboxActions';
+import { hideConversation, hideConversations } from '@/lib/chat/inboxActions';
 import { VibeBotThread } from '@/components/concierge/VibeBotThread';
 import { VIBEBOT_CONVERSATION_ID } from '@/lib/concierge/openVibeBot';
 
@@ -47,6 +47,8 @@ export default function MessagesPage() {
     null
   );
   const [loadingList, setLoadingList] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
@@ -146,12 +148,59 @@ export default function MessagesPage() {
     try {
       await hideConversation(conversationId);
       setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      setSelectedIds((prev) => prev.filter((id) => id !== conversationId));
       if (selectedConversation === conversationId) {
         setSelectedConversation(null);
       }
       toast.success('Conversation removed from your inbox');
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Could not remove conversation');
+    }
+  };
+
+  const toggleSelected = (conversationId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(conversationId)
+        ? prev.filter((id) => id !== conversationId)
+        : [...prev, conversationId]
+    );
+  };
+
+  const allVisibleSelected =
+    conversations.length > 0 && selectedIds.length === conversations.length;
+
+  const handleHideSelected = async () => {
+    if (selectedIds.length === 0) return;
+    const n = selectedIds.length;
+    if (
+      !confirm(
+        n === 1
+          ? 'Remove this conversation from your inbox? The other person will still have it.'
+          : `Remove ${n} conversations from your inbox? The other people will still have them.`
+      )
+    ) {
+      return;
+    }
+    setBulkRemoving(true);
+    try {
+      const { removed, failed } = await hideConversations(selectedIds);
+      const gone = new Set(selectedIds);
+      setConversations((prev) => prev.filter((c) => !gone.has(c.id)));
+      if (selectedConversation && gone.has(selectedConversation)) {
+        setSelectedConversation(null);
+      }
+      setSelectedIds([]);
+      if (failed && removed) {
+        toast.error(`Removed ${removed}. ${failed} could not be removed.`);
+      } else if (failed) {
+        toast.error('Could not remove those conversations');
+      } else {
+        toast.success(removed === 1 ? 'Conversation removed from your inbox' : `${removed} conversations removed`);
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not remove conversations');
+    } finally {
+      setBulkRemoving(false);
     }
   };
 
@@ -212,7 +261,34 @@ export default function MessagesPage() {
               threadOpen ? 'hidden lg:block' : 'block'
             } bg-gray-900 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-xl p-4 h-full overflow-y-auto custom-scrollbar`}
           >
-            <h2 className="text-lg font-semibold text-white mb-4">Conversations</h2>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-lg font-semibold text-white">Conversations</h2>
+              {conversations.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={() =>
+                        setSelectedIds(allVisibleSelected ? [] : conversations.map((c) => c.id))
+                      }
+                      className="rounded border-gray-600"
+                      aria-label="Select all conversations"
+                    />
+                    All
+                  </label>
+                  <button
+                    type="button"
+                    disabled={selectedIds.length === 0 || bulkRemoving}
+                    onClick={() => void handleHideSelected()}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-red-300 hover:bg-red-500/10 disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {selectedIds.length > 0 ? `Delete (${selectedIds.length})` : 'Delete'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               onClick={() => setSelectedConversation(VIBEBOT_CONVERSATION_ID)}
@@ -245,10 +321,17 @@ export default function MessagesPage() {
                 {conversations.map((conversation) => {
                   const unreadCount = getUnreadCount(conversation);
                   return (
-                    <div key={conversation.id} className="relative group">
+                    <div key={conversation.id} className="relative group flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(conversation.id)}
+                      onChange={() => toggleSelected(conversation.id)}
+                      className="mt-4 shrink-0 rounded border-gray-600"
+                      aria-label={`Select ${conversation.properties?.name || 'conversation'}`}
+                    />
                     <button
                       onClick={() => setSelectedConversation(conversation.id)}
-                      className={`w-full text-left p-3 pr-10 rounded-lg transition ${
+                      className={`flex-1 min-w-0 text-left p-3 pr-10 rounded-lg transition ${
                         selectedConversation === conversation.id
                           ? 'bg-emerald-600 text-white'
                           : 'bg-gray-800 text-gray-200 hover:bg-gray-700'

@@ -34,18 +34,22 @@ function ListingCards({ listings }: { listings: StayCard[] }) {
               guests: params.get('guests') ? Number(params.get('guests')) : undefined,
             });
           }}
-          className="flex gap-3 rounded-xl overflow-hidden border border-emerald-500/30 bg-gray-950/80 hover:border-emerald-400 transition"
+          className="flex gap-3 rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-light)] text-[var(--ink)] hover:border-emerald-600 transition no-underline"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={listing.cover} alt="" className="w-20 h-20 object-cover shrink-0 bg-gray-800" />
+          <img
+            src={listing.cover}
+            alt=""
+            className="w-20 h-20 object-cover shrink-0 bg-[var(--surface)]"
+          />
           <div className="py-2 pr-3 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{listing.name}</p>
-            <p className="text-xs text-gray-400 truncate">{listing.location}</p>
-            <p className="text-xs text-emerald-300 mt-0.5">
+            <p className="text-sm font-semibold truncate text-[var(--ink)]">{listing.name}</p>
+            <p className="text-xs truncate text-[var(--muted)]">{listing.location}</p>
+            <p className="text-xs mt-0.5 text-[var(--primary)]">
               From ${listing.guestNightly}/night · sleeps {listing.guests}
             </p>
             {listing.matchNotes.length > 0 ? (
-              <p className="text-[10px] text-amber-200/80 mt-0.5">{listing.matchNotes[0]}</p>
+              <p className="text-[10px] mt-0.5 text-[var(--alert-warning-ink)]">{listing.matchNotes[0]}</p>
             ) : null}
           </div>
         </Link>

@@ -8,7 +8,7 @@ import ChatWindow from '@/components/chat/ChatWindow';
 import { ConversationBookingPanel } from '@/components/chat/ConversationBookingPanel';
 import toast from 'react-hot-toast';
 import { MessageSquare, Calendar, Home, ArrowLeft, Trash2 } from 'lucide-react';
-import { hideConversation } from '@/lib/chat/inboxActions';
+import { hideConversation, hideConversations } from '@/lib/chat/inboxActions';
 import Link from 'next/link';
 import { getHostScopeUserIdFromAuthOnly } from '@/lib/adminHostImpersonation';
 
@@ -46,6 +46,8 @@ export default function HostMessagesPage() {
     null
   );
   const [loadingList, setLoadingList] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
@@ -164,12 +166,70 @@ export default function HostMessagesPage() {
       }
       await hideConversation(conversationId, extra);
       setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      setSelectedIds((prev) => prev.filter((id) => id !== conversationId));
       if (selectedConversation === conversationId) {
         setSelectedConversation(null);
       }
       toast.success('Conversation removed from your inbox');
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Could not remove conversation');
+    }
+  };
+
+  const hideHeaders = (): Record<string, string> => {
+    const extra: Record<string, string> = {};
+    if (user) {
+      const hostScopeId = getHostScopeUserIdFromAuthOnly(user) || user.id;
+      if (hostScopeId !== user.id) {
+        extra['x-impersonate-host-id'] = hostScopeId;
+      }
+    }
+    return extra;
+  };
+
+  const toggleSelected = (conversationId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(conversationId)
+        ? prev.filter((id) => id !== conversationId)
+        : [...prev, conversationId]
+    );
+  };
+
+  const allVisibleSelected =
+    conversations.length > 0 && selectedIds.length === conversations.length;
+
+  const handleHideSelected = async () => {
+    if (selectedIds.length === 0) return;
+    const n = selectedIds.length;
+    if (
+      !confirm(
+        n === 1
+          ? 'Remove this conversation from your inbox? The guest will still have it.'
+          : `Remove ${n} conversations from your inbox? Guests will still have them.`
+      )
+    ) {
+      return;
+    }
+    setBulkRemoving(true);
+    try {
+      const { removed, failed } = await hideConversations(selectedIds, hideHeaders());
+      const gone = new Set(selectedIds);
+      setConversations((prev) => prev.filter((c) => !gone.has(c.id)));
+      if (selectedConversation && gone.has(selectedConversation)) {
+        setSelectedConversation(null);
+      }
+      setSelectedIds([]);
+      if (failed && removed) {
+        toast.error(`Removed ${removed}. ${failed} could not be removed.`);
+      } else if (failed) {
+        toast.error('Could not remove those conversations');
+      } else {
+        toast.success(removed === 1 ? 'Conversation removed from your inbox' : `${removed} conversations removed`);
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not remove conversations');
+    } finally {
+      setBulkRemoving(false);
     }
   };
 
@@ -242,15 +302,35 @@ export default function HostMessagesPage() {
               threadOpen ? 'hidden lg:flex' : 'flex'
             } bg-gray-900 border border-gray-800 max-lg:border-x-0 max-lg:rounded-none rounded-2xl flex-col overflow-hidden shadow-2xl min-h-0 h-full`}
           >
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <MessageSquare size={18} className="text-emerald-500" />
                 Conversations
               </h2>
               {conversations.length > 0 && (
-                <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-full">
-                  {conversations.length} total
-                </span>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={() =>
+                        setSelectedIds(allVisibleSelected ? [] : conversations.map((c) => c.id))
+                      }
+                      className="rounded border-gray-600"
+                      aria-label="Select all conversations"
+                    />
+                    All
+                  </label>
+                  <button
+                    type="button"
+                    disabled={selectedIds.length === 0 || bulkRemoving}
+                    onClick={() => void handleHideSelected()}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-red-300 hover:bg-red-500/10 disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {selectedIds.length > 0 ? `Delete (${selectedIds.length})` : 'Delete'}
+                  </button>
+                </div>
               )}
             </div>
             
@@ -281,10 +361,17 @@ export default function HostMessagesPage() {
                   const isSelected = selectedConversation === conversation.id;
                   
                   return (
-                    <div key={conversation.id} className="relative group">
+                    <div key={conversation.id} className="relative group flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(conversation.id)}
+                      onChange={() => toggleSelected(conversation.id)}
+                      className="mt-6 shrink-0 rounded border-gray-600"
+                      aria-label={`Select ${getCounterpartName(conversation)}`}
+                    />
                     <button
                       onClick={() => setSelectedConversation(conversation.id)}
-                      className={`w-full text-left p-4 pr-12 rounded-xl transition-all duration-200 border ${
+                      className={`flex-1 min-w-0 text-left p-4 pr-12 rounded-xl transition-all duration-200 border ${
                         isSelected
                           ? 'bg-emerald-600/10 border-emerald-500/50 shadow-lg shadow-emerald-900/20'
                           : 'bg-gray-800/50 border-transparent hover:bg-gray-800 hover:border-gray-700'
