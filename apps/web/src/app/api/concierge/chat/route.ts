@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { runGeminiConcierge } from '@/lib/concierge/geminiConcierge';
 import { heuristicStaySearch } from '@/lib/concierge/heuristicSearch';
+import { runMuseConcierge } from '@/lib/concierge/museSpark';
 import { searchStays } from '@/lib/concierge/searchStays';
-import type { ConciergeChatMessage, StayCard, StaySearchInput } from '@/lib/concierge/types';
+import type { ConciergeChatMessage, StayCard } from '@/lib/concierge/types';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 30;
-
-const SYSTEM = `You are VibeBot, the VibesBNB traveler concierge.
-Help guests find real listings on VibesBNB only.
-When they mention place, dates, guest count, or budget, call search_stays.
-Use YYYY-MM-DD for dates. "This month" means the current calendar month.
-Guest nightly budget is the traveler-facing rate (not the host's payout).
-Never invent property names or URLs. Only recommend stays returned by search_stays.
-If dates or guest count are missing, ask one short question, then search.
-Keep replies under 80 words plus the listings.
-Do not share host phone numbers or emails.`;
+export const maxDuration = 60;
 
 async function getUser(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -64,44 +55,53 @@ async function persist(
   }
 }
 
-function asSearchInput(args: Record<string, unknown>): StaySearchInput {
-  const num = (v: unknown) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
-  return {
-    area: str(args.area),
-    checkIn: str(args.checkIn)?.slice(0, 10) || null,
-    checkOut: str(args.checkOut)?.slice(0, 10) || null,
-    guests: num(args.guests),
-    maxNightly: num(args.maxNightly),
-    cannabisFriendly:
-      args.cannabisFriendly === true ? true : args.cannabisFriendly === false ? false : null,
-  };
+function asHistory(raw: unknown): ConciergeChatMessage[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (m): m is ConciergeChatMessage =>
+      !!m &&
+      (m.role === 'user' || m.role === 'assistant') &&
+      typeof m.body === 'string'
+  );
 }
 
-function searchTool() {
-  return {
-    functionDeclarations: [
-      {
-        name: 'search_stays',
-        description:
-          'Search live VibesBNB listings by area, dates, guest count, and max guest nightly budget.',
-        parameters: {
-          type: 'OBJECT',
-          properties: {
-            area: { type: 'STRING', description: 'City or neighborhood, e.g. North Miami' },
-            checkIn: { type: 'STRING', description: 'YYYY-MM-DD' },
-            checkOut: { type: 'STRING', description: 'YYYY-MM-DD' },
-            guests: { type: 'NUMBER', description: 'Total guests including kids' },
-            maxNightly: { type: 'NUMBER', description: 'Max guest-facing price per night in USD' },
-            cannabisFriendly: { type: 'BOOLEAN' },
-          },
-        },
-      },
-    ],
-  };
+async function runHeuristic(message: string): Promise<{ reply: string; listings: StayCard[] }> {
+  const found = await searchStays(heuristicStaySearch(message));
+  return { reply: found.summary, listings: found.listings };
+}
+
+async function runConcierge(
+  message: string,
+  history: ConciergeChatMessage[]
+): Promise<{ reply: string; listings: StayCard[] }> {
+  const provider = (process.env.CONCIERGE_PROVIDER || '').trim().toLowerCase();
+  const museKey = process.env.MODEL_API_KEY?.trim();
+  const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  const preferMuse = provider === 'muse' && Boolean(museKey);
+
+  if (preferMuse && museKey) {
+    try {
+      const result = await runMuseConcierge(museKey, message, history);
+      if (result.reply || result.listings.length) return result;
+    } catch (error) {
+      console.error('[concierge] Muse failed, falling back', error);
+    }
+  }
+
+  if (geminiKey) {
+    try {
+      const result = await runGeminiConcierge(geminiKey, message, history);
+      if (result.reply || result.listings.length) return result;
+    } catch (error) {
+      if (preferMuse) {
+        console.error('[concierge] Gemini fallback failed', error);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  return runHeuristic(message);
 }
 
 export async function POST(request: NextRequest) {
@@ -117,66 +117,12 @@ export async function POST(request: NextRequest) {
       await persist(user.id, 'user', message);
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
-    let reply = '';
-    let listings: StayCard[] = [];
+    let { reply, listings } = await runConcierge(message, asHistory(body.history));
 
-    if (!apiKey) {
-      const result = await searchStays(heuristicStaySearch(message));
-      listings = result.listings;
-      reply = result.summary;
-    } else {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: `${SYSTEM}\nToday is ${new Date().toISOString().slice(0, 10)}.`,
-        tools: [searchTool() as never],
-      });
-
-      const prior = Array.isArray(body.history) ? body.history : [];
-      const history: Array<{ role: string; parts: Array<{ text: string }> }> = prior
-        .filter(
-          (m: { role?: string; body?: string }) =>
-            (m.role === 'user' || m.role === 'assistant') && typeof m.body === 'string'
-        )
-        .slice(-8)
-        .map((m: { role: string; body: string }) => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.body }],
-        }));
-
-      const chat = model.startChat({ history });
-      let result = await chat.sendMessage(message);
-
-      for (let i = 0; i < 3; i++) {
-        const calls =
-          typeof result.response.functionCalls === 'function'
-            ? result.response.functionCalls()
-            : [];
-        if (!calls?.length) break;
-        const outputs = [];
-        for (const call of calls) {
-          if (call.name === 'search_stays') {
-            const args = (call.args || {}) as Record<string, unknown>;
-            const found = await searchStays(asSearchInput(args));
-            listings = found.listings;
-            outputs.push({
-              functionResponse: {
-                name: 'search_stays',
-                response: found,
-              },
-            });
-          }
-        }
-        result = await chat.sendMessage(outputs);
-      }
-
-      reply = (result.response.text() || '').trim();
-      if (!reply && listings.length) {
-        const found = await searchStays(heuristicStaySearch(message));
-        listings = found.listings;
-        reply = found.summary;
-      }
+    if (!reply && listings.length) {
+      const found = await runHeuristic(message);
+      listings = found.listings;
+      reply = found.reply;
     }
 
     if (!reply) {
@@ -199,7 +145,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: assistant });
   } catch (error: unknown) {
     console.error('[concierge/chat]', error);
-    const message = error instanceof Error ? error.message : 'VibeBot could not reply';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const err = error instanceof Error ? error.message : 'VibeBot could not reply';
+    return NextResponse.json({ error: err }, { status: 500 });
   }
 }
