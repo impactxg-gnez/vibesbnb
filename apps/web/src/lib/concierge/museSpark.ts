@@ -1,4 +1,5 @@
 import { asSearchInput } from '@/lib/concierge/asSearchInput';
+import { looksLikeStayRequest } from '@/lib/concierge/heuristicSearch';
 import { searchStays } from '@/lib/concierge/searchStays';
 import { conciergeInstructions } from '@/lib/concierge/systemPrompt';
 import type { ConciergeChatMessage, StayCard, StaySearchResult } from '@/lib/concierge/types';
@@ -10,7 +11,7 @@ const SEARCH_STAYS_TOOL = {
   type: 'function' as const,
   name: 'search_stays',
   description:
-    'Search live VibesBNB listings by area, dates, guest count, and max guest nightly budget.',
+    'Search live VibesBNB listings. Call only when the latest user message is asking to find or change stays. Do not call for identity, Muse/model questions, or other chit-chat.',
   parameters: {
     type: 'object',
     properties: {
@@ -42,11 +43,15 @@ type MuseResponse = {
   error?: { message?: string } | string;
 };
 
-function parseHistory(historyIn: ConciergeChatMessage[]) {
-  return historyIn
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.body === 'string')
-    .slice(-8)
-    .map((m) =>
+function priorTurns(historyIn: ConciergeChatMessage[], message: string) {
+  const rows = historyIn.filter(
+    (m) => (m.role === 'user' || m.role === 'assistant') && typeof m.body === 'string'
+  );
+  const last = rows[rows.length - 1];
+  if (last?.role === 'user' && last.body.trim() === message.trim()) {
+    rows.pop();
+  }
+  return rows.slice(-8).map((m) =>
       m.role === 'assistant'
         ? {
             type: 'message',
@@ -151,7 +156,7 @@ export async function runMuseConcierge(
 ): Promise<{ reply: string; listings: StayCard[] }> {
   let res = await museCreate(apiKey, {
     input: [
-      ...parseHistory(historyIn),
+      ...priorTurns(historyIn, message),
       {
         type: 'message',
         role: 'user',
@@ -161,6 +166,7 @@ export async function runMuseConcierge(
   });
 
   let listings: StayCard[] = [];
+  const allowSearch = looksLikeStayRequest(message);
 
   for (let i = 0; i < 3; i++) {
     const calls = functionCalls(res);
@@ -168,6 +174,18 @@ export async function runMuseConcierge(
     const outputs = [];
     for (const call of calls) {
       if (call.name === 'search_stays') {
+        if (!allowSearch) {
+          outputs.push({
+            type: 'function_call_output',
+            call_id: call.call_id,
+            output: JSON.stringify({
+              skipped: true,
+              reason:
+                'The latest message is not a stay search. Answer that question in text. Do not list properties.',
+            }),
+          });
+          continue;
+        }
         const found = await searchStays(asSearchInput(call.args));
         listings = found.listings;
         outputs.push({

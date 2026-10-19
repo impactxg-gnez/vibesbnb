@@ -13,6 +13,37 @@ function ymdThisMonth(day: number): string {
   return `${y}-${m}-${pad(d)}`;
 }
 
+/** True when this turn is asking to find/change stays — not identity or chit-chat. */
+export function looksLikeStayRequest(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (
+    /\b(who are you|what are you|are you (muse|gemini|chatgpt|vibebot)|is this (muse|gemini|chatgpt|vibebot)|what model|which model)\b/i.test(
+      t
+    )
+  ) {
+    return false;
+  }
+  if (/\$\s*\d{2,4}/.test(t)) return true;
+  if (/\d{1,2}\s*(?:st|nd|rd|th)?\s*(?:to|-|–|through)\s*\d{1,2}/i.test(t)) return true;
+  if (
+    /\b(stay|stays|listing|listings|airbnb|book(ing)?|check[- ]?in|check[- ]?out|weekend|nights?|guests?|sleeps|budget|nightly|vacancy|available)\b/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /\b(find|show|looking for|need|want|any|more options|cheaper|another|similar|near|in)\b/i.test(t) &&
+    /\b(miami|hollywood|beach|downtown|place|room|home|house|condo|apt|apartment|property|properties)\b/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Best-effort parse when Gemini is unavailable. */
 export function heuristicStaySearch(text: string): StaySearchInput {
   const guestsMatch = text.match(

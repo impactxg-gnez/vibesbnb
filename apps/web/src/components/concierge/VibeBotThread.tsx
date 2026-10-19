@@ -199,7 +199,7 @@ export function VibeBotThread({
             </div>
           </div>
         ))}
-        {sending ? <p className="text-xs text-gray-500">VibeBot is looking through live listings…</p> : null}
+        {sending ? <p className="text-xs text-gray-500">VibeBot is thinking…</p> : null}
         <div ref={bottomRef} />
       </div>
       <div className="shrink-0 border-t border-gray-800 p-2 lg:p-3">

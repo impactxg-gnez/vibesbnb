@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runGeminiConcierge } from '@/lib/concierge/geminiConcierge';
-import { heuristicStaySearch } from '@/lib/concierge/heuristicSearch';
+import { heuristicStaySearch, looksLikeStayRequest } from '@/lib/concierge/heuristicSearch';
 import { runMuseConcierge } from '@/lib/concierge/museSpark';
 import { searchStays } from '@/lib/concierge/searchStays';
 import type { ConciergeChatMessage, StayCard } from '@/lib/concierge/types';
@@ -65,7 +65,13 @@ function asHistory(raw: unknown): ConciergeChatMessage[] {
   );
 }
 
+const CHAT_FALLBACK =
+  'I am VibeBot, the VibesBNB concierge. Ask me a question, or tell me a neighborhood, dates, guests, and budget if you want listing links.';
+
 async function runHeuristic(message: string): Promise<{ reply: string; listings: StayCard[] }> {
+  if (!looksLikeStayRequest(message)) {
+    return { reply: CHAT_FALLBACK, listings: [] };
+  }
   const found = await searchStays(heuristicStaySearch(message));
   return { reply: found.summary, listings: found.listings };
 }
@@ -119,6 +125,10 @@ export async function POST(request: NextRequest) {
 
     let { reply, listings } = await runConcierge(message, asHistory(body.history));
 
+    if (!looksLikeStayRequest(message)) {
+      listings = [];
+    }
+
     if (!reply && listings.length) {
       const found = await runHeuristic(message);
       listings = found.listings;
@@ -126,8 +136,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!reply) {
-      reply =
-        'Tell me a neighborhood, dates, how many guests, and a nightly budget. I will send matching VibesBNB links.';
+      reply = looksLikeStayRequest(message)
+        ? 'Tell me a neighborhood, dates, how many guests, and a nightly budget. I will send matching VibesBNB links.'
+        : CHAT_FALLBACK;
     }
 
     if (user) {

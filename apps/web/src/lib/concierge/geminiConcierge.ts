@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { asSearchInput } from '@/lib/concierge/asSearchInput';
+import { looksLikeStayRequest } from '@/lib/concierge/heuristicSearch';
 import { searchStays } from '@/lib/concierge/searchStays';
 import { conciergeInstructions } from '@/lib/concierge/systemPrompt';
 import type { ConciergeChatMessage, StayCard } from '@/lib/concierge/types';
@@ -10,7 +11,7 @@ function geminiSearchTool() {
       {
         name: 'search_stays',
         description:
-          'Search live VibesBNB listings by area, dates, guest count, and max guest nightly budget.',
+          'Search live VibesBNB listings. Call only when the latest user message is asking to find or change stays.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -39,17 +40,22 @@ export async function runGeminiConcierge(
     tools: [geminiSearchTool() as never],
   });
 
-  const history: Array<{ role: string; parts: Array<{ text: string }> }> = historyIn
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.body === 'string')
-    .slice(-8)
-    .map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.body }],
-    }));
+  const prior = historyIn.filter(
+    (m) => (m.role === 'user' || m.role === 'assistant') && typeof m.body === 'string'
+  );
+  const last = prior[prior.length - 1];
+  if (last?.role === 'user' && last.body.trim() === message.trim()) {
+    prior.pop();
+  }
+  const history: Array<{ role: string; parts: Array<{ text: string }> }> = prior.slice(-8).map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.body }],
+  }));
 
   const chat = model.startChat({ history });
   let result = await chat.sendMessage(message);
   let listings: StayCard[] = [];
+  const allowSearch = looksLikeStayRequest(message);
 
   for (let i = 0; i < 3; i++) {
     const calls =
@@ -58,6 +64,19 @@ export async function runGeminiConcierge(
     const outputs = [];
     for (const call of calls) {
       if (call.name === 'search_stays') {
+        if (!allowSearch) {
+          outputs.push({
+            functionResponse: {
+              name: 'search_stays',
+              response: {
+                skipped: true,
+                reason:
+                  'The latest message is not a stay search. Answer that question in text. Do not list properties.',
+              },
+            },
+          });
+          continue;
+        }
         const args = (call.args || {}) as Record<string, unknown>;
         const found = await searchStays(asSearchInput(args));
         listings = found.listings;
