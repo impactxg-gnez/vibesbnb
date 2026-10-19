@@ -44,7 +44,8 @@ export async function GET(_request: NextRequest) {
     const columnsPlain =
       'host_id, traveller_id, host_unread_count, traveller_unread_count';
 
-    let { data, error } = await service
+    let data: ConversationUnreadRow[] | null = null;
+    let { data: withHide, error } = await service
       .from('conversations')
       .select(columnsWithHide)
       .or(`host_id.eq.${user.id},traveller_id.eq.${user.id}`);
@@ -54,15 +55,17 @@ export async function GET(_request: NextRequest) {
         .from('conversations')
         .select(columnsPlain)
         .or(`host_id.eq.${user.id},traveller_id.eq.${user.id}`);
-      data = retry.data;
+      data = (retry.data || null) as ConversationUnreadRow[] | null;
       error = retry.error;
+    } else {
+      data = (withHide || null) as ConversationUnreadRow[] | null;
     }
 
     if (error) {
       throw error;
     }
 
-    const count = sumUnread((data || []) as ConversationUnreadRow[], user.id);
+    const count = sumUnread(data || [], user.id);
 
     return NextResponse.json(
       { count },

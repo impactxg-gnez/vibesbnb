@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         .select(LIST_COLUMNS_NO_SLUG)
         .eq('host_id', auth.hostId)
         .order('created_at', { ascending: false });
-      data = retry.data;
+      data = retry.data as typeof data;
       error = retry.error;
     }
     if (error) throw error;
