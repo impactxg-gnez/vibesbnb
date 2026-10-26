@@ -8,6 +8,10 @@ import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeat
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
 import { FeaturedVibesLoading } from '@/components/home/FeaturedVibesLoading';
+import {
+  formatPublicLocation,
+  replaceExactAddressInPublicText,
+} from '@/lib/propertyLocationPrivacy';
 import { PropertyReviewsModal } from '@/components/properties/PropertyReviewsModal';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -243,14 +247,16 @@ export function FeaturedRetreats() {
                         </div>
                       </Link>
                       {retreat.description ? (
-                        <p className="text-muted text-sm leading-relaxed line-clamp-3 mb-2">{retreat.description}</p>
+                        <p className="text-muted text-sm leading-relaxed line-clamp-3 mb-2">
+                          {replaceExactAddressInPublicText(retreat.description, retreat.location)}
+                        </p>
                       ) : null}
                       <div className="flex items-center gap-2 text-muted text-sm font-medium">
                         <svg className="w-4 h-4 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="line-clamp-2">{retreat.location}</span>
+                        <span className="line-clamp-2">{formatPublicLocation(retreat.location)}</span>
                       </div>
                     </div>
                   </div>

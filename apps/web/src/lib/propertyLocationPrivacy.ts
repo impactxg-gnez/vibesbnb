@@ -41,16 +41,39 @@ function offsetLatLng(lat: number, lng: number, distanceM: number, bearingDeg: n
 }
 
 /**
- * Guest-facing location: city + state only.
+ * Guest-facing location: neighborhood/city + state. Never street, ZIP, or country.
  * "11861 NW 4th St, Plantation, FL 33325, USA" → "Plantation, FL"
+ * "121 NE 5th St, Miami, FL 33132, USA" → "Miami, FL"
+ * "Wynwood, Miami, FL, USA" → "Wynwood, Miami, FL"
  */
 export function formatPublicLocation(location: string | null | undefined): string {
-  const city = cityLabelFromPropertyLocation(location);
-  if (city) return city;
   if (!location) return '';
-  const parts = location.split(',').map((p) => p.trim()).filter(Boolean);
-  if (parts.length <= 2) return parts.join(', ');
-  return parts.slice(-2).join(', ');
+  const parts = location
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return '';
+
+  while (
+    parts.length > 0 &&
+    /^(USA|United States(\s+of\s+America)?|US)$/i.test(parts[parts.length - 1])
+  ) {
+    parts.pop();
+  }
+
+  if (parts.length > 0) {
+    const last = parts[parts.length - 1];
+    const stateZip = last.match(/^([A-Z]{2})(\s+\d{5}(-\d{4})?)?$/i);
+    if (stateZip) parts[parts.length - 1] = stateZip[1].toUpperCase();
+  }
+
+  while (parts.length > 0 && /^\d/.test(parts[0])) {
+    parts.shift();
+  }
+
+  const joined = parts.join(', ');
+  if (joined) return joined;
+  return cityLabelFromPropertyLocation(location);
 }
 
 export function googleMapsSearchUrl(address: string): string {

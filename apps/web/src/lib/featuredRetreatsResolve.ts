@@ -3,6 +3,10 @@ import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { PROPERTY_FEATURED_LIST_COLUMNS } from '@/lib/propertyPublicSelect';
 import { listingCardImagesFromRow } from '@/lib/propertyImageUrls';
+import {
+  formatPublicLocation,
+  replaceExactAddressInPublicText,
+} from '@/lib/propertyLocationPrivacy';
 
 /** Hard cap for homepage Featured Vibes cards. */
 export const FEATURED_VIBES_HOME_LIMIT = 6;
@@ -148,8 +152,8 @@ function mapRowToRetreat(
   return {
     id: String(p.id),
     name: String(p.name || p.title || 'Property'),
-    location: String(p.location || ''),
-    description,
+    location: formatPublicLocation(String(p.location || '')),
+    description: replaceExactAddressInPublicText(description, String(p.location || '')),
     rating: displayRating,
     reviews: reviewsCount,
     price: p.price != null ? Number(p.price) : 0,
