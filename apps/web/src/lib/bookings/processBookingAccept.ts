@@ -5,6 +5,7 @@ import { computeBookingGrandTotal } from '@/lib/bookingTotals';
 import {
   assertStayDoesNotConflict,
   blockBookingNights,
+  fetchCustomDailyRatesForStay,
   releaseBookingAvailability,
 } from '@/lib/bookingAvailability';
 import { dispatchPushToUser } from '@/lib/pushDispatch';
@@ -124,6 +125,15 @@ export async function processBookingAccept(params: {
     Number.isFinite(offeredNightly) && offeredNightly > 0
       ? offeredNightly
       : Number(propertyRow.price) || 0;
+  const customDailyRates =
+    Number.isFinite(offeredNightly) && offeredNightly > 0
+      ? undefined
+      : await fetchCustomDailyRatesForStay(serviceSupabase, {
+          propertyId: String(booking.property_id),
+          checkInYmd: finalCheckIn,
+          checkOutYmd: finalCheckOut,
+        });
+
   const { grandTotal: newTotal } = computeBookingGrandTotal({
     propertyNightlyPrice: nightlyRate,
     cleaningFee: cleaning,
@@ -141,6 +151,7 @@ export async function processBookingAccept(params: {
     refundableDeposit:
       propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
     applyCardFee: guestPaysCardProcessingFee(),
+    customDailyRates,
   });
 
   const conflict = await assertStayDoesNotConflict(serviceSupabase, {

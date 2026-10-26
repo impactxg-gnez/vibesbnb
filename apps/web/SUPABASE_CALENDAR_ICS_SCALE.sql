@@ -183,6 +183,28 @@ BEGIN
     AND pa.day >= p_from
     AND pa.day < p_to;
 
+  UPDATE property_availability pa
+  SET
+    status = 'blocked',
+    source = 'ical_sync',
+    ical_source_id = p_calendar,
+    note = 'External calendar'
+  FROM calendar_import_bookings c
+  CROSS JOIN LATERAL generate_series(
+    GREATEST(c.start_date, p_from),
+    LEAST(c.end_date - 1, p_to - 1),
+    interval '1 day'
+  ) AS g(d)
+  WHERE c.external_calendar_id = p_calendar
+    AND c.start_date < p_to
+    AND c.end_date > p_from
+    AND GREATEST(c.start_date, p_from) <= LEAST(c.end_date - 1, p_to - 1)
+    AND pa.property_id = p_property
+    AND pa.day = g.d::date
+    AND pa.room_id IS NULL
+    AND pa.booking_id IS NULL
+    AND COALESCE(pa.status, '') <> 'booked';
+
   INSERT INTO property_availability (property_id, host_id, day, status, source, ical_source_id, note)
   SELECT
     p_property,

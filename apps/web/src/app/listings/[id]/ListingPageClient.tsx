@@ -41,6 +41,11 @@ import {
   nightsBetweenYmd,
   todayLocalYmd,
 } from '@/lib/dateUtils';
+import {
+  customDailyRatesFromAvailabilityRows,
+  stayOverlapsUnavailable,
+  unavailableDaysFromAvailabilityRows,
+} from '@/lib/calendar/unavailableStay';
 import { toTravelerPrice } from '@/lib/platformPricing';
 import { resolveStaySearch, writeStaySearch } from '@/lib/staySearchParams';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
@@ -89,6 +94,7 @@ import {
   approximateMapCenter,
   formatPublicLocation,
   PUBLIC_MAP_APPROX_RADIUS_METERS,
+  replaceExactAddressInPublicText,
 } from '@/lib/propertyLocationPrivacy';
 import { ThingsToKnowSection } from '@/components/properties/ThingsToKnowSection';
 import { AmenityIcon } from '@/lib/amenityIcons';
@@ -286,6 +292,7 @@ export default function ListingDetailPage({
   const hostChatRef = useRef<PropertyChatHandle>(null);
   const [stayHydrated, setStayHydrated] = useState(false);
   const [customDailyRates, setCustomDailyRates] = useState<Record<string, number>>({});
+  const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
 
   useEffect(() => {
     if (!propertyId) return;
@@ -293,18 +300,17 @@ export default function ListingDetailPage({
       .then(async (res) => {
         if (!res.ok) return;
         const data = await res.json();
-        const rates: Record<string, number> = {};
-        (data.availability || []).forEach(
-          (entry: { day: string; status: string; price?: number | null }) => {
-            if (entry.price != null && Number(entry.price) > 0) {
-              rates[entry.day] = Number(entry.price);
-            }
-          }
-        );
-        setCustomDailyRates(rates);
+        const rows = (data.availability || []) as Array<{
+          day: string;
+          status: string;
+          price?: number | null;
+          room_id?: string | null;
+        }>;
+        setCustomDailyRates(customDailyRatesFromAvailabilityRows(rows));
+        setUnavailableDates(unavailableDaysFromAvailabilityRows(rows, selectedRoomIds));
       })
       .catch(() => {});
-  }, [propertyId]);
+  }, [propertyId, selectedRoomIds]);
 
   // Prefill from URL (or last stay selection) once on the client
   useEffect(() => {
@@ -801,6 +807,11 @@ export default function ListingDetailPage({
       return;
     }
 
+    if (stayOverlapsUnavailable(checkInDate, checkOutDate, unavailableDates)) {
+      toast.error('Those nights are blocked or already booked. Choose different dates.');
+      return;
+    }
+
     const minN = property.minBookingNights;
     if (minN != null && stayDuration < minN) {
       toast.error(`Minimum stay is ${minN} night${minN === 1 ? '' : 's'} for this property.`);
@@ -865,9 +876,6 @@ export default function ListingDetailPage({
     toast.success('Wellness supplies removed');
   };
 
-  const hostNightlyRate = calculateTotalPrice();
-  const displayNightlyRate = toTravelerPrice(hostNightlyRate);
-  const stayLodgingTotal = stayDuration > 0 ? displayNightlyRate * stayDuration : 0;
   const selectedRoomsForQuote =
     property?.rooms?.filter((room) => selectedRoomIds.includes(room.id)) ?? [];
   const listingQuote =
@@ -892,6 +900,14 @@ export default function ListingDetailPage({
           customDailyRates,
         })
       : null;
+  const hostNightlyRate = listingQuote?.hostNightlyRate ?? calculateTotalPrice();
+  const displayNightlyRate = toTravelerPrice(hostNightlyRate);
+  const stayLodgingTotal =
+    listingQuote != null
+      ? Math.round((listingQuote.totalRent + listingQuote.platformFee) * 100) / 100
+      : stayDuration > 0
+        ? displayNightlyRate * stayDuration
+        : 0;
 
   if (loading) {
     return (
@@ -1140,6 +1156,7 @@ export default function ListingDetailPage({
                 longitude={approx.longitude}
                 propertyName={property.name}
                 approximateRadiusMeters={PUBLIC_MAP_APPROX_RADIUS_METERS}
+                areaLabel={getGeneralLocation(property.location)}
               />
             );
           })()}
@@ -1438,8 +1455,14 @@ export default function ListingDetailPage({
 
                   {/* Full Description with local collapse */}
                   <div className="relative">
+                    <p className="flex items-center gap-2 text-emerald-400 font-semibold mb-4">
+                      <MapPin size={16} className="shrink-0" />
+                      {getGeneralLocation(property.location)}
+                    </p>
                     <div className={`text-gray-300 leading-relaxed space-y-4 ${isDescriptionCollapsed ? 'line-clamp-4' : ''}`}>
-                      {property.description.split('\n\n').map((para, i) => (
+                      {replaceExactAddressInPublicText(property.description, property.location)
+                        .split('\n\n')
+                        .map((para, i) => (
                         <p key={i}>{para}</p>
                       ))}
                     </div>
@@ -1686,8 +1709,18 @@ export default function ListingDetailPage({
                     <label className="block text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">Check-in</label>
                     <DatePicker
                       value={checkInDate}
-                      onChange={(dateStr: string) => setCheckInDate(dateStr)}
+                      onChange={(dateStr: string) => {
+                        setCheckInDate(dateStr);
+                        if (
+                          dateStr &&
+                          checkOutDate &&
+                          stayOverlapsUnavailable(dateStr, checkOutDate, unavailableDates)
+                        ) {
+                          setCheckOutDate('');
+                        }
+                      }}
                       min={todayLocalYmd()}
+                      unavailableDates={unavailableDates}
                       className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
                     />
                   </div>
@@ -1697,10 +1730,17 @@ export default function ListingDetailPage({
                       value={checkOutDate}
                       onChange={(dateStr: string) => setCheckOutDate(dateStr)}
                       min={checkInDate || todayLocalYmd()}
+                      unavailableDates={unavailableDates}
+                      stayStartYmd={checkInDate || undefined}
                       className="w-full bg-transparent text-white text-sm focus:outline-none cursor-pointer"
                     />
                   </div>
                 </div>
+                {unavailableDates.length > 0 && (
+                  <p className="text-[11px] text-gray-400 px-3 py-2 border-t border-gray-700">
+                    Greyed-out dates are blocked (including external calendars) or already booked.
+                  </p>
+                )}
                 {/* Selected dates display */}
                 {checkInDate && checkOutDate && stayDuration > 0 && (
                   <div className="bg-emerald-900/30 border-t border-gray-700 px-3 py-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Calendar, Users, ArrowLeft, CreditCard, FileText, ExternalLink } from 'lucide-react';
@@ -8,6 +8,11 @@ import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
+import { DatePicker } from '@/components/ui/DatePicker';
+import {
+  customDailyRatesFromAvailabilityRows,
+  isUnavailableStayStatus,
+} from '@/lib/calendar/unavailableStay';
 import {
   enumerateStayNightsYmd,
   nightsBetweenYmd,
@@ -340,24 +345,38 @@ export default function NewBookingPage() {
       const response = await fetch(`/api/properties/${id}/availability`);
       if (!response.ok) return;
       const data = await response.json();
+      const rows = (data.availability || []) as Array<{
+        day: string;
+        status: string;
+        room_id?: string | null;
+        price?: number | null;
+      }>;
       const map: Record<string, string[]> = {};
-      const rates: Record<string, number> = {};
-      (data.availability || []).forEach(
-        (entry: { day: string; status: string; room_id?: string | null; price?: number | null }) => {
-          if (!map[entry.day]) map[entry.day] = [];
-          // If room_id is null, the whole property is blocked
-          map[entry.day].push(entry.room_id || 'PROPERTY_WIDE');
-          if (entry.price != null && Number(entry.price) > 0) {
-            rates[entry.day] = Number(entry.price);
-          }
-        }
-      );
+      rows.forEach((entry) => {
+        if (!isUnavailableStayStatus(entry.status)) return;
+        const day = entry.day;
+        if (!map[day]) map[day] = [];
+        map[day].push(entry.room_id || 'PROPERTY_WIDE');
+      });
       setAvailability(map);
-      setCustomDailyRates(rates);
+      setCustomDailyRates(customDailyRatesFromAvailabilityRows(rows));
     } catch (error) {
       console.warn('Failed to load availability', error);
     }
   };
+
+  const unavailableDates = useMemo(() => {
+    const days: string[] = [];
+    const selectedIds = new Set(
+      selectedUnits.map((u: { id?: string }) => u.id).filter((id): id is string => Boolean(id))
+    );
+    for (const [day, units] of Object.entries(availability)) {
+      if (units.includes('PROPERTY_WIDE')) days.push(day);
+      else if (selectedIds.size > 0 && units.some((id) => selectedIds.has(id))) days.push(day);
+      else if (selectedIds.size === 0 && units.length > 0) days.push(day);
+    }
+    return days;
+  }, [availability, selectedUnits]);
 
   const earlyLateFees =
     property?.checkInOut != null
@@ -679,13 +698,25 @@ export default function NewBookingPage() {
                     <Calendar size={16} className="inline mr-2" />
                     Check-in
                   </label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={formData.checkIn}
-                    onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                    onChange={(dateStr: string) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        checkIn: dateStr,
+                        checkOut:
+                          dateStr &&
+                          prev.checkOut &&
+                          enumerateStayNightsYmd(dateStr, prev.checkOut).some((n) =>
+                            unavailableDates.includes(n)
+                          )
+                            ? ''
+                            : prev.checkOut,
+                      }))
+                    }
                     min={todayLocalYmd()}
-                    required
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                    unavailableDates={unavailableDates}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                   />
                 </div>
                 <div>
@@ -693,13 +724,15 @@ export default function NewBookingPage() {
                     <Calendar size={16} className="inline mr-2" />
                     Check-out
                   </label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={formData.checkOut}
-                    onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                    onChange={(dateStr: string) =>
+                      setFormData((prev) => ({ ...prev, checkOut: dateStr }))
+                    }
                     min={formData.checkIn || todayLocalYmd()}
-                    required
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-white"
+                    unavailableDates={unavailableDates}
+                    stayStartYmd={formData.checkIn || undefined}
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
                   />
                 </div>
               </div>

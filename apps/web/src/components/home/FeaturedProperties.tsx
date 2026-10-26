@@ -13,6 +13,7 @@ import {
   primaryPropertyImageUrl,
 } from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 import { resolveVibeMarker } from '@/lib/consumptionPolicy';
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
 import { resolveWellnessConsumptionFlags } from '@/lib/wellnessConsumption';
@@ -233,7 +234,7 @@ export function FeaturedProperties() {
                                             </div>
                                             <div className="flex items-center gap-2 text-muted text-sm font-medium">
                                                 <MapPin className="w-4 h-4 text-primary-500" />
-                                                <span>{property.location}</span>
+                                                <span>{formatPublicLocation(property.location)}</span>
                                             </div>
                                             <PropertyCardFeatureRow
                                                 propertyType={property.type}

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
 import { getRedis } from '@/lib/cache/redis';
 import { redisGetJson, redisSetJson } from '@/lib/cache/redisJson';
 import { availabilityCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
+import { calendarYmd } from '@/lib/dateUtils';
 
 const CACHE_TTL_SEC = 55;
 
@@ -32,7 +34,7 @@ export async function GET(
       await bumpCacheStat('miss');
     }
 
-    const supabase = createClient();
+    const supabase = hasServiceRoleKey() ? createServiceClient() : createClient();
 
     let query = supabase
       .from('property_availability')
@@ -71,7 +73,12 @@ export async function GET(
       throw error;
     }
 
-    const payload = { availability: data ?? [] };
+    const payload = {
+      availability: (data ?? []).map((row: { day?: string }) => ({
+        ...row,
+        day: calendarYmd(row.day) || row.day,
+      })),
+    };
 
     if (redis) {
       await redisSetJson(redis, cacheKey, payload, { ex: CACHE_TTL_SEC });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { approximateMapCenter, formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MAP_BACKGROUND, mapStylesForTheme, markerColors } from '@/lib/googleMapStyles';
 
@@ -58,11 +59,15 @@ export default function PropertiesMap({
         }
 
         if (lat !== undefined && lng !== undefined) {
+          const parsedLat = typeof lat === 'string' ? parseFloat(lat) : lat;
+          const parsedLng = typeof lng === 'string' ? parseFloat(lng) : lng;
+          const approx = approximateMapCenter(parsedLat, parsedLng, p.id);
           return {
             ...p,
+            location: formatPublicLocation(p.location) || p.location,
             coordinates: {
-              lat: typeof lat === 'string' ? parseFloat(lat) : lat,
-              lng: typeof lng === 'string' ? parseFloat(lng) : lng
+              lat: approx.latitude,
+              lng: approx.longitude,
             }
           };
         }

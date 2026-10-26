@@ -18,6 +18,7 @@ import { guestPaysCardProcessingFee, listingAllowsDirectBooking } from '@/lib/p0
 import {
   assertStayDoesNotConflict,
   blockBookingNights,
+  fetchCustomDailyRatesForStay,
   holdBookingNights,
 } from '@/lib/bookingAvailability';
 import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
@@ -263,6 +264,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const customDailyRates =
+      offeredNightly != null
+        ? undefined
+        : await fetchCustomDailyRatesForStay(serviceSupabase, {
+            propertyId: String(property_id),
+            checkInYmd: String(check_in),
+            checkOutYmd: String(check_out),
+          });
+
     const { grandTotal: expectedGrandTotal } = computeBookingGrandTotal({
       propertyNightlyPrice: offeredNightly ?? (Number(propertyRow.price) || 0),
       cleaningFee: cleaning,
@@ -283,6 +293,7 @@ export async function POST(request: NextRequest) {
       earlyCheckInFee: earlyFee,
       lateCheckOutFee: lateFee,
       feePercent: serviceFeePercent,
+      customDailyRates,
     });
 
     if (!totalsMatchCents(Number(total_price), expectedGrandTotal)) {

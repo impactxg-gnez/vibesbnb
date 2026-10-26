@@ -82,7 +82,6 @@ export function vacationRentalJsonLd(property: SeoPropertyCard) {
   };
   if (place.locality) address.addressLocality = place.locality;
   if (place.region) address.addressRegion = place.region;
-  if (place.postalCode) address.postalCode = place.postalCode;
   if (place.neighborhoodName) address.addressNeighborhood = place.neighborhoodName;
 
   const containsPlace: Record<string, unknown> = {

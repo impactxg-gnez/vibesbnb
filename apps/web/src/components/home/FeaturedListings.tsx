@@ -12,6 +12,7 @@ import {
   primaryPropertyImageUrl,
 } from '@/lib/propertyImageUrls';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 import { WellnessConsumptionPill } from '@/components/properties/WellnessConsumptionPill';
 import { BalconyAvailableTag } from '@/components/properties/BalconyAvailableTag';
 import { VibeMarkerBadge } from '@/components/properties/VibeMarkerBadge';
@@ -200,7 +201,7 @@ export function FeaturedListings() {
                           <BalconyAvailableTag className="border-sky-500/40 bg-sky-500/10 text-sky-800" />
                         ) : null}
                       </div>
-                      <p className="text-gray-600">{listing.location}</p>
+                      <p className="text-gray-600">{formatPublicLocation(listing.location)}</p>
                     </div>
                     <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg">
                       <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">

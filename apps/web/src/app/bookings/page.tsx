@@ -14,6 +14,11 @@ import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons
 import { isBookingEligibleForReview } from '@/lib/reviews/eligibility';
 import { bookingPayPath } from '@/lib/bookings/payUrl';
 import { loginUrlWithNext } from '@/lib/auth/safeReturnPath';
+import {
+  canViewExactLocation,
+  googleMapsSearchUrl,
+  travelerLocationLabel,
+} from '@/lib/propertyLocationPrivacy';
 
 /** Guest booking list — avoid select('*') on wide booking rows */
 const BOOKING_GUEST_LIST_COLUMNS = [
@@ -326,9 +331,30 @@ export default function BookingsPage() {
                             </h3>
                           </Link>
                           <div className="flex items-center gap-4 text-sm text-gray-400">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4" />
-                              {booking.location}
+                            <div className="flex flex-col gap-1 text-sm text-gray-400">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4 shrink-0" />
+                                <span>
+                                  {travelerLocationLabel(booking.location, {
+                                    bookingStatus: booking.status,
+                                  })}
+                                </span>
+                              </div>
+                              {canViewExactLocation({ bookingStatus: booking.status }) &&
+                              booking.location ? (
+                                <a
+                                  href={googleMapsSearchUrl(booking.location)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-400 hover:text-emerald-300 text-xs ml-5"
+                                >
+                                  Open precise location in Maps
+                                </a>
+                              ) : (
+                                <span className="text-xs text-gray-500 ml-5">
+                                  Exact address is shared after your booking is confirmed.
+                                </span>
+                              )}
                             </div>
                             {booking.rating && (
                               <div className="flex items-center gap-1">

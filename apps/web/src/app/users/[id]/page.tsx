@@ -27,6 +27,7 @@ import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import { SearchSection } from '@/components/home/SearchSection';
 import type { HostBadge } from '@/lib/hostBadge';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
 import {
   buildListingHref,
@@ -422,7 +423,7 @@ export default function UserProfilePage() {
                       </div>
                       <p className="text-gray-400 text-sm flex items-center gap-1 mb-4">
                         <MapPin size={14} />
-                        {property.location}
+                        {formatPublicLocation(property.location)}
                       </p>
                       <div className="flex items-center justify-between pt-4 border-t border-white/5">
                         <div className="text-xs text-gray-500 font-bold uppercase tracking-widest">Self Check-In • Wifi</div>

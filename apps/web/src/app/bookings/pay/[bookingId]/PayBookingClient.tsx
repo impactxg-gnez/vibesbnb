@@ -6,6 +6,11 @@ import Image from 'next/image';
 import { Calendar, CheckCircle2, MapPin, Users } from 'lucide-react';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
+import {
+  canViewExactLocation,
+  googleMapsSearchUrl,
+  travelerLocationLabel,
+} from '@/lib/propertyLocationPrivacy';
 
 export type PayBookingView = {
   id: string;
@@ -90,9 +95,23 @@ export function PayBookingClient({
                 </Link>
               </div>
               {booking.location ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300">
-                  <MapPin className="w-4 h-4 text-gray-500 shrink-0" />
-                  {booking.location}
+                <div className="flex flex-col gap-1 text-sm text-gray-300">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-500 shrink-0" />
+                    {travelerLocationLabel(booking.location, {
+                      bookingStatus: booking.status,
+                    })}
+                  </div>
+                  {canViewExactLocation({ bookingStatus: booking.status }) ? (
+                    <a
+                      href={googleMapsSearchUrl(booking.location)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 hover:text-emerald-300 text-xs ml-6"
+                    >
+                      Open precise location in Maps
+                    </a>
+                  ) : null}
                 </div>
               ) : null}
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">

@@ -7,6 +7,7 @@ import Filters from '@/components/search/Filters';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import PropertiesMap from '@/components/PropertiesMap';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { PropertyCardMedia } from '@/components/properties/PropertyCardMedia';
 import { PropertyCardFeatureRow } from '@/components/properties/PropertyCardFeatureRow';
@@ -895,7 +896,9 @@ function ListingCard({
                     <HostStatusBadge badge={listing.hostBadge} size="sm" />
                   </div>
                 ) : null}
-                <p className="text-muted text-sm line-clamp-2">{listing.location}</p>
+                <p className="text-muted text-sm line-clamp-2">
+                  {formatPublicLocation(listing.location)}
+                </p>
               </div>
               <PropertyCardRatingBadge
                 rating={listing.rating}

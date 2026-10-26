@@ -194,6 +194,14 @@ async function processOneCalendar(sb: SupabaseClient, row: ExternalCalendarRow):
     const hash = await sha256Hex(body);
 
     if (row.last_hash && hash === row.last_hash) {
+      const { error: refreshErr } = await sb.rpc("calendar_refresh_ical_availability", {
+        p_property: row.property_id,
+        p_calendar: row.id,
+        p_host: row.host_id,
+        p_from: windowStartStr,
+        p_to: windowEndStr,
+      });
+      if (refreshErr) throw refreshErr;
       await updateCalendarMeta(sb, row.id, {
         last_synced_at: new Date().toISOString(),
       });

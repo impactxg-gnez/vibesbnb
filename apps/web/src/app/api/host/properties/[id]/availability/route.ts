@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveHostPropertyAccess } from '@/lib/auth/resolveHostPropertyAccess';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { calendarYmd } from '@/lib/dateUtils';
 
 interface AvailabilityEntry {
   day: string;
@@ -48,7 +49,10 @@ export async function GET(
     }
 
     return NextResponse.json({
-      availability: data ?? [],
+      availability: (data ?? []).map((row: { day?: string }) => ({
+        ...row,
+        day: calendarYmd(row.day) || row.day,
+      })),
       basePrice: Number(access.property.price) || 0,
     });
   } catch (error: unknown) {
@@ -89,7 +93,8 @@ export async function PUT(
     const deletions: { day: string; room_id: string | null }[] = [];
 
     body.entries.forEach((entry) => {
-      if (!entry.day || !entry.status) {
+      const day = calendarYmd(entry.day);
+      if (!day || !entry.status) {
         return;
       }
       if (!['available', 'blocked'].includes(entry.status)) {
@@ -104,13 +109,13 @@ export async function PUT(
 
       if (entry.status === 'available' && customPrice == null) {
         // Reset to default available with no price override: remove record from table
-        deletions.push({ day: entry.day, room_id: roomId });
+        deletions.push({ day, room_id: roomId });
       } else {
         // Either blocked OR available with custom price override
         upserts.push({
           property_id: params.id,
           host_id: hostId,
-          day: entry.day,
+          day,
           status: entry.status,
           price: customPrice,
           note: entry.note ?? null,

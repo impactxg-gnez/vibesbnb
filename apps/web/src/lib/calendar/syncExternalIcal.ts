@@ -58,9 +58,21 @@ export async function syncOnePropertyIcalSource(opts: {
     }
     const body = await fetchIcsBody(calendar.ical_url);
     const hash = await sha256Hex(body);
+    const stays = parseIcsStaysInWindow(body, windowStart, windowEndExclusive, `${calendar.id}:`);
 
+    // Hash match used to skip writing property_availability, so iCal nights never
+    // showed as blocked for travellers after the first incomplete sync.
     if (!force && calendar.last_hash && calendar.last_hash === hash) {
-      return { skipped: true, events: 0 };
+      await refreshIcalAvailabilityClientSide(service, {
+        propertyId: calendar.property_id,
+        hostId: calendar.host_id,
+        calendarId: calendar.id,
+        windowStartStr,
+        windowEndStr,
+        stays,
+      });
+      void invalidatePropertyListingCaches(calendar.property_id);
+      return { skipped: true, events: stays.length };
     }
 
     if (redis) {
@@ -70,8 +82,6 @@ export async function syncOnePropertyIcalSource(opts: {
       }
       lockHeld = true;
     }
-
-    const stays = parseIcsStaysInWindow(body, windowStart, windowEndExclusive, `${calendar.id}:`);
 
     const rows = stays.map((s) => ({
       property_id: calendar.property_id,
@@ -127,15 +137,16 @@ export async function syncOnePropertyIcalSource(opts: {
       ) {
         throw refreshErr;
       }
-      await refreshIcalAvailabilityClientSide(service, {
-        propertyId: calendar.property_id,
-        hostId: calendar.host_id,
-        calendarId: calendar.id,
-        windowStartStr,
-        windowEndStr,
-        stays,
-      });
     }
+
+    await refreshIcalAvailabilityClientSide(service, {
+      propertyId: calendar.property_id,
+      hostId: calendar.host_id,
+      calendarId: calendar.id,
+      windowStartStr,
+      windowEndStr,
+      stays,
+    });
 
     const { error: metaErr } = await service
       .from('property_ical_sources')
@@ -217,15 +228,44 @@ async function refreshIcalAvailabilityClientSide(
 
   const { data: existing, error: existingErr } = await service
     .from('property_availability')
-    .select('day')
+    .select('day, status, booking_id')
     .eq('property_id', opts.propertyId)
     .is('room_id', null)
     .in('day', [...desired]);
   if (existingErr) throw existingErr;
 
-  const taken = new Set((existing || []).map((row) => row.day));
+  const skip = new Set<string>();
+  const updateDays: string[] = [];
+  const updateSet = new Set<string>();
+  for (const row of existing || []) {
+    if (row.status === 'booked' || row.booking_id) {
+      skip.add(row.day);
+      continue;
+    }
+    updateDays.push(row.day);
+    updateSet.add(row.day);
+  }
+
+  for (let i = 0; i < updateDays.length; i += UPSERT_CHUNK) {
+    const slice = updateDays.slice(i, i + UPSERT_CHUNK);
+    const { error: updErr } = await service
+      .from('property_availability')
+      .update({
+        status: 'blocked',
+        source: 'ical_sync',
+        ical_source_id: opts.calendarId,
+        note: 'External calendar',
+      })
+      .eq('property_id', opts.propertyId)
+      .is('room_id', null)
+      .in('day', slice)
+      .is('booking_id', null)
+      .neq('status', 'booked');
+    if (updErr) throw updErr;
+  }
+
   const inserts = [...desired]
-    .filter((day) => !taken.has(day))
+    .filter((day) => !skip.has(day) && !updateSet.has(day))
     .map((day) => ({
       property_id: opts.propertyId,
       host_id: opts.hostId,

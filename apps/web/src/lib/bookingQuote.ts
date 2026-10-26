@@ -3,7 +3,7 @@ import {
   SALES_TAX_PERCENT,
   TOURIST_DEVELOPMENT_TAX_PERCENT,
 } from '@vibesbnb/shared';
-import { nightsBetweenYmd } from '@/lib/dateUtils';
+import { enumerateStayNightsYmd, nightsBetweenYmd } from '@/lib/dateUtils';
 import { getPlatformFeePercent } from '@/lib/platformPricing';
 
 export type WellnessQuoteLine = { id?: string; name: string; price: number };
@@ -87,13 +87,11 @@ export function computeBookingQuote(input: BookingQuoteInput): BookingQuote | nu
 
   let totalRent = 0;
   if (input.customDailyRates && Object.keys(input.customDailyRates).length > 0) {
-    const start = new Date(input.checkInYmd + 'T12:00:00');
-    const end = new Date(input.checkOutYmd + 'T12:00:00');
-    for (let cursor = new Date(start); cursor < end; cursor.setDate(cursor.getDate() + 1)) {
-      const dayKey = cursor.toISOString().split('T')[0];
-      const rate = input.customDailyRates[dayKey] != null
-        ? Number(input.customDailyRates[dayKey])
-        : defaultNightlyRate;
+    for (const dayKey of enumerateStayNightsYmd(input.checkInYmd, input.checkOutYmd)) {
+      const rate =
+        input.customDailyRates[dayKey] != null
+          ? Number(input.customDailyRates[dayKey])
+          : defaultNightlyRate;
       totalRent += Math.max(0, rate);
     }
     totalRent = roundMoney(totalRent);

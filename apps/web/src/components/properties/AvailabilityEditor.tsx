@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { calendarYmd, formatLocalYmd } from '@/lib/dateUtils';
 import {
   Calendar,
   Link2,
@@ -47,7 +48,7 @@ interface AvailabilityEditorProps {
 const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function formatDateKey(date: Date) {
-  return date.toISOString().split('T')[0];
+  return formatLocalYmd(date);
 }
 
 export function AvailabilityEditor({ propertyId, basePrice }: AvailabilityEditorProps) {
@@ -123,18 +124,19 @@ export function AvailabilityEditor({ propertyId, basePrice }: AvailabilityEditor
         const booked = new Set<string>();
 
         (data.availability || []).forEach((entry: AvailabilityEntry) => {
+          const day = calendarYmd(entry.day) || entry.day;
           if (entry.status === 'booked') {
-            statuses[entry.day] = 'booked';
-            booked.add(entry.day);
+            statuses[day] = 'booked';
+            booked.add(day);
           } else if (entry.status === 'blocked') {
-            statuses[entry.day] = 'blocked';
-            blocked.add(entry.day);
+            statuses[day] = 'blocked';
+            blocked.add(day);
           } else if (entry.status === 'available') {
-            statuses[entry.day] = 'available';
+            statuses[day] = 'available';
           }
 
           if (entry.price != null && !isNaN(Number(entry.price)) && Number(entry.price) > 0) {
-            prices[entry.day] = Number(entry.price);
+            prices[day] = Number(entry.price);
           }
         });
 
@@ -470,7 +472,7 @@ export function AvailabilityEditor({ propertyId, basePrice }: AvailabilityEditor
     const newRemovedDays = new Set(removedDays);
 
     for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
-      const dayKey = cursor.toISOString().split('T')[0];
+      const dayKey = formatLocalYmd(cursor);
 
       // Skip past dates or booked dates
       const isPast =

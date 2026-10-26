@@ -23,6 +23,7 @@ import { PropertyCategoryChips } from '@/components/properties/PropertyCategoryC
 import { HostStatusBadge } from '@/components/hosts/HostStatusBadge';
 import type { HostBadge } from '@/lib/hostBadge';
 import { toTravelerPrice } from '@/lib/platformPricing';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 
 interface HostProfile {
   id: string;
@@ -332,7 +333,7 @@ export default function HostProfilePage() {
                         <h3 className="font-bold text-white mb-1">{property.name}</h3>
                         <p className="text-gray-400 text-sm flex items-center gap-1 mb-3">
                           <MapPin size={14} className="text-emerald-500" />
-                          {property.type ? `${property.type} in ` : ''}{property.location}
+                          {property.type ? `${property.type} in ` : ''}{formatPublicLocation(property.location)}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span className="flex items-center gap-1">

@@ -4,13 +4,17 @@ import { forwardRef, useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import ReactDatePicker, { ReactDatePickerProps } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { parseCalendarDate } from '@/lib/dateUtils';
+import { enumerateStayNightsYmd, parseCalendarDate } from '@/lib/dateUtils';
 
 interface DatePickerProps extends Omit<ReactDatePickerProps, 'onChange'> {
   value?: string;
   onChange: (dateStr: string) => void;
   className?: string;
   min?: string;
+  /** YYYY-MM-DD nights that cannot be occupied (iCal/host blocks, bookings). */
+  unavailableDates?: string[];
+  /** When set, this picker is check-out: a date is valid only if every night from stayStart is free. */
+  stayStartYmd?: string;
 }
 
 /** Local calendar date at noon — avoids Safari/ISO parsing quirks and DST edge cases. */
@@ -69,11 +73,45 @@ function useTouchInput(): boolean {
   return touch;
 }
 
+function dateToYmd(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export const DatePicker = forwardRef<any, DatePickerProps>(
-  ({ value, onChange, className, min, ...props }, ref) => {
+  (
+    {
+      value,
+      onChange,
+      className,
+      min,
+      unavailableDates,
+      stayStartYmd,
+      filterDate,
+      ...props
+    },
+    ref
+  ) => {
     const selectedDate = useMemo(() => (value ? ymdToPickerDate(value) : null), [value]);
     const minDate = useMemo(() => (min ? ymdToPickerDate(min) ?? undefined : undefined), [min]);
     const isTouch = useTouchInput();
+    const unavailableSet = useMemo(
+      () => new Set((unavailableDates || []).filter(Boolean)),
+      [unavailableDates]
+    );
+
+    const handleFilterDate = (date: Date) => {
+      if (filterDate && !filterDate(date)) return false;
+      const ymd = dateToYmd(date);
+      if (stayStartYmd) {
+        const nights = enumerateStayNightsYmd(stayStartYmd, ymd);
+        if (nights.length === 0) return false;
+        return nights.every((night) => !unavailableSet.has(night));
+      }
+      return !unavailableSet.has(ymd);
+    };
 
     const handleChange = (date: Date | null) => {
       let dateStr = '';
@@ -155,6 +193,7 @@ export const DatePicker = forwardRef<any, DatePickerProps>(
           selected={selectedDate}
           onChange={handleChange}
           minDate={minDate}
+          filterDate={handleFilterDate}
           className={className}
           dateFormat="MMM d, yyyy"
           placeholderText="Select date"

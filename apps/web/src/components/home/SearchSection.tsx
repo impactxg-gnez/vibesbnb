@@ -9,7 +9,6 @@ import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { formatCalendarDate, todayLocalYmd } from '@/lib/dateUtils';
 import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 import { writeStaySearch } from '@/lib/staySearchParams';
-import { openVibeBot } from '@/lib/concierge/openVibeBot';
 import {
   PREFER_WELLNESS_CHANGE_EVENT,
   PREFER_WELLNESS_DEFAULT,
@@ -319,13 +318,6 @@ export function SearchSection({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 md:mb-6">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white break-words">{searchHeading}</h2>
-            <button
-              type="button"
-              onClick={() => openVibeBot()}
-              className="mt-2 text-left text-sm text-emerald-400 hover:text-emerald-300 underline-offset-2 hover:underline"
-            >
-              Or describe your trip to VibeBot (dates, guests, budget)
-            </button>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <button
                 type="button"

@@ -77,25 +77,64 @@ export function withPublishClockDefaults(row: Record<string, unknown>): Record<s
   return next;
 }
 
+export const PAYOUT_DETAILS_MISSING = 'Payout details are missing';
+
+export function isHostPayoutDetailsComplete(info: unknown): boolean {
+  if (!info || typeof info !== 'object') return false;
+  const payout = info as Record<string, unknown>;
+  if (payout.method === 'paypal' || payout.paypal_email || payout.paypal_email_masked) {
+    return Boolean(String(payout.paypal_email || payout.paypal_email_masked || '').trim());
+  }
+  const holder = String(payout.account_holder_name || '').trim();
+  const bank = String(payout.bank_name || '').trim();
+  const account = String(payout.account_number_masked || '').trim();
+  return Boolean(account || (holder && bank));
+}
+
+function isPayoutAccountRowComplete(row: Record<string, unknown> | null | undefined): boolean {
+  if (!row) return false;
+  if (String(row.status || '') === 'suspended') return false;
+  const holder = String(row.account_holder_name || '').trim();
+  const bank = String(row.bank_name || '').trim();
+  const account = String(row.account_number_encrypted || '').trim();
+  const routing = String(row.routing_number_encrypted || '').trim();
+  return Boolean(holder && bank && account && routing);
+}
+
 export async function hostHasPayoutSetup(
   db: SupabaseClient,
   hostId: string
 ): Promise<boolean> {
+  try {
+    const { data } = await db.auth.admin.getUserById(hostId);
+    if (isHostPayoutDetailsComplete(data.user?.user_metadata?.payout_info)) {
+      return true;
+    }
+  } catch (error) {
+    console.warn('[publish gate] host payout metadata', error);
+  }
+
   const { data, error } = await db
     .from('payout_accounts')
-    .select('status')
+    .select('account_holder_name, bank_name, account_number_encrypted, routing_number_encrypted, status')
     .eq('user_id', hostId)
     .maybeSingle();
+
   if (error) {
-    if (isUndefinedColumnError(error) || error.code === '42P01') return true;
+    if (isUndefinedColumnError(error) || error.code === '42P01') {
+      return false;
+    }
     console.warn('[publish gate] payout_accounts', error.message);
-    return true;
+    return false;
   }
-  const status = String(data?.status || '');
-  return Boolean(data) && status !== 'suspended';
+
+  return isPayoutAccountRowComplete(data as Record<string, unknown> | null);
 }
 
 export function publishBlockedMessage(blockers: string[]): string {
+  if (blockers.length === 1 && blockers[0] === PAYOUT_DETAILS_MISSING) {
+    return PAYOUT_DETAILS_MISSING;
+  }
   return `Cannot publish yet. Missing: ${blockers.join('; ')}.`;
 }
 
@@ -103,13 +142,10 @@ export async function assertCanPublishListing(params: {
   db: SupabaseClient;
   row: Record<string, unknown>;
   hostId: string;
-  skipPayout?: boolean;
 }): Promise<string[]> {
   const row = withPublishClockDefaults(params.row);
   const blockers = listingPublishBlockers(row);
-  if (!params.skipPayout) {
-    const ok = await hostHasPayoutSetup(params.db, params.hostId);
-    if (!ok) blockers.push('Payout setup (US bank or PayPal) in Host earnings');
-  }
+  const ok = await hostHasPayoutSetup(params.db, params.hostId);
+  if (!ok) blockers.push(PAYOUT_DETAILS_MISSING);
   return blockers;
 }

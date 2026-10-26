@@ -1,6 +1,7 @@
 /**
  * Public listing location privacy: area + city text and jittered approximate map center.
  */
+import { cityLabelFromPropertyLocation } from '@/lib/propertyLocationCity';
 
 const EARTH_RADIUS_M = 6_371_000;
 
@@ -40,14 +41,37 @@ function offsetLatLng(lat: number, lng: number, distanceM: number, bearingDeg: n
 }
 
 /**
- * Guest-facing location: last two comma parts (area, city / region).
- * Never show street number when more parts exist.
+ * Guest-facing location: city + state only.
+ * "11861 NW 4th St, Plantation, FL 33325, USA" → "Plantation, FL"
  */
 export function formatPublicLocation(location: string | null | undefined): string {
+  const city = cityLabelFromPropertyLocation(location);
+  if (city) return city;
   if (!location) return '';
   const parts = location.split(',').map((p) => p.trim()).filter(Boolean);
   if (parts.length <= 2) return parts.join(', ');
   return parts.slice(-2).join(', ');
+}
+
+export function googleMapsSearchUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
+/** Replace a stored street address inside host-written listing copy. */
+export function replaceExactAddressInPublicText(
+  text: string,
+  exactLocation: string | null | undefined
+): string {
+  const exact = String(exactLocation || '').trim();
+  const pub = formatPublicLocation(exact);
+  if (!text || !exact || !pub || exact.toLowerCase() === pub.toLowerCase()) return text;
+  const escaped = exact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let next = text.replace(new RegExp(escaped, 'gi'), pub);
+  const street = exact.split(',')[0]?.trim() || '';
+  if (street.length >= 8 && /^\d/.test(street) && next.includes(street)) {
+    next = next.split(street).join(pub);
+  }
+  return next;
 }
 
 /** Jittered center for public map — stable per propertyId. */
@@ -78,4 +102,15 @@ export function canViewExactLocation(opts: {
   if (opts.isHost || opts.isAdmin) return true;
   const s = String(opts.bookingStatus || '').toLowerCase();
   return BOOKED_EXACT_STATUSES.has(s);
+}
+
+/** Exact street address only after a confirmed booking (or for host/admin). */
+export function travelerLocationLabel(
+  location: string | null | undefined,
+  opts?: { bookingStatus?: string | null; isHost?: boolean; isAdmin?: boolean }
+): string {
+  if (canViewExactLocation(opts || {})) {
+    return String(location || '').trim();
+  }
+  return formatPublicLocation(location);
 }

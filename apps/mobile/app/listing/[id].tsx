@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { openWebPath } from '@/src/lib/openWeb';
+import { apiFetch } from '@/src/lib/api';
 import { Button } from '@/src/components/ui/Button';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { supabase } from '@/src/lib/supabase';
 import { computeBookingQuote } from '@/src/lib/bookingQuote';
 import { theme, money } from '@/src/constants/theme';
+import { formatPublicLocation } from '@/src/lib/propertyLocation';
 
 type PropertyRow = {
   id: string;
@@ -31,6 +33,21 @@ type PropertyRow = {
   extra_guest_price: number | null;
   description: string | null;
 };
+
+function stayNightsYmd(checkIn: string, checkOut: string): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut)) return [];
+  const nights: string[] = [];
+  const cur = new Date(`${checkIn}T12:00:00`);
+  const end = new Date(`${checkOut}T12:00:00`);
+  while (cur < end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    nights.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return nights;
+}
 
 function defaultDates() {
   const start = new Date();
@@ -50,6 +67,7 @@ export default function ListingDetailScreen() {
   const [checkIn, setCheckIn] = useState(defaults.checkIn);
   const [checkOut, setCheckOut] = useState(defaults.checkOut);
   const [guests, setGuests] = useState('2');
+  const [blockedDays, setBlockedDays] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -63,6 +81,18 @@ export default function ListingDetailScreen() {
       .eq('status', 'active')
       .maybeSingle();
     setProperty(data as PropertyRow | null);
+    try {
+      const payload = await apiFetch<{
+        availability?: Array<{ day: string; status: string }>;
+      }>(`/api/properties/${encodeURIComponent(id)}/availability`);
+      setBlockedDays(
+        (payload.availability || [])
+          .filter((entry) => entry.status === 'blocked' || entry.status === 'booked')
+          .map((entry) => entry.day)
+      );
+    } catch {
+      setBlockedDays([]);
+    }
     setLoading(false);
   }, [id]);
 
@@ -92,6 +122,11 @@ export default function ListingDetailScreen() {
     }
     if (!quote) {
       Alert.alert('Invalid dates', 'Check-out must be after check-in.');
+      return;
+    }
+    const blocked = new Set(blockedDays);
+    if (stayNightsYmd(checkIn, checkOut).some((night) => blocked.has(night))) {
+      Alert.alert('Dates unavailable', 'Those nights are blocked or already booked. Choose different dates.');
       return;
     }
     const params = new URLSearchParams({
@@ -133,7 +168,7 @@ export default function ListingDetailScreen() {
       )}
 
       <Text style={styles.title}>{name}</Text>
-      <Text style={styles.location}>{property.location}</Text>
+      <Text style={styles.location}>{formatPublicLocation(property.location)}</Text>
       <Text style={styles.price}>
         {money(Number(property.price) || 0)}
         <Text style={styles.perNight}> / night</Text>

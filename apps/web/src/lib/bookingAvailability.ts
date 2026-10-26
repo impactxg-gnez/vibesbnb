@@ -1,17 +1,37 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { enumerateStayNightsYmd } from '@/lib/dateUtils';
+import { customDailyRatesFromAvailabilityRows } from '@/lib/calendar/unavailableStay';
 
 type ServiceSupabase = SupabaseClient;
 
 type SelectedUnit = { id?: string | null };
 
 function enumerateStayDays(checkInYmd: string, checkOutYmd: string): string[] {
-  const days: string[] = [];
-  const start = new Date(checkInYmd + 'T12:00:00');
-  const end = new Date(checkOutYmd + 'T12:00:00');
-  for (let cursor = new Date(start); cursor < end; cursor.setDate(cursor.getDate() + 1)) {
-    days.push(cursor.toISOString().split('T')[0]);
+  return enumerateStayNightsYmd(checkInYmd, checkOutYmd);
+}
+
+export async function fetchCustomDailyRatesForStay(
+  service: ServiceSupabase,
+  params: { propertyId: string; checkInYmd: string; checkOutYmd: string }
+): Promise<Record<string, number>> {
+  const nights = enumerateStayNightsYmd(params.checkInYmd, params.checkOutYmd);
+  if (nights.length === 0) return {};
+
+  const { data, error } = await service
+    .from('property_availability')
+    .select('day, price, status, room_id')
+    .eq('property_id', params.propertyId)
+    .in('day', nights)
+    .is('room_id', null);
+
+  if (error) {
+    if (error.code === '42703' || error.message?.includes('price')) {
+      return {};
+    }
+    return {};
   }
-  return days;
+
+  return customDailyRatesFromAvailabilityRows(data || []);
 }
 
 export async function releaseBookingAvailability(
@@ -146,7 +166,12 @@ export async function assertStayDoesNotConflict(
       .in('status', ['booked', 'blocked']);
 
     if (roomId) {
-      q = q.eq('room_id', roomId);
+      const safeRoomId = /^[0-9a-f-]{36}$/i.test(roomId) ? roomId : null;
+      if (safeRoomId) {
+        q = q.or(`room_id.eq.${safeRoomId},room_id.is.null`);
+      } else {
+        q = q.is('room_id', null);
+      }
     } else {
       q = q.is('room_id', null);
     }
@@ -170,7 +195,7 @@ export async function assertStayDoesNotConflict(
         return {
           ok: false,
           message:
-            'Those dates are no longer available for this property. Ask the guest to pick different dates or reject the request.',
+            'Those dates are blocked or already booked. Please choose different dates.',
         };
       }
     }

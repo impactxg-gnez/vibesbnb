@@ -68,7 +68,12 @@ import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import {
   cannabisShortLabel,
 } from '@/lib/consumptionPolicy';
-import { listingPublishBlockers, publishBlockedMessage } from '@/lib/listingPublishGate';
+import {
+  isHostPayoutDetailsComplete,
+  listingPublishBlockers,
+  PAYOUT_DETAILS_MISSING,
+  publishBlockedMessage,
+} from '@/lib/listingPublishGate';
 
 interface Room {
   id: string;
@@ -691,6 +696,9 @@ export default function NewPropertyPage() {
         wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
         wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
       });
+      if (!isHostPayoutDetailsComplete(user.user_metadata?.payout_info)) {
+        publishBlockers.push(PAYOUT_DETAILS_MISSING);
+      }
       if (publishBlockers.length) {
         toast.error(publishBlockedMessage(publishBlockers));
         setSaving(false);

@@ -211,6 +211,9 @@ function guestTotalForStay(params: {
   property: PayoutPropertyContext | null | undefined;
   fallbackGuestTotal?: number | null;
 }): number {
+  const stored = roundMoney(Number(params.fallbackGuestTotal) || 0);
+  if (stored > 0) return stored;
+
   const property = params.property;
   if (property && params.checkIn && params.checkOut) {
     const offered = Number(params.booking?.special_offer_nightly);
@@ -236,7 +239,7 @@ function guestTotalForStay(params: {
     });
     if (grandTotal > 0) return roundMoney(grandTotal);
   }
-  return roundMoney(Number(params.fallbackGuestTotal) || 0);
+  return stored;
 }
 
 export function withPayoutPreviewMeta(

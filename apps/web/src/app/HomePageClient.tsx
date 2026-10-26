@@ -8,7 +8,6 @@ import { SearchSection } from '@/components/home/SearchSection';
 import { FeaturedRetreats } from '@/components/home/FeaturedRetreats';
 import { BrowseByVibe } from '@/components/home/BrowseByVibe';
 import { WhyUs } from '@/components/home/WhyUs';
-import { VibeBotHomeNudge } from '@/components/concierge/VibeBotHomeNudge';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -36,7 +35,6 @@ export default function HomePage() {
         <BrowseByVibe />
         <WhyUs />
       </div>
-      <VibeBotHomeNudge />
     </div>
   );
 }

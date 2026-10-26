@@ -36,7 +36,12 @@ import {
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
-import { listingPublishBlockers, publishBlockedMessage } from '@/lib/listingPublishGate';
+import {
+  isHostPayoutDetailsComplete,
+  listingPublishBlockers,
+  PAYOUT_DETAILS_MISSING,
+  publishBlockedMessage,
+} from '@/lib/listingPublishGate';
 
 const PHOTO_UPLOAD_TOAST = 'property-photo-upload';
 
@@ -587,6 +592,9 @@ export default function EditPropertyPage() {
         wellness_consumption_indoor_allowed: formData.wellnessConsumptionIndoorAllowed,
         wellness_consumption_outdoor_allowed: formData.wellnessConsumptionOutdoorAllowed,
       });
+      if (user && !isHostPayoutDetailsComplete(user.user_metadata?.payout_info)) {
+        publishBlockers.push(PAYOUT_DETAILS_MISSING);
+      }
       if (publishBlockers.length) {
         toast.error(publishBlockedMessage(publishBlockers));
         return;

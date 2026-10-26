@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
 import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { formatPublicLocation } from '@/lib/propertyLocationPrivacy';
 
 interface ConversationResponse {
   id: string;
@@ -106,7 +107,9 @@ type PropertySummary = {
 
 async function attachPropertySummaries(
   client: { from: (table: string) => any },
-  rows: ConversationResponse[]
+  rows: ConversationResponse[],
+  viewerId: string,
+  viewerIsAdmin: boolean
 ): Promise<ConversationResponse[]> {
   const ids = [
     ...new Set(rows.map((r) => r.property_id).filter(Boolean)),
@@ -132,11 +135,14 @@ async function attachPropertySummaries(
     const property = byId.get(row.property_id);
     if (!property) return { ...row, properties: row.properties ?? null };
     const cover = property.cover_image || null;
+    const showExact = viewerIsAdmin || row.host_id === viewerId;
     return {
       ...row,
       properties: {
         name: property.name ?? undefined,
-        location: property.location ?? undefined,
+        location: showExact
+          ? property.location ?? undefined
+          : formatPublicLocation(property.location) || undefined,
         images: cover ? [cover] : [],
       },
     };
@@ -241,7 +247,12 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
-    const conversations = await attachPropertySummaries(db, visibleRows);
+    const conversations = await attachPropertySummaries(
+      db,
+      visibleRows,
+      user.id,
+      isAdmin
+    );
 
     return NextResponse.json({
       conversations,

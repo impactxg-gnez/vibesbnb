@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import type { BrowseProperty } from '@/src/lib/api';
 import { theme, money } from '@/src/constants/theme';
+import { formatPublicLocation } from '@/src/lib/propertyLocation';
 
 export function PropertyCard({
   property,
@@ -32,7 +33,7 @@ export function PropertyCard({
             {name}
           </Text>
           <Text style={styles.location} numberOfLines={1}>
-            {property.location || 'Location TBD'}
+            {formatPublicLocation(property.location) || 'Location TBD'}
           </Text>
           <View style={styles.metaRow}>
             {rating != null && rating > 0 ? (

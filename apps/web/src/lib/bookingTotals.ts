@@ -25,6 +25,7 @@ export function computeBookingGrandTotal(params: {
   lateCheckOutFee?: number;
   /** Guest service fee % — pass server DB value when validating bookings. */
   feePercent?: number;
+  customDailyRates?: Record<string, number>;
 }): { stayNights: number; grandTotal: number } {
   const quote = buildBookingQuoteFromProperty({
     property: {
@@ -46,6 +47,7 @@ export function computeBookingGrandTotal(params: {
     earlyCheckInFee: params.earlyCheckInFee,
     lateCheckOutFee: params.lateCheckOutFee,
     feePercent: params.feePercent,
+    customDailyRates: params.customDailyRates,
   });
 
   const stayNights = nightsBetweenYmd(params.checkInYmd, params.checkOutYmd);

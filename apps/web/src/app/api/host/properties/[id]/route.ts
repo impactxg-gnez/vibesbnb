@@ -111,7 +111,6 @@ export async function PATCH(
         db: access.db,
         row: withClocks,
         hostId: String(current?.host_id || access.property.host_id),
-        skipPayout: access.isAdmin,
       });
       if (blockers.length) {
         return NextResponse.json(

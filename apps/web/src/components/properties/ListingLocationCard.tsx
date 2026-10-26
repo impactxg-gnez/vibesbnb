@@ -9,6 +9,7 @@ type Props = {
   longitude: number;
   propertyName: string;
   approximateRadiusMeters: number;
+  areaLabel?: string;
 };
 
 const PRIVACY_NOTE = 'Approximate area only. Exact address is shared after booking confirmation.';
@@ -22,6 +23,7 @@ export function ListingLocationCard({
   longitude,
   propertyName,
   approximateRadiusMeters,
+  areaLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -37,7 +39,7 @@ export function ListingLocationCard({
           <span className="flex min-w-0 items-center gap-2">
             <MapPin size={16} className="shrink-0 text-emerald-600 dark:text-emerald-500" />
             <span className="truncate text-sm font-semibold text-[#193F25] dark:text-white">
-              Approximate location
+              {areaLabel ? areaLabel : 'Approximate location'}
             </span>
           </span>
           <ChevronDown
@@ -76,7 +78,10 @@ export function ListingLocationCard({
         <div className="absolute bottom-4 left-4 right-4 rounded-lg border border-gray-700 bg-gray-900/90 px-4 py-3 backdrop-blur-sm">
           <p className="flex items-center gap-2 text-sm text-gray-300">
             <MapPin size={16} className="flex-shrink-0 text-emerald-500" />
-            <span>{PRIVACY_NOTE}</span>
+            <span>
+              {areaLabel ? `${areaLabel}. ` : ''}
+              {PRIVACY_NOTE}
+            </span>
           </p>
         </div>
       </div>

@@ -45,6 +45,11 @@ function toYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Local calendar YYYY-MM-DD (never UTC `toISOString()`, which shifts the day in IST and similar TZs). */
+export function formatLocalYmd(d: Date): string {
+  return toYmd(d);
+}
+
 /** Each night’s calendar key (YYYY-MM-DD) from check-in through night before check-out. */
 export function enumerateStayNightsYmd(checkIn: string, checkOut: string): string[] {
   const start = parseCalendarDate(checkIn);
