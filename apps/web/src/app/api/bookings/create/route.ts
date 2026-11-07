@@ -4,6 +4,9 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
 import { normalizeMinBookingNights } from '@/lib/minBookingNights';
 import { computeBookingGrandTotal, totalsMatchCents } from '@/lib/bookingTotals';
+import { computeBookingQuote, resolveHostNightlyRate } from '@/lib/bookingQuote';
+import { isReferralAffiliateEnabled, AFFILIATE_CLICK_COOKIE } from '@/lib/referrals/config';
+import { attachReferralToNewBooking } from '@/lib/referrals/store';
 import {
   computeEarlyLateFees,
   earlyCheckInTimeOptions,
@@ -695,6 +698,46 @@ export async function POST(request: NextRequest) {
       }
     } catch (adminEmailErr) {
       console.warn('Failed to dispatch admin notification emails:', adminEmailErr);
+    }
+
+    if (isReferralAffiliateEnabled()) {
+      try {
+        const quote = computeBookingQuote({
+          checkInYmd: String(check_in),
+          checkOutYmd: String(check_out),
+          hostNightlyRate:
+            offeredNightly ??
+            resolveHostNightlyRate(Number(propertyRow.price) || 0, selected_units),
+          hostCleaningFee: cleaning,
+          includedGuests: Number(propertyRow.guests) || 1,
+          adults: Number(guests) || 1,
+          kids: kids != null ? Number(kids) : 0,
+          pets: pets != null ? Number(pets) : 0,
+          allowExtraGuests: propertyRow.allow_extra_guests === true,
+          extraGuestPrice:
+            propertyRow.extra_guest_price != null ? Number(propertyRow.extra_guest_price) : 0,
+          refundableDeposit:
+            propertyRow.refundable_deposit != null ? Number(propertyRow.refundable_deposit) : 0,
+          wellnessLineItems: wellnessLineItemsSanitized,
+          applyCardFee: guestPaysCardProcessingFee(),
+          earlyCheckInFee: earlyFee,
+          lateCheckOutFee: lateFee,
+          feePercent: serviceFeePercent,
+          customDailyRates,
+        });
+        if (quote) {
+          await attachReferralToNewBooking({
+            bookingId: String(booking.id),
+            affiliateCookie: request.cookies.get(AFFILIATE_CLICK_COOKIE)?.value ?? null,
+            serviceFee: quote.platformFee,
+            rent: quote.totalRent,
+            cleaningFee: quote.cleaningFee,
+            grandTotal: Number(total_price) || quote.grandTotal,
+          });
+        }
+      } catch (referralError) {
+        console.warn('[referrals] booking attach skipped', referralError);
+      }
     }
 
     return NextResponse.json({

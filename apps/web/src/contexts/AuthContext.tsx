@@ -37,7 +37,8 @@ interface AuthContextType {
     password: string,
     name: string,
     role?: string,
-    phone?: string
+    phone?: string,
+    referralCode?: string
   ) => Promise<{ error: any; data?: any }>;
   signOut: (options?: { preserveSavedAccounts?: boolean }) => Promise<void>;
   signInWithGoogle: (returnTo?: string | null) => Promise<void>;
@@ -685,7 +686,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     name: string,
     role: string = 'traveller',
-    phone?: string
+    phone?: string,
+    referralCode?: string
   ) => {
     // Map 'traveler' to 'traveller' for consistency
     const normalizedRole = role === 'traveler' ? 'traveller' : role;
@@ -748,6 +750,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             full_name: name,
             role: normalizedRole,
             ...(phone ? { phone } : {}),
+            ...(referralCode?.trim()
+              ? { referral_code: referralCode.trim().toUpperCase() }
+              : {}),
           },
           emailRedirectTo: `${getAuthRedirectOrigin()}/auth/callback?type=signup`,
         },

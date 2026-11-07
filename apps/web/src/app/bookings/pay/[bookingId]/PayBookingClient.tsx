@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Calendar, CheckCircle2, MapPin, Users } from 'lucide-react';
 import { formatCalendarDate } from '@/lib/dateUtils';
 import { PayPalBookingButtons } from '@/components/payments/PayPalBookingButtons';
+import { isReferralAffiliateEnabledClient } from '@/lib/referrals/config';
 import {
   canViewExactLocation,
   googleMapsSearchUrl,
@@ -43,6 +44,30 @@ export function PayBookingClient({
   claim?: string | null;
 }) {
   const [booking, setBooking] = useState(initial);
+  const [referralOff, setReferralOff] = useState({ credits: 0, offer: 0 });
+
+  useEffect(() => {
+    if (!isReferralAffiliateEnabledClient()) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/referrals/adjustment?bookingId=${encodeURIComponent(booking.id)}`, {
+          cache: 'no-store',
+        });
+        const data = await res.json();
+        if (cancelled || !data?.enabled) return;
+        setReferralOff({
+          credits: Number(data.creditsApplied) || 0,
+          offer: Number(data.friendDiscount) || 0,
+        });
+      } catch {
+        /* leave the booking total as stored */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [booking.id]);
   const formatDate = (value: string) =>
     formatCalendarDate(value, {
       weekday: 'short',
@@ -138,10 +163,24 @@ export function PayBookingClient({
                   {booking.pets ? ` · ${booking.pets} pet${booking.pets === 1 ? '' : 's'}` : ''}
                 </span>
               </div>
+              {referralOff.credits > 0 ? (
+                <p className="text-sm text-emerald-300">
+                  {`Referral credits applied: -$${referralOff.credits.toFixed(2)}`}
+                </p>
+              ) : null}
+              {referralOff.offer > 0 ? (
+                <p className="text-sm text-emerald-300">
+                  {`Referral offer applied: -$${referralOff.offer.toFixed(2)}`}
+                </p>
+              ) : null}
               <div className="flex items-baseline justify-between pt-3 border-t border-emerald-500/20">
                 <span className="font-semibold text-emerald-100">Amount due</span>
                 <span className="text-2xl font-bold text-emerald-400">
-                  ${booking.totalPrice.toFixed(2)}
+                  $
+                  {(referralOff.credits + referralOff.offer > 0
+                    ? Math.max(0, booking.totalPrice - referralOff.credits - referralOff.offer)
+                    : booking.totalPrice
+                  ).toFixed(2)}
                 </span>
               </div>
 

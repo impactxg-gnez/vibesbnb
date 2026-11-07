@@ -50,6 +50,7 @@ import {
   type WellnessBookingLineItem,
 } from '@/lib/wellnessBookingCart';
 import { buildBookingQuoteFromProperty } from '@/lib/bookingQuote';
+import { isReferralAffiliateEnabledClient } from '@/lib/referrals/config';
 import {
   clampPartyToCapacity,
   guestCapacityDetail,
@@ -424,6 +425,41 @@ export default function NewBookingPage() {
           customDailyRates: specialOffer ? undefined : customDailyRates,
         })
       : null;
+
+  const [referralAdjust, setReferralAdjust] = useState({ credits: 0, offer: 0 });
+
+  useEffect(() => {
+    if (!isReferralAffiliateEnabledClient() || !bookingQuote || !user) {
+      setReferralAdjust({ credits: 0, offer: 0 });
+      return;
+    }
+    let cancelled = false;
+    const serviceFee = bookingQuote.platformFee;
+    (async () => {
+      try {
+        const res = await fetch('/api/referrals/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serviceFee }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!data?.enabled) {
+          setReferralAdjust({ credits: 0, offer: 0 });
+          return;
+        }
+        setReferralAdjust({
+          credits: Number(data.creditsApplied) || 0,
+          offer: Number(data.friendDiscount) || 0,
+        });
+      } catch {
+        if (!cancelled) setReferralAdjust({ credits: 0, offer: 0 });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingQuote?.platformFee, user?.id]);
 
   const validateBookingForm = (): boolean => {
     if (!user || !property) return false;
@@ -1055,6 +1091,8 @@ export default function NewBookingPage() {
                       : undefined
                   }
                   showCardFee={guestPaysCardProcessingFee()}
+                  referralCreditsApplied={referralAdjust.credits}
+                  referralOfferApplied={referralAdjust.offer}
                   onRemoveWellnessItem={(index) => {
                     setWellnessLineItems((prev) => {
                       const next = prev.filter((_, i) => i !== index);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { guestChargeAmount } from '@/lib/referrals/store';
 import { formatPayPalAmount, verifyPayPalWebhookSignature } from '@/lib/paypal';
 import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 import { ensurePendingHostPayout } from '@/lib/hostPayouts';
@@ -58,7 +59,9 @@ async function markBookingPaid(bookingId: string, captureId: string, amountValue
 
   if (amountValue) {
     try {
-      const expected = formatPayPalAmount(booking.total_price);
+      const expected = formatPayPalAmount(
+        await guestChargeAmount(bookingId, Number(booking.total_price) || 0)
+      );
       if (amountValue !== expected) {
         console.error('[paypal/webhook] amount mismatch', amountValue, expected);
         return;

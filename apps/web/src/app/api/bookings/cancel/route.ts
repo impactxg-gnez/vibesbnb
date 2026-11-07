@@ -10,6 +10,8 @@ import {
   resolveRefund,
 } from '@/lib/cancellationPolicy';
 import { nightsBetweenYmd } from '@/lib/dateUtils';
+import { isReferralAffiliateEnabled } from '@/lib/referrals/config';
+import { onBookingCancelledOrRefunded } from '@/lib/referrals/store';
 
 const HOST_CANCELLABLE = new Set([
   'pending_approval',
@@ -130,6 +132,14 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (isReferralAffiliateEnabled()) {
+      try {
+        await onBookingCancelledOrRefunded(bookingId);
+      } catch (referralError) {
+        console.warn('[referrals] cancel cleanup skipped', referralError);
+      }
     }
 
     const service = createServiceClient();

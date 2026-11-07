@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPayPalOrder, formatPayPalAmount } from '@/lib/paypal';
 import { authorizeGuestBookingPayment } from '@/lib/bookings/authorizeGuestPayment';
 import { bookingPayPath } from '@/lib/bookings/payUrl';
+import { guestChargeAmount } from '@/lib/referrals/store';
 
 const DEFAULT_CURRENCY = 'USD';
 
@@ -51,7 +52,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const amountValue = formatPayPalAmount(booking.total_price);
+    const amountValue = formatPayPalAmount(
+      await guestChargeAmount(booking.id, Number(booking.total_price) || 0)
+    );
     const appUrl = (
       process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
     ).replace(/\/$/, '');

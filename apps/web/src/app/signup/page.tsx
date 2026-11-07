@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { validateSignupEmail } from '@/lib/auth/validateSignupEmail';
 import { validateSignupPhone } from '@/lib/auth/phone';
+import { isReferralAffiliateEnabledClient } from '@/lib/referrals/config';
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -20,6 +21,8 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const referralEnabled = isReferralAffiliateEnabledClient();
+  const [referralCode, setReferralCode] = useState('');
   const submitGuardRef = useRef(false);
   const { signUp, signInWithGoogle } = useAuth();
 
@@ -29,6 +32,9 @@ export default function SignupPage() {
     if (t === 'host') {
       setFormData((f) => ({ ...f, accountType: 'host' }));
     }
+    if (!isReferralAffiliateEnabledClient()) return;
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref) setReferralCode(ref);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +78,8 @@ export default function SignupPage() {
         formData.password,
         formData.name,
         role,
-        phoneCheck.phone
+        phoneCheck.phone,
+        referralEnabled ? referralCode : undefined
       );
 
       if (error) {
@@ -268,6 +275,23 @@ export default function SignupPage() {
                 </div>
               </div>
             </div>
+
+            {referralEnabled ? (
+              <div className="space-y-2">
+                <label htmlFor="referralCode" className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">
+                  Referral code
+                </label>
+                <input
+                  id="referralCode"
+                  name="referralCode"
+                  value={referralCode}
+                  onChange={(event) => setReferralCode(event.target.value)}
+                  className="input !py-4 w-full"
+                  placeholder="Optional"
+                  disabled={isLoading}
+                />
+              </div>
+            ) : null}
 
             {/* Terms */}
             <div className="flex items-start px-1">

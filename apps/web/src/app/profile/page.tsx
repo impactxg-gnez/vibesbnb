@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, MessageCircle, Building2, CreditCard, Shield, CheckCircle2, AlertTriangle, Camera, Loader2, Clock, Leaf } from 'lucide-react';
 import { useUnreadMessageCount } from '@/lib/chat/unreadMessageCount';
 import { UnreadMessageBadge } from '@/components/chat/UnreadMessageBadge';
+import { AccountRewards } from '@/components/referrals/AccountRewards';
 import toast from 'react-hot-toast';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -766,6 +767,8 @@ export default function ProfilePage() {
             <span className="font-semibold">Messages</span>
           </Link>
         </div>
+
+        <AccountRewards />
 
         {/* Profile Card */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">

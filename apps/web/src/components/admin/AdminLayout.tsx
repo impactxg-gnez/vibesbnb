@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
 import { createClient } from '@/lib/supabase/client';
 import { isAdminUser } from '@/lib/auth/isAdmin';
+import { isReferralAffiliateEnabledClient } from '@/lib/referrals/config';
 import { loginUrlWithNext } from '@/lib/auth/safeReturnPath';
 import {
   LayoutDashboard,
@@ -172,6 +173,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     },
     { label: 'Sales reports', href: '/admin/reports', icon: <FileText className="w-5 h-5" /> },
     { label: 'Manage Payout', href: '/admin/payouts', icon: <Settings className="w-5 h-5" /> },
+    ...(isReferralAffiliateEnabledClient()
+      ? [{ label: 'Affiliates', href: '/admin/affiliates', icon: <UserPlus className="w-5 h-5" /> }]
+      : []),
     { label: 'Search Settings', href: '/admin/search-settings', icon: <Search className="w-5 h-5" /> },
     { label: 'Upload Hero Image', href: '/admin/upload-hero-image', icon: <Upload className="w-5 h-5" /> },
     { label: 'Change Password', href: '/admin/change-password', icon: <Lock className="w-5 h-5" /> },

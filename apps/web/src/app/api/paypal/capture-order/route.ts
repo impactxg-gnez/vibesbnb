@@ -8,6 +8,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { dispatchBookingConfirmedEmails } from '@/lib/notifications/dispatchBookingConfirmedEmails';
 import { ensurePendingHostPayout } from '@/lib/hostPayouts';
 import { authorizeGuestBookingPayment } from '@/lib/bookings/authorizeGuestPayment';
+import { guestChargeAmount } from '@/lib/referrals/store';
 
 function extractCaptureMeta(result: Awaited<ReturnType<typeof capturePayPalOrder>>): {
   captureId: string;
@@ -95,7 +96,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order does not match this booking' }, { status: 400 });
     }
 
-    const expected = formatPayPalAmount(booking.total_price);
+    const expected = formatPayPalAmount(
+      await guestChargeAmount(booking.id, Number(booking.total_price) || 0)
+    );
     if (capturedAmount && capturedAmount !== expected) {
       console.error('[paypal/capture-order] amount mismatch', capturedAmount, expected);
       return NextResponse.json({ error: 'Captured amount does not match booking total' }, { status: 400 });

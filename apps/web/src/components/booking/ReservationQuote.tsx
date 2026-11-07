@@ -37,6 +37,10 @@ export type ReservationQuoteProps = {
   onRemoveWellnessItem?: (index: number) => void;
   /** Clear every wellness line */
   onClearWellnessItems?: () => void;
+  /** Dollars of referral credits applied to the guest service fee. Omitted or 0 leaves the quote unchanged. */
+  referralCreditsApplied?: number;
+  /** Dollars off the service fee for a referred friend's first booking. */
+  referralOfferApplied?: number;
 };
 
 export function ReservationQuote({
@@ -50,11 +54,20 @@ export function ReservationQuote({
   compact = false,
   onRemoveWellnessItem,
   onClearWellnessItems,
+  referralCreditsApplied = 0,
+  referralOfferApplied = 0,
 }: ReservationQuoteProps) {
   const [taxesOpen, setTaxesOpen] = useState(false);
   const hasTaxes = quote.salesTax > 0 || quote.touristTax > 0;
   const hostAvatarSize = compact ? 'h-10 w-10' : 'h-12 w-12';
   const hostSeed = host?.name?.trim() || 'Host';
+  const creditsApplied = Math.max(0, Number(referralCreditsApplied) || 0);
+  const offerApplied = Math.max(0, Number(referralOfferApplied) || 0);
+  const referralOff = Math.round((creditsApplied + offerApplied) * 100) / 100;
+  const grandShown =
+    referralOff > 0
+      ? Math.max(0, Math.round((quote.grandTotal - referralOff) * 100) / 100)
+      : quote.grandTotal;
   const hostImage =
     host?.imageUrl?.trim() ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(hostSeed)}`;
@@ -151,6 +164,17 @@ export function ReservationQuote({
           <span>Platform fee ({quote.platformFeePercent}%)</span>
           <span className="text-white">{money(quote.platformFee)}</span>
         </div>
+        {creditsApplied > 0 ? (
+          <div className="flex justify-between text-emerald-300">
+            <span>{`Referral credits applied: -${money(creditsApplied)}`}</span>
+          </div>
+        ) : null}
+        {offerApplied > 0 ? (
+          <div className="flex justify-between text-emerald-300">
+            <span>Referral offer applied</span>
+            <span>-{money(offerApplied)}</span>
+          </div>
+        ) : null}
 
         {quote.extraGuestCharges > 0 && (
           <div className="flex justify-between text-gray-400">
@@ -279,7 +303,7 @@ export function ReservationQuote({
       <div className="border-t border-gray-800 pt-4 space-y-2">
         <div className="flex justify-between text-lg font-bold text-white">
           <span>Grand total</span>
-          <span>{money(quote.grandTotal)}</span>
+          <span>{money(grandShown)}</span>
         </div>
         {quote.refundableDeposit > 0 && (
           <div className="flex justify-between text-sm font-semibold text-amber-200/90">
