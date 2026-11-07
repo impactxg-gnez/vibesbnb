@@ -5,7 +5,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Globe } from 'lucide-react';
-import { listingGalleryImageUrl } from '@/lib/propertyImageUrls';
 
 const HERO_PHRASES = [
   'wellness-friendly',
@@ -62,6 +61,7 @@ function RotatingHeroPhrase() {
 
 export function Hero() {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const [location, setLocation] = useState('');
   const [guests, setGuests] = useState(2);
 
@@ -73,28 +73,29 @@ export function Hero() {
     router.push(`/search?${params.toString()}`);
   };
 
-  // Hero background image URL from Supabase Storage
-  // Can be overridden with NEXT_PUBLIC_HERO_BACKGROUND_URL environment variable
-  const rawBackgroundImageUrl = process.env.NEXT_PUBLIC_HERO_BACKGROUND_URL ||
-    'https://okmudgacbpgycixtpoqx.supabase.co/storage/v1/object/public/hero-images/a7af8f52-573a-49db-a8a8-ee3cb49cbe69.jfif';
-  const backgroundImageUrl = listingGalleryImageUrl(rawBackgroundImageUrl);
-
   return (
-    <div className="relative h-[min(88dvh,620px)] sm:h-[580px] md:h-[700px] overflow-hidden">
-      {/* Hero background - cover on mobile, contain on desktop to show full peace sign */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center lg:bg-contain lg:bg-no-repeat lg:bg-right"
-        style={{ 
-          backgroundImage: `url(${backgroundImageUrl})`,
-        }}
-        role="img"
-        aria-label="VibesBNB Hero"
-      />
-      {/* Background color fill for desktop when image doesn't cover full width */}
-      <div className="absolute inset-0 bg-[#8B7355] -z-10" />
-      {/* Light theme: darken the photo so cream/forest type stays readable. Dark keeps the original wash. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/70 dark:from-surface-dark/40 dark:via-transparent dark:to-surface-dark" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent dark:from-transparent dark:via-transparent" />
+    <div className="relative h-[min(88dvh,620px)] sm:h-[580px] md:h-[700px] overflow-hidden bg-black">
+      {reduceMotion ? (
+        <img
+          src="/miami-hero.jpg"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster="/miami-hero.jpg"
+          aria-hidden
+        >
+          <source src="/miami-hero.mp4" type="video/mp4" />
+        </video>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/25" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/70" />
 
       <div className="relative container mx-auto px-4 sm:px-6 h-full flex flex-col justify-center pb-24 sm:pb-16 md:pb-0">
         <motion.div
