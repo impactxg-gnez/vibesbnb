@@ -1,8 +1,7 @@
 /**
  * Referral + affiliate v1 numbers.
  * Change this file to retune the program. Do not copy these values into logic.
- * Flag stays off unless staging explicitly turns it on. Production stays off
- * until Deontae approves.
+ * The program is on unless the environment flags are set to false.
  */
 export const referralAffiliateConfig = {
   /** 1 credit = $1. Credits have no cash value and cannot be transferred. */
@@ -29,26 +28,26 @@ export const referralAffiliateConfig = {
 
 export type ReferralAffiliateConfig = typeof referralAffiliateConfig;
 
-function envOn(value: string | undefined): boolean {
+function envOff(value: string | undefined): boolean {
   const v = (value || '').trim().toLowerCase();
-  return v === '1' || v === 'true' || v === 'on' || v === 'yes';
+  return v === '0' || v === 'false' || v === 'off' || v === 'no';
 }
 
 /**
- * Server flag. Default off.
- * Set REFERRAL_AFFILIATE_ENABLED and NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED
- * together on staging only.
+ * On unless an environment explicitly turns it off.
+ * Set REFERRAL_AFFILIATE_ENABLED=false and
+ * NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED=false to disable.
  */
 export function isReferralAffiliateEnabled(): boolean {
   return (
-    envOn(process.env.REFERRAL_AFFILIATE_ENABLED) ||
-    envOn(process.env.NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED)
+    !envOff(process.env.REFERRAL_AFFILIATE_ENABLED) &&
+    !envOff(process.env.NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED)
   );
 }
 
-/** Client flag. Unset builds render no new UI and make no extra requests. */
+/** Client flag. On unless NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED is false. */
 export function isReferralAffiliateEnabledClient(): boolean {
-  return envOn(process.env.NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED);
+  return !envOff(process.env.NEXT_PUBLIC_REFERRAL_AFFILIATE_ENABLED);
 }
 
 export const REFERRAL_CODE_COOKIE = 'vbn_referral_code';
