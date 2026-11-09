@@ -1,10 +1,11 @@
 import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/src/constants/theme';
 
 export function Screen({ title, subtitle, children }: { title?: string; subtitle?: string; children: ReactNode }) {
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       {title ? (
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
@@ -12,7 +13,7 @@ export function Screen({ title, subtitle, children }: { title?: string; subtitle
         </View>
       ) : null}
       {children}
-    </View>
+    </SafeAreaView>
   );
 }
 

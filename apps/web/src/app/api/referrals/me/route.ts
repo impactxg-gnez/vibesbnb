@@ -21,9 +21,26 @@ export async function GET(request: NextRequest) {
       user_metadata: user.user_metadata as { referral_code?: string },
       cookieCode: request.cookies.get(REFERRAL_CODE_COOKIE)?.value || null,
     });
+
+    if (summary && 'link' in summary && summary.link) {
+      summary.link = summary.link.replace(/https?:\/\/[^/]*vercel\.app/i, 'https://vibesbnb.com');
+      if (summary.hostLink) {
+        summary.hostLink = summary.hostLink.replace(/https?:\/\/[^/]*vercel\.app/i, 'https://vibesbnb.com');
+      }
+    }
+
     return NextResponse.json(summary);
   } catch (error) {
     console.warn('[referrals] account summary failed', error);
-    return NextResponse.json({ enabled: true, code: '', link: '', creditBalance: 0, affiliate: null });
+    return NextResponse.json({
+      enabled: true,
+      code: '',
+      link: '',
+      hostLink: '',
+      creditBalance: 0,
+      stats: { totalInvited: 0, completedStays: 0, pendingStays: 0, totalCreditsEarned: 0, creditBalance: 0 },
+      invites: [],
+      affiliate: null,
+    });
   }
 }

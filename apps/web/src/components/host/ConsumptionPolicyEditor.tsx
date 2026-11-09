@@ -15,6 +15,9 @@ type Props = {
   hasBalcony?: boolean;
   /** When provided, shows a Balcony available toggle next to the 420 policy. */
   onBalconyChange?: (hasBalcony: boolean) => void;
+  /** Building-level lock (e.g. District 225) — wellness and balcony stay off. */
+  locked?: boolean;
+  lockMessage?: string;
 };
 
 /**
@@ -28,8 +31,11 @@ export function ConsumptionPolicyEditor({
   className = '',
   hasBalcony = false,
   onBalconyChange,
+  locked = false,
+  lockMessage,
 }: Props) {
   const set = (patch: Partial<ConsumptionPolicyEditorValue>) => {
+    if (locked) return;
     onChange({ ...value, ...patch });
   };
 
@@ -65,7 +71,12 @@ export function ConsumptionPolicyEditor({
   };
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={`space-y-4 ${className} ${locked ? 'opacity-70 pointer-events-none' : ''}`}>
+      {locked && lockMessage ? (
+        <p className="text-sm text-amber-200 bg-amber-950/40 border border-amber-500/30 rounded-lg px-3 py-2 pointer-events-auto">
+          {lockMessage}
+        </p>
+      ) : null}
       <div>
         <h3 className="text-white font-medium">Wellness-friendly policy</h3>
         <p className="text-sm text-gray-400 mt-1">
@@ -137,6 +148,7 @@ export function ConsumptionPolicyEditor({
             </div>
             <button
               type="button"
+              disabled={locked}
               onClick={() => onBalconyChange(!hasBalcony)}
               className={`shrink-0 px-4 py-2 rounded-lg border text-sm font-semibold transition ${
                 hasBalcony

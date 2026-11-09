@@ -7,11 +7,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { theme } from '@/src/constants/theme';
+import { SafeScreen } from '@/src/components/ui/SafeScreen';
 
 export default function SignupScreen() {
   const { signUp } = useAuth();
@@ -36,6 +36,7 @@ export default function SignupScreen() {
   };
 
   return (
+    <SafeScreen>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -83,6 +84,7 @@ export default function SignupScreen() {
         </Pressable>
       </Link>
     </KeyboardAvoidingView>
+    </SafeScreen>
   );
 }
 

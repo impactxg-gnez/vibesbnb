@@ -35,6 +35,11 @@ import { dispatchAdminNewBookingEmail } from '@/lib/notifications/dispatchAdminN
 import { dispatchAdminNewChatEmail } from '@/lib/notifications/dispatchAdminNewChatEmail';
 import { snapshotGuestContact } from '@/lib/bookings/snapshotGuestContact';
 import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
+import {
+  assertGuestIdPathsOwnedByUser,
+  guestIdDocumentsComplete,
+  parseGuestIdDocuments,
+} from '@/lib/guestIdDocuments';
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,6 +67,7 @@ export async function POST(request: NextRequest) {
       late_check_out_requested,
       requested_late_check_out_time,
       conversation_id,
+      guest_id_documents,
     } = body;
 
     // Validate required fields
@@ -346,6 +352,23 @@ export async function POST(request: NextRequest) {
 
     const initialStatus = allowDirectBooking ? 'accepted' : 'pending_approval';
 
+    const guestIdDocs = parseGuestIdDocuments(guest_id_documents);
+    const adultCount = Number(guests) || 0;
+    const kidCount = Number(kids) || 0;
+    if (!guestIdDocumentsComplete(guestIdDocs, adultCount, kidCount)) {
+      return NextResponse.json(
+        {
+          error:
+            'Upload a government photo ID for every guest (adults and kids) before requesting this stay.',
+          code: 'GUEST_IDS_REQUIRED',
+        },
+        { status: 400 }
+      );
+    }
+    if (!assertGuestIdPathsOwnedByUser(guestIdDocs, userId)) {
+      return NextResponse.json({ error: 'Guest ID files are invalid' }, { status: 400 });
+    }
+
     const guestSnapshot = await snapshotGuestContact(serviceSupabase, userId, {
       name: guest_name,
       email: guest_email,
@@ -395,6 +418,7 @@ export async function POST(request: NextRequest) {
       cancellation_policy: normalizeCancellationPolicy(
         (propertyRow as { cancellation_policy?: string }).cancellation_policy
       ),
+      guest_id_documents: guestIdDocs,
       ...(offeredNightly != null ? { special_offer_nightly: offeredNightly } : {}),
     };
 
@@ -412,6 +436,17 @@ export async function POST(request: NextRequest) {
       const retried = await supabase.from('bookings').insert(withoutPhone).select().single();
       booking = retried.data;
       bookingError = retried.error;
+    }
+
+    if (bookingError && /guest_id_documents/i.test(bookingError.message || '')) {
+      return NextResponse.json(
+        {
+          error:
+            'Guest ID storage is not ready. Run SUPABASE_GUEST_ID_DOCUMENTS.sql, then try checkout again.',
+          code: 'GUEST_IDS_COLUMN_MISSING',
+        },
+        { status: 500 }
+      );
     }
 
     if (bookingError) {

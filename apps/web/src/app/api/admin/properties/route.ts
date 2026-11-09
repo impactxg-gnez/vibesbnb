@@ -13,6 +13,7 @@ import {
 } from '@/lib/adminPropertySelect';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 import { PROPERTY_CREATE_KEYS, pickWritableProperty } from '@/lib/propertyWritableColumns';
+import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 import { dispatchListingSavedEmail } from '@/lib/notifications/dispatchListingSavedEmail';
 
 function accessTokenFromRequest(request: NextRequest): string {
@@ -135,7 +136,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Host account not found' }, { status: 404 });
     }
 
-    const insertPayload = pickWritableProperty(property, PROPERTY_CREATE_KEYS);
+    const insertPayload = applyBuildingWellnessLock(
+      pickWritableProperty(property, PROPERTY_CREATE_KEYS)
+    );
 
     const name = typeof insertPayload.name === 'string' ? insertPayload.name.trim() : '';
     if (!name) {

@@ -14,7 +14,9 @@
       "ios": { "simulator": false },
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://www.vibesbnb.com"
+        "EXPO_PUBLIC_API_URL": "https://www.vibesbnb.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://okmudgacbpgycixtpoqx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rbXVkZ2FjYnBneWNpeHRwb3F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1MzMwMzIsImV4cCI6MjA3ODEwOTAzMn0.u0aibU3uOIQuWOSP8L1xBhklZRv2kOd-BzV0yy-miDQ"
       },
       "node": "22.14.0"
     },

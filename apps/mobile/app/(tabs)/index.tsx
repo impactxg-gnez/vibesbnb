@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import { supabase } from '@/src/lib/supabase';
 import { config } from '@/src/lib/config';
 import { theme } from '@/src/constants/theme';
+import { SafeScreen } from '@/src/components/ui/SafeScreen';
 
 /** Home tab = vibesbnb.com landing (in-app web). */
 export default function HomeScreen() {
@@ -30,25 +31,29 @@ export default function HomeScreen() {
 
   if (!source) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
+      <SafeScreen edges={['top', 'left', 'right']}>
+        <View style={styles.center}>
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      </SafeScreen>
     );
   }
 
   return (
-    <WebView
-      source={source}
-      style={styles.webview}
-      startInLoadingState
-      sharedCookiesEnabled
-      thirdPartyCookiesEnabled
-      renderLoading={() => (
-        <View style={styles.center}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
-      )}
-    />
+    <SafeScreen edges={['top', 'left', 'right']}>
+      <WebView
+        source={source}
+        style={styles.webview}
+        startInLoadingState
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        renderLoading={() => (
+          <View style={styles.center}>
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        )}
+      />
+    </SafeScreen>
   );
 }
 

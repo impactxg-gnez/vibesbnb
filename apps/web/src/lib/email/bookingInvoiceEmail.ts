@@ -1,4 +1,5 @@
 import { computeBookingGrandTotal } from '@/lib/bookingTotals';
+import { bookingGuestIdsReady } from '@/lib/guestIdDocuments';
 import { computeHostPayoutAmounts } from '@/lib/hostPayouts';
 import { computeLodgingWithBakedFee } from '@/lib/platformPricing';
 import {
@@ -17,6 +18,7 @@ export type BookingInvoiceContext = {
   propertyName: string;
   propertyAddress: string;
   mapsUrl?: string | null;
+  guestIdsComplete?: boolean;
   checkIn: string;
   checkOut: string;
   guests: number;
@@ -138,7 +140,10 @@ export function buildBookingInvoiceContext(params: {
     invoiceNumber: `VBNB-${bookingId.replace(/-/g, '').slice(0, 8).toUpperCase()}`,
     propertyName: String(booking.property_name || property?.name || 'Property'),
     propertyAddress: String(booking.location || property?.location || 'See listing for address'),
-    mapsUrl: (property?.google_maps_url as string) || null,
+    mapsUrl: bookingGuestIdsReady(booking)
+      ? ((property?.google_maps_url as string) || null)
+      : null,
+    guestIdsComplete: bookingGuestIdsReady(booking),
     checkIn,
     checkOut,
     guests: Number(booking.guests) || 1,
@@ -217,7 +222,9 @@ export function travellerBookingInvoiceEmailHtml(ctx: BookingInvoiceContext, app
     ${
       ctx.mapsUrl
         ? `<p style="margin:12px 0 0;"><a href="${escapeHtml(ctx.mapsUrl)}" style="color:${VIBESBNB_EMAIL.green};font-size:14px;">Open property on map</a></p>`
-        : ''
+        : !ctx.guestIdsComplete
+          ? `<p style="margin:12px 0 0;font-size:14px;color:${VIBESBNB_EMAIL.muted};">Check-in instructions and the exact address are sent after a government ID is on file for every guest.</p>`
+          : ''
     }
   `;
 

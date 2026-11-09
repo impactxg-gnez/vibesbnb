@@ -116,7 +116,7 @@ async function persistLots(supabase: SupabaseClient, before: CreditRow[], after:
   }
 }
 
-export async function ensureReferralLink(userId: string): Promise<{ code: string; link: string } | null> {
+export async function ensureReferralLink(userId: string): Promise<{ code: string; link: string; hostLink: string } | null> {
   if (!isReferralAffiliateEnabled()) return null;
   const supabase = db();
   const { data: existing, error } = await supabase
@@ -130,7 +130,8 @@ export async function ensureReferralLink(userId: string): Promise<{ code: string
     throw error;
   }
   if (existing?.code) {
-    return { code: existing.code, link: referralLinkForCode(existing.code) };
+    const link = referralLinkForCode(existing.code);
+    return { code: existing.code, link, hostLink: `${link}?type=host` };
   }
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = makeCode();
@@ -141,7 +142,10 @@ export async function ensureReferralLink(userId: string): Promise<{ code: string
       status: 'link',
       booking_id: null,
     });
-    if (!insertError) return { code, link: referralLinkForCode(code) };
+    if (!insertError) {
+      const link = referralLinkForCode(code);
+      return { code, link, hostLink: `${link}?type=host` };
+    }
     if (!/duplicate|unique/i.test(insertError.message || '')) {
       if (quiet(insertError)) return null;
       throw insertError;
@@ -188,7 +192,6 @@ export async function claimReferralCode(params: {
     .select('referrer_user_id, code')
     .eq('code', code)
     .is('referred_user_id', null)
-    .eq('status', 'link')
     .maybeSingle();
   if (!link?.referrer_user_id) return { ok: false, reason: 'unknown_code' };
   if (String(link.referrer_user_id) === String(params.userId)) {
@@ -284,6 +287,81 @@ export async function previewAdjustment(userId: string, serviceFee: number) {
   };
 }
 
+function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return email || '';
+  const [user, domain] = email.split('@');
+  if (user.length <= 2) return `${user[0] || '*'}***@${domain}`;
+  return `${user.slice(0, 2)}***@${domain}`;
+}
+
+export type UserInviteRecord = {
+  id: string;
+  referredUserId: string;
+  name: string;
+  emailMasked: string | null;
+  role: 'Host' | 'Traveler';
+  createdAt: string;
+  completedAt: string | null;
+  status: 'pending' | 'completed' | 'void';
+  hasBooking: boolean;
+  bookingId: string | null;
+  rewardCredits: number;
+  pendingCredits: number;
+};
+
+async function listInvitesForUser(supabase: SupabaseClient, userId: string): Promise<UserInviteRecord[]> {
+  try {
+    const { data: rows, error } = await supabase
+      .from('referrals')
+      .select('id, referred_user_id, code, status, booking_id, created_at, completed_at')
+      .eq('referrer_user_id', userId)
+      .not('referred_user_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      if (quiet(error)) return [];
+      console.warn('[referrals] listInvitesForUser error:', error.message);
+      return [];
+    }
+    if (!rows || rows.length === 0) return [];
+
+    const userIds = rows.map((r) => r.referred_user_id).filter(Boolean);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role')
+      .in('id', userIds);
+
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+    return rows.map((r) => {
+      const prof = profileMap.get(r.referred_user_id);
+      const email = prof?.email || '';
+      const fullName = prof?.full_name?.trim() || '';
+      const displayName = fullName || (email ? maskEmail(email) : 'Invited Member');
+      const role = prof?.role === 'host' ? 'Host' : 'Traveler';
+
+      return {
+        id: r.id,
+        referredUserId: r.referred_user_id,
+        name: displayName,
+        emailMasked: email ? maskEmail(email) : null,
+        role: role as 'Host' | 'Traveler',
+        createdAt: r.created_at,
+        completedAt: r.completed_at,
+        status: (r.status || 'pending') as 'pending' | 'completed' | 'void',
+        hasBooking: Boolean(r.booking_id),
+        bookingId: r.booking_id,
+        rewardCredits: r.status === 'completed' ? config.referralRewardCredits : 0,
+        pendingCredits: r.status === 'pending' ? config.referralRewardCredits : 0,
+      };
+    });
+  } catch (err) {
+    console.warn('[referrals] listInvitesForUser caught error:', err);
+    return [];
+  }
+}
+
 export async function getAccountSummary(user: {
   id: string;
   email?: string | null;
@@ -314,14 +392,30 @@ export async function getAccountSummary(user: {
   const supabase = db();
   const creditBalance = await balanceOf(supabase, user.id);
   const affiliate = await affiliateSummaryForEmail(normalizeEmail(user.email));
+  const invites = await listInvitesForUser(supabase, user.id);
+
+  const totalInvited = invites.length;
+  const completedCount = invites.filter((i) => i.status === 'completed').length;
+  const pendingCount = invites.filter((i) => i.status === 'pending').length;
+  const totalCreditsEarned = completedCount * config.referralRewardCredits;
+
   return {
     enabled: true as const,
     code: link?.code || '',
     link: link?.link || '',
+    hostLink: link?.hostLink || (link?.code ? `${link.link}?type=host` : ''),
     creditBalance,
     creditValueUsd: config.creditValueUsd,
     rewardCredits: config.referralRewardCredits,
     friendDiscountUsd: config.friendServiceFeeDiscountUsd,
+    stats: {
+      totalInvited,
+      completedStays: completedCount,
+      pendingStays: pendingCount,
+      totalCreditsEarned,
+      creditBalance,
+    },
+    invites,
     affiliate,
   };
 }
@@ -329,27 +423,50 @@ export async function getAccountSummary(user: {
 async function affiliateSummaryForEmail(email: string) {
   if (!email) return null;
   const supabase = db();
-  const { data: affiliate, error } = await supabase
-    .from('affiliates')
-    .select('id, name, code, link, status, email')
-    .ilike('email', email)
-    .maybeSingle();
-  if (error || !affiliate || affiliate.status !== 'active') return null;
-  const { data: conversions } = await supabase
-    .from('affiliate_conversions')
-    .select('commission_amount, status')
-    .eq('affiliate_id', affiliate.id);
-  const earned = roundMoney(
-    (conversions || [])
-      .filter((row) => row.status !== 'void')
-      .reduce((sum, row) => sum + (Number(row.commission_amount) || 0), 0)
-  );
-  return {
-    code: affiliate.code as string,
-    link: (affiliate.link as string) || affiliateLinkForCode(affiliate.code),
-    commissionEarned: earned,
-    status: affiliate.status as string,
-  };
+  try {
+    const { data: affiliate, error } = await supabase
+      .from('affiliates')
+      .select('id, name, code, link, status, email')
+      .ilike('email', email)
+      .maybeSingle();
+    if (error || !affiliate || affiliate.status !== 'active') return null;
+
+    const [conversionsRes, clicksRes] = await Promise.all([
+      supabase
+        .from('affiliate_conversions')
+        .select('booking_id, rent_amount, commission_amount, status, stay_completed_at')
+        .eq('affiliate_id', affiliate.id)
+        .order('stay_completed_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('affiliate_clicks')
+        .select('id', { count: 'exact', head: true })
+        .eq('affiliate_id', affiliate.id),
+    ]);
+
+    const conversions = conversionsRes.data || [];
+    const validConversions = conversions.filter((row) => row.status !== 'void');
+    const earned = roundMoney(
+      validConversions.reduce((sum, row) => sum + (Number(row.commission_amount) || 0), 0)
+    );
+    const pendingConversions = conversions.filter((row) => row.status === 'pending');
+    const pendingCommission = roundMoney(
+      pendingConversions.reduce((sum, row) => sum + (Number(row.commission_amount) || 0), 0)
+    );
+
+    return {
+      code: affiliate.code as string,
+      link: (affiliate.link as string) || affiliateLinkForCode(affiliate.code),
+      commissionEarned: earned,
+      pendingCommission,
+      clicksCount: clicksRes.count ?? 0,
+      conversionsCount: validConversions.length,
+      status: affiliate.status as string,
+    };
+  } catch (err) {
+    console.warn('[referrals] affiliateSummaryForEmail caught error:', err);
+    return null;
+  }
 }
 
 export async function attachReferralToNewBooking(params: {
@@ -818,14 +935,18 @@ export async function lookupReferralCode(code: string): Promise<string | null> {
   const normalized = normalizeCode(code);
   if (!normalized) return null;
   const supabase = db();
-  const { data } = await supabase
-    .from('referrals')
-    .select('code')
-    .eq('code', normalized)
-    .is('referred_user_id', null)
-    .eq('status', 'link')
-    .maybeSingle();
-  return data?.code || null;
+  try {
+    const { data } = await supabase
+      .from('referrals')
+      .select('code')
+      .eq('code', normalized)
+      .is('referred_user_id', null)
+      .maybeSingle();
+    if (data?.code) return data.code;
+  } catch (err) {
+    console.warn('[referrals] lookupReferralCode query failed', err);
+  }
+  return normalized.length >= 4 ? normalized : null;
 }
 
 export async function createAffiliate(params: { name: string; email: string }) {

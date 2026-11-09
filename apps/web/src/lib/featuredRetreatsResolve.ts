@@ -7,6 +7,7 @@ import {
   formatPublicLocation,
   replaceExactAddressInPublicText,
 } from '@/lib/propertyLocationPrivacy';
+import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 
 /** Hard cap for homepage Featured Vibes cards. */
 export const FEATURED_VIBES_HOME_LIMIT = 6;
@@ -130,9 +131,10 @@ async function loadActivePropertiesInOrder(supabase: SupabaseClient, ids: string
 }
 
 function mapRowToRetreat(
-  p: Record<string, unknown>,
+  raw: Record<string, unknown>,
   profile: { avatar_url: string | null; full_name: string | null } | undefined
 ): FeaturedRetreatPublic {
+  const p = applyBuildingWellnessLock(raw);
   const hostId = String(p.host_id || '');
   const hostName = (profile?.full_name || 'Host').trim() || 'Host';
   const hostAvatarUrl =

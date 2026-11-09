@@ -34,6 +34,10 @@ import {
   type SafetyFlags,
 } from '@/lib/cancellationPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
+import {
+  buildingWellnessLockMessage,
+  matchLockedBuilding,
+} from '@/lib/buildingWellnessLock';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import {
@@ -138,6 +142,10 @@ export default function EditPropertyPage() {
     type: 'Entire House',
     guestAgreementUrl: '',
   });
+  const lockedBuilding = matchLockedBuilding({
+    name: formData.name,
+    location: formData.location,
+  });
   const [rooms, setRooms] = useState<Room[]>([
     { id: Date.now().toString(), name: 'Unit 1', price: 100, guests: 2, images: [], imagePreviewUrls: [] },
   ]);
@@ -150,6 +158,27 @@ export default function EditPropertyPage() {
   const loadedScopeKeyRef = useRef<string | null>(null);
 
   useEffect(() => onImpersonationChanged(() => setHostScopeRevision((n) => n + 1)), []);
+
+  useEffect(() => {
+    if (!lockedBuilding) return;
+    setFormData((prev) => {
+      if (
+        !prev.wellnessFriendly &&
+        !prev.wellnessConsumptionIndoorAllowed &&
+        !prev.wellnessConsumptionOutdoorAllowed &&
+        !propertyHasBalcony(prev.amenities)
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        wellnessFriendly: false,
+        wellnessConsumptionIndoorAllowed: false,
+        wellnessConsumptionOutdoorAllowed: false,
+        amenities: setBalconyAmenity(prev.amenities, false),
+      };
+    });
+  }, [lockedBuilding]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -1112,6 +1141,7 @@ export default function EditPropertyPage() {
             <h2 className="text-xl font-semibold text-white">Property Features</h2>
             <button
               type="button"
+              disabled={!!lockedBuilding}
               onClick={() =>
                 setFormData((prev) => ({
                   ...prev,
@@ -1122,7 +1152,7 @@ export default function EditPropertyPage() {
                 formData.wellnessFriendly
                   ? 'bg-emerald-600 border-emerald-600 text-white'
                   : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-emerald-600'
-              }`}
+              } ${lockedBuilding ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span className="text-lg">🧘</span>
               <span>Wellness-Friendly listing badge</span>
@@ -1133,6 +1163,8 @@ export default function EditPropertyPage() {
                 cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
               }}
               hasBalcony={propertyHasBalcony(formData.amenities)}
+              locked={!!lockedBuilding}
+              lockMessage={lockedBuilding ? buildingWellnessLockMessage(lockedBuilding) : undefined}
               onBalconyChange={(nextHasBalcony) => {
                 setFormData((prev) => ({
                   ...prev,

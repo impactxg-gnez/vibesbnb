@@ -1,4 +1,5 @@
 import { propertyHasBalcony } from '@/lib/propertyAmenities';
+import { matchLockedBuilding } from '@/lib/buildingWellnessLock';
 import {
   isFully420Friendly,
   resolveConsumptionPolicy,
@@ -38,7 +39,7 @@ export function resolvePropertyStayPolicies(
   const tobaccoOutdoor = flag(row, 'smoking_outside_allowed', 'smokingOutsideAllowed');
   const smokeFriendly = flag(row, 'smoke_friendly', 'smokeFriendly');
   const amenities = Array.isArray(row.amenities) ? row.amenities : [];
-  const hasPatioOrBalcony = propertyHasBalcony(amenities);
+  const hasPatioOrBalcony = matchLockedBuilding(row) ? false : propertyHasBalcony(amenities);
   const hasPrivateOutdoorSpace =
     hasPatioOrBalcony ||
     amenities.some((a) => OUTDOOR_SPACE_RE.test(String(a ?? '')));

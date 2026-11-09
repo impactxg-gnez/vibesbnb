@@ -126,11 +126,11 @@ export function SearchSection({
   }, [checkIn, checkOut, guests, kids, pets]);
 
   const categories = [
-    { id: 'Entire House', label: 'House', icon: <Home className="w-5 h-5" /> },
-    { id: 'Apartment', label: 'Apartment', icon: <Building className="w-5 h-5" /> },
-    { id: 'Condo', label: 'Condo', icon: <Building className="w-5 h-5" /> },
-    { id: 'Private Rooms', label: 'Private Room', icon: <Bed className="w-5 h-5" /> },
-    { id: 'Room inside property', label: 'Shared Room', icon: <Bed className="w-5 h-5" /> },
+    { id: 'Entire House', label: 'House', icon: <Home className="w-4 h-4 lg:w-5 lg:h-5" /> },
+    { id: 'Apartment', label: 'Apartment', icon: <Building className="w-4 h-4 lg:w-5 lg:h-5" /> },
+    { id: 'Condo', label: 'Condo', icon: <Building className="w-4 h-4 lg:w-5 lg:h-5" /> },
+    { id: 'Private Rooms', label: 'Private Room', icon: <Bed className="w-4 h-4 lg:w-5 lg:h-5" /> },
+    { id: 'Room inside property', label: 'Shared Room', icon: <Bed className="w-4 h-4 lg:w-5 lg:h-5" /> },
   ];
 
   // Fetch available locations from Supabase properties (optionally scoped to one host)
@@ -313,7 +313,7 @@ export function SearchSection({
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 lg:p-10 border border-white/5 relative min-w-0 w-full max-w-full"
+        className="bg-surface shadow-[0_40px_80px_rgba(0,0,0,0.6)] rounded-[1.5rem] md:rounded-[2.5rem] p-3 sm:p-6 md:p-8 lg:p-10 border border-white/5 relative min-w-0 w-full max-w-full"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4 md:mb-6">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -364,7 +364,7 @@ export function SearchSection({
         </div>
 
         {/* Categories at Top */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-6 scrollbar-hide -mx-2 px-2 border-b border-white/5 mb-8">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-3 lg:pb-6 scrollbar-hide -mx-1 px-1 border-b border-white/5 mb-3 lg:mb-8">
           <button
             type="button"
             onClick={() => {
@@ -375,12 +375,12 @@ export function SearchSection({
                 router.push(`/search?${params.toString()}`);
               }
             }}
-            className={`flex flex-col items-center gap-2 px-6 py-2 rounded-xl transition-all min-w-fit ${selectedCategories.length === 0
+            className={`flex flex-col items-center gap-1 px-3 py-1.5 lg:gap-2 lg:px-6 lg:py-2 rounded-xl transition-all min-w-fit ${selectedCategories.length === 0
               ? 'text-primary-500 border-b-2 border-primary-500 font-bold bg-white/5'
               : 'text-muted hover:text-white'
             }`}
           >
-            <Sparkles className="w-5 h-5" />
+            <Sparkles className="w-4 h-4 lg:w-5 lg:h-5" />
             <span className="text-xs font-bold uppercase tracking-wider">All Stays</span>
           </button>
           {categories.map((category) => (
@@ -388,7 +388,7 @@ export function SearchSection({
               type="button"
               key={category.id}
               onClick={() => toggleCategory(category.id)}
-              className={`flex flex-col items-center gap-2 px-6 py-2 rounded-xl transition-all min-w-fit ${selectedCategories.includes(category.id)
+              className={`flex flex-col items-center gap-1 px-3 py-1.5 lg:gap-2 lg:px-6 lg:py-2 rounded-xl transition-all min-w-fit ${selectedCategories.includes(category.id)
                 ? 'text-primary-500 border-b-2 border-primary-500 font-bold bg-white/5'
                 : 'text-muted hover:text-white'
               }`}
@@ -404,11 +404,11 @@ export function SearchSection({
             <div className="absolute top-0 left-0 w-64 h-64 bg-primary-500/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
 
             {/* Search Inputs */}
-            <div className="relative space-y-8 min-w-0 w-full">
-                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 lg:gap-5 items-end w-full min-w-0">
+            <div className="relative space-y-3 lg:space-y-8 min-w-0 w-full">
+                <div className="grid grid-cols-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 lg:gap-5 items-end w-full min-w-0">
                   {/* Where to? - Location Input */}
-                  <div className="space-y-3 min-w-0" ref={locationDropdownRef}>
-                    <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Location</label>
+                  <div className="space-y-1 lg:space-y-3 min-w-0" ref={locationDropdownRef}>
+                    <label className="block text-[10px] lg:text-sm font-bold text-muted uppercase tracking-wide lg:tracking-wider ml-0.5 truncate">Location</label>
                     <div className="relative">
                       <button
                         type="button"
@@ -417,19 +417,19 @@ export function SearchSection({
                           setShowDatePicker(false);
                           setShowGuestPicker(false);
                         }}
-                        className="w-full h-14 flex items-center gap-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                        className="w-full h-11 lg:h-14 flex items-center gap-1.5 lg:gap-4 px-2 lg:px-6 bg-white/5 border border-white/5 rounded-xl lg:rounded-2xl text-left hover:bg-white/10 transition-all group"
                       >
-                        <svg className="w-5 h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="text-white font-medium truncate min-w-0">
+                        <span className="text-white text-xs lg:text-base font-medium truncate min-w-0">
                           {selectedLocation || 'City or area'}
                         </span>
                       </button>
 
                       {showLocationDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-3 dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
+                        <div className="z-50 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] p-3 max-lg:fixed max-lg:left-3 max-lg:right-3 max-lg:top-28 max-lg:max-h-[60vh] max-lg:overflow-y-auto lg:absolute lg:top-full lg:left-0 lg:right-0 lg:mt-4 dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
                           <input
                             ref={locationInputRef}
                             type="text"
@@ -461,8 +461,11 @@ export function SearchSection({
                   </div>
 
                   {/* Dates - Date Picker */}
-                  <div className="space-y-3 min-w-0">
-                    <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Journey Dates</label>
+                  <div className="space-y-1 lg:space-y-3 min-w-0">
+                    <label className="block text-[10px] lg:text-sm font-bold text-muted uppercase tracking-wide lg:tracking-wider ml-0.5 truncate">
+                      <span className="lg:hidden">Dates</span>
+                      <span className="hidden lg:inline">Journey Dates</span>
+                    </label>
                     <div className="relative">
                       <button
                         type="button"
@@ -471,21 +474,26 @@ export function SearchSection({
                           setShowLocationDropdown(false);
                           setShowGuestPicker(false);
                         }}
-                        className="w-full h-14 flex items-center gap-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                        className="w-full h-11 lg:h-14 flex items-center gap-1.5 lg:gap-4 px-2 lg:px-6 bg-white/5 border border-white/5 rounded-xl lg:rounded-2xl text-left hover:bg-white/10 transition-all group"
                       >
-                        <svg className="w-5 h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-white font-medium truncate min-w-0">
+                        <span className="text-white text-xs lg:text-base font-medium truncate min-w-0">
                           {checkIn && checkOut
-                            ? `${formatCalendarDate(checkIn, { month: 'short', day: 'numeric' })} - ${formatCalendarDate(checkOut, { month: 'short', day: 'numeric' })}`
-                            : 'Choose when to wander'
+                            ? `${formatCalendarDate(checkIn, { month: 'short', day: 'numeric' })} – ${formatCalendarDate(checkOut, { month: 'short', day: 'numeric' })}`
+                            : (
+                              <>
+                                <span className="lg:hidden">Add dates</span>
+                                <span className="hidden lg:inline">Choose when to wander</span>
+                              </>
+                            )
                           }
                         </span>
                       </button>
 
                       {showDatePicker && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,24rem)] sm:max-w-none sm:min-w-[320px] dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
+                        <div className="z-50 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] p-4 sm:p-6 w-full min-w-0 max-h-[70vh] overflow-y-auto max-lg:fixed max-lg:left-3 max-lg:right-3 max-lg:top-24 lg:absolute lg:top-full lg:left-0 lg:right-0 lg:mt-4 lg:max-w-none lg:min-w-[320px] dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
                           <DateRangePicker
                             checkIn={checkIn}
                             checkOut={checkOut}
@@ -508,8 +516,8 @@ export function SearchSection({
                   </div>
 
                   {/* Guests - Guest Picker */}
-                  <div className="space-y-3 min-w-0">
-                    <label className="block text-sm font-bold text-muted uppercase tracking-wider ml-1">Travellers</label>
+                  <div className="space-y-1 lg:space-y-3 min-w-0">
+                    <label className="block text-[10px] lg:text-sm font-bold text-muted uppercase tracking-wide lg:tracking-wider ml-0.5 truncate">Travellers</label>
                     <div className="relative">
                       <button
                         type="button"
@@ -518,19 +526,19 @@ export function SearchSection({
                           setShowLocationDropdown(false);
                           setShowDatePicker(false);
                         }}
-                        className="w-full h-14 flex items-center gap-4 px-6 bg-white/5 border border-white/5 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                        className="w-full h-11 lg:h-14 flex items-center gap-1.5 lg:gap-4 px-2 lg:px-6 bg-white/5 border border-white/5 rounded-xl lg:rounded-2xl text-left hover:bg-white/10 transition-all group"
                       >
-                        <svg className="w-5 h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5 shrink-0 text-primary-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        <span className="text-white font-medium truncate min-w-0">
+                        <span className="text-white text-xs lg:text-base font-medium truncate min-w-0">
                           {guests + kids} {guests + kids === 1 ? 'Guest' : 'Guests'}
                           {pets > 0 && `, ${pets} ${pets === 1 ? 'Pet' : 'Pets'}`}
                         </span>
                       </button>
 
                       {showGuestPicker && (
-                        <div className="absolute top-full left-0 right-0 mt-4 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] z-50 p-4 sm:p-6 w-full min-w-0 max-w-[min(100vw-1.5rem,20rem)] lg:left-0 lg:right-auto lg:w-max lg:max-w-none lg:min-w-[280px] dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
+                        <div className="z-50 bg-[#FAF3EA] backdrop-blur-xl rounded-2xl border border-[#51372B]/15 shadow-[0_20px_48px_rgba(81,55,43,0.18)] p-4 sm:p-6 w-full min-w-0 max-h-[70vh] overflow-y-auto max-lg:fixed max-lg:left-3 max-lg:right-3 max-lg:top-24 lg:absolute lg:top-full lg:left-0 lg:right-auto lg:mt-4 lg:w-max lg:max-w-none lg:min-w-[280px] dark:bg-gray-900/95 dark:border-white/10 dark:shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
                           <div className="space-y-6">
                             {/* Adults */}
                             <div className="flex items-center justify-between">
@@ -627,7 +635,7 @@ export function SearchSection({
                   <button
                     type="button"
                     onClick={handleSearch}
-                    className="btn-primary h-14 w-full lg:w-auto lg:shrink-0 !px-6 xl:!px-10 shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
+                    className="btn-primary col-span-3 lg:col-span-1 h-11 lg:h-14 w-full lg:w-auto lg:shrink-0 !px-4 lg:!px-6 xl:!px-10 shadow-[0_20px_40px_rgba(0,230,118,0.2)]"
                   >
                     <div className="flex items-center justify-center gap-2">
                       <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

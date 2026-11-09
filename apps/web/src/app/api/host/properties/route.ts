@@ -11,6 +11,7 @@ import {
   withPublishClockDefaults,
 } from '@/lib/listingPublishGate';
 import { REQUEST_TO_BOOK_ONLY } from '@/lib/p0MasterBuild';
+import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
 
 export const dynamic = 'force-dynamic';
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
       `${auth.hostId}_${Date.now()}`;
 
     if (REQUEST_TO_BOOK_ONLY) insertPayload.allow_direct_booking = false;
+    Object.assign(insertPayload, applyBuildingWellnessLock(insertPayload));
 
     const db = createServiceClient();
     const nextStatus = String(insertPayload.status || 'draft');

@@ -121,8 +121,11 @@ export function canViewExactLocation(opts: {
   isHost?: boolean;
   isAdmin?: boolean;
   bookingStatus?: string | null;
+  /** When false, party IDs are incomplete — hide maps / exact address. */
+  guestIdsComplete?: boolean;
 }): boolean {
   if (opts.isHost || opts.isAdmin) return true;
+  if (opts.guestIdsComplete === false) return false;
   const s = String(opts.bookingStatus || '').toLowerCase();
   return BOOKED_EXACT_STATUSES.has(s);
 }
@@ -130,7 +133,12 @@ export function canViewExactLocation(opts: {
 /** Exact street address only after a confirmed booking (or for host/admin). */
 export function travelerLocationLabel(
   location: string | null | undefined,
-  opts?: { bookingStatus?: string | null; isHost?: boolean; isAdmin?: boolean }
+  opts?: {
+    bookingStatus?: string | null;
+    isHost?: boolean;
+    isAdmin?: boolean;
+    guestIdsComplete?: boolean;
+  }
 ): string {
   if (canViewExactLocation(opts || {})) {
     return String(location || '').trim();

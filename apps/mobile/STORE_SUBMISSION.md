@@ -17,7 +17,7 @@ Update placeholders:
 
 | File | Replace |
 |------|---------|
-| `app.config.ts` | `EAS_PROJECT_ID` in `extra.eas.projectId` |
+| `app.config.js` | `EAS_PROJECT_ID` in `extra.eas.projectId` |
 | `eas.json` | Apple ID, ASC app ID, team ID |
 | `apps/web/public/.well-known/apple-app-site-association` | `REPLACE_TEAM_ID` |
 | `apps/web/public/.well-known/assetlinks.json` | SHA-256 from `eas credentials -p android` |
@@ -107,7 +107,7 @@ Ensure Vercel has `EXPO_ACCESS_TOKEN` for server-side push dispatch.
 
 Before each store release:
 
-1. Bump `version` in `app.config.ts`
+1. Bump `version` in `app.config.js`
 2. EAS `production` profile uses `autoIncrement` for build numbers
 3. Rebuild and resubmit
 

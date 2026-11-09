@@ -10,6 +10,7 @@ import {
   withPublishClockDefaults,
 } from '@/lib/listingPublishGate';
 import { REQUEST_TO_BOOK_ONLY } from '@/lib/p0MasterBuild';
+import { applyBuildingWellnessLock, matchLockedBuilding } from '@/lib/buildingWellnessLock';
 import { isStockPlaceholderImageUrl } from '@/lib/propertyImageUrls';
 
 type RoomPayload = Record<string, unknown> & { id?: unknown; images?: unknown };
@@ -102,7 +103,16 @@ export async function PATCH(
       updatePayload.rooms = mergeRoomImages(updatePayload.rooms, current?.rooms);
     }
 
-    const merged: Record<string, unknown> = { ...(current || {}), ...updatePayload };
+    const merged: Record<string, unknown> = applyBuildingWellnessLock({
+      ...(current || {}),
+      ...updatePayload,
+    });
+    if (matchLockedBuilding(merged)) {
+      updatePayload.wellness_friendly = false;
+      updatePayload.wellness_consumption_indoor_allowed = false;
+      updatePayload.wellness_consumption_outdoor_allowed = false;
+      if ('amenities' in merged) updatePayload.amenities = merged.amenities;
+    }
     if (String(merged.status || '') === 'active') {
       const withClocks = withPublishClockDefaults(merged);
       updatePayload.check_in_time = withClocks.check_in_time;

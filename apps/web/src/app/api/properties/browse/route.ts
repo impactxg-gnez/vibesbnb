@@ -4,6 +4,7 @@ import { getRedis } from '@/lib/cache/redis';
 import { redisGetJson, redisSetJson } from '@/lib/cache/redisJson';
 import { browseCacheKey, bumpCacheStat } from '@/lib/cache/invalidation';
 import { logApiPerf } from '@/lib/monitoring/apiPerf';
+import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 
 const HOST_ID_CHUNK = 80;
 const MAX_LIMIT_CAP = 100;
@@ -103,7 +104,8 @@ function firstHttpCover(images: unknown, cover?: unknown): string | null {
  * Never return data: URLs or multi-image galleries in browse JSON.
  */
 function slimBrowseRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-  return rows.map((r) => {
+  return rows.map((raw) => {
+    const r = applyBuildingWellnessLock(raw);
     const id = typeof r.id === 'string' ? r.id : '';
     const cover = firstHttpCover(r.images, r.cover_image ?? r.cover_images);
     const images = cover

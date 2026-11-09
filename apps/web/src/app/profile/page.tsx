@@ -748,12 +748,12 @@ export default function ProfilePage() {
     : 'Recently';
 
   return (
-    <div className="min-h-screen bg-gray-950 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <div className="min-h-screen bg-gray-950 py-8 sm:py-12 pb-28 sm:pb-12 overflow-x-hidden">
+      <div className="container mx-auto px-4 max-w-4xl min-w-0">
         {/* Header */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">My Profile</h1>
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">My Profile</h1>
             <p className="text-gray-400">Manage your account information</p>
           </div>
           <Link
@@ -771,14 +771,14 @@ export default function ProfilePage() {
         <AccountRewards />
 
         {/* Profile Card */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden min-w-0">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 p-8">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-6">
+          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 p-4 sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-center gap-4 sm:gap-6 min-w-0">
                 {/* Avatar with Upload */}
-                <div className="relative group">
-                  <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden">
+                <div className="relative group shrink-0">
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 bg-white rounded-full flex items-center justify-center overflow-hidden">
                     {avatarUrl && avatarStatus === 'approved' ? (
                       <img 
                         src={avatarUrl} 
@@ -786,7 +786,7 @@ export default function ProfilePage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-4xl font-bold text-emerald-600">
+                      <span className="text-2xl sm:text-4xl font-bold text-emerald-600">
                         {formData.fullName?.[0]?.toUpperCase() || formData.email?.[0]?.toUpperCase() || 'U'}
                       </span>
                     )}
@@ -826,13 +826,13 @@ export default function ProfilePage() {
                 </div>
                 
                 {/* User Info */}
-                <div>
-                  <h2 className="text-3xl font-bold text-white mb-2">
+                <div className="min-w-0">
+                  <h2 className="text-xl sm:text-3xl font-bold text-white mb-1 sm:mb-2 break-words">
                     {formData.fullName || 'User'}
                   </h2>
-                  <div className="flex items-center gap-4 text-emerald-50">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:text-base text-emerald-50">
                     <span className="capitalize">{userRole}</span>
-                    <span>•</span>
+                    <span aria-hidden="true">•</span>
                     <span>Member since {memberSince}</span>
                   </div>
                   {/* Avatar Status Message */}
@@ -855,7 +855,7 @@ export default function ProfilePage() {
               {!editing && (
                 <button
                   onClick={() => setEditing(true)}
-                  className="px-4 py-2 bg-white text-emerald-700 rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
+                  className="self-start shrink-0 px-4 py-2 bg-white text-emerald-700 rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
                 >
                   <Edit2 size={18} />
                   Edit Profile
@@ -865,7 +865,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Content Section */}
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             <div className="space-y-6">
               {/* Full Name */}
               <div>
@@ -892,9 +892,9 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-400 mb-2">
                   Email Address
                 </label>
-                <div className="flex items-center gap-3 text-white">
-                  <Mail size={20} className="text-gray-500" />
-                  <span>{formData.email}</span>
+                <div className="flex flex-wrap items-center gap-3 text-white min-w-0">
+                  <Mail size={20} className="text-gray-500 shrink-0" />
+                  <span className="break-all min-w-0">{formData.email}</span>
                   {!editing && (
                     <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">
                       Cannot be changed
@@ -1068,7 +1068,7 @@ export default function ProfilePage() {
 
             {/* Action Buttons (when editing) */}
             {editing && (
-              <div className="flex gap-4 mt-8 pt-6 border-t border-gray-800">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-8 pt-6 border-t border-gray-800">
                 <button
                   onClick={handleSave}
                   disabled={saving}
@@ -1093,12 +1093,12 @@ export default function ProfilePage() {
         {/* Host verification documents */}
         {userRole === 'host' && (
           <div className="mt-8 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 p-4 sm:p-6">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
                   <Shield size={24} className="text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-xl font-bold text-white">Verification documents</h2>
                   <p className="text-emerald-100 text-sm">
                     Upload ID, licenses, or ownership docs for admin review
@@ -1160,13 +1160,13 @@ export default function ProfilePage() {
             id="host-payout-settings"
             className="mt-8 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden scroll-mt-24"
           >
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-4 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
                     <CreditCard size={24} className="text-white" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-xl font-bold text-white">Payout Settings</h2>
                     <p className="text-blue-100 text-sm">Configure where you receive your earnings</p>
                   </div>
@@ -1174,7 +1174,7 @@ export default function ProfilePage() {
                 {!editingPayout && (
                   <button
                     onClick={() => setEditingPayout(true)}
-                    className="px-4 py-2 bg-white text-blue-700 rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
+                    className="self-start shrink-0 px-4 py-2 bg-white text-blue-700 rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
                   >
                     <Edit2 size={18} />
                     {hasPayoutSetup ? 'Update' : 'Set Up'}
@@ -1346,7 +1346,7 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-4 pt-6 border-t border-gray-800">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-6 border-t border-gray-800">
                     <button
                       onClick={handleSavePayout}
                       disabled={savingPayout}

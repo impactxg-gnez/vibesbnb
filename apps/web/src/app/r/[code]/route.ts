@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  appOrigin,
   isReferralAffiliateEnabled,
   REFERRAL_CODE_COOKIE,
 } from '@/lib/referrals/config';
@@ -12,10 +13,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { code: string } }
 ) {
-  const home = new URL('/', request.url);
+  const origin = appOrigin();
+  const home = new URL('/', origin);
   if (!isReferralAffiliateEnabled()) {
     return NextResponse.redirect(home);
   }
+
   const code = normalizeCode(params.code);
   let known: string | null = null;
   try {
@@ -23,15 +26,28 @@ export async function GET(
   } catch (error) {
     console.warn('[referrals] link lookup failed', error);
   }
-  const signup = new URL('/signup', request.url);
-  if (known) signup.searchParams.set('ref', known);
+
+  // Canonical destination on vibesbnb.com (or localhost in dev)
+  const signup = new URL('/signup', origin);
+  const activeCode = known || code;
+  if (activeCode) {
+    signup.searchParams.set('ref', activeCode);
+  }
+
+  // Forward query params (e.g. ?type=host)
+  const incoming = new URL(request.url);
+  const typeParam = incoming.searchParams.get('type');
+  if (typeParam) {
+    signup.searchParams.set('type', typeParam);
+  }
+
   const response = NextResponse.redirect(signup);
-  if (known) {
-    response.cookies.set(REFERRAL_CODE_COOKIE, known, {
-      httpOnly: true,
+  if (activeCode) {
+    response.cookies.set(REFERRAL_CODE_COOKIE, activeCode, {
+      httpOnly: false,
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 14,
+      maxAge: 60 * 60 * 24 * 30, // 30 days
     });
   }
   return response;

@@ -19,6 +19,7 @@ import {
   googleMapsSearchUrl,
   travelerLocationLabel,
 } from '@/lib/propertyLocationPrivacy';
+import { bookingGuestIdsReady } from '@/lib/guestIdDocuments';
 
 /** Guest booking list — avoid select('*') on wide booking rows */
 const BOOKING_GUEST_LIST_COLUMNS = [
@@ -38,6 +39,7 @@ const BOOKING_GUEST_LIST_COLUMNS = [
   'rating',
   'cancellation_reason',
   'cancelled_by',
+  'guest_id_documents',
 ].join(',');
 
 interface Booking {
@@ -57,6 +59,7 @@ interface Booking {
   rating?: number;
   cancellation_reason?: string | null;
   cancelled_by?: 'host' | 'guest' | null;
+  guestIdsComplete?: boolean;
 }
 
 export default function BookingsPage() {
@@ -106,11 +109,20 @@ export default function BookingsPage() {
       
       if (supabaseUser) {
         try {
-          const { data, error } = await supabase
+          let { data, error } = await supabase
             .from('bookings')
             .select(BOOKING_GUEST_LIST_COLUMNS)
             .eq('user_id', supabaseUser.id)
             .order('check_in', { ascending: false });
+          if (error && /guest_id_documents/i.test(error.message || '')) {
+            const retry = await supabase
+              .from('bookings')
+              .select(BOOKING_GUEST_LIST_COLUMNS.replace(',guest_id_documents', ''))
+              .eq('user_id', supabaseUser.id)
+              .order('check_in', { ascending: false });
+            data = retry.data;
+            error = retry.error;
+          }
 
           if (!error && data) {
             // Transform Supabase data to Booking format
@@ -131,6 +143,7 @@ export default function BookingsPage() {
               rating: booking.rating,
               cancellation_reason: booking.cancellation_reason,
               cancelled_by: booking.cancelled_by,
+              guestIdsComplete: bookingGuestIdsReady(booking),
             }));
             setBookings(transformedBookings);
             setLoadingBookings(false);
@@ -337,11 +350,14 @@ export default function BookingsPage() {
                                 <span>
                                   {travelerLocationLabel(booking.location, {
                                     bookingStatus: booking.status,
+                                    guestIdsComplete: booking.guestIdsComplete,
                                   })}
                                 </span>
                               </div>
-                              {canViewExactLocation({ bookingStatus: booking.status }) &&
-                              booking.location ? (
+                              {canViewExactLocation({
+                                bookingStatus: booking.status,
+                                guestIdsComplete: booking.guestIdsComplete,
+                              }) && booking.location ? (
                                 <a
                                   href={googleMapsSearchUrl(booking.location)}
                                   target="_blank"
@@ -352,7 +368,9 @@ export default function BookingsPage() {
                                 </a>
                               ) : (
                                 <span className="text-xs text-gray-500 ml-5">
-                                  Exact address is shared after your booking is confirmed.
+                                  {booking.guestIdsComplete === false
+                                    ? 'Exact address is shared after a government ID is on file for every guest.'
+                                    : 'Exact address is shared after your booking is confirmed.'}
                                 </span>
                               )}
                             </div>

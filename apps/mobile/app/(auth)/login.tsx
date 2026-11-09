@@ -13,6 +13,7 @@ import { Link, useRouter } from 'expo-router';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { theme } from '@/src/constants/theme';
 import { isConfigured } from '@/src/lib/config';
+import { SafeScreen } from '@/src/components/ui/SafeScreen';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -41,16 +42,19 @@ export default function LoginScreen() {
 
   if (!isConfigured()) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Configuration required</Text>
-        <Text style={styles.subtitle}>
-          Copy .env.example to .env and set Supabase keys.
-        </Text>
-      </View>
+      <SafeScreen>
+        <View style={styles.container}>
+          <Text style={styles.title}>Configuration required</Text>
+          <Text style={styles.subtitle}>
+            Copy .env.example to .env and set Supabase keys.
+          </Text>
+        </View>
+      </SafeScreen>
     );
   }
 
   return (
+    <SafeScreen>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -92,6 +96,7 @@ export default function LoginScreen() {
         </Pressable>
       </Link>
     </KeyboardAvoidingView>
+    </SafeScreen>
   );
 }
 

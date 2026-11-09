@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 import {
   PROPERTY_DETAIL_CORE_COLUMNS,
   PROPERTY_DETAIL_OPTIONAL_COLUMNS,
@@ -33,8 +34,12 @@ export async function fetchPropertyDetailRow(
   };
 
   const withOptional = await attempt(PROPERTY_DETAIL_OPTIONAL_COLUMNS);
-  if (!withOptional.error || !isUndefinedColumnError(withOptional.error)) {
-    return withOptional;
+  const result =
+    !withOptional.error || !isUndefinedColumnError(withOptional.error)
+      ? withOptional
+      : await attempt(PROPERTY_DETAIL_CORE_COLUMNS);
+  if (result.data) {
+    return { ...result, data: applyBuildingWellnessLock(result.data) };
   }
-  return attempt(PROPERTY_DETAIL_CORE_COLUMNS);
+  return result;
 }

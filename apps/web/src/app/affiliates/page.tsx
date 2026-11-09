@@ -15,9 +15,12 @@ export default function AffiliatesPage() {
         <Link href="/profile" className="text-sm text-emerald-400 hover:text-emerald-300">
           Back to account
         </Link>
-        <h1 className="text-3xl font-bold text-white mt-4 mb-6">Affiliates</h1>
-        <p className="text-sm text-gray-400 mb-4">
-          Affiliate links are created by VibesBNB. There is no self signup in this version.
+        <h1 className="text-3xl font-bold text-white mt-4 mb-2">Affiliates</h1>
+        <p className="text-sm text-gray-400 mb-6">
+          Affiliate partner links are created by VibesBNB. To invite hosts and earn booking credits, use the{' '}
+          <Link href="/referrals" className="text-emerald-400 hover:underline font-semibold">
+            Referral & Invite Dashboard →
+          </Link>
         </p>
         <AccountRewards mode="affiliate" />
       </div>

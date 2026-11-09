@@ -5,6 +5,7 @@ import { WebView } from 'react-native-webview';
 import { supabase } from '@/src/lib/supabase';
 import { config } from '@/src/lib/config';
 import { theme } from '@/src/constants/theme';
+import { SafeScreen } from '@/src/components/ui/SafeScreen';
 
 /** In-app web for site features: host editor, checkout, map, admin-linked flows, etc. */
 export default function WebAppScreen() {
@@ -33,14 +34,16 @@ export default function WebAppScreen() {
 
   if (!source) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
+      <SafeScreen edges={['top', 'left', 'right']}>
+        <View style={styles.center}>
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      </SafeScreen>
     );
   }
 
   return (
-    <>
+    <SafeScreen edges={['top', 'left', 'right']}>
       <Stack.Screen options={{ title: title || 'VibesBNB', headerShown: false }} />
       <WebView
         source={source}
@@ -54,7 +57,7 @@ export default function WebAppScreen() {
           </View>
         )}
       />
-    </>
+    </SafeScreen>
   );
 }
 

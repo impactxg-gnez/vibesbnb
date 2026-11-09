@@ -5,6 +5,7 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { supabase } from '@/src/lib/supabase';
 import { config } from '@/src/lib/config';
 import { theme } from '@/src/constants/theme';
+import { SafeScreen } from '@/src/components/ui/SafeScreen';
 
 /** App shell: full-screen vibesbnb.com (no native tab bar). */
 export default function Index() {
@@ -33,26 +34,30 @@ export default function Index() {
 
   if (authLoading || !source) {
     return (
-      <View style={styles.center} accessibilityRole="progressbar" accessibilityLabel="Loading VibesBNB">
-        <ActivityIndicator color={theme.primary} />
-      </View>
+      <SafeScreen edges={['top', 'left', 'right']}>
+        <View style={styles.center} accessibilityRole="progressbar" accessibilityLabel="Loading VibesBNB">
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      </SafeScreen>
     );
   }
 
   return (
-    <WebView
-      source={source}
-      style={styles.webview}
-      startInLoadingState
-      sharedCookiesEnabled
-      thirdPartyCookiesEnabled
-      accessibilityLabel="VibesBNB website"
-      renderLoading={() => (
-        <View style={styles.center} accessibilityRole="progressbar" accessibilityLabel="Loading page">
-          <ActivityIndicator color={theme.primary} />
-        </View>
-      )}
-    />
+    <SafeScreen edges={['top', 'left', 'right']}>
+      <WebView
+        source={source}
+        style={styles.webview}
+        startInLoadingState
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        accessibilityLabel="VibesBNB website"
+        renderLoading={() => (
+          <View style={styles.center} accessibilityRole="progressbar" accessibilityLabel="Loading page">
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        )}
+      />
+    </SafeScreen>
   );
 }
 

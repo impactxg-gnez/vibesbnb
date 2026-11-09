@@ -6,6 +6,7 @@ import { Providers } from './providers';
 import { LayoutContent } from './LayoutContent';
 import Script from 'next/script';
 import { MarketingPixels } from '@/components/analytics/MarketingPixels';
+import { getSiteUrl } from '@/lib/seo/siteUrl';
 
 const inter = Inter({ subsets: ['latin'] });
 const GA_MEASUREMENT_ID = 'G-S7RJJXXRD9';
@@ -17,8 +18,7 @@ export const viewport: Viewport = {
   themeColor: '#ECD5BB',
 };
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://vibesbnb.com';
+const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

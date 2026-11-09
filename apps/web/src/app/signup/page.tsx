@@ -34,7 +34,14 @@ export default function SignupPage() {
     }
     if (!isReferralAffiliateEnabledClient()) return;
     const ref = new URLSearchParams(window.location.search).get('ref');
-    if (ref) setReferralCode(ref);
+    if (ref) {
+      setReferralCode(ref);
+    } else if (typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|;\s*)vbn_referral_code=([^;]+)/);
+      if (match && match[1]) {
+        setReferralCode(decodeURIComponent(match[1]));
+      }
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -285,11 +292,16 @@ export default function SignupPage() {
                   id="referralCode"
                   name="referralCode"
                   value={referralCode}
-                  onChange={(event) => setReferralCode(event.target.value)}
-                  className="input !py-4 w-full"
+                  onChange={(event) => setReferralCode(event.target.value.toUpperCase())}
+                  className="input !py-4 w-full uppercase font-mono tracking-wider"
                   placeholder="Optional"
                   disabled={isLoading}
                 />
+                {referralCode ? (
+                  <p className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 ml-1">
+                    ✓ Referral code applied! You get $25 off your first booking service fee.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

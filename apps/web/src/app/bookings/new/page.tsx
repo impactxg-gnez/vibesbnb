@@ -62,6 +62,11 @@ import { travellerNeedsPhoneVerification } from '@/lib/auth/hasVerifiedPhone';
 import type { HostBadge } from '@/lib/hostBadge';
 import type { SpecialOfferPayload } from '@/lib/specialOffer';
 import { guestPaysCardProcessingFee, listingAllowsDirectBooking } from '@/lib/p0MasterBuild';
+import { GuestPartyIdUploads } from '@/components/booking/GuestPartyIdUploads';
+import {
+  guestIdDocumentsComplete,
+  type GuestIdDocument,
+} from '@/lib/guestIdDocuments';
 
 interface Property {
   id: string;
@@ -140,6 +145,7 @@ export default function NewBookingPage() {
     requestedLateCheckOutTime: '' as string,
   });
   const [wellnessLineItems, setWellnessLineItems] = useState<WellnessBookingLineItem[]>([]);
+  const [guestIdDocuments, setGuestIdDocuments] = useState<GuestIdDocument[]>([]);
   const [hostDisplayBadge, setHostDisplayBadge] = useState<HostBadge | null>(null);
   const [specialOffer, setSpecialOffer] = useState<SpecialOfferPayload | null>(null);
   const bookingPropertyReloadRef = useRef<string | null>(null);
@@ -567,6 +573,11 @@ export default function NewBookingPage() {
       return false;
     }
 
+    if (!guestIdDocumentsComplete(guestIdDocuments, formData.guests, formData.kids || 0)) {
+      toast.error('Upload a government photo ID for every guest before requesting this stay.');
+      return false;
+    }
+
     return true;
   };
 
@@ -630,6 +641,7 @@ export default function NewBookingPage() {
           selected_units: selectedUnits.length > 0 ? selectedUnits : null,
           guest_agreement_accepted: true,
           guest_agreement_signer_name: signed,
+          guest_id_documents: guestIdDocuments,
           conversation_id: conversationId || undefined,
         }),
       });
@@ -939,6 +951,13 @@ export default function NewBookingPage() {
                   />
                 </div>
               </div>
+
+              <GuestPartyIdUploads
+                adults={formData.guests}
+                kids={formData.kids || 0}
+                documents={guestIdDocuments}
+                onChange={setGuestIdDocuments}
+              />
 
               {/* Special Requests */}
               <div>

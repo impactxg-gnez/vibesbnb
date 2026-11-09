@@ -59,6 +59,10 @@ import {
   type SafetyFlags,
 } from '@/lib/cancellationPolicy';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
+import {
+  buildingWellnessLockMessage,
+  matchLockedBuilding,
+} from '@/lib/buildingWellnessLock';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 import {
   ALL_CATALOG_AMENITIES,
@@ -189,6 +193,27 @@ export default function NewPropertyPage() {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!matchLockedBuilding({ name: formData.name, location: formData.location })) return;
+    setFormData((prev) => {
+      if (
+        !prev.wellnessFriendly &&
+        !prev.wellnessConsumptionIndoorAllowed &&
+        !prev.wellnessConsumptionOutdoorAllowed &&
+        !propertyHasBalcony(prev.amenities)
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        wellnessFriendly: false,
+        wellnessConsumptionIndoorAllowed: false,
+        wellnessConsumptionOutdoorAllowed: false,
+        amenities: setBalconyAmenity(prev.amenities, false),
+      };
+    });
+  }, [formData.name, formData.location]);
 
   // Admins in host support mode create the listing on the host's account, not their own.
   const [targetHost, setTargetHost] = useState<{ id: string; label: string } | null>(null);
@@ -1114,6 +1139,7 @@ export default function NewPropertyPage() {
           </div>
           <button
             type="button"
+            disabled={!!matchLockedBuilding({ name: formData.name, location: formData.location })}
             onClick={() =>
               setFormData((prev) => ({
                 ...prev,
@@ -1124,7 +1150,7 @@ export default function NewPropertyPage() {
               formData.wellnessFriendly
                 ? 'bg-emerald-600 border-emerald-500 text-white'
                 : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-emerald-500/50'
-            }`}
+            } ${matchLockedBuilding({ name: formData.name, location: formData.location }) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span className="text-2xl">🧘</span>
             <span>Wellness-Friendly listing badge</span>
@@ -1135,6 +1161,14 @@ export default function NewPropertyPage() {
               cannabisOutside: formData.wellnessConsumptionOutdoorAllowed,
             }}
             hasBalcony={propertyHasBalcony(formData.amenities)}
+            locked={!!matchLockedBuilding({ name: formData.name, location: formData.location })}
+            lockMessage={
+              matchLockedBuilding({ name: formData.name, location: formData.location })
+                ? buildingWellnessLockMessage(
+                    matchLockedBuilding({ name: formData.name, location: formData.location })!
+                  )
+                : undefined
+            }
             onBalconyChange={(nextHasBalcony) => {
               setFormData((prev) => ({
                 ...prev,

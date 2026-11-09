@@ -1,8 +1,6 @@
-import { ExpoConfig, ConfigContext } from 'expo/config';
-
 const BUNDLE_ID = 'com.vibesbnb.app';
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+module.exports = ({ config }) => ({
   ...config,
   name: 'VibesBNB',
   slug: 'vibesbnb',

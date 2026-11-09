@@ -13,6 +13,10 @@ import {
 import LocationPicker from '@/components/LocationPicker';
 import { ConsumptionPolicyEditor } from '@/components/host/ConsumptionPolicyEditor';
 import { propertyHasBalcony, setBalconyAmenity } from '@/lib/propertyAmenities';
+import {
+  buildingWellnessLockMessage,
+  matchLockedBuilding,
+} from '@/lib/buildingWellnessLock';
 import { writeHostPropertiesCache } from '@/lib/hostPropertiesLocalCache';
 import { PropertyAmenitiesPicker } from '@/components/host/PropertyAmenitiesPicker';
 
@@ -801,6 +805,7 @@ export default function ImportReviewPage() {
             <h2 className="text-xl font-semibold text-white">Property Features</h2>
             <button
               type="button"
+              disabled={!!matchLockedBuilding({ name: formData.name, location: formData.location })}
               onClick={() =>
                 setFormData((prev) => ({
                   ...prev,
@@ -822,6 +827,14 @@ export default function ImportReviewPage() {
                 cannabisOutside: wellnessConsumptionOutdoorAllowed,
               }}
               hasBalcony={propertyHasBalcony(formData.amenities)}
+              locked={!!matchLockedBuilding({ name: formData.name, location: formData.location })}
+              lockMessage={
+                matchLockedBuilding({ name: formData.name, location: formData.location })
+                  ? buildingWellnessLockMessage(
+                      matchLockedBuilding({ name: formData.name, location: formData.location })!
+                    )
+                  : undefined
+              }
               onBalconyChange={(nextHasBalcony) => {
                 setFormData((prev) => ({
                   ...prev,

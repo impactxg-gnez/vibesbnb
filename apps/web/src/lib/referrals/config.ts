@@ -53,14 +53,62 @@ export function isReferralAffiliateEnabledClient(): boolean {
 export const REFERRAL_CODE_COOKIE = 'vbn_referral_code';
 export const AFFILIATE_CLICK_COOKIE = 'vbn_affiliate_click';
 
-export function appOrigin(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+export const CANONICAL_APP_URL = 'https://vibesbnb.com';
+
+function isVercelHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === 'vercel.app' || host.endsWith('.vercel.app');
 }
 
-export function referralLinkForCode(code: string): string {
-  return `${appOrigin()}/r/${encodeURIComponent(code)}`;
+export function appOrigin(overrideOrigin?: string | null): string {
+  if (overrideOrigin) {
+    try {
+      const u = new URL(overrideOrigin);
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+        return overrideOrigin.replace(/\/$/, '');
+      }
+      if (isVercelHost(u.hostname)) return CANONICAL_APP_URL;
+      return overrideOrigin.replace(/\/$/, '');
+    } catch {
+      /* ignore invalid override */
+    }
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin;
+    try {
+      const u = new URL(origin);
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return origin;
+      if (isVercelHost(u.hostname)) return CANONICAL_APP_URL;
+      return origin;
+    } catch {
+      // fallback
+    }
+  }
+
+  const raw = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+  if (!raw) {
+    if (process.env.NODE_ENV === 'development') return 'http://localhost:3000';
+    return CANONICAL_APP_URL;
+  }
+  try {
+    const u = new URL(raw);
+    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return raw;
+    if (isVercelHost(u.hostname)) return CANONICAL_APP_URL;
+    return raw;
+  } catch {
+    return CANONICAL_APP_URL;
+  }
 }
 
-export function affiliateLinkForCode(code: string): string {
-  return `${appOrigin()}/a/${encodeURIComponent(code)}`;
+export function referralLinkForCode(code: string, origin?: string | null): string {
+  return `${appOrigin(origin)}/r/${encodeURIComponent(code)}`;
+}
+
+export function hostReferralLinkForCode(code: string, origin?: string | null): string {
+  return `${referralLinkForCode(code, origin)}?type=host`;
+}
+
+export function affiliateLinkForCode(code: string, origin?: string | null): string {
+  return `${appOrigin(origin)}/a/${encodeURIComponent(code)}`;
 }
