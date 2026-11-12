@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS archived_messages (
   archived_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Enable Row Level Security (RLS) - Fix for Supabase Advisor critical issue rls_disabled_in_public
+ALTER TABLE archived_messages ENABLE ROW LEVEL SECURITY;
+
 -- Add index for performance
 CREATE INDEX IF NOT EXISTS archived_messages_conversation_idx ON archived_messages(conversation_id);
 

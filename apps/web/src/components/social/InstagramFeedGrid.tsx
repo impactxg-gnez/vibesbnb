@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Instagram, Heart, MessageCircle, ExternalLink, Sparkles, MapPin } from 'lucide-react';
-import { CURATED_INSTAGRAM_POSTS, INSTAGRAM_PROFILE, type InstagramPost } from '@/lib/instagram';
+import { Instagram, Heart, MessageCircle, ExternalLink, Sparkles, MapPin, Film } from 'lucide-react';
+import { ACTUAL_INSTAGRAM_POSTS, INSTAGRAM_PROFILE, type InstagramPost } from '@/lib/instagram';
 
 interface InstagramFeedGridProps {
   initialPosts?: InstagramPost[];
 }
 
-export function InstagramFeedGrid({ initialPosts = CURATED_INSTAGRAM_POSTS }: InstagramFeedGridProps) {
+export function InstagramFeedGrid({ initialPosts = ACTUAL_INSTAGRAM_POSTS }: InstagramFeedGridProps) {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null);
 
@@ -44,8 +44,7 @@ export function InstagramFeedGrid({ initialPosts = CURATED_INSTAGRAM_POSTS }: In
           Catch the Vibe <span className="text-primary-500">@vibesbnb</span>
         </h2>
         <p className="text-muted max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
-          From sunset balcony sessions to mindful wellness amenities—see how guests and hosts live the
-          sanctuary lifestyle across Miami.
+          Actual posts, stories, and reels from our Miami vacation retreats, wellness hospitality, and the @vibesbnb community.
         </p>
 
         {/* Profile Stats Bar */}
@@ -56,7 +55,7 @@ export function InstagramFeedGrid({ initialPosts = CURATED_INSTAGRAM_POSTS }: In
                 <img
                   src={INSTAGRAM_PROFILE.avatarUrl}
                   alt={INSTAGRAM_PROFILE.handle}
-                  className="w-7 h-7 object-contain"
+                  className="w-full h-full object-cover"
                 />
               </div>
             </div>
@@ -146,6 +145,11 @@ export function InstagramFeedGrid({ initialPosts = CURATED_INSTAGRAM_POSTS }: In
             {post.media_type === 'CAROUSEL_ALBUM' && (
               <div className="absolute top-3 right-3 z-10 bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white/90 border border-white/10">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              </div>
+            )}
+            {post.media_type === 'VIDEO' && (
+              <div className="absolute top-3 right-3 z-10 bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white/90 border border-white/10">
+                <Film className="w-3.5 h-3.5 text-pink-400" />
               </div>
             )}
 
