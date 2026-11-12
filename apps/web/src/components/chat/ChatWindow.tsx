@@ -8,7 +8,7 @@ import {
   getContactBlockUserMessage,
 } from '@/lib/utils/contactFilter';
 import toast from 'react-hot-toast';
-import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Calendar, ShieldCheck, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { deleteOwnMessage } from '@/lib/chat/inboxActions';
 import { requestUnreadMessagesRefresh } from '@/lib/chat/unreadMessageCount';
 import { formatCalendarDate } from '@/lib/dateUtils';
@@ -38,6 +38,8 @@ interface ChatWindowProps {
   /** Traveller-selected stay dates (shown to host + guest in the chat header). */
   inquiryCheckIn?: string | null;
   inquiryCheckOut?: string | null;
+  /** Traveller guest count (shown to host + guest in the chat header). */
+  inquiryGuests?: number | null;
   onMessagesRead?: () => void;
   /** Phone: return to the conversation list. Hidden from lg and up. */
   onBack?: () => void;
@@ -87,6 +89,7 @@ export default function ChatWindow({
   counterpartAvatar,
   inquiryCheckIn,
   inquiryCheckOut,
+  inquiryGuests,
   onMessagesRead,
   onBack,
 }: ChatWindowProps) {
@@ -105,6 +108,9 @@ export default function ChatWindow({
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
   const [chatBookingStatus, setChatBookingStatus] = useState<string | null>(null);
   const [chatPaymentStatus, setChatPaymentStatus] = useState<string | null>(null);
+  const [serverInquiryCheckIn, setServerInquiryCheckIn] = useState<string | null>(null);
+  const [serverInquiryCheckOut, setServerInquiryCheckOut] = useState<string | null>(null);
+  const [serverInquiryGuests, setServerInquiryGuests] = useState<number | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const onMessagesReadRef = useRef(onMessagesRead);
@@ -112,7 +118,15 @@ export default function ChatWindow({
   const loadAbortRef = useRef<AbortController | null>(null);
   const loadForConversationRef = useRef(conversationId);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-  const inquiryStayLabel = formatInquiryStay(inquiryCheckIn, inquiryCheckOut);
+
+  const effectiveCheckIn = serverInquiryCheckIn || inquiryCheckIn;
+  const effectiveCheckOut = serverInquiryCheckOut || inquiryCheckOut;
+  const effectiveGuests = serverInquiryGuests ?? inquiryGuests;
+  const inquiryStayLabel = formatInquiryStay(effectiveCheckIn, effectiveCheckOut);
+  const inquiryGuestsLabel =
+    typeof effectiveGuests === 'number' && effectiveGuests > 0
+      ? `${effectiveGuests} guest${effectiveGuests === 1 ? '' : 's'}`
+      : null;
 
   useEffect(() => {
     onMessagesReadRef.current = onMessagesRead;
@@ -122,6 +136,9 @@ export default function ChatWindow({
     setOfferComposerOpen(false);
     setViewerIsHost(false);
     setOfferContext(null);
+    setServerInquiryCheckIn(null);
+    setServerInquiryCheckOut(null);
+    setServerInquiryGuests(null);
     setChatPropertyId(null);
     setChatBookingId(null);
     setChatBookingStatus(null);
@@ -174,6 +191,9 @@ export default function ChatWindow({
         setContactSharingAllowed(Boolean(data.contactSharingAllowed));
         setViewerIsHost(Boolean(data.viewerIsHost));
         setOfferContext(data.specialOfferContext || null);
+        if (data.inquiryCheckIn) setServerInquiryCheckIn(data.inquiryCheckIn);
+        if (data.inquiryCheckOut) setServerInquiryCheckOut(data.inquiryCheckOut);
+        if (data.inquiryGuests) setServerInquiryGuests(data.inquiryGuests);
         setChatPropertyId(data.propertyId || null);
         setChatBookingId(data.bookingId || null);
         setChatBookingStatus(data.bookingStatus || null);
@@ -405,7 +425,13 @@ export default function ChatWindow({
     }
   };
 
-  const handleSendOffer = async (offerNightly: number, _discountPercent: number) => {
+  const handleSendOffer = async (payload: {
+    offerNightly: number;
+    discountPercent: number;
+    checkIn: string | null;
+    checkOut: string | null;
+    guests: number;
+  }) => {
     setSendingOffer(true);
     try {
       const supabase = supabaseRef.current || createClient();
@@ -420,7 +446,7 @@ export default function ChatWindow({
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session?.access_token || ''}`,
           },
-          body: JSON.stringify({ offerNightly }),
+          body: JSON.stringify(payload),
         }
       );
       const data = await response.json();
@@ -428,6 +454,9 @@ export default function ChatWindow({
       if (data.message) {
         setMessages((prev) => upsertMessage(prev, data.message));
       }
+      if (data.offer?.checkIn) setServerInquiryCheckIn(data.offer.checkIn);
+      if (data.offer?.checkOut) setServerInquiryCheckOut(data.offer.checkOut);
+      if (data.offer?.guests) setServerInquiryGuests(data.offer.guests);
       setOfferComposerOpen(false);
       toast.success('Special offer sent');
       scrollToBottom();
@@ -472,11 +501,24 @@ export default function ChatWindow({
             </span>
           ) : null}
         </div>
-        {inquiryStayLabel ? (
-          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 truncate">
-            <Calendar className="w-3.5 h-3.5 shrink-0" />
-            <span className="font-semibold">{inquiryStayLabel}</span>
-          </p>
+        {(inquiryStayLabel || inquiryGuestsLabel) ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
+            {inquiryStayLabel && (
+              <span className="inline-flex items-center gap-1.5 font-semibold">
+                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                <span>{inquiryStayLabel}</span>
+              </span>
+            )}
+            {inquiryStayLabel && inquiryGuestsLabel && (
+              <span className="text-emerald-500/60 dark:text-emerald-400/50">·</span>
+            )}
+            {inquiryGuestsLabel && (
+              <span className="inline-flex items-center gap-1 font-medium">
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span>{inquiryGuestsLabel}</span>
+              </span>
+            )}
+          </div>
         ) : null}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 lg:p-4 space-y-3 lg:space-y-4" data-chat-scroll>

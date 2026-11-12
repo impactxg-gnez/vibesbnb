@@ -86,8 +86,42 @@ export async function POST(
       return NextResponse.json({ error: 'Enter a special-offer amount of at least $1.' }, { status: 400 });
     }
 
+    const checkInBody =
+      typeof body?.checkIn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.checkIn.slice(0, 10))
+        ? body.checkIn.slice(0, 10)
+        : null;
+    const checkOutBody =
+      typeof body?.checkOut === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.checkOut.slice(0, 10))
+        ? body.checkOut.slice(0, 10)
+        : null;
+    const guestsBody =
+      Number.isInteger(Number(body?.guests)) && Number(body?.guests) >= 1
+        ? Number(body.guests)
+        : null;
+
+    if (checkInBody && checkOutBody && checkOutBody <= checkInBody) {
+      return NextResponse.json(
+        { error: 'Check-out date must be after check-in date.' },
+        { status: 400 }
+      );
+    }
+
     const service = createServiceClient();
     const CONVERSATION_SELECT = `
+        id,
+        property_id,
+        host_id,
+        traveller_id,
+        booking_id,
+        inquiry_check_in,
+        inquiry_check_out,
+        inquiry_guests,
+        host_unread_count,
+        traveller_unread_count,
+        host_name,
+        traveller_name
+      `;
+    const CONVERSATION_SELECT_DATES = `
         id,
         property_id,
         host_id,
@@ -117,6 +151,20 @@ export async function POST(
       .select(CONVERSATION_SELECT)
       .eq('id', params.conversationId)
       .single();
+
+    if (
+      conversationError &&
+      (conversationError.code === '42703' ||
+        /inquiry_guests/i.test(conversationError.message || ''))
+    ) {
+      const retry = await supabase
+        .from('conversations')
+        .select(CONVERSATION_SELECT_DATES)
+        .eq('id', params.conversationId)
+        .single();
+      conversation = retry.data as typeof conversation;
+      conversationError = retry.error;
+    }
 
     if (
       conversationError &&
@@ -162,22 +210,25 @@ export async function POST(
     const conv = conversation as {
       inquiry_check_in?: string | null;
       inquiry_check_out?: string | null;
+      inquiry_guests?: number | null;
       booking_id?: string | null;
     };
-    let checkIn =
-      typeof conv.inquiry_check_in === 'string' ? conv.inquiry_check_in.slice(0, 10) : null;
-    let checkOut =
-      typeof conv.inquiry_check_out === 'string' ? conv.inquiry_check_out.slice(0, 10) : null;
+    let checkIn = checkInBody || (typeof conv.inquiry_check_in === 'string' ? conv.inquiry_check_in.slice(0, 10) : null);
+    let checkOut = checkOutBody || (typeof conv.inquiry_check_out === 'string' ? conv.inquiry_check_out.slice(0, 10) : null);
+    let guests = guestsBody || (conv.inquiry_guests ? Number(conv.inquiry_guests) : null);
 
     if (conversation.booking_id) {
       const { data: booking } = await service
         .from('bookings')
-        .select('check_in, check_out')
+        .select('check_in, check_out, guests')
         .eq('id', conversation.booking_id)
         .maybeSingle();
-      if (booking?.check_in) checkIn = String(booking.check_in).slice(0, 10);
-      if (booking?.check_out) checkOut = String(booking.check_out).slice(0, 10);
+      if (!checkInBody && booking?.check_in) checkIn = String(booking.check_in).slice(0, 10);
+      if (!checkOutBody && booking?.check_out) checkOut = String(booking.check_out).slice(0, 10);
+      if (!guestsBody && booking?.guests) guests = Number(booking.guests);
     }
+
+    guests = Math.max(1, Number(guests) || 1);
 
     const nights = stayNightsFromDates(checkIn, checkOut);
     const [serviceFeePercent, hostFeePercent] = await Promise.all([
@@ -203,6 +254,7 @@ export async function POST(
       nights,
       checkIn,
       checkOut,
+      guests,
       guestTotal: payout.guestTotal,
       lodgingGross: payout.lodgingGross,
       hostFee: payout.hostFee,
@@ -224,23 +276,56 @@ export async function POST(
 
     if (insertError) throw insertError;
 
-    await supabase
+    const convUpdatePayload: Record<string, unknown> = {
+      last_message: lastMessage,
+      last_message_at: new Date().toISOString(),
+      host_unread_count: 0,
+      traveller_unread_count: (conversation.traveller_unread_count || 0) + 1,
+    };
+    if (checkIn && checkOut) {
+      convUpdatePayload.inquiry_check_in = checkIn;
+      convUpdatePayload.inquiry_check_out = checkOut;
+    }
+    if (guests) {
+      convUpdatePayload.inquiry_guests = guests;
+    }
+
+    const { error: updateConvErr } = await supabase
       .from('conversations')
-      .update({
-        last_message: lastMessage,
-        last_message_at: new Date().toISOString(),
-        host_unread_count: 0,
-        traveller_unread_count: (conversation.traveller_unread_count || 0) + 1,
-      })
+      .update(convUpdatePayload)
       .eq('id', params.conversationId);
 
+    if (updateConvErr && updateConvErr.code === '42703') {
+      delete convUpdatePayload.inquiry_guests;
+      const { error: retryConvErr } = await supabase
+        .from('conversations')
+        .update(convUpdatePayload)
+        .eq('id', params.conversationId);
+      if (retryConvErr && retryConvErr.code === '42703') {
+        delete convUpdatePayload.inquiry_check_in;
+        delete convUpdatePayload.inquiry_check_out;
+        await supabase
+          .from('conversations')
+          .update(convUpdatePayload)
+          .eq('id', params.conversationId);
+      }
+    }
+
     if (conversation.booking_id) {
+      const bookingUpdates: Record<string, unknown> = {
+        special_offer_nightly: offerNightly,
+        total_price: payout.guestTotal,
+      };
+      if (checkIn && checkOut) {
+        bookingUpdates.check_in = checkIn;
+        bookingUpdates.check_out = checkOut;
+      }
+      if (guests) {
+        bookingUpdates.guests = guests;
+      }
       const { error: bookingError } = await service
         .from('bookings')
-        .update({
-          special_offer_nightly: offerNightly,
-          total_price: payout.guestTotal,
-        })
+        .update(bookingUpdates)
         .eq('id', conversation.booking_id)
         .eq('host_id', user.id);
       if (bookingError && bookingError.code !== '42703' && bookingError.code !== 'PGRST204') {

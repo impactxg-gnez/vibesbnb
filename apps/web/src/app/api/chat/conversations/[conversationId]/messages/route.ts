@@ -101,10 +101,26 @@ export async function GET(
     let { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .select(
-        'id, host_id, traveller_id, booking_id, property_id, inquiry_check_in, inquiry_check_out'
+        'id, host_id, traveller_id, booking_id, property_id, inquiry_check_in, inquiry_check_out, inquiry_guests'
       )
       .eq('id', params.conversationId)
       .single();
+
+    if (
+      conversationError &&
+      (conversationError.code === '42703' ||
+        /inquiry_guests/i.test(conversationError.message || ''))
+    ) {
+      const retry = await supabase
+        .from('conversations')
+        .select(
+          'id, host_id, traveller_id, booking_id, property_id, inquiry_check_in, inquiry_check_out'
+        )
+        .eq('id', params.conversationId)
+        .single();
+      conversation = retry.data as typeof conversation;
+      conversationError = retry.error;
+    }
 
     if (
       conversationError &&
@@ -193,36 +209,52 @@ export async function GET(
       sender_profile: profiles[msg.sender_id] || null,
     }));
 
-    let linkedBooking: { status?: string | null; payment_status?: string | null; check_in?: string | null; check_out?: string | null } | null =
+    let linkedBooking: { id?: string | null; status?: string | null; payment_status?: string | null; check_in?: string | null; check_out?: string | null; guests?: number | null } | null =
       null;
     if (conversation.booking_id) {
       const { data: booking } = await serviceSupabase
         .from('bookings')
-        .select('status, payment_status, check_in, check_out')
+        .select('id, status, payment_status, check_in, check_out, guests')
         .eq('id', conversation.booking_id)
         .maybeSingle();
       linkedBooking = booking;
     }
 
+    if (!linkedBooking && conversation.property_id && conversation.traveller_id) {
+      const { data: pendingBooking } = await serviceSupabase
+        .from('bookings')
+        .select('id, status, payment_status, check_in, check_out, guests')
+        .eq('property_id', conversation.property_id)
+        .eq('user_id', conversation.traveller_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (pendingBooking) {
+        linkedBooking = pendingBooking;
+      }
+    }
+
+    const conv = conversation as {
+      inquiry_check_in?: string | null;
+      inquiry_check_out?: string | null;
+      inquiry_guests?: number | null;
+      booking_id?: string | null;
+    };
+    let checkIn =
+      typeof conv.inquiry_check_in === 'string' ? conv.inquiry_check_in.slice(0, 10) : null;
+    let checkOut =
+      typeof conv.inquiry_check_out === 'string' ? conv.inquiry_check_out.slice(0, 10) : null;
+    if (linkedBooking?.check_in) checkIn = String(linkedBooking.check_in).slice(0, 10);
+    if (linkedBooking?.check_out) checkOut = String(linkedBooking.check_out).slice(0, 10);
+    const inquiryGuests = linkedBooking?.guests ?? conv.inquiry_guests ?? null;
+
     let specialOfferContext: SpecialOfferContext | null = null;
     if (conversation.host_id === user.id && conversation.property_id) {
       const { data: property } = await serviceSupabase
         .from('properties')
-        .select('price, cleaning_fee')
+        .select('price, cleaning_fee, guests')
         .eq('id', conversation.property_id)
         .maybeSingle();
-
-      const conv = conversation as {
-        inquiry_check_in?: string | null;
-        inquiry_check_out?: string | null;
-        booking_id?: string | null;
-      };
-      let checkIn =
-        typeof conv.inquiry_check_in === 'string' ? conv.inquiry_check_in.slice(0, 10) : null;
-      let checkOut =
-        typeof conv.inquiry_check_out === 'string' ? conv.inquiry_check_out.slice(0, 10) : null;
-      if (linkedBooking?.check_in) checkIn = String(linkedBooking.check_in).slice(0, 10);
-      if (linkedBooking?.check_out) checkOut = String(linkedBooking.check_out).slice(0, 10);
 
       const listedNightly = Number(property?.price) || 0;
       if (listedNightly > 0) {
@@ -236,9 +268,11 @@ export async function GET(
           nights: stayNightsFromDates(checkIn, checkOut),
           checkIn,
           checkOut,
-          bookingId: conversation.booking_id || null,
+          guests: inquiryGuests ? Number(inquiryGuests) : 1,
+          bookingId: conversation.booking_id || linkedBooking?.id || null,
           serviceFeePercent,
           hostFeePercent,
+          maxPropertyGuests: Number(property?.guests) || 20,
         };
       }
     }
@@ -249,8 +283,11 @@ export async function GET(
         contactSharingAllowed,
         viewerIsHost: conversation.host_id === user.id,
         specialOfferContext,
+        inquiryCheckIn: checkIn,
+        inquiryCheckOut: checkOut,
+        inquiryGuests: inquiryGuests ? Number(inquiryGuests) : null,
         propertyId: conversation.property_id || null,
-        bookingId: conversation.booking_id || null,
+        bookingId: conversation.booking_id || linkedBooking?.id || null,
         bookingStatus: linkedBooking?.status || null,
         paymentStatus: linkedBooking?.payment_status || null,
       },

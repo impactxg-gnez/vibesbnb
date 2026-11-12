@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Leaf, ShieldCheck, Trees, Users, Home, Sparkles } from 'lucide-react';
+import { InstagramFeedGrid } from '@/components/social/InstagramFeedGrid';
 
 const pillars = [
   {
@@ -222,6 +223,9 @@ export default function AboutPage() {
           </div>
         </motion.div>
       </section>
+
+      {/* Instagram Feed Grid */}
+      <InstagramFeedGrid />
 
       <section className="container mx-auto px-4 sm:px-6 pb-28 sm:pb-32 max-w-5xl">
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 justify-center">

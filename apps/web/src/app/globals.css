@@ -228,8 +228,8 @@ html:not(.dark) .hover\:border-primary-500\/50:hover {
   border-color: color-mix(in srgb, var(--primary) 35%, transparent) !important;
 }
 
-/* Cream text on filled primary actions. Light theme remaps text-white → espresso,
-   which is unreadable on forest green (e.g. Browse Properties). */
+/* Cream/white text on filled primary actions and forest green buttons.
+   Light theme remaps text-white → espresso, which is unreadable on forest green. */
 html:not(.dark) .bg-primary-500.text-black,
 html:not(.dark) .bg-primary-500.text-white,
 html:not(.dark) .bg-primary-400.text-black,
@@ -239,8 +239,49 @@ html:not(.dark) .bg-emerald-500.text-white,
 html:not(.dark) .bg-emerald-600.text-white,
 html:not(.dark) .bg-emerald-600.text-black,
 html:not(.dark) .bg-emerald-700.text-white,
-html:not(.dark) .hover\:bg-emerald-600:hover.text-white {
-  color: var(--on-primary) !important;
+html:not(.dark) .hover\:bg-emerald-600:hover.text-white,
+html:not(.dark) .bg-\[\#193F25\].text-white,
+html:not(.dark) .bg-\[\#193f25\].text-white,
+html:not(.dark) .bg-\[\#142e1b\].text-white,
+html:not(.dark) .bg-\[\#142E1B\].text-white,
+html:not(.dark) .btn-forest-solid {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .btn-forest-solid * {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .btn-forest-solid svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.btn-forest-solid {
+  background-color: #193F25 !important;
+  color: #ffffff !important;
+}
+
+.btn-forest-solid:hover {
+  background-color: #142e1b !important;
+}
+
+html.dark .btn-forest-solid {
+  background-color: #10b981 !important;
+  color: #000000 !important;
+}
+
+html.dark .btn-forest-solid * {
+  color: #000000 !important;
+}
+
+html.dark .btn-forest-solid svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
+
+html.dark .btn-forest-solid:hover {
+  background-color: #34d399 !important;
 }
 
 html:not(.dark) .from-gray-950,

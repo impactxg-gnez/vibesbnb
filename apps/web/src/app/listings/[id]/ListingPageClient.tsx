@@ -1846,6 +1846,7 @@ export default function ListingDetailPage({
                 propertyName={property.name}
                 checkIn={checkInDate || undefined}
                 checkOut={checkOutDate || undefined}
+                guests={partyAdults + partyKids || partyAdults || 1}
                 selectedUnitIds={selectedRoomIds}
                 autoOpen={openBookingChat}
                 onAutoOpenConsumed={() => setOpenBookingChat(false)}

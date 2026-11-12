@@ -22,6 +22,7 @@ interface Conversation {
   last_message_at: string | null;
   inquiry_check_in?: string | null;
   inquiry_check_out?: string | null;
+  inquiry_guests?: number | null;
   host_name?: string | null;
   host_avatar?: string | null;
   traveller_name?: string | null;
@@ -411,6 +412,7 @@ export default function HostMessagesPage() {
                               <Calendar size={10} className="shrink-0" />
                               {String(conversation.inquiry_check_in).slice(0, 10)} →{' '}
                               {String(conversation.inquiry_check_out).slice(0, 10)}
+                              {conversation.inquiry_guests ? ` · ${conversation.inquiry_guests} guest${conversation.inquiry_guests === 1 ? '' : 's'}` : ''}
                             </p>
                           )}
                           
@@ -464,6 +466,7 @@ export default function HostMessagesPage() {
                     counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
                     inquiryCheckIn={selectedConversationObj.inquiry_check_in}
                     inquiryCheckOut={selectedConversationObj.inquiry_check_out}
+                    inquiryGuests={selectedConversationObj.inquiry_guests}
                     onMessagesRead={handleMessagesRead}
                     onBack={() => setSelectedConversation(null)}
                   />

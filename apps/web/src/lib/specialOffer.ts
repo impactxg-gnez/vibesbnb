@@ -13,6 +13,7 @@ export type SpecialOfferPayload = {
   nights: number;
   checkIn?: string | null;
   checkOut?: string | null;
+  guests?: number | null;
   guestTotal: number;
   lodgingGross: number;
   hostFee: number;
@@ -26,9 +27,11 @@ export type SpecialOfferContext = {
   nights: number;
   checkIn: string | null;
   checkOut: string | null;
+  guests?: number | null;
   bookingId: string | null;
   serviceFeePercent: number;
   hostFeePercent: number;
+  maxPropertyGuests?: number;
 };
 
 function roundMoney(n: number): number {
@@ -97,7 +100,8 @@ export function encodeSpecialOfferMessage(payload: SpecialOfferPayload): {
   body: string;
   lastMessage: string;
 } {
-  const lastMessage = `Special offer: $${payload.offerNightly.toFixed(0)}/night (${payload.discountPercent}% off)`;
+  const guestPart = payload.guests ? ` · ${payload.guests} guest${payload.guests === 1 ? '' : 's'}` : '';
+  const lastMessage = `Special offer: $${payload.offerNightly.toFixed(0)}/night (${payload.discountPercent}% off${guestPart})`;
   const body = `${SPECIAL_OFFER_PREFIX}${JSON.stringify(payload)}\n\n${lastMessage}`;
   return { body, lastMessage };
 }

@@ -172,7 +172,14 @@ export default function NewBookingPage() {
         );
         const data = await response.json();
         if (!cancelled && response.ok && data?.offer?.offerNightly) {
-          setSpecialOffer(data.offer as SpecialOfferPayload);
+          const offer = data.offer as SpecialOfferPayload;
+          setSpecialOffer(offer);
+          setFormData((prev) => ({
+            ...prev,
+            checkIn: offer.checkIn || prev.checkIn,
+            checkOut: offer.checkOut || prev.checkOut,
+            guests: offer.guests ? Math.max(1, Number(offer.guests)) : prev.guests,
+          }));
         }
       } catch {
         if (!cancelled) setSpecialOffer(null);

@@ -15,6 +15,7 @@ interface PropertyChatButtonProps {
   propertyName: string;
   checkIn?: string;
   checkOut?: string;
+  guests?: number;
   selectedUnitIds?: string[];
   /** When true, opens the chat modal on mount (e.g. after "Request to book"). */
   autoOpen?: boolean;
@@ -32,6 +33,7 @@ const PropertyChatButton = forwardRef<PropertyChatHandle, PropertyChatButtonProp
       propertyName,
       checkIn,
       checkOut,
+      guests,
       selectedUnitIds,
       autoOpen = false,
       onAutoOpenConsumed,
@@ -110,6 +112,7 @@ const PropertyChatButton = forwardRef<PropertyChatHandle, PropertyChatButtonProp
           propertyId,
           checkIn: checkIn || null,
           checkOut: checkOut || null,
+          guests: guests || 1,
         }),
       });
       const data = await response.json();
@@ -301,6 +304,9 @@ const PropertyChatButton = forwardRef<PropertyChatHandle, PropertyChatButtonProp
                   }
                   inquiryCheckOut={
                     conversationDetails.inquiry_check_out || checkOut || null
+                  }
+                  inquiryGuests={
+                    conversationDetails.inquiry_guests || guests || null
                   }
                   onMessagesRead={() => loadConversationDetails(conversationId)}
                 />

@@ -21,6 +21,7 @@ interface Conversation {
   last_message_at: string | null;
   inquiry_check_in?: string | null;
   inquiry_check_out?: string | null;
+  inquiry_guests?: number | null;
   host_name?: string | null;
   host_avatar?: string | null;
   traveller_name?: string | null;
@@ -381,6 +382,7 @@ export default function MessagesPage() {
                     counterpartAvatar={getCounterpartAvatar(selectedConversationObj)}
                     inquiryCheckIn={selectedConversationObj.inquiry_check_in}
                     inquiryCheckOut={selectedConversationObj.inquiry_check_out}
+                    inquiryGuests={selectedConversationObj.inquiry_guests}
                     onMessagesRead={handleMessagesRead}
                     onBack={() => setSelectedConversation(null)}
                   />

@@ -17,6 +17,7 @@ interface ConversationResponse {
   last_message_at: string | null;
   inquiry_check_in?: string | null;
   inquiry_check_out?: string | null;
+  inquiry_guests?: number | null;
   host_hidden_at?: string | null;
   traveller_hidden_at?: string | null;
   host_name?: string | null;
@@ -39,6 +40,27 @@ function parseInquiryYmd(value: unknown): string | null {
 }
 
 const CONVERSATION_LIST_COLUMNS = `
+  id,
+  property_id,
+  host_id,
+  traveller_id,
+  booking_id,
+  last_message,
+  last_message_at,
+  inquiry_check_in,
+  inquiry_check_out,
+  inquiry_guests,
+  host_name,
+  host_avatar,
+  traveller_name,
+  traveller_avatar,
+  host_unread_count,
+  traveller_unread_count,
+  host_hidden_at,
+  traveller_hidden_at
+`;
+
+const CONVERSATION_LIST_COLUMNS_NO_GUESTS = `
   id,
   property_id,
   host_id,
@@ -210,9 +232,17 @@ export async function GET(request: NextRequest) {
 
     if (error?.code === '42703') {
       const msg = String(error.message || '');
+      const missingGuests = msg.includes('inquiry_guests');
       const missingHide = msg.includes('host_hidden_at') || msg.includes('traveller_hidden_at');
       const missingInquiry = msg.includes('inquiry_check_in') || msg.includes('inquiry_check_out');
-      if (missingHide) {
+      if (missingGuests) {
+        const retry = await applyListFilters(
+          db.from('conversations'),
+          CONVERSATION_LIST_COLUMNS_NO_GUESTS
+        );
+        data = retry.data;
+        error = retry.error;
+      } else if (missingHide) {
         const retry = await applyListFilters(
           db.from('conversations'),
           CONVERSATION_LIST_COLUMNS_NO_HIDE
@@ -298,10 +328,19 @@ export async function POST(request: NextRequest) {
     const propertyId = body?.propertyId;
     const inquiryCheckIn = parseInquiryYmd(body?.checkIn);
     const inquiryCheckOut = parseInquiryYmd(body?.checkOut);
-    const inquiryDates =
-      inquiryCheckIn && inquiryCheckOut && inquiryCheckOut > inquiryCheckIn
-        ? { inquiry_check_in: inquiryCheckIn, inquiry_check_out: inquiryCheckOut }
+    const inquiryGuests =
+      Number.isInteger(Number(body?.guests)) && Number(body?.guests) >= 1
+        ? Number(body.guests)
         : null;
+
+    const inquiryDetails: Record<string, unknown> = {};
+    if (inquiryCheckIn && inquiryCheckOut && inquiryCheckOut > inquiryCheckIn) {
+      inquiryDetails.inquiry_check_in = inquiryCheckIn;
+      inquiryDetails.inquiry_check_out = inquiryCheckOut;
+    }
+    if (inquiryGuests) {
+      inquiryDetails.inquiry_guests = inquiryGuests;
+    }
 
     if (!propertyId) {
       return NextResponse.json(
@@ -339,19 +378,27 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingConversation?.id) {
-      if (inquiryDates) {
+      if (Object.keys(inquiryDetails).length > 0) {
         const { data: updated, error: updateError } = await supabase
           .from('conversations')
-          .update(inquiryDates)
+          .update(inquiryDetails)
           .eq('id', existingConversation.id)
-          .select('id, inquiry_check_in, inquiry_check_out')
+          .select()
           .single();
         if (!updateError && updated) {
           return NextResponse.json({ conversation: updated });
         }
-        // Column may not exist yet — still return the thread.
-        if (updateError && updateError.code !== '42703') {
-          console.warn('[ConversationsAPI] inquiry date update failed', updateError);
+        if (updateError && updateError.code === '42703') {
+          delete inquiryDetails.inquiry_guests;
+          if (Object.keys(inquiryDetails).length > 0) {
+            const { data: retryUpdated } = await supabase
+              .from('conversations')
+              .update(inquiryDetails)
+              .eq('id', existingConversation.id)
+              .select()
+              .single();
+            if (retryUpdated) return NextResponse.json({ conversation: retryUpdated });
+          }
         }
       }
       return NextResponse.json({ conversation: existingConversation });
@@ -371,7 +418,7 @@ export async function POST(request: NextRequest) {
       last_message_at: new Date().toISOString(),
       host_name: hostContact.name,
       traveller_name: travellerContact.name,
-      ...(inquiryDates || {}),
+      ...inquiryDetails,
     };
 
     let { data: conversation, error } = await supabase
@@ -380,8 +427,15 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error?.code === '42703' && inquiryDates) {
-      const { inquiry_check_in: _in, inquiry_check_out: _out, ...withoutDates } = insertPayload;
+    if (error?.code === '42703' && inquiryDetails.inquiry_guests) {
+      const { inquiry_guests: _g, ...withoutGuests } = insertPayload;
+      const retry = await supabase.from('conversations').insert(withoutGuests).select().single();
+      conversation = retry.data;
+      error = retry.error;
+    }
+
+    if (error?.code === '42703' && (inquiryDetails.inquiry_check_in || inquiryDetails.inquiry_check_out)) {
+      const { inquiry_check_in: _in, inquiry_check_out: _out, inquiry_guests: _g, ...withoutDates } = insertPayload;
       const retry = await supabase.from('conversations').insert(withoutDates).select().single();
       conversation = retry.data;
       error = retry.error;

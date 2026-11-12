@@ -47,6 +47,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'www.ionica.world', pathname: '/**' },
       { protocol: 'https', hostname: 'via.placeholder.com', pathname: '/**' },
       { protocol: 'https', hostname: 'api.dicebear.com', pathname: '/**' },
+      { protocol: 'https', hostname: '*.cdninstagram.com', pathname: '/**' },
+      { protocol: 'https', hostname: '*.fbcdn.net', pathname: '/**' },
     ],
   },
   env: {

@@ -267,14 +267,14 @@ export default function ReferAHostPage() {
             </div>
 
             {/* Tab Toggle: Host Link vs Guest Link */}
-            <div className="inline-flex rounded-xl bg-[#FAF3EA] dark:bg-gray-800 p-1 border border-[#51372B]/10 dark:border-gray-700">
+            <div className="inline-flex rounded-xl bg-[#FAF3EA] dark:bg-gray-800 p-1 border border-[#51372B]/15 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => setActiveTab('host')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${
                   activeTab === 'host'
-                    ? 'bg-[#193F25] text-white shadow-sm dark:bg-emerald-500 dark:text-black'
-                    : 'text-[#51372B]/70 dark:text-gray-400 hover:text-[#51372B] dark:hover:text-white'
+                    ? 'btn-forest-solid shadow-sm'
+                    : 'text-[#51372B]/80 dark:text-gray-400 hover:text-[#51372B] dark:hover:text-white'
                 }`}
               >
                 <Building2 className="w-4 h-4" />
@@ -285,8 +285,8 @@ export default function ReferAHostPage() {
                 onClick={() => setActiveTab('guest')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${
                   activeTab === 'guest'
-                    ? 'bg-[#193F25] text-white shadow-sm dark:bg-emerald-500 dark:text-black'
-                    : 'text-[#51372B]/70 dark:text-gray-400 hover:text-[#51372B] dark:hover:text-white'
+                    ? 'btn-forest-solid shadow-sm'
+                    : 'text-[#51372B]/80 dark:text-gray-400 hover:text-[#51372B] dark:hover:text-white'
                 }`}
               >
                 <Users className="w-4 h-4" />
@@ -306,13 +306,13 @@ export default function ReferAHostPage() {
                   type="text"
                   readOnly
                   value={loading ? 'Generating your link…' : activeLink || 'Sign in to see your link'}
-                  className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-4 py-3.5 pr-28 text-sm font-mono text-[#193F25] dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-[#193F25] dark:focus:ring-emerald-400 select-all"
+                  className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-4 py-3.5 pr-32 text-sm font-mono text-[#193F25] dark:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-[#193F25] dark:focus:ring-emerald-400 select-all"
                 />
                 <button
                   type="button"
                   onClick={() => void copyToClipboard(activeLink, activeTab)}
                   disabled={!activeLink || loading}
-                  className="absolute right-2 px-4 py-2 rounded-xl bg-[#193F25] hover:bg-[#142e1b] dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-black text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                  className="absolute right-2 px-4 py-2 rounded-xl btn-forest-solid hover:opacity-95 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                 >
                   {copiedType === activeTab ? (
                     <>
@@ -332,16 +332,24 @@ export default function ReferAHostPage() {
                 Your Referral Code
               </label>
               <div className="relative flex items-center">
-                <div className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-4 py-3.5 text-sm font-mono font-bold tracking-widest text-[#193F25] dark:text-emerald-300">
+                <div className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 px-4 py-3.5 pr-32 text-sm font-mono font-bold tracking-widest text-[#193F25] dark:text-emerald-300">
                   {loading ? '…' : summary?.code || '—'}
                 </div>
                 {summary?.code ? (
                   <button
                     type="button"
                     onClick={() => void copyToClipboard(summary.code || '', 'code')}
-                    className="absolute right-2 px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-xs font-bold transition-all flex items-center gap-1"
+                    className="absolute right-2 px-3.5 py-2 rounded-xl btn-forest-solid hover:opacity-95 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                   >
-                    {copiedType === 'code' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedType === 'code' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" /> Copy Code
+                      </>
+                    )}
                   </button>
                 ) : null}
               </div>
@@ -360,7 +368,7 @@ export default function ReferAHostPage() {
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#51372B]/20 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-bold text-[#51372B] dark:text-gray-200 hover:bg-[#FAF3EA] dark:hover:bg-gray-700 transition-colors shadow-sm"
               >
                 <span>WhatsApp</span>
               </a>
@@ -369,7 +377,7 @@ export default function ReferAHostPage() {
                 href={`mailto:?subject=${encodeURIComponent('Join VibesBNB & Get $25 Off')}&body=${encodeURIComponent(
                   `Hi,\n\nI wanted to invite you to VibesBNB. You can join with my referral link and get $25 off your booking fee:\n\n${activeLink}\n\nEnjoy!`
                 )}`}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#51372B]/20 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-bold text-[#51372B] dark:text-gray-200 hover:bg-[#FAF3EA] dark:hover:bg-gray-700 transition-colors shadow-sm"
               >
                 <span>Email</span>
               </a>
@@ -380,7 +388,7 @@ export default function ReferAHostPage() {
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#51372B]/20 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-bold text-[#51372B] dark:text-gray-200 hover:bg-[#FAF3EA] dark:hover:bg-gray-700 transition-colors shadow-sm"
               >
                 <span>X / Twitter</span>
               </a>
@@ -388,10 +396,10 @@ export default function ReferAHostPage() {
               <button
                 type="button"
                 onClick={() => void handleShare()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#193F25]/10 dark:bg-emerald-500/10 text-[#193F25] dark:text-emerald-400 text-xs font-bold hover:bg-[#193F25]/20 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#193F25]/30 bg-[#193F25]/10 dark:bg-emerald-500/10 text-[#193F25] dark:text-emerald-400 text-xs font-bold hover:bg-[#193F25]/20 dark:hover:bg-emerald-500/20 transition-colors shadow-sm"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                Share
+                <span>Share</span>
               </button>
             </div>
           </div>
@@ -476,14 +484,14 @@ export default function ReferAHostPage() {
             </div>
 
             {/* Filter Pills */}
-            <div className="inline-flex rounded-xl bg-[#FAF3EA] dark:bg-gray-800 p-1 border border-[#51372B]/10 dark:border-gray-700 text-xs font-semibold">
+            <div className="inline-flex rounded-xl bg-[#FAF3EA] dark:bg-gray-800 p-1 border border-[#51372B]/15 dark:border-gray-700 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setFilterStatus('all')}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   filterStatus === 'all'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white font-bold'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+                    ? 'btn-forest-solid shadow-sm'
+                    : 'text-[#51372B]/75 dark:text-gray-400 hover:text-[#51372B]'
                 }`}
               >
                 All ({invites.length})
@@ -493,8 +501,8 @@ export default function ReferAHostPage() {
                 onClick={() => setFilterStatus('completed')}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   filterStatus === 'completed'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-emerald-600 dark:text-emerald-400 font-bold'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+                    ? 'btn-forest-solid shadow-sm'
+                    : 'text-[#51372B]/75 dark:text-gray-400 hover:text-[#51372B]'
                 }`}
               >
                 Completed ({stats.completedStays})
@@ -504,8 +512,8 @@ export default function ReferAHostPage() {
                 onClick={() => setFilterStatus('pending')}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   filterStatus === 'pending'
-                    ? 'bg-white dark:bg-gray-700 shadow-sm text-amber-600 dark:text-amber-400 font-bold'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+                    ? 'btn-forest-solid shadow-sm'
+                    : 'text-[#51372B]/75 dark:text-gray-400 hover:text-[#51372B]'
                 }`}
               >
                 Pending ({stats.pendingStays})
@@ -526,7 +534,7 @@ export default function ReferAHostPage() {
               <button
                 type="button"
                 onClick={() => void copyToClipboard(activeLink, activeTab)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#193F25] text-white dark:bg-emerald-500 dark:text-black font-semibold text-sm hover:opacity-95 transition-opacity"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full btn-forest-solid font-semibold text-sm hover:opacity-95 transition-opacity shadow-sm"
               >
                 <Copy className="w-4 h-4" /> Copy your link now
               </button>

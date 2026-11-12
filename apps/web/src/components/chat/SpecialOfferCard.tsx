@@ -36,8 +36,13 @@ export function SpecialOfferCard({
 }) {
   const stay =
     offer.checkIn && offer.checkOut
-      ? `${formatCalendarDate(offer.checkIn, { month: 'short', day: 'numeric' })} → ${formatCalendarDate(offer.checkOut, { month: 'short', day: 'numeric', year: 'numeric' })}`
+      ? `${formatCalendarDate(offer.checkIn, { month: 'short', day: 'numeric' })} → ${formatCalendarDate(offer.checkOut, { month: 'short', day: 'numeric', year: 'numeric' })} (${offer.nights} night${offer.nights === 1 ? '' : 's'})`
       : `${offer.nights} night${offer.nights === 1 ? '' : 's'}`;
+
+  const guestLabel =
+    offer.guests && offer.guests > 0
+      ? `${offer.guests} guest${offer.guests === 1 ? '' : 's'}`
+      : null;
 
   const status = String(bookingStatus || '').toLowerCase();
   const payment = String(paymentStatus || '').toLowerCase();
@@ -55,6 +60,7 @@ export function SpecialOfferCard({
   if (conversationId) bookParams.set('conversationId', conversationId);
   if (checkIn) bookParams.set('checkIn', checkIn);
   if (checkOut) bookParams.set('checkOut', checkOut);
+  if (offer.guests) bookParams.set('guests', String(offer.guests));
   const bookHref = propertyId ? `/bookings/new?${bookParams.toString()}` : null;
   const payHref = bookingId ? `/bookings/pay/${encodeURIComponent(bookingId)}` : null;
 
@@ -73,7 +79,10 @@ export function SpecialOfferCard({
         ) : null}
       </div>
       <div className="px-3.5 py-3 space-y-2">
-        <p className="text-[11px] text-[#166534] dark:text-emerald-200/80">{stay}</p>
+        <p className="text-[11px] text-[#166534] dark:text-emerald-200/80">
+          {stay}
+          {guestLabel ? ` · ${guestLabel}` : ''}
+        </p>
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-xs text-[#3F6212] dark:text-gray-400">Listed</span>
           <span className="text-sm text-[#3F6212] line-through dark:text-gray-400">

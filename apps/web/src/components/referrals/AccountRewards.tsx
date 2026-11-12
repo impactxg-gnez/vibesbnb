@@ -94,7 +94,7 @@ export function AccountRewards({ mode = 'all' }: { mode?: 'all' | 'referral' | '
             </div>
             <Link
               href="/referrals"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500/10 hover:bg-primary-500/20 text-primary-400 font-semibold text-xs transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl btn-forest-solid font-semibold text-xs transition-colors shrink-0 shadow-sm"
             >
               <Users className="w-4 h-4" />
               Referral Dashboard
@@ -132,9 +132,9 @@ export function AccountRewards({ mode = 'all' }: { mode?: 'all' | 'referral' | '
               <button
                 type="button"
                 onClick={() => void copyLink()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-white transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-forest-solid text-xs font-semibold transition-colors shrink-0 shadow-sm"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? 'Copied' : 'Copy Link'}
               </button>
             ) : null}
