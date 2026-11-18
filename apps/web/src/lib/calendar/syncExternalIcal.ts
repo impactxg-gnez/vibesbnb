@@ -18,6 +18,7 @@ import {
 } from '@/lib/calendar/icsError';
 import { getRedis } from '@/lib/cache/redis';
 import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
+import { dispatchBrokenIcalEmail } from '@/lib/notifications/dispatchBrokenIcalEmail';
 
 const UPSERT_CHUNK = 200;
 
@@ -173,6 +174,25 @@ export async function syncOnePropertyIcalSource(opts: {
         last_synced_at: new Date().toISOString(),
       })
       .eq('id', calendar.id);
+
+    // Dispatch broken iCal alert to host & admins (throttled to 1 email/day per calendar)
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vibesbnb.com';
+      void dispatchBrokenIcalEmail({
+        service,
+        appUrl,
+        calendarId: calendar.id,
+        propertyId: calendar.property_id,
+        hostId: calendar.host_id,
+        calendarName: calendar.name,
+        icalUrl: calendar.ical_url,
+        errorMessage: msg,
+        lastSyncedAt: new Date().toISOString(),
+      });
+    } catch (alertErr) {
+      console.warn('[syncExternalIcal] Failed to dispatch broken ical alert:', alertErr);
+    }
+
     return { skipped: false, events: 0, error: msg };
   } finally {
     if (lockHeld && redis) {

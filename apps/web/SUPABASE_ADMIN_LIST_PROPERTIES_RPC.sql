@@ -14,7 +14,7 @@ DROP FUNCTION IF EXISTS public.admin_list_properties(text, int, int);
 
 CREATE OR REPLACE FUNCTION public.admin_list_properties(
   p_status text DEFAULT 'all',
-  p_limit int DEFAULT 100,
+  p_limit int DEFAULT 50,
   p_offset int DEFAULT 0
 )
 RETURNS TABLE (
@@ -50,7 +50,7 @@ AS $$
   FROM properties p
   WHERE p_status IS NULL OR p_status = 'all' OR p.status = p_status
   ORDER BY p.created_at DESC NULLS LAST
-  LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 100), 200))
+  LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 50), 250))
   OFFSET GREATEST(0, COALESCE(p_offset, 0));
 $$;
 

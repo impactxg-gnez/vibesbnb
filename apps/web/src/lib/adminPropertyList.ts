@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ADMIN_PROPERTY_LIST_COLUMNS } from '@/lib/adminPropertySelect';
+import { ADMIN_PROPERTY_LIST_COLUMNS, ADMIN_PROPERTY_LIST_MAX_LIMIT } from '@/lib/adminPropertySelect';
 
 export type AdminPropertyListRow = Record<string, unknown>;
 
@@ -102,9 +102,9 @@ async function withCoverImages(
 async function selectPropertyList(
   supabase: SupabaseClient,
   columns: string,
-  opts: { status: string; limit: number; offset: number }
+  opts: { status: string; limit: number; offset: number; search?: string }
 ) {
-  const fallbackLimit = Math.min(opts.limit, 50);
+  const fallbackLimit = Math.min(opts.limit, ADMIN_PROPERTY_LIST_MAX_LIMIT);
   let query = supabase
     .from('properties')
     .select(columns)
@@ -113,6 +113,11 @@ async function selectPropertyList(
 
   if (opts.status !== 'all') {
     query = query.eq('status', opts.status);
+  }
+
+  if (opts.search?.trim()) {
+    const s = `%${opts.search.trim()}%`;
+    query = query.or(`name.ilike.${s},title.ilike.${s},location.ilike.${s}`);
   }
 
   return query;
@@ -126,23 +131,27 @@ async function selectPropertyList(
  */
 export async function fetchAdminPropertyList(
   supabase: SupabaseClient,
-  opts: { status: string; limit: number; offset: number }
+  opts: { status: string; limit: number; offset: number; search?: string }
 ): Promise<AdminPropertyListRow[]> {
-  const { data, error: rpcError } = await supabase.rpc('admin_list_properties', {
-    p_status: opts.status,
-    p_limit: opts.limit,
-    p_offset: opts.offset,
-  });
+  // If search is provided, bypass RPC (since admin_list_properties doesn't support text search)
+  // and query with PostgREST directly using ILIKE
+  if (!opts.search?.trim()) {
+    const { data, error: rpcError } = await supabase.rpc('admin_list_properties', {
+      p_status: opts.status,
+      p_limit: opts.limit,
+      p_offset: opts.offset,
+    });
 
-  if (!rpcError && Array.isArray(data)) {
-    return withCoverImages(supabase, data as AdminPropertyListRow[]);
-  }
+    if (!rpcError && Array.isArray(data)) {
+      return withCoverImages(supabase, data as AdminPropertyListRow[]);
+    }
 
-  if (rpcError) {
-    console.warn(
-      '[adminPropertyList] admin_list_properties RPC unavailable, using PostgREST fallback:',
-      describeAdminListError(rpcError)
-    );
+    if (rpcError) {
+      console.warn(
+        '[adminPropertyList] admin_list_properties RPC unavailable, using PostgREST fallback:',
+        describeAdminListError(rpcError)
+      );
+    }
   }
 
   const { data: rows, error: queryError } = await selectPropertyList(

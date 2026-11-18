@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/email/mailer';
 import { authenticateAdminRequest } from '@/lib/auth/authenticateAdminRequest';
 import { hostApplicationApprovedEmailHtml } from '@/lib/email/hostApplicationApproved';
 
@@ -100,20 +100,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (hostEmail && process.env.RESEND_API_KEY) {
+    if (hostEmail) {
       try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
         const appUrl =
           process.env.NEXT_PUBLIC_APP_URL ||
           (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vibesbnb.com');
-        await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'VibesBNB <noreply@vibesbnb.com>',
+        await sendEmail({
           to: hostEmail,
           subject: "You're approved to host on VibesBNB",
           html: hostApplicationApprovedEmailHtml({ hostName, appUrl }),
         });
       } catch (e) {
-        console.warn('[approve-host] Resend email failed:', e);
+        console.warn('[approve-host] Approval email failed:', e);
       }
     }
 

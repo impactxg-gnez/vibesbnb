@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -21,6 +21,9 @@ import {
   X,
   PanelRight,
   Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getHeadersForAdminFetch } from '@/lib/supabase/adminSession';
@@ -71,12 +74,18 @@ export default function ManageListingsPage() {
   const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalListings, setTotalListings] = useState(0);
+  const [isFetchingPage, setIsFetchingPage] = useState(false);
   const [filters, setFilters] = useState({
     city: '',
     minPrice: '',
     maxPrice: '',
     status: searchParams.get('status') || 'all',
   });
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -87,18 +96,14 @@ export default function ManageListingsPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    let filtered = properties;
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name?.toLowerCase().includes(query) ||
-          p.location?.toLowerCase().includes(query) ||
-          p.title?.toLowerCase().includes(query)
-      );
-    }
+  useEffect(() => {
+    let filtered = properties;
 
     // City filter
     if (filters.city) {
@@ -115,63 +120,85 @@ export default function ManageListingsPage() {
       filtered = filtered.filter((p) => p.price <= Number(filters.maxPrice));
     }
 
-    // Status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter((p) => p.status === filters.status);
-    }
-
     setFilteredProperties(filtered);
-  }, [searchQuery, filters, properties]);
+  }, [filters.city, filters.minPrice, filters.maxPrice, properties]);
 
-  const loadProperties = useCallback(async () => {
-    try {
-      const headers = await getHeadersForAdminFetch(session);
-      if (!headers.Authorization)
-        throw new Error('No valid session — please sign in again.');
-      const response = await fetch('/api/admin/properties?limit=100', {
-        headers: { ...headers },
-      });
-      const payload = await response.json().catch(() => ({}));
+  const loadProperties = useCallback(
+    async (
+      targetPage = currentPage,
+      targetPageSize = pageSize,
+      targetStatus = filters.status,
+      targetSearch = debouncedSearch
+    ) => {
+      try {
+        setIsFetchingPage(true);
+        const headers = await getHeadersForAdminFetch(session);
+        if (!headers.Authorization)
+          throw new Error('No valid session — please sign in again.');
 
-      if (!response.ok) {
-        throw new Error(
-          payload.error || `Failed to load properties (HTTP ${response.status})`
+        const offset = Math.max(0, (targetPage - 1) * targetPageSize);
+        const statusParam = targetStatus || 'all';
+        const searchParam = targetSearch ? `&search=${encodeURIComponent(targetSearch)}` : '';
+
+        const response = await fetch(
+          `/api/admin/properties?limit=${targetPageSize}&offset=${offset}&status=${encodeURIComponent(statusParam)}${searchParam}`,
+          { headers: { ...headers } }
         );
-      }
+        const payload = await response.json().catch(() => ({}));
 
-      setLoadError(null);
+        if (!response.ok) {
+          throw new Error(
+            payload.error || `Failed to load properties (HTTP ${response.status})`
+          );
+        }
 
-      // For each property, try to get host info
-      const propertiesWithHosts = await Promise.all(
-        (payload.properties || []).map(async (property: any) => {
+        setLoadError(null);
+        if (typeof payload.total === 'number') {
+          setTotalListings(payload.total);
+        }
+
+        const propertiesWithHosts = (payload.properties || []).map((property: any) => {
           let hostInfo = {};
           if (property.host_id) {
-            // In a real app, you'd fetch host details from auth.users or a users table
             hostInfo = {
               host_email: `host-${property.host_id.substring(0, 8)}@example.com`,
               host_name: `Host ${property.host_id.substring(0, 8)}`,
             };
           }
           return { ...property, ...hostInfo };
-        })
-      );
+        });
 
-      setProperties(propertiesWithHosts);
-      setFilteredProperties(propertiesWithHosts);
-    } catch (error) {
-      console.error('Error loading properties:', error);
-      const message =
-        error instanceof Error && error.message ? error.message : 'Failed to load properties';
-      setLoadError(message);
-      toast.error(message);
-    }
-  }, [session]);
+        setProperties(propertiesWithHosts);
+        setFilteredProperties(propertiesWithHosts);
+      } catch (error) {
+        console.error('Error loading properties:', error);
+        const message =
+          error instanceof Error && error.message ? error.message : 'Failed to load properties';
+        setLoadError(message);
+        toast.error(message);
+      } finally {
+        setIsFetchingPage(false);
+      }
+    },
+    [session, currentPage, pageSize, filters.status, debouncedSearch]
+  );
 
   const { initialLoading: loadingProperties, reload: reloadProperties } = useAdminDataLoad(
     user?.id,
     Boolean(user && isAdminUser(user) && session?.access_token),
     loadProperties
   );
+
+  const isFirstMountRef = useRef(true);
+  useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
+    if (user && isAdminUser(user) && session?.access_token) {
+      void loadProperties(currentPage, pageSize, filters.status, debouncedSearch);
+    }
+  }, [currentPage, pageSize, filters.status, debouncedSearch]);
 
   const [syncing, setSyncing] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -695,6 +722,15 @@ export default function ManageListingsPage() {
               {migratingAllPhotos ? 'Moving photos…' : 'Move all photos'}
             </button>
             <button
+              onClick={() => void reloadProperties({ silent: true })}
+              disabled={loadingProperties || isFetchingPage}
+              title="Refresh listings"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={isFetchingPage ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+            <button
               onClick={handleSyncAllCoordinates}
               disabled={syncing}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
@@ -715,7 +751,10 @@ export default function ManageListingsPage() {
                   type="text"
                   placeholder="Search listings..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
@@ -741,7 +780,10 @@ export default function ManageListingsPage() {
             <div>
               <select
                 value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                onChange={(e) => {
+                  setFilters({ ...filters, status: e.target.value });
+                  setCurrentPage(1);
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <option value="all">All Status</option>
@@ -766,9 +808,14 @@ export default function ManageListingsPage() {
               }}
               className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
             />
-            Select all shown ({filteredProperties.length})
+            Select all on page ({filteredProperties.length})
           </label>
           <div className="flex items-center gap-3 text-sm">
+            {totalListings > 0 && (
+              <span className="text-gray-500 font-medium">
+                {totalListings} total in database
+              </span>
+            )}
             <span className="text-gray-600">
               {selectedPhotoIds.size} listing{selectedPhotoIds.size === 1 ? '' : 's'} selected
             </span>
@@ -784,9 +831,10 @@ export default function ManageListingsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col xl:flex-row gap-6 items-start">
-        {/* Properties Grid */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${selectedProperty ? 'xl:flex-1' : 'w-full lg:grid-cols-3'}`}>
+        <div className="flex flex-col xl:flex-row gap-6 items-start w-full">
+          <div className={`flex flex-col gap-6 ${selectedProperty ? 'xl:flex-1 min-w-0' : 'w-full'}`}>
+            {/* Properties Grid */}
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${selectedProperty ? 'w-full' : 'w-full lg:grid-cols-3'}`}>
           {loadError ? (
             <div
               className="col-span-full rounded-lg border border-red-200 bg-red-50 p-6 text-center"
@@ -1012,7 +1060,90 @@ export default function ManageListingsPage() {
           )}
         </div>
 
-        {selectedProperty && (
+        {/* Pagination Controls */}
+        {totalListings > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3 flex flex-wrap items-center justify-between gap-4 mt-2">
+            <div className="flex items-center gap-3 text-sm text-gray-700">
+              <span>
+                Showing <span className="font-semibold">{Math.min((currentPage - 1) * pageSize + 1, totalListings)}</span>–
+                <span className="font-semibold">{Math.min(currentPage * pageSize, totalListings)}</span> of{' '}
+                <span className="font-semibold">{totalListings}</span> listing{totalListings === 1 ? '' : 's'}
+              </span>
+              {isFetchingPage && <Loader2 className="w-4 h-4 animate-spin text-purple-600" />}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-sm text-gray-600 mr-2">
+                <span>Per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1 || isFetchingPage}
+                className="p-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Prev</span>
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: Math.ceil(totalListings / pageSize) }, (_, idx) => idx + 1)
+                  .filter((p) => {
+                    const totalPages = Math.ceil(totalListings / pageSize);
+                    return p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1;
+                  })
+                  .map((p, idx, arr) => {
+                    const prev = arr[idx - 1];
+                    return (
+                      <span key={p} className="flex items-center">
+                        {prev && p - prev > 1 && <span className="px-1 text-gray-400">…</span>}
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(p)}
+                          disabled={isFetchingPage}
+                          className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
+                            currentPage === p
+                              ? 'bg-purple-600 text-white shadow-sm'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </span>
+                    );
+                  })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={currentPage >= Math.ceil(totalListings / pageSize) || isFetchingPage}
+                className="p-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1"
+                aria-label="Next page"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedProperty && (
           <aside className="w-full xl:w-[380px] shrink-0 xl:sticky xl:top-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50">
               <div className="min-w-0">

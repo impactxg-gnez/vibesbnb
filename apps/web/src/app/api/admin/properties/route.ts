@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     const status = request.nextUrl.searchParams.get('status') || 'all';
+    const search = request.nextUrl.searchParams.get('search')?.trim() || '';
     const limitParam = Number(request.nextUrl.searchParams.get('limit'));
     const offsetParam = Number(request.nextUrl.searchParams.get('offset'));
     const limit = Number.isFinite(limitParam)
@@ -63,13 +64,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rows = await fetchAdminPropertyList(serviceSupabase, { status, limit, offset });
+    const rows = await fetchAdminPropertyList(serviceSupabase, { status, limit, offset, search });
+
+    let countQuery = serviceSupabase
+      .from('properties')
+      .select('id', { count: 'exact', head: true });
+
+    if (status !== 'all') {
+      countQuery = countQuery.eq('status', status);
+    }
+    if (search) {
+      const s = `%${search}%`;
+      countQuery = countQuery.or(`name.ilike.${s},title.ilike.${s},location.ilike.${s}`);
+    }
+
+    const { count: totalCount } = await countQuery;
+    const total = typeof totalCount === 'number' ? totalCount : offset + rows.length;
 
     return NextResponse.json({
       properties: rows,
+      total,
       limit,
       offset,
-      hasMore: rows.length === limit,
+      hasMore: offset + rows.length < total,
     });
   } catch (error: unknown) {
     console.error('Failed to load admin properties:', error);
@@ -319,6 +336,8 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       throw error;
     }
+
+    void invalidatePropertyListingCaches(propertyId);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

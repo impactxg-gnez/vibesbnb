@@ -13,6 +13,7 @@ import {
 import { REQUEST_TO_BOOK_ONLY } from '@/lib/p0MasterBuild';
 import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
+import { invalidatePropertyListingCaches } from '@/lib/cache/invalidation';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -179,6 +180,8 @@ export async function POST(request: NextRequest) {
       updated_at: now,
       created_at: now,
     });
+
+    void invalidatePropertyListingCaches(savedId);
 
     return NextResponse.json(
       { success: true, propertyId: savedId },

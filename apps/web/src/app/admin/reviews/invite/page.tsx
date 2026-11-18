@@ -46,7 +46,7 @@ export default function InviteGuestReviewPage() {
     try {
       const headers = await getHeadersForAdminFetch();
       if (!headers.Authorization) return;
-      const res = await fetch('/api/admin/properties?status=active&limit=100', { headers: { ...headers } });
+      const res = await fetch('/api/admin/properties?status=active&limit=250', { headers: { ...headers } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load properties');
       setProperties(data.properties || []);

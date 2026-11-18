@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/email/mailer';
 import { createServiceClient, hasServiceRoleKey } from '@/lib/supabase/service';
 import { signupVerificationEmailHtml } from '@/lib/email/signupVerificationEmail';
 import { normalizeSignupEmail } from '@/lib/auth/validateSignupEmail';
@@ -25,9 +25,6 @@ export async function sendSignupVerificationEmail(params: {
   fullName?: string;
   role?: string;
 }): Promise<SendSignupVerificationResult> {
-  if (!process.env.RESEND_API_KEY?.trim()) {
-    return { ok: false, error: 'Email service not configured (RESEND_API_KEY).' };
-  }
   if (!hasServiceRoleKey()) {
     return { ok: false, error: 'Service role key missing; cannot generate verification link.' };
   }
@@ -87,10 +84,7 @@ export async function sendSignupVerificationEmail(params: {
     actionLink = data.properties.action_link;
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.RESEND_FROM_EMAIL || 'VibesBNB <noreply@vibesbnb.com>';
-  const { error: sendError } = await resend.emails.send({
-    from,
+  const result = await sendEmail({
     to: email,
     subject: isHost
       ? 'Confirm your VibesBNB host email'
@@ -102,9 +96,9 @@ export async function sendSignupVerificationEmail(params: {
     }),
   });
 
-  if (sendError) {
-    console.error('[sendSignupVerificationEmail] Resend error:', sendError);
-    return { ok: false, error: sendError.message || 'Failed to send verification email.' };
+  if (!result.success) {
+    console.error('[sendSignupVerificationEmail] Send error:', result.error);
+    return { ok: false, error: result.error || 'Failed to send verification email.' };
   }
 
   return { ok: true, sent: true };

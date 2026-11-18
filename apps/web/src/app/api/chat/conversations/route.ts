@@ -448,10 +448,12 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to create conversation');
     }
 
-    // New thread only — subsequent messages must not trigger admin_new_chat
+    // New enquiry notifications — Host and Admins (vibewithdeon@vibesbnb.com, keval65@gmail.com)
     try {
       const appUrl =
         process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+
+      // 1. Notify Admins
       void dispatchAdminNewChatEmail({
         service: serviceSupabase,
         appUrl,
@@ -459,14 +461,34 @@ export async function POST(request: NextRequest) {
         guestName: travellerContact.name,
         hostName: hostContact.name,
         propertyName: property.name || 'Listing',
-        messagePreview: 'Conversation started',
+        messagePreview: 'New enquiry started',
         createdAt:
           conversation.last_message_at ||
           conversation.created_at ||
           new Date().toISOString(),
       });
+
+      // 2. Notify Host
+      if (hostContact.email) {
+        void fetch(`${appUrl.replace(/\/$/, '')}/api/notifications/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: hostContact.email,
+            subject: `New enquiry from ${travellerContact.name} — ${property.name || 'Listing'}`,
+            template: 'new_message',
+            data: {
+              senderName: travellerContact.name,
+              propertyName: property.name || 'your property',
+              messagePreview: 'Started a new enquiry about your property',
+              inboxUrl: `${appUrl.replace(/\/$/, '')}/host/messages?conversationId=${encodeURIComponent(conversation.id)}`,
+              recipientName: hostContact.name,
+            },
+          }),
+        }).catch((err) => console.warn('[ConversationsAPI] host notification catch:', err));
+      }
     } catch (adminEmailErr) {
-      console.warn('[ConversationsAPI] admin_new_chat failed:', adminEmailErr);
+      console.warn('[ConversationsAPI] notification failed:', adminEmailErr);
     }
 
     return NextResponse.json({ conversation });

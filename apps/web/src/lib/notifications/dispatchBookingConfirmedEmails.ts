@@ -5,6 +5,10 @@ import {
 } from '@/lib/email/bookingInvoiceEmail';
 import { resolveUserContact } from '@/lib/notifications/resolveUserContact';
 import { getHostFeePercent, getServiceFeePercent } from '@/lib/platformSettings';
+import {
+  listActiveAdminRecipients,
+  sendEmailViaExistingEndpoint,
+} from '@/lib/notifications/listActiveAdmins';
 
 /**
  * Sends VibesBNB-themed booking confirmation + invoice to traveller and host (once per paid booking).
@@ -99,6 +103,36 @@ export async function dispatchBookingConfirmedEmails(
 
   await sendInvoiceEmail(base, 'booking_invoice_traveller', travellerEmail, ctx, booking.property_name);
   await sendInvoiceEmail(base, 'booking_invoice_host', hostEmail, ctx, booking.property_name);
+
+  // Notify Admins (including default admins vibewithdeon@vibesbnb.com & keval65@gmail.com)
+  try {
+    const admins = await listActiveAdminRecipients(service);
+    const adminSubject = `💳 Payment Confirmed: ${booking.property_name || 'Booking'} #${booking.id}`;
+    await Promise.all(
+      admins.map((admin) =>
+        sendEmailViaExistingEndpoint(base, {
+          to: admin.email,
+          subject: adminSubject,
+          template: 'admin_payment_confirmation',
+          data: {
+            bookingId: booking.id,
+            propertyName: booking.property_name || property?.name || 'Property',
+            hostName: hostContact.name,
+            guestName: booking.guest_name || 'Guest',
+            checkIn: String(booking.check_in),
+            checkOut: String(booking.check_out),
+            totalPrice: Number(booking.total_price) || 0,
+            hostPayout: ctx.estimatedHostPayout,
+            platformFee: ctx.serviceFee,
+            adminBookingUrl: `${base}/admin/bookings`,
+            recipientName: admin.name,
+          },
+        })
+      )
+    );
+  } catch (adminErr) {
+    console.warn('[dispatchBookingConfirmedEmails] admin notification failed:', adminErr);
+  }
 
   try {
     await service.from('notifications').insert({

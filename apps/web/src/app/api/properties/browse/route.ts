@@ -7,7 +7,7 @@ import { logApiPerf } from '@/lib/monitoring/apiPerf';
 import { applyBuildingWellnessLock } from '@/lib/buildingWellnessLock';
 
 const HOST_ID_CHUNK = 80;
-const MAX_LIMIT_CAP = 100;
+const MAX_LIMIT_CAP = 250;
 const BROWSE_PAGE_SIZE = 40;
 /** Redis TTL for slim cover-only payloads (seconds). */
 const BROWSE_REDIS_TTL_SEC = 300;

@@ -25,12 +25,15 @@ export async function invalidatePropertyListingCaches(propertyId: string): Promi
   if (!redis) return;
   const pipe = redis.pipeline();
   pipe.del(availabilityCacheKey(propertyId, 'all'));
+  // Invalidate public catalog cache so new/edited/deleted properties appear immediately
+  pipe.del('catalog:v1:active');
+  pipe.del('catalog:v1');
   // Browse payloads are keyed by limit; keep TTL short — explicit bust common caps.
-  for (const cap of ['all', '48', '24', '20', '12', '3']) {
+  for (const cap of ['all', '250', '200', '100', '50', '48', '24', '20', '12', '3']) {
     pipe.del(browseCacheKey(cap));
   }
-  for (const ver of ['v2', 'v3', 'v8', 'v9', 'v10']) {
-    for (const cap of ['all', '100', '48', '24', '20', '12', '3']) {
+  for (const ver of ['v2', 'v3', 'v8', 'v9', 'v10', 'v11']) {
+    for (const cap of ['all', '250', '200', '100', '50', '48', '24', '20', '12', '3']) {
       pipe.del(`browse:${ver}:${cap}`);
     }
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { sendEmail, isSmtpConfigured, getDefaultFromEmail } from '@/lib/email/mailer';
 import { hostApplicationApprovedEmailHtml } from '@/lib/email/hostApplicationApproved';
 import { listingSavedEmailHtml, type ListingSavedContext } from '@/lib/email/listingSavedEmail';
 import {
@@ -8,7 +8,7 @@ import {
   type BookingInvoiceContext,
 } from '@/lib/email/bookingInvoiceEmail';
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 
 interface BookingRequestData {
   propertyName: string;
@@ -111,6 +111,31 @@ interface AdminNewChatData {
   recipientName?: string;
 }
 
+interface BrokenIcalAlertData {
+  propertyName: string;
+  calendarName?: string;
+  icalUrl: string;
+  errorMessage: string;
+  lastSyncedAt?: string;
+  hostName?: string;
+  fixUrl?: string;
+  recipientName?: string;
+}
+
+interface AdminPaymentConfirmationData {
+  bookingId: string;
+  propertyName: string;
+  hostName: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  totalPrice: number;
+  hostPayout?: number;
+  platformFee?: number;
+  adminBookingUrl?: string;
+  recipientName?: string;
+}
+
 type EmailTemplateData =
   | BookingRequestData
   | BookingRequestSubmittedData
@@ -122,6 +147,8 @@ type EmailTemplateData =
   | NewMessageData
   | AdminNewBookingData
   | AdminNewChatData
+  | BrokenIcalAlertData
+  | AdminPaymentConfirmationData
   | ListingSavedContext;
 
 function generateEmailHtml(template: string, data: EmailTemplateData): string {
@@ -722,6 +749,125 @@ function generateEmailHtml(template: string, data: EmailTemplateData): string {
       `;
     }
 
+    case 'broken_ical_alert': {
+      const d = data as BrokenIcalAlertData;
+      const esc = (v: unknown) =>
+        String(v ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      const greeting = d.recipientName ? `Hi ${esc(d.recipientName)},` : 'Hello,';
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #dc2626; margin-bottom: 8px;">⚠️ Calendar Sync Alert</h1>
+            <p style="color: #4b5563; font-size: 15px; margin-bottom: 20px;">
+              ${greeting} An external calendar link for <strong>${esc(d.propertyName)}</strong> is broken or unreachable.
+            </p>
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+              <p style="color: #991b1b; font-size: 14px; font-weight: 600; margin: 0 0 6px;">Sync Failure Details</p>
+              <p style="color: #b91c1c; font-size: 14px; margin: 0; font-family: monospace;">${esc(d.errorMessage)}</p>
+            </div>
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Property</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.propertyName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Calendar Source</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.calendarName || 'iCal')}</td>
+                </tr>
+                ${d.hostName ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Host</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.hostName)}</td>
+                </tr>` : ''}
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Checked At</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.lastSyncedAt || new Date().toISOString())}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; vertical-align: top;">iCal URL</td>
+                  <td style="padding: 6px 0; color: #4b5563; word-break: break-all; text-align: right; font-family: monospace; font-size: 11px;">${esc(d.icalUrl)}</td>
+                </tr>
+              </table>
+            </div>
+            <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
+              Please verify or update the calendar export link to prevent double-bookings and ensure availability is kept accurate.
+            </p>
+            <a href="${esc(d.fixUrl || `${appUrl}/admin/ical-sync`)}" style="${buttonStyles}; background-color: #dc2626;">
+              Manage Calendar Sync
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            VibesBNB Calendar Health Monitor · Alert sent to host & admins.
+          </p>
+        </div>
+      `;
+    }
+
+    case 'admin_payment_confirmation': {
+      const d = data as AdminPaymentConfirmationData;
+      const esc = (v: unknown) =>
+        String(v ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      return `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h1 style="color: #059669; margin-bottom: 8px;">💳 Payment Received & Booking Confirmed</h1>
+            <p style="color: #4b5563; font-size: 15px; margin-bottom: 20px;">
+              A guest has completed payment and the reservation is confirmed.
+            </p>
+            <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+              <p style="color: #065f46; font-size: 14px; font-weight: 600; margin: 0 0 4px;">Booking ID: #${esc(d.bookingId)}</p>
+              <p style="color: #047857; font-size: 14px; margin: 0;">
+                <strong>${esc(d.guestName)}</strong> confirmed for <strong>${esc(d.propertyName)}</strong>
+              </p>
+            </div>
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Dates</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.checkIn)} → ${esc(d.checkOut)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Total Paid by Guest</td>
+                  <td style="padding: 6px 0; color: #059669; font-weight: 700; text-align: right;">$${Number(d.totalPrice || 0).toFixed(2)}</td>
+                </tr>
+                ${d.hostPayout != null ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Host Payout</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">$${Number(d.hostPayout || 0).toFixed(2)}</td>
+                </tr>` : ''}
+                ${d.platformFee != null ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Platform Fee</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">$${Number(d.platformFee || 0).toFixed(2)}</td>
+                </tr>` : ''}
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Host</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.hostName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Guest</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 600; text-align: right;">${esc(d.guestName)}</td>
+                </tr>
+              </table>
+            </div>
+            <a href="${esc(d.adminBookingUrl || `${appUrl}/admin/bookings`)}" style="${buttonStyles}">
+              View Booking in Admin
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 24px;">
+            Admin payment alert from VibesBNB.
+          </p>
+        </div>
+      `;
+    }
+
     default:
       return `
         <div style="${baseStyles}">
@@ -757,53 +903,40 @@ export async function POST(request: NextRequest) {
       );
 
     // Log the email attempt
-    console.log('[Email Notification] Attempting to send:', {
+    console.log('[Email Notification] Attempting to send via in-repo mailer:', {
       to,
       cc: ccList,
       subject,
       template,
-      hasResendKey: !!process.env.RESEND_API_KEY,
+      smtpConfigured: isSmtpConfigured(),
     });
-
-    // Check if Resend is configured
-    if (!resend) {
-      console.warn('[Email Notification] RESEND_API_KEY not configured. Email not sent.');
-      console.log('[Email Notification] Would have sent:', { to, subject, template, data });
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Email service not configured. Please set RESEND_API_KEY environment variable.',
-        debug: { to, subject, template }
-      });
-    }
 
     // Generate email HTML based on template
     const html = generateEmailHtml(template || 'default', data || {});
 
-    // Send email via Resend
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'VibesBnB <noreply@vibesbnb.com>';
-    
-    const { data: emailData, error } = await resend.emails.send({
-      from: fromEmail,
-      to: [to],
-      ...(ccList.length > 0 ? { cc: ccList } : {}),
+    // Send email via Pure In-Repo Nodemailer
+    const result = await sendEmail({
+      to: [primary],
+      cc: ccList.length > 0 ? ccList : undefined,
       subject,
       html,
     });
 
-    if (error) {
-      console.error('[Email Notification] Resend error:', error);
+    if (!result.success) {
+      console.error('[Email Notification] Send error:', result.error);
       return NextResponse.json(
-        { error: 'Failed to send email', details: error.message },
+        { error: 'Failed to send email', details: result.error },
         { status: 500 }
       );
     }
 
-    console.log('[Email Notification] Email sent successfully:', emailData?.id);
+    console.log('[Email Notification] Result:', result);
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Email sent successfully',
-      emailId: emailData?.id 
+      message: result.mocked ? 'Email logged (SMTP not configured)' : 'Email sent successfully via SMTP',
+      emailId: result.messageId,
+      mocked: result.mocked,
     });
   } catch (error: any) {
     console.error('[Email Notification] Error:', error);
